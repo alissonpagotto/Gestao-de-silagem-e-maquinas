@@ -48,7 +48,6 @@ import {
   ArrowUpRight,
   User,
   Send,
-  FileArchive,
   Lock
 } from 'lucide-react';
 import { 
@@ -237,9 +236,7 @@ import {
 import { DevolucaoNotasView, getUnifiedFiscalDevolucaoCounts } from './DevolucaoNotasView';
 import { MdfeRecord, getStoredMdfe, saveStoredMdfe } from './MdfeView';
 import { ManifestacaoDestinatarioView, getStoredManifestacoes } from './ManifestacaoDestinatarioView';
-import { ContadorClosingModal } from './ContadorClosingModal';
 import {
-  AccountingDocItem,
   buildFiscalXmlStorageKey,
   classifyEntryEnviarContador,
   classifySaidaEnviarContador,
@@ -1087,6 +1084,7 @@ export function getStoredFiscalRecords(): Expense[] {
 export function saveStoredFiscalRecords(records: Expense[]): void {
   try {
     localStorage.setItem(NFE_FISCAL_RECORDS_KEY, JSON.stringify(records));
+    window.dispatchEvent(new CustomEvent('agrocontrol_fiscal_records_updated'));
   } catch (e) {
     console.error('Failed to save fiscal records', e);
   }
@@ -1920,7 +1918,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [manualEnviarContador, setManualEnviarContador] = useState<boolean>(false);
   const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
-  const [isContadorClosingModalOpen, setIsContadorClosingModalOpen] = useState(false);
 
   // Frota / Máquinas para vínculo opcional com DRE da Frota e Remessa / Retorno
   const loadAvailableVehicles = useCallback((): Machinery[] => {
@@ -10472,17 +10469,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ LANÇAR NOTA DE SAÍDA</span>
           </button>
-
-          <button
-            type="button"
-            id="btn-fechamento-envio-contador-topo"
-            onClick={() => setIsContadorClosingModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold rounded-lg border border-indigo-400/80 dark:bg-indigo-700 dark:hover:bg-indigo-600 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer whitespace-nowrap uppercase tracking-wide"
-            title="Abrir central de Fechamento Fiscal Mensal e Exportação de XMLs para o Contador"
-          >
-            <FileArchive className="w-3.5 h-3.5" />
-            <span>📦 Fechamento &amp; Envio ao Contador</span>
-          </button>
         </div>
       </header>
 
@@ -17716,37 +17702,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         }}
         onPrintAuthorized={(notaAutorizada) => {
           handlePrintNotaSaida(notaAutorizada);
-        }}
-      />
-
-      <ContadorClosingModal
-        isOpen={isContadorClosingModalOpen}
-        onClose={() => setIsContadorClosingModalOpen(false)}
-        initialCompetence={fiscalCompetence}
-        companyProfile={companyProfile || getStoredCompanyProfile()}
-        notasFiscaisExibicao={notasFiscaisExibicao}
-        documentosEntrada={documentosEntrada}
-        legacyFiscalDocs={legacyFiscalDocs}
-        mdfeDocs={mdfeDocs}
-        notasSaida={notasSaida}
-        onToggleDocEnviarContador={(doc: AccountingDocItem, nextVal: boolean) => {
-          const sourceMap: Record<AccountingDocItem['sourceKind'], 'xml' | 'manual' | 'legacy_fiscal' | 'mdfe' | 'nota_saida'> = {
-            xml_expense: 'xml',
-            manual_doc: 'manual',
-            legacy_fiscal: 'legacy_fiscal',
-            mdfe: 'mdfe',
-            nota_saida: 'nota_saida',
-          };
-          handleToggleEnviarContador({
-            id: doc.id,
-            sourceType: sourceMap[doc.sourceKind],
-            rawExpense: doc.rawExpense,
-            rawManualDoc: doc.rawManualDoc,
-            rawLegacyFiscalDoc: doc.rawLegacyFiscalDoc,
-            rawMdfeDoc: doc.rawMdfeDoc,
-            rawNotaSaida: doc.rawNotaSaida,
-            nextValue: nextVal,
-          });
         }}
       />
 

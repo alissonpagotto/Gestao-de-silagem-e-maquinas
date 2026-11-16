@@ -17,6 +17,7 @@ import {
 } from './ReorderMenuModal';
 import { 
   getActiveUserSession, 
+  isDefaultContadorRole,
   ModulePermissionKey 
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredCompanyProfile } from '../../lib/storage';
@@ -341,6 +342,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               valid.push('cadastros_base');
             }
           }
+          if (!valid.includes('contador') || localStorage.getItem('agrocontrol_contador_menu_bottom_v1') !== 'true') {
+            const withoutContador = valid.filter(id => id !== 'contador');
+            const baseIndex = withoutContador.indexOf('cadastros_base');
+            if (baseIndex !== -1) {
+              withoutContador.splice(baseIndex + 1, 0, 'contador');
+            } else {
+              const configIndex = withoutContador.indexOf('configuracoes');
+              if (configIndex !== -1) {
+                withoutContador.splice(configIndex, 0, 'contador');
+              } else {
+                withoutContador.push('contador');
+              }
+            }
+            valid.splice(0, valid.length, ...withoutContador);
+            try {
+              localStorage.setItem('agrocontrol_contador_menu_bottom_v1', 'true');
+            } catch {}
+          }
           const missing = ALL_MENU_ITEMS.filter(m => !valid.includes(m.id)).map(m => m.id);
           return [...valid, ...missing];
         }
@@ -448,6 +467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (id === 'frotas') return 'frotas';
     if (id === 'rh' || id === 'funcionarios') return 'rh';
     if (id === 'estoque' || id === 'almoxarifado' || id === 'fiscal') return 'estoque';
+    if (id === 'contador') return 'contador';
     if (id === 'configuracoes' || id === 'empresa') return 'empresa';
     return null;
   };
@@ -457,8 +477,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (userSession.type === 'admin') return false;
     const permKey = getModulePermissionKey(id);
     if (!permKey) return false;
-    if (userSession.permissions && userSession.permissions[permKey] === false) {
-      return true;
+    if (userSession.permissions && typeof userSession.permissions[permKey] === 'boolean') {
+      return userSession.permissions[permKey] === false;
+    }
+    if (permKey === 'contador') {
+      return !isDefaultContadorRole(userSession.cargoNome, userSession.setor);
     }
     return false;
   };
@@ -570,7 +593,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           ) : (
-            <div className="p-3 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex items-center justify-between bg-slate-100/80 dark:bg-stone-900 gap-1.5">
+            <div className="p-2.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] flex items-center justify-between bg-slate-100/80 dark:bg-stone-900 gap-1.5">
               <div 
                 className="flex items-center space-x-2.5 cursor-pointer min-w-0 flex-1"
                 onClick={() => handleSelect('home')}
@@ -660,7 +683,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
           ) : (
-            <div className="px-3 pt-2.5 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
+            <div className="px-3 pt-1.5 pb-0.5 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase tracking-wider">
               <button
                 type="button"
                 id="sidebar-nav-home-trigger"
@@ -710,8 +733,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* 1. EXPANDIR A MOLDURA MÃE 3D PARA 100% DA ALTURA DA BARRA LATERAL (RETÂNGULO VERDE): */}
         <div className={`flex-1 min-h-0 flex flex-col ${isCollapsed ? 'px-1.5' : 'px-2.5'} py-1 overflow-hidden`}>
           {/* MOLDURA MÃE TRIDIMENSIONAL ÚNICA EXPANDIDA (FICHÁRIO METÁLICO EM RELEVO) */}
-          <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-800/90 dark:to-stone-900 border-2 border-slate-400/90 dark:border-stone-700 rounded-lg p-1 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.4)] overflow-hidden">
-            {/* Topo do Container: 13 Categorias Ativas */}
+          <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-800/90 dark:to-stone-900 border-2 border-slate-400/90 dark:border-stone-700 rounded-lg p-1 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.08),inset_-1px_-1px_0px_rgba(0,0,0,0.4)] overflow-y-auto scrollbar-none">
+            {/* Topo do Container: 15 Categorias Ativas */}
             <nav className="flex flex-col shrink-0">
               {middleNavItems.map((item) => {
                 const Icon = item.icon;
@@ -733,7 +756,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <div 
                     key={item.id} 
-                    className="py-0.5 border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
+                    className="py-[1px] border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
                   >
                     <button
                       id={`sidebar-nav-${item.id}`}
@@ -745,7 +768,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : (item.id === 'cadastros_base' ? 'CADASTROS & CONFIGURAÇÕES' : item.id === 'servicos' ? 'PRESTAÇÃO DE SERVIÇOS' : item.label).toUpperCase()
                       }
                       className={`
-                        w-full flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-2.5'} py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
+                        w-full flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-2.5'} py-[5px] rounded-md text-[11px] font-bold uppercase tracking-wider transition cursor-pointer group
                         ${
                           isRestricted
                             ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
@@ -796,9 +819,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {Array.from({ length: 24 }).map((_, idx) => (
                 <div
                   key={`empty-folder-line-${idx}`}
-                  className="py-0.5 border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
+                  className="py-[1px] border-b border-slate-300/60 dark:border-stone-700/60 shrink-0"
                 >
-                  <div className={`w-full flex items-center ${isCollapsed ? 'px-1' : 'px-2.5'} py-1.5 h-[27px] rounded-md`} />
+                  <div className={`w-full flex items-center ${isCollapsed ? 'px-1' : 'px-2.5'} py-[5px] h-[25px] rounded-md`} />
                 </div>
               ))}
             </div>
@@ -808,7 +831,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA):
             Container fixado no rodapé absoluto da barra lateral com Dados da Empresa */}
-        <div className="mt-auto pt-2 border-t border-slate-300 dark:border-stone-800 shadow-[0_-1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_-1px_0px_0px_rgba(255,255,255,0.05)] bg-zinc-200/90 dark:bg-stone-900 p-2 shrink-0">
+        <div className="mt-auto pt-1.5 border-t border-slate-300 dark:border-stone-800 shadow-[0_-1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_-1px_0px_0px_rgba(255,255,255,0.05)] bg-zinc-200/90 dark:bg-stone-900 p-1.5 shrink-0">
           
           {/* Botão Fixo: Dados da Empresa (se não estiver restrito/oculto para o cargo) */}
           {!isEmpresaRestricted && (

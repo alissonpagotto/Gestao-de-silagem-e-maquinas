@@ -35,6 +35,7 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
   clientes: true,
   fornecedores: true,
   cadastros_base: true,
+  contador: true,
   sub_servicos: {
     agenda: true,
     corte: true,
@@ -134,6 +135,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: true,
       estoque: true,
       empresa: true,
+      contador: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -148,6 +150,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: true,
       estoque: true,
       empresa: true,
+      contador: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -162,6 +165,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: false,
       estoque: false,
       empresa: true,
+      contador: false,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -178,6 +182,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: false,
       estoque: false,
       empresa: false,
+      contador: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -192,6 +197,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: false,
       estoque: true,
       empresa: false,
+      contador: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -272,6 +278,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       estoque: true,
       empresa: false,
       servicos: true,
+      contador: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -527,18 +534,27 @@ export function consolidateCargosList(existingList: CargoPermissao[]): CargoPerm
 
       const candidateId = getCanonicalId(cleanNome, item.id);
       const uniqueId = ensureUniqueId(candidateId);
+      const resolvedSetor = getCanonicalSetor(cleanNome, item.setor);
+      const basePerms: RolePermissions = item.permissoes || {
+        financeiro: false,
+        frotas: true,
+        rh: false,
+        estoque: false,
+        empresa: false,
+      };
+      const resolvedContador =
+        typeof basePerms.contador === 'boolean'
+          ? basePerms.contador
+          : isDefaultContadorRole(cleanNome, resolvedSetor);
 
       result.push({
         ...item,
         id: uniqueId,
         nome: cleanNome,
-        setor: getCanonicalSetor(cleanNome, item.setor),
-        permissoes: item.permissoes || {
-          financeiro: false,
-          frotas: true,
-          rh: false,
-          estoque: false,
-          empresa: false,
+        setor: resolvedSetor,
+        permissoes: {
+          ...basePerms,
+          contador: resolvedContador,
         },
       });
     }
@@ -740,6 +756,16 @@ export function getActiveUserSession(): SimulatedUserSession {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.permissions) {
+        if (parsed.type === 'admin') {
+          return {
+            ...parsed,
+            permissions: {
+              ...DEFAULT_ADMIN_PERMISSIONS,
+              ...parsed.permissions,
+              contador: parsed.permissions.contador !== false,
+            },
+          };
+        }
         return parsed;
       }
     }
@@ -760,11 +786,58 @@ export function setActiveUserSession(session: SimulatedUserSession): void {
   }
 }
 
-export type ModulePermissionKey = 'financeiro' | 'frotas' | 'rh' | 'estoque' | 'empresa' | 'servicos';
+export type ModulePermissionKey = 'financeiro' | 'frotas' | 'rh' | 'estoque' | 'empresa' | 'servicos' | 'contador';
+
+/**
+ * Regra de segurança padrão para o módulo CONTADOR:
+ * Apenas perfis Administrativos / Gerência / Contabilidade possuem acesso padrão.
+ */
+export function isDefaultContadorRole(roleName?: string, sectorName?: string): boolean {
+  const normalizeText = (v?: string) =>
+    String(v || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+  const role = normalizeText(roleName);
+  const sector = normalizeText(sectorName);
+
+  if (role.includes('recepcionista')) return false;
+
+  if (
+    role.includes('admin') ||
+    role.includes('master') ||
+    role.includes('super') ||
+    role.includes('propriet') ||
+    role.includes('dono') ||
+    role.includes('socio') ||
+    role.includes('diretor') ||
+    role.includes('gerent') ||
+    role.includes('gerenc') ||
+    role.includes('contab') ||
+    role.includes('contador') ||
+    role.includes('financeir')
+  ) {
+    return true;
+  }
+
+  if (
+    sector.includes('contabil') ||
+    sector.includes('gerencia') ||
+    sector.includes('financeir') ||
+    sector.includes('diretoria')
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Validação rigorosa de permissão do usuário ativo na sessão:
  * Se a permissão do módulo for explicitamente 'false', retorna false para interceptação.
+ * Para 'contador', quando undefined, restringe por padrão apenas a Administrativos / Gerência / Contabilidade.
  */
 export function hasModulePermission(
   moduleKey: ModulePermissionKey, 
@@ -776,6 +849,11 @@ export function hasModulePermission(
   if (session.permissions && typeof session.permissions[moduleKey] === 'boolean') {
     return session.permissions[moduleKey] !== false;
   }
+
+  if (moduleKey === 'contador') {
+    return isDefaultContadorRole(session.cargoNome, session.setor);
+  }
+
   return true;
 }
 
@@ -971,9 +1049,15 @@ export function attachCargoPermissionsToEmployee(
   const isAdminRole = cleanRole.includes('admin') || cleanRole.includes('diretor') || (found && found.nome.toLowerCase().includes('admin'));
 
   if (found) {
+    const resolvedContador =
+      typeof found.permissoes?.contador === 'boolean'
+        ? found.permissoes.contador
+        : isDefaultContadorRole(found.nome, found.setor);
     return {
       cargoId: found.id,
-      permissions: isAdminRole ? { ...DEFAULT_ADMIN_PERMISSIONS, ...found.permissoes } : { ...found.permissoes },
+      permissions: isAdminRole
+        ? { ...DEFAULT_ADMIN_PERMISSIONS, ...found.permissoes, contador: true }
+        : { ...found.permissoes, contador: resolvedContador },
       setor: found.setor,
     };
   }
@@ -982,34 +1066,40 @@ export function attachCargoPermissionsToEmployee(
   if (isAdminRole) {
     return { permissions: { ...DEFAULT_ADMIN_PERMISSIONS }, setor: 'DIRETORIA & ADMINISTRATIVO' };
   }
+  if (cleanRole.includes('gerent') || cleanRole.includes('gerênc')) {
+    return {
+      permissions: { financeiro: true, frotas: true, rh: true, estoque: true, empresa: false, servicos: true, contador: true },
+      setor: 'Gerência',
+    };
+  }
   if (cleanRole.includes('motorista') || cleanRole.includes('caminhão') || cleanRole.includes('caminhao')) {
     return {
-      permissions: { financeiro: false, frotas: true, rh: false, estoque: false, empresa: false },
+      permissions: { financeiro: false, frotas: true, rh: false, estoque: false, empresa: false, contador: false },
       setor: 'Transporte',
     };
   }
   if (cleanRole.includes('trator') || cleanRole.includes('operador') || cleanRole.includes('ensiladeira') || cleanRole.includes('forrageira')) {
     return {
-      permissions: { financeiro: false, frotas: true, rh: false, estoque: false, empresa: false },
+      permissions: { financeiro: false, frotas: true, rh: false, estoque: false, empresa: false, contador: false },
       setor: 'Campo',
     };
   }
   if (cleanRole.includes('mecanic') || cleanRole.includes('mecânic')) {
     return {
-      permissions: { financeiro: false, frotas: true, rh: false, estoque: true, empresa: false },
+      permissions: { financeiro: false, frotas: true, rh: false, estoque: true, empresa: false, contador: false },
       setor: 'Oficina',
     };
   }
-  if (cleanRole.includes('financeiro') || cleanRole.includes('contabil') || cleanRole.includes('contábil')) {
+  if (cleanRole.includes('financeiro') || cleanRole.includes('contabil') || cleanRole.includes('contábil') || cleanRole.includes('contador')) {
     return {
-      permissions: { financeiro: true, frotas: false, rh: false, estoque: true, empresa: false },
+      permissions: { financeiro: true, frotas: false, rh: false, estoque: true, empresa: false, contador: true },
       setor: 'Financeiro',
     };
   }
 
-  // Padrão seguro: acesso a frotas básico
+  // Padrão seguro: acesso a frotas básico, sem acesso ao módulo Contador
   return {
-    permissions: { financeiro: false, frotas: true, rh: false, estoque: false, empresa: false },
+    permissions: { financeiro: false, frotas: true, rh: false, estoque: false, empresa: false, contador: false },
     setor: 'Geral',
   };
 }

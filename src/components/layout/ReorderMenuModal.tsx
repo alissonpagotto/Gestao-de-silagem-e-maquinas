@@ -22,6 +22,7 @@ import {
   Wrench,
   ClipboardList,
   DollarSign,
+  Calculator,
   LucideIcon
 } from 'lucide-react';
 
@@ -46,6 +47,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'fornecedores', label: 'Fornecedores & Transportadoras', icon: Truck },
   { id: 'frotas', label: 'Gestão de Frotas', icon: Car },
   { id: 'cadastros_base', label: 'CADASTROS & CONFIGURAÇÕES', icon: ClipboardList },
+  { id: 'contador', label: 'Contador', icon: Calculator },
   { id: 'configuracoes', label: 'Dados da Empresa', icon: Building },
 ];
 
@@ -103,6 +105,19 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
           validOrder.splice(fornIndex + 1, 0, 'frotas');
         } else {
           validOrder.push('frotas');
+        }
+      }
+      if (!validOrder.includes('contador')) {
+        const baseIndex = validOrder.indexOf('cadastros_base');
+        if (baseIndex !== -1) {
+          validOrder.splice(baseIndex + 1, 0, 'contador');
+        } else {
+          const configIndex = validOrder.indexOf('configuracoes');
+          if (configIndex !== -1) {
+            validOrder.splice(configIndex, 0, 'contador');
+          } else {
+            validOrder.push('contador');
+          }
         }
       }
       const missing = ALL_MENU_ITEMS.filter(m => !validOrder.includes(m.id)).map(m => m.id);

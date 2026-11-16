@@ -55,7 +55,8 @@ import {
   CreditCard,
   LayoutDashboard,
   Receipt,
-  UserCheck
+  UserCheck,
+  Calculator
 } from 'lucide-react';
 import { 
   CargoPermissao, 
@@ -76,7 +77,8 @@ import {
   getStoredCargosPermissoes, 
   saveStoredCargosPermissoes, 
   consolidateCargosList,
-  INITIAL_CARGOS_PERMISSOES
+  INITIAL_CARGOS_PERMISSOES,
+  isDefaultContadorRole
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredEmployees, saveStoredEmployees } from '../../lib/storage';
 import { CargoEmployeesModal } from './CargoEmployeesModal';
@@ -116,6 +118,7 @@ const DEFAULT_FORM_PERMISSOES: RolePermissions = {
   clientes: false,
   fornecedores: false,
   cadastros_base: false,
+  contador: false,
   sub_servicos: {
     agenda: true,
     corte: true,
@@ -362,6 +365,7 @@ export const CargosPermissoesTab: React.FC = () => {
       clientes: cargo.permissoes?.clientes !== undefined ? Boolean(cargo.permissoes.clientes) : true,
       fornecedores: cargo.permissoes?.fornecedores !== undefined ? Boolean(cargo.permissoes.fornecedores) : true,
       cadastros_base: cargo.permissoes?.cadastros_base !== undefined ? Boolean(cargo.permissoes.cadastros_base) : true,
+      contador: cargo.permissoes?.contador !== undefined ? Boolean(cargo.permissoes.contador) : isDefaultContadorRole(cargo.nome, cargo.setor),
       sub_servicos: cargo.permissoes?.sub_servicos || { ...DEFAULT_FORM_PERMISSOES.sub_servicos },
       sub_frotas: cargo.permissoes?.sub_frotas || { ...DEFAULT_FORM_PERMISSOES.sub_frotas },
       sub_financeiro: cargo.permissoes?.sub_financeiro || { ...DEFAULT_FORM_PERMISSOES.sub_financeiro },
@@ -956,6 +960,19 @@ export const CargosPermissoesTab: React.FC = () => {
                               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Empresa</span>
+                              </span>
+                            )}
+
+                            {/* Contador */}
+                            {(typeof cargo.permissoes?.contador === 'boolean' ? cargo.permissoes.contador : isDefaultContadorRole(cargo.nome, cargo.setor)) ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap shrink-0">
+                                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                <span>Contador</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                                <XCircle className="w-3 h-3 shrink-0" />
+                                <span>Contador</span>
                               </span>
                             )}
                           </div>
@@ -1696,6 +1713,48 @@ export const CargosPermissoesTab: React.FC = () => {
                           />
                           <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.notas || permissoes.estoque ? 'bg-emerald-600' : 'bg-slate-400'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.notas || permissoes.estoque ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* 4B. Módulo Contador (Fechamento Fiscal & XMLs) */}
+                      <label 
+                        htmlFor="modal-toggle-contador"
+                        className={`p-2 rounded-xl border border-black transition-all cursor-pointer flex items-center justify-between select-none ${
+                          permissoes.contador
+                            ? 'bg-emerald-50 shadow-xs ring-1 ring-emerald-500/40'
+                            : 'bg-[#e0e6f1] hover:bg-[#d5deed]'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors border ${permissoes.contador ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-700 border-gray-400'}`}>
+                            <Calculator className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-black flex items-center gap-1.5">
+                              <span className="truncate">Acesso ao Módulo Contador</span>
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase border ${
+                                permissoes.contador ? 'bg-emerald-200 text-emerald-950 border-emerald-400' : 'bg-white text-slate-700 border-gray-400'
+                              }`}>
+                                {permissoes.contador ? 'Liberado' : 'Bloqueado'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-700 leading-tight truncate">
+                              Fechamento Fiscal Mensal, CFOPs e Envio de XMLs (.ZIP)
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative inline-flex items-center shrink-0">
+                          <input
+                            type="checkbox"
+                            id="modal-toggle-contador"
+                            checked={Boolean(permissoes.contador)}
+                            onChange={(e) => atualizarPermissao('contador', e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 border border-black/30 ${permissoes.contador ? 'bg-emerald-600' : 'bg-slate-400'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.contador ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
                       </label>

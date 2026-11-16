@@ -59,6 +59,11 @@ export const SIDEBAR_MODULE_OPTIONS: SidebarModuleOption[] = [
     description: 'NF-e, NFC-e, CT-e, NFS-e, MDF-e, XMLs e envio ao contador',
   },
   {
+    id: 'contador',
+    label: 'Contador',
+    description: 'Central de fechamento fiscal mensal, conferência CFOP e pacote XML .ZIP para contabilidade',
+  },
+  {
     id: 'rh',
     label: 'RH',
     description: 'Colaboradores, folha de pagamento, férias, faltas e crachás',
@@ -128,6 +133,7 @@ export const SEGMENT_PRESETS: Record<SubscriberSegmentProfile, SegmentPresetDef>
       'financeiro',
       'despesas',
       'fiscal',
+      'contador',
       'clientes',
       'fornecedores',
       'rh',
@@ -141,10 +147,11 @@ export const SEGMENT_PRESETS: Record<SubscriberSegmentProfile, SegmentPresetDef>
     label: 'Transportadora & Logística',
     shortLabel: 'Transportadora & Logística',
     description:
-      'Habilita Dashboard, Fiscal & Notas, Gestão de Frota, Almoxarifado, Financeiro, Despesas, Clientes, Fornecedores & Transportadoras, RH, Relatórios e Cadastros & Configurações (oculta Venda (PDV), Estoque e Prestação de Serviços).',
+      'Habilita Dashboard, Fiscal & Notas, Contador, Gestão de Frota, Almoxarifado, Financeiro, Despesas, Clientes, Fornecedores & Transportadoras, RH, Relatórios e Cadastros & Configurações (oculta Venda (PDV), Estoque e Prestação de Serviços).',
     modules: [
       'dashboard',
       'fiscal',
+      'contador',
       'frotas',
       'almoxarifado',
       'financeiro',
@@ -162,7 +169,7 @@ export const SEGMENT_PRESETS: Record<SubscriberSegmentProfile, SegmentPresetDef>
     label: 'Prestação de Serviços & Operações',
     shortLabel: 'Prestação de Serviços',
     description:
-      'Habilita todos os módulos operacionais (Prestação de Serviços, Gestão de Frota, Estoque, Almoxarifado, Financeiro, Despesas, Fiscal & Notas, RH, Clientes, Fornecedores & Transportadoras, Relatórios e Cadastros & Configurações).',
+      'Habilita todos os módulos operacionais (Prestação de Serviços, Gestão de Frota, Estoque, Almoxarifado, Financeiro, Despesas, Fiscal & Notas, Contador, RH, Clientes, Fornecedores & Transportadoras, Relatórios e Cadastros & Configurações).',
     modules: [
       'dashboard',
       'servicos',
@@ -172,6 +179,7 @@ export const SEGMENT_PRESETS: Record<SubscriberSegmentProfile, SegmentPresetDef>
       'financeiro',
       'despesas',
       'fiscal',
+      'contador',
       'rh',
       'clientes',
       'fornecedores',
@@ -452,6 +460,9 @@ export function mapTabToCanonicalModuleId(tabId: string): string {
     clean === 'nfe_notas'
   ) {
     return 'fiscal';
+  }
+  if (clean === 'contador' || clean === 'fechamento_contador' || clean === 'contabilidade') {
+    return 'contador';
   }
   if (
     clean === 'rh' ||

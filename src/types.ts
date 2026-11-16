@@ -622,6 +622,7 @@ export interface RolePermissions {
   clientes?: boolean;  // Acesso ao Módulo Clientes
   fornecedores?: boolean; // Acesso ao Módulo Fornecedores
   cadastros_base?: boolean; // Acesso ao Módulo Cadastros Base
+  contador?: boolean;  // Acesso ao Módulo Contador (Fechamento Fiscal & XMLs)
 
   // Sub-permissões granulares
   sub_servicos?: ServicesSubPermissions;

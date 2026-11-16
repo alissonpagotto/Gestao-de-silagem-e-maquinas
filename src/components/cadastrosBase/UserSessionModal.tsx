@@ -13,7 +13,8 @@ import {
   getActiveUserSession, 
   setActiveUserSession, 
   getStoredCargosPermissoes, 
-  DEFAULT_ADMIN_PERMISSIONS 
+  DEFAULT_ADMIN_PERMISSIONS,
+  isDefaultContadorRole
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredEmployees } from '../../lib/storage';
 
@@ -265,6 +266,8 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
                         <span className={cargo.permissoes?.rh ? 'text-purple-600 font-bold' : 'line-through text-zinc-400'}>RH</span>
                         <span>•</span>
                         <span className={cargo.permissoes?.estoque ? 'text-amber-600 font-bold' : 'line-through text-zinc-400'}>Estoque</span>
+                        <span>•</span>
+                        <span className={(typeof cargo.permissoes?.contador === 'boolean' ? cargo.permissoes.contador : isDefaultContadorRole(cargo.nome, cargo.setor)) ? 'text-indigo-600 font-bold' : 'line-through text-zinc-400'}>Contador</span>
                       </div>
                     </div>
 
@@ -340,6 +343,8 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
                             <span className={perms.rh ? 'text-purple-600 font-bold' : 'line-through text-zinc-400'}>RH</span>
                             <span className="text-zinc-300">•</span>
                             <span className={perms.estoque ? 'text-amber-600 font-bold' : 'line-through text-zinc-400'}>Estoque</span>
+                            <span className="text-zinc-300">•</span>
+                            <span className={(typeof perms.contador === 'boolean' ? perms.contador : isDefaultContadorRole(emp.role || matchedCargo?.nome, matchedCargo?.setor)) ? 'text-indigo-600 font-bold' : 'line-through text-zinc-400'}>Contador</span>
                           </div>
                         </div>
                       </div>

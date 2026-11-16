@@ -1,21 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
+  Calculator,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Download,
   Eye,
   EyeOff,
-  FileArchive,
   FileCode2,
   Lock,
   Mail,
   MessageCircle,
   Printer,
   ShieldCheck,
-  X,
 } from 'lucide-react';
 import {
   CompanyProfile,
@@ -23,11 +22,39 @@ import {
   Expense,
   NotaSaidaRecord,
 } from '../../types';
-import type { FiscalDocumentRecord } from './FiscalDocumentTypeView';
-import type { MdfeRecord } from './MdfeView';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatSystemSupportPhoneMask, resolveSubscriberPrintHeader } from '../../lib/printIdentity';
-import { getNextCompetence, getPrevCompetence } from '../financial/CompetenceSelector';
+import {
+  FISCAL_DOCS_STORAGE_KEYS,
+  FiscalDocumentRecord,
+} from './FiscalDocumentTypeView';
+import {
+  MdfeRecord,
+  getStoredMdfe,
+  saveStoredMdfe,
+} from './MdfeView';
+import {
+  buildUnifiedFiscalRecords,
+  getStoredFiscalRecords,
+  saveStoredFiscalRecords,
+} from './NfeModule';
+import {
+  formatCurrencyBRL,
+  formatDateBR,
+  getStoredCompanyProfile,
+  getStoredDocumentosEntrada,
+  getStoredExpenses,
+  getStoredNotasSaida,
+  saveLocalNotaSaida,
+  saveStoredDocumentosEntrada,
+} from '../../lib/storage';
+import {
+  formatSystemSupportPhoneMask,
+  resolveSubscriberPrintHeader,
+} from '../../lib/printIdentity';
+import {
+  getCurrentCompetence,
+  getNextCompetence,
+  getPrevCompetence,
+} from '../financial/CompetenceSelector';
 import {
   AccountingDocItem,
   buildCfopSummary,
@@ -41,57 +68,109 @@ import {
   saveStoredContadorConfig,
 } from '../../lib/accountingExport';
 
-interface ContadorClosingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  initialCompetence: string;
-  companyProfile: CompanyProfile | null;
-  notasFiscaisExibicao: Expense[];
-  documentosEntrada: DocumentoEntradaRecord[];
-  legacyFiscalDocs: FiscalDocumentRecord[];
-  mdfeDocs: MdfeRecord[];
-  notasSaida: NotaSaidaRecord[];
-  onToggleDocEnviarContador: (doc: AccountingDocItem, nextValue: boolean) => void;
+interface ContadorModuleProps {
+  companyProfile?: CompanyProfile | null;
+  expenses?: Expense[];
 }
 
-export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
-  isOpen,
-  onClose,
-  initialCompetence,
+function readLegacyFiscalDocsFromStorage(): FiscalDocumentRecord[] {
+  const keys = [
+    FISCAL_DOCS_STORAGE_KEYS.nfe,
+    FISCAL_DOCS_STORAGE_KEYS.cte,
+    FISCAL_DOCS_STORAGE_KEYS.nfe_c,
+    FISCAL_DOCS_STORAGE_KEYS.nfse,
+  ];
+  const list: FiscalDocumentRecord[] = [];
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          list.push(...parsed);
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return list;
+}
+
+export const ContadorModule: React.FC<ContadorModuleProps> = ({
   companyProfile,
-  notasFiscaisExibicao,
-  documentosEntrada,
-  legacyFiscalDocs,
-  mdfeDocs,
-  notasSaida,
-  onToggleDocEnviarContador,
+  expenses,
 }) => {
-  const [competence, setCompetence] = useState<string>(initialCompetence);
+  const [competence, setCompetence] = useState<string>(() => getCurrentCompetence());
   const [contadorConfig, setContadorConfig] = useState<ContadorConfig>(() => getStoredContadorConfig());
   const [configSavedBadge, setConfigSavedBadge] = useState(false);
+
+  const [documentosEntrada, setDocumentosEntrada] = useState<DocumentoEntradaRecord[]>(() =>
+    getStoredDocumentosEntrada()
+  );
+  const [legacyFiscalDocs, setLegacyFiscalDocs] = useState<FiscalDocumentRecord[]>(() =>
+    readLegacyFiscalDocsFromStorage()
+  );
+  const [mdfeDocs, setMdfeDocs] = useState<MdfeRecord[]>(() => getStoredMdfe());
+  const [notasSaida, setNotasSaida] = useState<NotaSaidaRecord[]>(() => getStoredNotasSaida());
+  const [fiscalSyncVersion, setFiscalSyncVersion] = useState(0);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [xmlPresenceMap, setXmlPresenceMap] = useState<Record<string, boolean>>({});
   const [showExcludedDrawer, setShowExcludedDrawer] = useState(false);
 
   const [isExportingZip, setIsExportingZip] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+
+  const reloadFiscalSources = useCallback(() => {
+    setDocumentosEntrada(getStoredDocumentosEntrada());
+    setLegacyFiscalDocs(readLegacyFiscalDocsFromStorage());
+    setMdfeDocs(getStoredMdfe());
+    setNotasSaida(getStoredNotasSaida());
+    setFiscalSyncVersion((v) => v + 1);
+  }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      setCompetence(initialCompetence);
-      setContadorConfig(getStoredContadorConfig());
-      setShowExcludedDrawer(false);
-      setFeedback(null);
-    }
-  }, [isOpen, initialCompetence]);
+    const handleSync = () => reloadFiscalSources();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('agrocontrol_fiscal_records_updated', handleSync);
+    window.addEventListener('agrocontrol_notas_entradas_updated', handleSync);
+    window.addEventListener('agrocontrol_notas_saida_updated', handleSync);
+    window.addEventListener('colaca_silagem_expenses_updated', handleSync);
+    window.addEventListener('silagem_expenses_updated', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('agrocontrol_fiscal_records_updated', handleSync);
+      window.removeEventListener('agrocontrol_notas_entradas_updated', handleSync);
+      window.removeEventListener('agrocontrol_notas_saida_updated', handleSync);
+      window.removeEventListener('colaca_silagem_expenses_updated', handleSync);
+      window.removeEventListener('silagem_expenses_updated', handleSync);
+    };
+  }, [reloadFiscalSources]);
 
-  const subscriber = useMemo(() => resolveSubscriberPrintHeader(companyProfile), [companyProfile]);
+  const effectiveCompanyProfile = useMemo(
+    () => companyProfile || getStoredCompanyProfile(),
+    [companyProfile]
+  );
+
+  const subscriber = useMemo(
+    () => resolveSubscriberPrintHeader(effectiveCompanyProfile),
+    [effectiveCompanyProfile]
+  );
+
+  const notasFiscaisExibicao = useMemo(() => {
+    const sourceExpenses = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
+    return buildUnifiedFiscalRecords(sourceExpenses);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, fiscalSyncVersion]);
 
   const { includedDocs, excludedDocs } = useMemo(() => {
     return collectAccountingDocumentsForCompetence({
       competence,
-      companyProfile,
+      companyProfile: effectiveCompanyProfile,
       notasFiscaisExibicao,
       documentosEntrada,
       legacyFiscalDocs,
@@ -100,7 +179,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
     });
   }, [
     competence,
-    companyProfile,
+    effectiveCompanyProfile,
     notasFiscaisExibicao,
     documentosEntrada,
     legacyFiscalDocs,
@@ -110,7 +189,6 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
 
   // Verifica no IndexedDB quais documentos possuem XML original gravado
   useEffect(() => {
-    if (!isOpen) return;
     let cancelled = false;
     const checkAll = async () => {
       const nextMap: Record<string, boolean> = {};
@@ -135,7 +213,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, includedDocs]);
+  }, [includedDocs]);
 
   // Seleciona todos os documentos aptos por padrão sempre que muda competência ou lista
   useEffect(() => {
@@ -177,6 +255,110 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
       pendentesCanceladas: { count: pendentesCanceladas.length, total: sum(pendentesCanceladas) },
     };
   }, [selectedDocs]);
+
+  const handleToggleDocEnviarContador = useCallback(
+    (doc: AccountingDocItem, nextValue: boolean) => {
+      const motivo = nextValue
+        ? 'Incluído no fechamento contábil'
+        : 'Marcado manualmente como Controle Interno / Não Fiscal';
+
+      if (doc.sourceKind === 'nota_saida' && doc.rawNotaSaida) {
+        const updatedNota: NotaSaidaRecord = {
+          ...doc.rawNotaSaida,
+          enviarContador: nextValue,
+          enviarContadorMotivo: motivo,
+          updatedAt: new Date().toISOString(),
+        };
+        saveLocalNotaSaida(updatedNota);
+        setNotasSaida(getStoredNotasSaida());
+        window.dispatchEvent(new CustomEvent('agrocontrol_notas_saida_updated'));
+        return;
+      }
+
+      if (doc.sourceKind === 'xml_expense' || doc.rawExpense) {
+        const expId = doc.rawExpense?.id || doc.id;
+        const storedFiscal = getStoredFiscalRecords();
+        const existsInFiscal = storedFiscal.some((f) => f.id === expId);
+        const updatedFiscal = existsInFiscal
+          ? storedFiscal.map((f) =>
+              f.id === expId ? { ...f, enviarContador: nextValue, enviarContadorMotivo: motivo } : f
+            )
+          : [
+              ...storedFiscal,
+              ...(doc.rawExpense
+                ? [{ ...doc.rawExpense, enviarContador: nextValue, enviarContadorMotivo: motivo }]
+                : []),
+            ];
+        saveStoredFiscalRecords(updatedFiscal);
+
+        const storedDocs = getStoredDocumentosEntrada();
+        if (storedDocs.some((d) => d.id === expId)) {
+          const updatedDocs = storedDocs.map((d) =>
+            d.id === expId ? { ...d, enviarContador: nextValue, enviarContadorMotivo: motivo } : d
+          );
+          saveStoredDocumentosEntrada(updatedDocs);
+          setDocumentosEntrada(updatedDocs);
+          window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated'));
+        }
+        setFiscalSyncVersion((v) => v + 1);
+        window.dispatchEvent(new CustomEvent('agrocontrol_fiscal_records_updated'));
+        return;
+      }
+
+      if (doc.sourceKind === 'manual_doc' || doc.rawManualDoc) {
+        const docId = doc.rawManualDoc?.id || doc.id;
+        const storedDocs = getStoredDocumentosEntrada();
+        const updatedDocs = storedDocs.map((d) =>
+          d.id === docId ? { ...d, enviarContador: nextValue, enviarContadorMotivo: motivo } : d
+        );
+        saveStoredDocumentosEntrada(updatedDocs);
+        setDocumentosEntrada(updatedDocs);
+        window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated'));
+        return;
+      }
+
+      if (doc.sourceKind === 'legacy_fiscal' || doc.rawLegacyFiscalDoc) {
+        const legId = doc.rawLegacyFiscalDoc?.id || doc.id;
+        const keys = [
+          FISCAL_DOCS_STORAGE_KEYS.nfe,
+          FISCAL_DOCS_STORAGE_KEYS.cte,
+          FISCAL_DOCS_STORAGE_KEYS.nfe_c,
+          FISCAL_DOCS_STORAGE_KEYS.nfse,
+        ];
+        for (const k of keys) {
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) continue;
+            if (parsed.some((r: any) => r && r.id === legId)) {
+              const nextArr = parsed.map((r: any) =>
+                r && r.id === legId ? { ...r, enviarContador: nextValue, enviarContadorMotivo: motivo } : r
+              );
+              localStorage.setItem(k, JSON.stringify(nextArr));
+            }
+          } catch {
+            // ignore errors
+          }
+        }
+        setLegacyFiscalDocs(readLegacyFiscalDocsFromStorage());
+        window.dispatchEvent(new CustomEvent('agrocontrol_fiscal_records_updated'));
+        return;
+      }
+
+      if (doc.sourceKind === 'mdfe' || doc.rawMdfeDoc) {
+        const mdId = doc.rawMdfeDoc?.id || doc.id;
+        const storedMdfe = getStoredMdfe();
+        const updatedMdfe = storedMdfe.map((m) =>
+          m.id === mdId ? ({ ...m, enviarContador: nextValue, enviarContadorMotivo: motivo } as MdfeRecord) : m
+        );
+        saveStoredMdfe(updatedMdfe);
+        setMdfeDocs(updatedMdfe);
+        window.dispatchEvent(new CustomEvent('agrocontrol_fiscal_records_updated'));
+      }
+    },
+    []
+  );
 
   const handleUpdateConfig = (patch: Partial<ContadorConfig>) => {
     const nextRaw: ContadorConfig = {
@@ -223,7 +405,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
     try {
       const result = await generateAccountingZipPackage({
         competence,
-        companyProfile,
+        companyProfile: effectiveCompanyProfile,
         items: selectedDocs,
       });
       setFeedback({
@@ -253,7 +435,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
     }
     const ok = printAccountingClosingReport({
       competence,
-      companyProfile,
+      companyProfile: effectiveCompanyProfile,
       contadorConfig,
       items: selectedDocs,
       excludedCount: excludedDocs.length,
@@ -378,73 +560,59 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
     });
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      id="modal-envio-contador"
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-      onClick={onClose}
-    >
-      <div
-        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl flex flex-col overflow-hidden text-black dark:text-stone-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* CABEÇALHO PADRONIZADO */}
-        <header className="px-4 py-2.5 bg-[#b8c6de] dark:bg-stone-800 border-b border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-indigo-700 text-white flex items-center justify-center border border-black/40 shrink-0">
-              <FileArchive className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-black dark:text-white truncate">
-                📦 FECHAMENTO FISCAL &amp; ENVIO AO CONTADOR
-              </h2>
-              <p className="text-[11px] font-bold text-slate-700 dark:text-stone-300 truncate">
-                {subscriber.displayTitle}
-                {subscriber.cnpjCpf ? ` • CNPJ: ${subscriber.cnpjCpf}` : ' • Cadastre o CNPJ em Dados da Empresa'}
-              </p>
-            </div>
+    <div id="contador-module" className="w-full max-w-none flex-1 min-h-0 flex flex-col gap-2.5 text-black dark:text-stone-100">
+      {/* CABEÇALHO DO MÓDULO CONTADOR */}
+      <header className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-indigo-700 text-white flex items-center justify-center border border-black/40 shrink-0 shadow-xs">
+            <Calculator className="w-4 h-4" />
           </div>
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase truncate">
+              CONTADOR — FECHAMENTO FISCAL &amp; XMLs
+            </h2>
+            <p className="text-[11px] font-bold text-slate-700 dark:text-stone-300 truncate">
+              {subscriber.displayTitle}
+              {subscriber.cnpjCpf ? ` • CNPJ: ${subscriber.cnpjCpf}` : ' • Cadastre o CNPJ em Dados da Empresa'}
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Seletor de Competência < Mês/Ano > */}
-            <div className="inline-flex items-center bg-white dark:bg-stone-900 border border-black dark:border-stone-600 rounded-lg overflow-hidden shadow-2xs">
-              <button
-                type="button"
-                id="btn-contador-prev-competence"
-                onClick={() => setCompetence((c) => getPrevCompetence(c))}
-                className="px-2 py-1 hover:bg-slate-100 dark:hover:bg-stone-800 border-r border-black/30 cursor-pointer"
-                title="Competência anterior"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 py-1 text-xs font-black font-mono uppercase tracking-wider">
-                COMPETÊNCIA: {competence}
-              </span>
-              <button
-                type="button"
-                id="btn-contador-next-competence"
-                onClick={() => setCompetence((c) => getNextCompetence(c))}
-                className="px-2 py-1 hover:bg-slate-100 dark:hover:bg-stone-800 border-l border-black/30 cursor-pointer"
-                title="Próxima competência"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Seletor de Competência < Mês/Ano > */}
+          <div className="inline-flex items-center bg-white dark:bg-stone-900 border border-black dark:border-stone-600 rounded-lg overflow-hidden shadow-2xs">
             <button
               type="button"
-              id="btn-fechar-modal-contador"
-              onClick={onClose}
-              className="p-1.5 rounded-lg bg-white hover:bg-rose-100 text-black border border-black transition cursor-pointer"
-              title="Fechar janela"
+              id="btn-contador-prev-competence"
+              onClick={() => setCompetence((c) => getPrevCompetence(c))}
+              className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-stone-800 border-r border-black/30 cursor-pointer"
+              title="Competência anterior"
             >
-              <X className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 py-1.5 text-xs font-black font-mono uppercase tracking-wider">
+              COMPETÊNCIA: {competence}
+            </span>
+            <button
+              type="button"
+              id="btn-contador-next-competence"
+              onClick={() => setCompetence((c) => getNextCompetence(c))}
+              className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-stone-800 border-l border-black/30 cursor-pointer"
+              title="Próxima competência"
+            >
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        </header>
 
+          <div className="px-2.5 py-1.5 rounded-lg bg-white/90 dark:bg-stone-800 text-[11px] font-black text-zinc-800 dark:text-stone-200 border border-slate-300 dark:border-stone-700 shadow-2xs">
+            {includedWithXmlStatus.length} doc(s) no lote
+          </div>
+        </div>
+      </header>
+
+      {/* CONTAINER PRINCIPAL INTEGRADO */}
+      <div className="w-full flex-1 min-h-0 flex flex-col bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-sm overflow-hidden">
         {/* CORPO SCROLLÁVEL */}
         <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5">
           {/* BLOCO 1: CONFIGURAÇÕES DA CONTABILIDADE */}
@@ -545,7 +713,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
                     Nenhum documento foi excluído na competência {competence}.
                   </p>
                 ) : (
-                  <div className="max-h-44 overflow-y-auto bg-white dark:bg-stone-900 border border-black/40 rounded-lg">
+                  <div className="max-h-52 overflow-y-auto bg-white dark:bg-stone-900 border border-black/40 rounded-lg">
                     <table className="w-full text-left text-[11px]">
                       <thead className="bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 uppercase font-black border-b border-black/30 sticky top-0">
                         <tr>
@@ -560,7 +728,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
                         {excludedDocs.map((doc) => (
-                          <tr key={`excl_${doc.sourceKind}_${doc.id}`} className="hover:bg-amber-50/50">
+                          <tr key={`excl_${doc.sourceKind}_${doc.id}`} className="hover:bg-amber-50/50 dark:hover:bg-stone-800/60">
                             <td className="py-1 px-2 font-black uppercase">
                               {doc.direction === 'entrada' ? 'ENTRADA' : 'SAÍDA'}
                             </td>
@@ -579,7 +747,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
                             <td className="py-1 px-2 text-right">
                               <button
                                 type="button"
-                                onClick={() => onToggleDocEnviarContador(doc, true)}
+                                onClick={() => handleToggleDocEnviarContador(doc, true)}
                                 className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-black uppercase cursor-pointer"
                               >
                                 Incluir no Lote
@@ -662,7 +830,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
                   📊 Resumo por CFOP &amp; Natureza de Operação ({cfopSummary.length} código(s))
                 </span>
               </div>
-              <div className="max-h-32 overflow-y-auto">
+              <div className="max-h-40 overflow-y-auto">
                 <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-100 dark:bg-stone-900 border-b border-slate-300 dark:border-stone-700 uppercase font-black text-[10px] sticky top-0">
                     <tr>
@@ -715,13 +883,13 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
               <button
                 type="button"
                 onClick={toggleSelectAll}
-                className="px-2.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-black/50 text-[10px] font-black uppercase cursor-pointer"
+                className="px-2.5 py-0.5 rounded bg-white hover:bg-slate-100 text-black border border-black/50 text-[10px] font-black uppercase cursor-pointer"
               >
                 {selectedIds.size === includedWithXmlStatus.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
               </button>
             </div>
 
-            <div className="max-h-60 overflow-y-auto overflow-x-auto">
+            <div className="max-h-80 overflow-y-auto overflow-x-auto">
               <table className="w-full text-left text-[11px]">
                 <thead className="bg-slate-100 dark:bg-stone-900 border-b border-slate-300 dark:border-stone-700 uppercase font-black text-[10px] sticky top-0 z-10">
                   <tr>
@@ -757,7 +925,7 @@ export const ContadorClosingModal: React.FC<ContadorClosingModalProps> = ({
                       return (
                         <tr
                           key={`batch_${doc.sourceKind}_${doc.id}`}
-                          className={`even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-indigo-50/60 cursor-pointer ${
+                          className={`even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-indigo-50/60 dark:hover:bg-stone-800 cursor-pointer ${
                             !checked ? 'opacity-55' : ''
                           }`}
                           onClick={() => toggleSelectOne(doc.id)}

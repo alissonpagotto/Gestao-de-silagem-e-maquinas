@@ -154,6 +154,7 @@ import { OrdersList } from './components/crm/OrdersList';
 import { FinancialSummary } from './components/financial/FinancialSummary';
 import { PaymentSettlementData } from './components/financial/PaymentSettlementModal';
 import { NfeModule } from './components/nfe/NfeModule';
+import { ContadorModule } from './components/nfe/ContadorModule';
 import { FleetModule } from './components/fleet/FleetModule';
 import { EmployeesModule } from './components/employees/EmployeesModule';
 import { RHModule, RHTabType } from './components/rh/RHModule';
@@ -169,7 +170,8 @@ import { AccessDeniedView } from './components/cadastrosBase/AccessDeniedView';
 import { 
   getActiveUserSession, 
   SimulatedUserSession, 
-  ModulePermissionKey 
+  ModulePermissionKey,
+  hasModulePermission,
 } from './lib/cadastrosBaseStorage';
 
 import { QuickMemoModal } from './components/quick/QuickMemoModal';
@@ -334,6 +336,25 @@ export default function App() {
             } else {
               valid.push('almoxarifado');
             }
+          }
+          if (!valid.includes('contador') || localStorage.getItem('agrocontrol_contador_menu_bottom_v1') !== 'true') {
+            const withoutContador = valid.filter(id => id !== 'contador');
+            const baseIdx = withoutContador.indexOf('cadastros_base');
+            if (baseIdx !== -1) {
+              withoutContador.splice(baseIdx + 1, 0, 'contador');
+            } else {
+              const configIdx = withoutContador.indexOf('configuracoes');
+              if (configIdx !== -1) {
+                withoutContador.splice(configIdx, 0, 'contador');
+              } else {
+                withoutContador.push('contador');
+              }
+            }
+            valid.splice(0, valid.length, ...withoutContador);
+            try {
+              localStorage.setItem('silagem_facil_sidebar_order', JSON.stringify(valid));
+              localStorage.setItem('agrocontrol_contador_menu_bottom_v1', 'true');
+            } catch {}
           }
           const missing = ALL_MENU_ITEMS.filter(m => !valid.includes(m.id)).map(m => m.id);
           return [...valid, ...missing];
@@ -1876,12 +1897,13 @@ export default function App() {
     if (tab === 'frotas' || tab === 'frota' || tab === 'veiculos' || tab === 'manutencoes' || tab === 'combustivel' || tab === 'motoristas' || tab === 'equipe' || tab === 'rodizio' || tab === 'rodizio_pneus') return 'frotas';
     if (tab === 'rh' || tab === 'funcionarios' || tab === 'folha' || tab === 'colaboradores') return 'rh';
     if (tab === 'estoque' || tab === 'almoxarifado' || tab === 'fiscal' || tab === 'documentos_entrada' || tab === 'entradas' || tab === 'nfe_importar' || tab === 'nfe_notas') return 'estoque';
+    if (tab === 'contador' || tab === 'fechamento_contador' || tab === 'contabilidade') return 'contador';
     if (tab === 'configuracoes') return 'empresa';
     return null;
   };
 
   const currentRestrictedPerm = getRequiredModulePermission(activeTab);
-  const isCurrentTabDenied = activeSession.type !== 'admin' && currentRestrictedPerm !== null && activeSession.permissions && activeSession.permissions[currentRestrictedPerm] === false;
+  const isCurrentTabDenied = activeSession.type !== 'admin' && currentRestrictedPerm !== null && !hasModulePermission(currentRestrictedPerm, activeSession);
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -3963,6 +3985,7 @@ export default function App() {
                 (currentRestrictedPerm === 'frotas' || activeTab.includes('frotas') || activeTab.includes('veiculos')) ? 'Gestão de Frotas & Veículos' :
                 (currentRestrictedPerm === 'rh' || activeTab.includes('rh') || activeTab.includes('funcionarios')) ? 'Recursos Humanos (Folhas, Férias, Faltas)' :
                 (currentRestrictedPerm === 'estoque' || activeTab.includes('estoque') || activeTab.includes('fiscal') || activeTab.includes('almoxarifado')) ? 'Estoque / Almoxarifado / Fiscal & Notas' :
+                (currentRestrictedPerm === 'contador' || activeTab.includes('contador') || activeTab.includes('contabilidade')) ? 'Contador (Fechamento Fiscal & XMLs)' :
                 (currentRestrictedPerm === 'empresa' || activeTab.includes('configuracoes')) ? 'Dados da Empresa (Configurações cadastrais)' : 'este módulo'
               }
               onNavigateHome={() => setActiveTab('dashboard')}
@@ -4268,6 +4291,16 @@ export default function App() {
             </div>
           )}
 
+          {/* TAB: Contador (Central de Fechamento Fiscal & Envio de XMLs ao Contador) */}
+          {(activeTab === 'contador' || activeTab === 'fechamento_contador' || activeTab === 'contabilidade') && (
+            <div id="contador-module-container" className="w-full max-w-none flex-1 min-h-0 flex flex-col">
+              <ContadorModule
+                companyProfile={companyProfile}
+                expenses={expenses}
+              />
+            </div>
+          )}
+
           {/* TAB: RH (Recursos Humanos: Dashboard, Funcionários, Folha, Férias, Afastamentos, Adiantamentos) */}
           {(activeTab === 'rh' || activeTab === 'funcionarios') && (
             <RHModule
@@ -4435,7 +4468,7 @@ export default function App() {
           )}
 
           {/* Fallback Visual Seguro para MainDashboard se a aba não for reconhecida */}
-          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'despesas', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
+          {!['home', 'dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'despesas', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'documentos_entrada', 'entradas', 'nfe_importar', 'nfe_notas', 'contador', 'fechamento_contador', 'contabilidade', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
             <MainDashboard
               expenses={expenses}
               clients={clients}
