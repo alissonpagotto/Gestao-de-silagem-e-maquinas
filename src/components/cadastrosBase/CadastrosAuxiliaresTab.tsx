@@ -231,6 +231,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModule, setSelectedModule] = useState<AuxModuleCategory>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
 
   // Modais especializados
   const [stringModal, setStringModal] = useState<StringModalConfig | null>(null);
@@ -1317,30 +1318,64 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            {MODULE_TABS.map((tab) => {
-              const active = selectedModule === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSelectedModule(tab.id)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border transition cursor-pointer ${
-                    active
-                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-stone-900 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-700'
-                  }`}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+          <div className="flex flex-wrap items-center justify-between gap-2 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {MODULE_TABS.map((tab) => {
+                const active = selectedModule === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedModule(tab.id)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border transition cursor-pointer ${
+                      active
+                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-stone-900 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-700'
+                    }`}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Alternador Discreto [☰ Lista / ⊞ Cards] */}
+            <div
+              className="inline-flex items-center rounded-md border border-black overflow-hidden bg-[#e0e6f1] shrink-0 ml-auto"
+              role="group"
+              aria-label="Alternar modo de visualização"
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                  viewMode === 'list'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-[#e0e6f1] text-slate-900 hover:bg-[#d2dced]'
+                }`}
+                title="Visualização em Lista Compacta"
+              >
+                ☰ Lista
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`px-2.5 py-1 text-[11px] font-bold border-l border-black transition cursor-pointer ${
+                  viewMode === 'cards'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-[#e0e6f1] text-slate-900 hover:bg-[#d2dced]'
+                }`}
+                title="Visualização em Cartões"
+              >
+                ⊞ Cards
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Grid de Cards das Tabelas Auxiliares */}
+      {/* Listagem / Grid das Tabelas Auxiliares */}
       {filteredCards.length === 0 ? (
         <div className="bg-white dark:bg-stone-950 border border-slate-300 dark:border-stone-700 rounded-lg p-8 text-center">
           <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -1357,6 +1392,96 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
           >
             Mostrar todas as tabelas ({cards.length})
           </button>
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="border border-black rounded-lg overflow-hidden bg-[#e0e6f1] shadow-xs">
+          <div className="overflow-x-auto max-h-[68vh] overflow-y-auto">
+            <table className="w-full border-collapse text-left">
+              <thead className="bg-[#cad4e6] border-b border-black text-xs font-bold uppercase text-slate-900 sticky top-0 z-10">
+                <tr>
+                  <th className="px-3 py-2 border-b border-black whitespace-nowrap">MÓDULO</th>
+                  <th className="px-3 py-2 border-b border-black">TABELA / CADASTRO AUXILIAR</th>
+                  <th className="px-3 py-2 border-b border-black">DESCRIÇÃO / ONDE É USADO</th>
+                  <th className="px-3 py-2 border-b border-black text-center whitespace-nowrap">
+                    REGISTROS
+                  </th>
+                  <th className="px-3 py-2 border-b border-black text-right whitespace-nowrap">
+                    AÇÃO
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCards.map((card) => {
+                  const badge = getModuleBadge(card.module);
+                  return (
+                    <tr
+                      key={card.id}
+                      onClick={card.onOpen}
+                      className="bg-[#e0e6f1] hover:bg-[#d2dced] border-b border-black/20 last:border-b-0 cursor-pointer transition-colors"
+                    >
+                      <td className="px-3 py-2 align-middle whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wide ${badge.cls}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 align-middle">
+                        <div className="text-xs font-black text-slate-900 leading-snug">
+                          {card.title}
+                        </div>
+                        <div
+                          className="text-[10px] font-mono text-slate-600 truncate max-w-[260px]"
+                          title={card.storageKey}
+                        >
+                          {card.storageKey}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 align-middle">
+                        <p className="text-[11px] text-slate-800 leading-snug max-w-xl">
+                          {card.description}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2 align-middle text-center whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/80 border border-slate-300 text-[10px] font-black text-slate-800">
+                          {card.count} {card.count === 1 ? 'item' : 'itens'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 align-middle text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          {card.secondaryTab && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onNavigateTab?.(card.secondaryTab!.tab);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-400 bg-white/80 hover:bg-white text-[11px] font-bold text-slate-800 cursor-pointer"
+                              title={card.secondaryTab.label}
+                            >
+                              <ArrowUpRight className="w-3 h-3" />
+                              <span>Aba</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              card.onOpen();
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs cursor-pointer transition"
+                            title={card.actionLabel}
+                          >
+                            <span>⚙️ Gerenciar</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
