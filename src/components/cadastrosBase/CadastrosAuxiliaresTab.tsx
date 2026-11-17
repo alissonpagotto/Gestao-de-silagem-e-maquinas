@@ -217,12 +217,12 @@ interface CadastrosAuxiliaresTabProps {
 }
 
 const MODULE_TABS: Array<{ id: AuxModuleCategory; label: string; icon: React.ReactNode }> = [
-  { id: 'all', label: 'Todos os Módulos', icon: <Database className="w-3.5 h-3.5" /> },
-  { id: 'financeiro', label: 'Financeiro & Fiscal', icon: <CreditCard className="w-3.5 h-3.5" /> },
-  { id: 'estoque', label: 'Estoque & Almoxarifado', icon: <Package className="w-3.5 h-3.5" /> },
-  { id: 'frota', label: 'Frotas & Manutenção', icon: <Truck className="w-3.5 h-3.5" /> },
-  { id: 'rh', label: 'RH & Equipe', icon: <Users className="w-3.5 h-3.5" /> },
-  { id: 'crm', label: 'Clientes, Fornecedores & Serviços', icon: <Building2 className="w-3.5 h-3.5" /> },
+  { id: 'all', label: 'TODOS', icon: <Database className="w-3 h-3 shrink-0" /> },
+  { id: 'financeiro', label: 'FINANCEIRO & FISCAL', icon: <CreditCard className="w-3 h-3 shrink-0" /> },
+  { id: 'estoque', label: 'ESTOQUE & ALMOXARIFADO', icon: <Package className="w-3 h-3 shrink-0" /> },
+  { id: 'frota', label: 'FROTAS & MANUTENÇÃO', icon: <Truck className="w-3 h-3 shrink-0" /> },
+  { id: 'rh', label: 'RH & EQUIPE', icon: <Users className="w-3 h-3 shrink-0" /> },
+  { id: 'crm', label: 'CLIENTES & SERVIÇOS', icon: <Building2 className="w-3 h-3 shrink-0" /> },
 ];
 
 export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ onNavigateTab }) => {
@@ -1257,60 +1257,57 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
   };
 
   return (
-    <div className="space-y-3">
-      {/* Cabeçalho Informativo + Indicadores */}
-      <div className="bg-white dark:bg-stone-950 border border-slate-300 dark:border-stone-700 rounded-lg p-3 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-          <div className="flex items-start gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-emerald-600/15 border border-emerald-500/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 shrink-0">
-              <Database className="w-5 h-5" />
+    <div className="space-y-2">
+      {/* Faixa Superior Unificada Compacta */}
+      <div className="bg-[#cad4e6] dark:bg-stone-950 border border-black dark:border-stone-700 rounded-lg p-2.5 shadow-xs space-y-2">
+        {/* Linha 1: Título + Badges Compactos */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded bg-white/85 border border-black/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 shrink-0">
+              <Database className="w-4 h-4" />
             </div>
-            <div>
-              <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                Central de Cadastros Auxiliares & Tabelas de Apoio
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+                CENTRAL DE CADASTROS AUXILIARES &amp; TABELAS DE APOIO
               </h2>
-              <p className="text-xs text-slate-600 dark:text-stone-400">
-                Todas as listas auxiliares, seletores e catálogos de suporte do AgroControl com{' '}
-                <strong className="text-emerald-700 dark:text-emerald-400">
-                  sincronização bidirecional instantânea
-                </strong>{' '}
-                com os formulários de origem.
+              <p className="text-[11px] text-slate-700 dark:text-stone-400 leading-tight truncate">
+                Listas auxiliares, seletores e catálogos com sincronização bidirecional instantânea.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-center">
-              <div className="text-[10px] font-bold uppercase text-slate-500">Tabelas Conectadas</div>
-              <div className="text-sm font-black text-slate-900 dark:text-white">{cards.length}</div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/85 dark:bg-stone-900 border border-black/40 dark:border-stone-700 text-[11px] font-black uppercase text-slate-900 dark:text-white whitespace-nowrap">
+              <span>{cards.length}</span>
+              <span className="text-[10px] font-bold text-slate-700 dark:text-stone-300">
+                TABELAS CONECTADAS
+              </span>
             </div>
-            <div className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 text-center">
-              <div className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400">
-                Opções Ativas
-              </div>
-              <div className="text-sm font-black text-emerald-800 dark:text-emerald-300">
-                {totalRecordsCount}
-              </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-700/60 dark:border-emerald-800 text-[11px] font-black uppercase text-emerald-900 dark:text-emerald-300 whitespace-nowrap">
+              <span>{totalRecordsCount}</span>
+              <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400">
+                OPÇÕES ATIVAS
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Busca + Filtros por Módulo */}
-        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-stone-800 flex flex-col md:flex-row gap-2.5 md:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* Linha 2: Busca w-56 + Pílulas em Linha + Alternador [☰ Lista | ⊞ Cards] */}
+        <div className="pt-2 border-t border-black/20 dark:border-stone-800 flex items-center gap-2 flex-nowrap">
+          <div className="relative w-56 shrink-0">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar tabela auxiliar, módulo, chave ou termo..."
-              className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
+              placeholder="Buscar tabela, módulo ou termo..."
+              className="w-full pl-8 pr-6 py-1 text-xs bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-700 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-600 text-slate-900 dark:text-white"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
                 title="Limpar busca"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1318,59 +1315,57 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {MODULE_TABS.map((tab) => {
-                const active = selectedModule === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setSelectedModule(tab.id)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border transition cursor-pointer ${
-                      active
-                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-stone-900 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-700'
-                    }`}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="flex items-center gap-1 flex-nowrap overflow-x-auto scrollbar-none min-w-0 flex-1">
+            {MODULE_TABS.map((tab) => {
+              const active = selectedModule === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedModule(tab.id)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-tight whitespace-nowrap border transition cursor-pointer shrink-0 ${
+                    active
+                      ? 'bg-emerald-600 text-white border-black shadow-xs'
+                      : 'bg-[#e0e6f1] hover:bg-white dark:bg-stone-900 dark:hover:bg-stone-800 text-slate-900 dark:text-stone-300 border-black/40 dark:border-stone-700'
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Alternador Discreto [☰ Lista / ⊞ Cards] */}
-            <div
-              className="inline-flex items-center rounded-md border border-black overflow-hidden bg-[#e0e6f1] shrink-0 ml-auto"
-              role="group"
-              aria-label="Alternar modo de visualização"
+          {/* Alternador Discreto [☰ Lista / ⊞ Cards] */}
+          <div
+            className="inline-flex items-center rounded-md border border-black overflow-hidden bg-[#e0e6f1] shrink-0 ml-auto"
+            role="group"
+            aria-label="Alternar modo de visualização"
+          >
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition cursor-pointer ${
+                viewMode === 'list'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-[#e0e6f1] text-slate-900 hover:bg-white'
+              }`}
+              title="Visualização em Lista Compacta"
             >
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
-                  viewMode === 'list'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-[#e0e6f1] text-slate-900 hover:bg-[#d2dced]'
-                }`}
-                title="Visualização em Lista Compacta"
-              >
-                ☰ Lista
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('cards')}
-                className={`px-2.5 py-1 text-[11px] font-bold border-l border-black transition cursor-pointer ${
-                  viewMode === 'cards'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-[#e0e6f1] text-slate-900 hover:bg-[#d2dced]'
-                }`}
-                title="Visualização em Cartões"
-              >
-                ⊞ Cards
-              </button>
-            </div>
+              ☰ Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-2.5 py-1 text-[11px] font-bold whitespace-nowrap border-l border-black transition cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-[#e0e6f1] text-slate-900 hover:bg-white'
+              }`}
+              title="Visualização em Cartões"
+            >
+              ⊞ Cards
+            </button>
           </div>
         </div>
       </div>

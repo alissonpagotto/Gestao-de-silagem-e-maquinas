@@ -157,7 +157,7 @@ export const CentrosCustoTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 animate-bounce">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -165,77 +165,94 @@ export const CentrosCustoTab: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 sm:p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-              <Building className="w-5 h-5 stroke-[2.2]" />
+      {/* Cabeçalho Compacto Unificado */}
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded bg-white/85 border border-black/30 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Building className="w-4 h-4 stroke-[2.2]" />
             </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase">
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase leading-tight truncate">
                 CENTROS DE CUSTO
               </h3>
+              <p className="text-[11px] text-slate-700 dark:text-stone-400 leading-tight truncate">
+                Unidades gerenciais, fazendas, frentes operacionais e departamentos para rateio de custos.
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={handleResetDefaults}
               title="Restaurar padrão inicial"
-              className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/85 hover:bg-white dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-900 dark:text-stone-200 border border-black dark:border-stone-700 transition cursor-pointer text-[11px] font-bold uppercase"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Restaurar Padrão</span>
             </button>
 
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-amber-600 hover:bg-amber-700 border border-amber-900 text-white font-black text-[11px] uppercase tracking-wide shadow-xs transition cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Novo Centro de Custo</span>
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Novo Centro de Custo</span>
             </button>
           </div>
         </div>
 
-        {/* Busca */}
-        <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+        {/* Busca + Contagem */}
+        <div className="pt-2 border-t border-black/20 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
             <input
               type="text"
-              placeholder="Buscar por nome ou tipo do centro de custo..."
+              placeholder="Buscar por nome, tipo ou descrição..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full pl-8 pr-7 py-1 bg-white dark:bg-stone-800/80 border border-black/40 dark:border-stone-700 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-600"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="text-xs font-bold text-zinc-500 dark:text-stone-400 shrink-0">
-            Total: <span className="text-zinc-900 dark:text-white font-extrabold">{filteredCentros.length}</span> centro(s)
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white/85 border border-black/40 text-[11px] font-black uppercase text-slate-900 shrink-0 ml-auto">
+            <span>{filteredCentros.length}</span>
+            <span className="text-[10px] font-bold text-slate-700">
+              {filteredCentros.length === 1 ? 'CENTRO' : 'CENTROS'}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Tabela de Centros de Custo */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
-        <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300 select-none shadow-sm">
+      <div className="border border-black rounded-lg overflow-hidden bg-[#e0e6f1] dark:bg-stone-900 shadow-xs">
+        <div className="max-h-[calc(100vh-270px)] overflow-y-auto overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-stone-300 select-none">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Nome do Centro de Custo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Tipo / Categoria</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Descrição</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Nome do Centro de Custo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Tipo / Categoria</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Descrição</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 text-center">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">
+            <tbody className="text-xs">
               {filteredCentros.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-6 text-center text-zinc-500 dark:text-stone-400 font-semibold uppercase text-xs">
+                <tr className="bg-[#e0e6f1]">
+                  <td colSpan={5} className="py-6 text-center text-slate-700 dark:text-stone-400 font-semibold uppercase text-xs">
                     Nenhum centro de custo encontrado.
                   </td>
                 </tr>
@@ -243,10 +260,10 @@ export const CentrosCustoTab: React.FC = () => {
                 filteredCentros.map((centro) => {
                   const isAtivo = centro.active !== false;
                   return (
-                    <tr key={centro.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                      <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white whitespace-nowrap uppercase">
+                    <tr key={centro.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 border-b border-black/20 last:border-b-0 transition-colors">
+                      <td className="py-1.5 px-3 font-bold text-slate-900 dark:text-white whitespace-nowrap uppercase">
                         <div className="flex items-center space-x-2">
-                          <div className="p-1 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 shrink-0">
+                          <div className="p-1 rounded bg-white/80 border border-black/20 text-amber-700 dark:text-amber-400 shrink-0">
                             <FolderKanban className="w-3.5 h-3.5" />
                           </div>
                           <span>{centro.name}</span>
@@ -254,12 +271,12 @@ export const CentrosCustoTab: React.FC = () => {
                       </td>
 
                       <td className="py-1.5 px-3 whitespace-nowrap">
-                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/80 dark:bg-stone-800 text-slate-800 dark:text-stone-300 border border-slate-300 dark:border-stone-700">
                           {centro.type || 'Operacional'}
                         </span>
                       </td>
 
-                      <td className="py-1.5 px-3 text-xs text-zinc-500 dark:text-stone-400 max-w-xs truncate whitespace-nowrap uppercase">
+                      <td className="py-1.5 px-3 text-xs text-slate-700 dark:text-stone-400 max-w-xs truncate whitespace-nowrap uppercase">
                         {centro.description || '—'}
                       </td>
 
@@ -269,8 +286,8 @@ export const CentrosCustoTab: React.FC = () => {
                           onClick={() => handleToggleActive(centro)}
                           className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black tracking-wide border cursor-pointer transition ${
                             isAtivo 
-                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' 
-                              : 'bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 border-zinc-300 dark:border-stone-700'
+                              ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-400 dark:border-emerald-700' 
+                              : 'bg-white/80 text-slate-600 dark:bg-stone-800 dark:text-stone-400 border-slate-400 dark:border-stone-700'
                           }`}
                         >
                           {isAtivo ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
@@ -284,7 +301,7 @@ export const CentrosCustoTab: React.FC = () => {
                             type="button"
                             onClick={() => handleOpenEdit(centro)}
                             title="Editar Centro de Custo"
-                            className="p-1 rounded text-zinc-600 hover:text-amber-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                            className="p-1 rounded bg-white/80 hover:bg-white border border-black/30 hover:border-black text-slate-800 hover:text-amber-700 transition cursor-pointer"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -292,7 +309,7 @@ export const CentrosCustoTab: React.FC = () => {
                             type="button"
                             onClick={() => handleDelete(centro)}
                             title="Excluir Centro de Custo"
-                            className="p-1 rounded text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                            className="p-1 rounded bg-white/80 hover:bg-rose-50 border border-black/30 hover:border-rose-600 text-rose-700 transition cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

@@ -215,52 +215,71 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
         </div>
       )}
 
-      {/* Cabeçalho e Ações */}
-      <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white border border-black flex items-center justify-center shrink-0">
-            <CreditCard className="w-4 h-4 text-emerald-700" />
+      {/* Cabeçalho Compacto Unificado */}
+      <div className="bg-[#cad4e6] border border-black rounded-lg p-2.5 shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded bg-white/85 border border-black/30 flex items-center justify-center shrink-0">
+              <CreditCard className="w-4 h-4 text-emerald-700" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 leading-tight truncate">
+                💳 FORMAS DE PAGAMENTO &amp; RECEBIMENTO (LISTA GLOBAL UNIFICADA)
+              </h4>
+              <p className="text-[11px] font-medium text-slate-700 leading-tight truncate">
+                Sincronizado em tempo real com PDV, Serviços, Financeiro a Receber / a Pagar e Fiscal
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-xs sm:text-sm font-black uppercase text-black">
-              💳 FORMAS DE PAGAMENTO & RECEBIMENTO (LISTA GLOBAL UNIFICADA)
-            </h4>
-            <p className="text-[10.5px] font-semibold text-slate-800 uppercase">
-              SINCRONIZADO EM TEMPO REAL COM PDV, SERVIÇOS, FINANCEIRO A RECEBER / A PAGAR E FISCAL
-            </p>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white/85 border border-black/40 text-[11px] font-black uppercase text-slate-900 whitespace-nowrap">
+              <span>{filteredMethods.length}</span>
+              <span className="text-[10px] font-bold text-slate-700">MODALIDADE(S)</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleReset}
+              title="Restaurar as 10 formas de pagamento padrão"
+              className="px-2.5 py-1 rounded-md bg-white/85 hover:bg-white border border-black text-slate-900 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition uppercase whitespace-nowrap"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Restaurar Padrão</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="px-3 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 border border-emerald-900 text-white text-[11px] font-black flex items-center gap-1 cursor-pointer transition uppercase shadow-xs whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Nova Forma</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
+        <div className="pt-2 border-t border-black/20 flex items-center justify-between gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="BUSCAR MODALIDADE..."
-              className="pl-8 pr-3 py-1.5 bg-white border border-black rounded-lg text-xs font-bold text-black uppercase outline-none focus:ring-1 focus:ring-emerald-700 w-44 sm:w-52"
+              placeholder="Buscar modalidade ou chave..."
+              className="w-full pl-8 pr-7 py-1 bg-white border border-black/40 rounded-md text-xs text-slate-900 placeholder-slate-400 outline-none focus:ring-1 focus:ring-emerald-600"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-
-          <button
-            type="button"
-            onClick={handleReset}
-            title="Restaurar as 10 formas de pagamento padrão"
-            className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-black text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer transition uppercase"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Restaurar Padrão</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-900 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer transition uppercase shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Nova Forma</span>
-          </button>
         </div>
       </div>
 
@@ -412,20 +431,20 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
       )}
 
       {/* Tabela Compacta de Formas Globais */}
-      <div className="bg-white border border-black rounded-xl overflow-hidden shadow-xs">
+      <div className="border border-black rounded-lg overflow-hidden bg-[#e0e6f1] shadow-xs">
         <div className={compact ? 'max-h-[48vh] overflow-y-auto' : 'max-h-[60vh] overflow-y-auto'}>
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-10 bg-[#e0e6f1] border-b border-black text-[10px] font-black uppercase text-black">
+            <thead className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black text-[11px] font-black uppercase text-slate-900">
               <tr>
-                <th className="py-2 px-3">Nome da Forma de Pagamento</th>
-                <th className="py-2 px-3">Chave / Código</th>
-                <th className="py-2 px-3 text-center">Parcela / A Prazo</th>
-                <th className="py-2 px-3 text-center">Prazo</th>
-                <th className="py-2 px-3 text-center">Status</th>
-                <th className="py-2 px-3 text-right">Ações</th>
+                <th className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black py-2 px-3">Nome da Forma de Pagamento</th>
+                <th className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black py-2 px-3">Chave / Código</th>
+                <th className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black py-2 px-3 text-center">Parcela / A Prazo</th>
+                <th className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black py-2 px-3 text-center">Prazo</th>
+                <th className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black py-2 px-3 text-center">Status</th>
+                <th className="sticky top-0 z-10 bg-[#cad4e6] border-b border-black py-2 px-3 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-black font-bold">
+            <tbody className="text-slate-900 font-bold">
               {filteredMethods.map((item) => {
                 const isActive = item.ativo !== false;
                 const isDeferred = Boolean(item.geraParcelaPrazo);
@@ -433,8 +452,8 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
                 return (
                   <tr
                     key={item.id}
-                    className={`even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition ${
-                      !isActive ? 'opacity-60' : ''
+                    className={`bg-[#e0e6f1] hover:bg-[#d2dced] border-b border-black/20 last:border-b-0 transition-colors ${
+                      !isActive ? 'opacity-65' : ''
                     }`}
                   >
                     <td className="py-2 px-3 uppercase font-black">

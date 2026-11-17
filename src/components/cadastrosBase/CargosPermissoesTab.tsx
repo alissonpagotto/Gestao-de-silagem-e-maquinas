@@ -716,7 +716,7 @@ export const CargosPermissoesTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="space-y-2 pb-4">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 animate-bounce">
@@ -726,32 +726,31 @@ export const CargosPermissoesTab: React.FC = () => {
       )}
 
       {/* ======================================================== */}
-      {/* 1. TELA INICIAL LIMPA: CABEÇALHO COM AÇÕES E BUSCA      */}
+      {/* 1. CABEÇALHO COMPACTO UNIFICADO                          */}
       {/* ======================================================== */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 sm:p-4 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-              <Shield className="w-5 h-5 stroke-[2.2]" />
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs space-y-2">
+        {/* Linha 1: Título à esquerda + Ações à direita */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded bg-white/85 border border-black/30 text-indigo-700 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <Shield className="w-4 h-4 stroke-[2.2]" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-                  Cargos, Setores & Permissões de Acesso
-                </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
-                  MATRIZ DE CONTROLE
-                </span>
-              </div>
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-tight">
+                CARGOS, SETORES &amp; PERMISSÕES DE ACESSO
+              </h3>
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-indigo-300 bg-white/85 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-black/40 dark:border-indigo-800 whitespace-nowrap">
+                MATRIZ DE CONTROLE
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={handleResetDefaults}
               title="Restaurar matriz padrão inicial de cargos"
-              className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer text-xs font-semibold flex items-center gap-1.5"
+              className="px-2.5 py-1 rounded-md bg-white/85 hover:bg-white dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-900 dark:text-stone-200 border border-black dark:border-stone-700 transition cursor-pointer text-[11px] font-bold flex items-center gap-1.5 uppercase"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Restaurar Padrão</span>
@@ -762,43 +761,46 @@ export const CargosPermissoesTab: React.FC = () => {
               type="button"
               id="btn-novo-cargo"
               onClick={handleOpenCreateModal}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95 uppercase tracking-wide"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-[#059669] hover:bg-[#047857] border border-emerald-900 text-white font-black text-[11px] shadow-xs transition cursor-pointer active:scale-95 uppercase tracking-wide whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>+ NOVO CARGO</span>
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>NOVO CARGO</span>
             </button>
           </div>
         </div>
 
-        {/* Barra de Busca e Filtros */}
-        <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+        {/* Linha 2: Busca + Total + Alternador Lista/Cards */}
+        <div className="pt-2 border-t border-black/20 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
             <input
               type="text"
-              placeholder="Buscar por nome do cargo, setor ou descrição..."
+              placeholder="Buscar por cargo, setor ou descrição..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-7 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-8 pr-7 py-1 bg-white dark:bg-stone-800/80 border border-black/40 dark:border-stone-700 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-600"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-stone-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-stone-200 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center space-x-3 shrink-0">
-            <div className="text-xs font-bold text-zinc-500 dark:text-stone-400">
-              Total: <span className="text-zinc-900 dark:text-white font-extrabold">{filteredCargos.length}</span> cargo(s)
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white/85 border border-black/40 text-[11px] font-black uppercase text-slate-900">
+              <span>{filteredCargos.length}</span>
+              <span className="text-[10px] font-bold text-slate-700">
+                {filteredCargos.length === 1 ? 'CARGO' : 'CARGOS'}
+              </span>
             </div>
 
             {/* Alternador de Visualização: Tabela (Padrão) ou Grade de Cards */}
-            <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-lg">
+            <div className="inline-flex items-center rounded-md border border-black overflow-hidden bg-[#e0e6f1] shrink-0">
               <button
                 type="button"
                 id="btn-cargos-view-list"
@@ -807,13 +809,14 @@ export const CargosPermissoesTab: React.FC = () => {
                   try { localStorage.setItem('silagem_cargos_view_mode', 'list'); } catch {}
                 }}
                 title="Visualização em Tabela Horizontal (Recomendado)"
-                className={`p-1.5 rounded-md transition cursor-pointer ${
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold transition cursor-pointer ${
                   viewMode === 'list'
-                    ? 'bg-white dark:bg-stone-900 text-indigo-600 dark:text-white shadow-2xs font-bold'
-                    : 'text-zinc-500 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-[#e0e6f1] text-slate-900 hover:bg-white'
                 }`}
               >
                 <List className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Lista</span>
               </button>
               <button
                 type="button"
@@ -823,13 +826,14 @@ export const CargosPermissoesTab: React.FC = () => {
                   try { localStorage.setItem('silagem_cargos_view_mode', 'grid'); } catch {}
                 }}
                 title="Visualização em Grade de Cards"
-                className={`p-1.5 rounded-md transition cursor-pointer ${
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold border-l border-black transition cursor-pointer ${
                   viewMode === 'grid'
-                    ? 'bg-white dark:bg-stone-900 text-indigo-600 dark:text-white shadow-2xs font-bold'
-                    : 'text-zinc-500 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-[#e0e6f1] text-slate-900 hover:bg-white'
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cards</span>
               </button>
             </div>
           </div>
@@ -837,25 +841,25 @@ export const CargosPermissoesTab: React.FC = () => {
       </div>
 
       {/* ======================================================== */}
-      {/* 2. TELA INICIAL: TABELA GERAL LIMPA E AMPLA (PRINT 2)    */}
+      {/* 2. TABELA PRINCIPAL PADRONIZADA                          */}
       {/* ======================================================== */}
       {viewMode === 'list' ? (
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
-          <div className="overflow-x-auto max-h-[calc(100vh-290px)] overflow-y-auto scrollbar-none">
+        <div className="border border-black rounded-lg overflow-hidden bg-[#e0e6f1] dark:bg-stone-900 shadow-xs">
+          <div className="overflow-x-auto max-h-[calc(100vh-270px)] overflow-y-auto scrollbar-none">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-                <tr className="border-b border-slate-300 dark:border-stone-700 text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 whitespace-nowrap">Cargo / Função</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 whitespace-nowrap">Setor / Área</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 w-full">Módulos Liberados</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 whitespace-nowrap">Status de Uso</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-4 text-right whitespace-nowrap">Ações</th>
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black">
+                <tr className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-stone-300">
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 whitespace-nowrap">Cargo / Função</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 whitespace-nowrap">Setor / Área</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 w-full">Módulos Liberados</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 whitespace-nowrap">Status de Uso</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 text-right whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 text-xs">
+              <tbody className="text-xs">
                 {filteredCargos.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-zinc-500 dark:text-stone-400">
+                  <tr className="bg-[#e0e6f1]">
+                    <td colSpan={5} className="py-8 text-center text-slate-700 dark:text-stone-400 font-semibold">
                       Nenhum cargo encontrado para a busca "{searchTerm}".
                     </td>
                   </tr>
@@ -866,33 +870,33 @@ export const CargosPermissoesTab: React.FC = () => {
                     return (
                       <tr 
                         key={`${cargo.id}-${idx}`} 
-                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors group border-b border-slate-200 dark:border-stone-800"
+                        className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 border-b border-black/20 last:border-b-0 transition-colors group"
                       >
-                        {/* 1. Coluna Cargo / Função (Exibindo estritamente apenas o Nome Principal em destaque) */}
-                        <td className="py-1 px-4 whitespace-nowrap">
-                          <div className="font-extrabold text-zinc-900 dark:text-white text-xs uppercase">
+                        {/* 1. Coluna Cargo / Função */}
+                        <td className="py-1.5 px-3 whitespace-nowrap">
+                          <div className="font-extrabold text-slate-900 dark:text-white text-xs uppercase">
                             {cargo.nome}
                           </div>
                         </td>
 
                         {/* 2. Coluna Setor / Área */}
-                        <td className="py-1 px-4 whitespace-nowrap">
-                          <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border uppercase tracking-wider ${getSectorBadgeStyle(cargo.setor)}`}>
+                        <td className="py-1.5 px-3 whitespace-nowrap">
+                          <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded border uppercase tracking-wider ${getSectorBadgeStyle(cargo.setor)}`}>
                             {cargo.setor || 'GERAL'}
                           </span>
                         </td>
 
-                        {/* 3. Coluna Módulos Liberados (Alinhados horizontalmente em linha única flexível) */}
-                        <td className="py-1 px-4">
-                          <div className="flex flex-row items-center justify-start gap-1.5 flex-wrap">
+                        {/* 3. Coluna Módulos Liberados */}
+                        <td className="py-1.5 px-3">
+                          <div className="flex flex-row items-center justify-start gap-1 flex-wrap">
                             {/* Serviços */}
                             {cargo.permissoes?.servicos ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-900 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-400 dark:border-teal-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Prestação de Serviços</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Prestação de Serviços</span>
                               </span>
@@ -900,12 +904,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Frotas */}
                             {cargo.permissoes?.frotas ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-400 dark:border-blue-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Frotas</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Frotas</span>
                               </span>
@@ -913,12 +917,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Financeiro */}
                             {cargo.permissoes?.financeiro ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-400 dark:border-emerald-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Financeiro</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Financeiro</span>
                               </span>
@@ -926,12 +930,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* RH */}
                             {cargo.permissoes?.rh ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-900 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-400 dark:border-purple-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>RH</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>RH</span>
                               </span>
@@ -939,12 +943,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Estoque */}
                             {cargo.permissoes?.estoque ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-400 dark:border-amber-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Estoque</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Estoque</span>
                               </span>
@@ -952,12 +956,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Minha Empresa */}
                             {cargo.permissoes?.empresa ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-400 dark:border-rose-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Empresa</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Empresa</span>
                               </span>
@@ -965,12 +969,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Contador */}
                             {(typeof cargo.permissoes?.contador === 'boolean' ? cargo.permissoes.contador : isDefaultContadorRole(cargo.nome, cargo.setor)) ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-400 dark:border-indigo-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Contador</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded bg-white/55 text-slate-600 border border-slate-300 dark:bg-stone-800 dark:text-stone-400 opacity-75 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Contador</span>
                               </span>
@@ -978,40 +982,39 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* 4. Coluna Status de Uso (Botão Reativo com Modal Slim - Print 1) */}
-                        <td className="py-1 px-4 whitespace-nowrap">
+                        {/* 4. Coluna Status de Uso */}
+                        <td className="py-1.5 px-3 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setSelectedCargoForEmployees(cargo)}
-                            className="inline-flex items-center space-x-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-2.5 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 transition cursor-pointer"
+                            className="inline-flex items-center space-x-1.5 text-[11px] font-bold text-blue-800 dark:text-blue-400 hover:underline px-2.5 py-0.5 rounded bg-white/85 hover:bg-white dark:bg-blue-950/40 border border-blue-400/80 dark:border-blue-800/80 transition cursor-pointer"
                             title={`Clique para listar os colaboradores vinculados ao cargo "${cargo.nome}"`}
                           >
-                            <Users className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <Users className="w-3 h-3 text-blue-700 shrink-0" />
                             <span className="uppercase">
                               <strong>{empCount}</strong> {empCount === 1 ? 'colaborador' : 'colaboradores'}
                             </span>
-                            <Eye className="w-3 h-3 text-blue-400 ml-0.5 opacity-70" />
+                            <Eye className="w-3 h-3 text-blue-600 ml-0.5 opacity-80" />
                           </button>
                         </td>
 
-                        {/* 5. Coluna Ações (Editar com Lápis aciona o Modal Expandido de 3 Colunas) */}
-                        <td className="py-1 px-4 text-right whitespace-nowrap">
+                        {/* 5. Coluna Ações */}
+                        <td className="py-1.5 px-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1.5">
-                            {/* BOTÃO EDITAR: ABRE O PAINEL DE 3 COLUNAS */}
                             <button
                               type="button"
                               onClick={() => handleOpenEditModal(cargo)}
-                              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition cursor-pointer flex items-center space-x-1 font-bold text-xs"
+                              className="px-2 py-1 rounded bg-white/85 hover:bg-white text-indigo-800 border border-black/30 hover:border-black transition cursor-pointer flex items-center space-x-1 font-bold text-[11px]"
                               title={`Editar cargo "${cargo.nome}"`}
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-3 h-3" />
                               <span className="hidden sm:inline uppercase">Editar</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => handleDeleteCargo(cargo.id)}
-                              className="p-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition cursor-pointer"
+                              className="p-1 rounded bg-white/85 hover:bg-rose-50 text-rose-700 border border-black/30 hover:border-rose-600 transition cursor-pointer"
                               title={`Excluir cargo "${cargo.nome}"`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1028,19 +1031,19 @@ export const CargosPermissoesTab: React.FC = () => {
         </div>
       ) : (
         /* Visualização Alternativa em Grade de Cards */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
           {filteredCargos.map((cargo, idx) => {
             const empCount = employeeCountByCargo[cargo.id] || 0;
 
             return (
               <div
                 key={`${cargo.id}-${idx}`}
-                className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-800 transition flex flex-col justify-between"
+                className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs hover:shadow-md transition flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="text-sm font-extrabold text-zinc-900 dark:text-white">
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
                         {cargo.nome}
                       </h4>
                       <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border uppercase mt-1 ${getSectorBadgeStyle(cargo.setor)}`}>
@@ -1052,7 +1055,7 @@ export const CargosPermissoesTab: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(cargo)}
-                        className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition"
+                        className="p-1.5 rounded bg-white/80 hover:bg-white text-indigo-700 border border-black/30 hover:border-black transition cursor-pointer"
                         title="Editar"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -1060,7 +1063,7 @@ export const CargosPermissoesTab: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleDeleteCargo(cargo.id)}
-                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition"
+                        className="p-1.5 rounded bg-white/80 hover:bg-rose-50 text-rose-700 border border-black/30 hover:border-rose-600 transition cursor-pointer"
                         title="Excluir"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1069,23 +1072,23 @@ export const CargosPermissoesTab: React.FC = () => {
                   </div>
 
                   {cargo.descricao && (
-                    <p className="text-[11px] text-zinc-500 dark:text-stone-400 mt-2 line-clamp-2">
+                    <p className="text-[11px] text-slate-700 dark:text-stone-400 mt-2 line-clamp-2">
                       {cargo.descricao}
                     </p>
                   )}
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-stone-800 flex items-center justify-between">
+                <div className="mt-3 pt-2 border-t border-black/15 dark:border-stone-800 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => setSelectedCargoForEmployees(cargo)}
-                    className="flex items-center space-x-1.5 text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                    className="flex items-center space-x-1.5 text-xs font-bold text-blue-800 hover:underline cursor-pointer"
                   >
-                    <Users className="w-3.5 h-3.5 text-blue-500" />
+                    <Users className="w-3.5 h-3.5 text-blue-700" />
                     <span><strong>{empCount}</strong> colaborador(es)</span>
                   </button>
 
-                  <span className="text-[10px] text-zinc-400">
+                  <span className="text-[10px] font-mono text-slate-600">
                     ID: {cargo.id.slice(0, 10)}
                   </span>
                 </div>

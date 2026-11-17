@@ -166,7 +166,7 @@ export const PlanoContasTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 animate-bounce">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -174,53 +174,52 @@ export const PlanoContasTab: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 sm:p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-              <FileSpreadsheet className="w-5 h-5 stroke-[2.2]" />
+      {/* Cabeçalho Compacto Unificado */}
+      <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded bg-white/85 border border-black/30 text-teal-700 dark:text-teal-400 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
             </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
-                Plano de Contas & Formas de Pagamento
-              </h3>
-            </div>
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+              PLANO DE CONTAS &amp; FORMAS DE PAGAMENTO
+            </h3>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={handleResetDefaults}
               title="Restaurar padrão inicial"
-              className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/85 hover:bg-white dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-900 dark:text-stone-200 border border-black dark:border-stone-700 transition cursor-pointer text-[11px] font-bold uppercase"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Restaurar Padrão</span>
             </button>
 
             {activeSubSection === 'contas' && (
               <button
                 type="button"
                 onClick={handleOpenCreateCat}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap shadow-xs transition cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-[#059669] hover:bg-[#047857] border border-emerald-900 text-white font-black text-[11px] uppercase tracking-wide whitespace-nowrap shadow-xs transition cursor-pointer active:scale-95"
               >
-                <Plus className="w-4 h-4" />
-                <span>+ NOVA CONTA / CATEGORIA</span>
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>NOVA CONTA / CATEGORIA</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Sub-Tabs de Alternância e Busca */}
-        <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center space-x-1.5 p-1 bg-zinc-100 dark:bg-stone-800 rounded-xl w-fit">
+        {/* Sub-Tabs de Alternância e Busca na mesma linha */}
+        <div className="pt-2 border-t border-black/20 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveSubSection('contas')}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap border transition cursor-pointer ${
                 activeSubSection === 'contas'
-                  ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
-                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400/80 font-medium shadow-[inset_0px_1px_2px_rgba(0,0,0,0.05)]'
+                  ? 'bg-emerald-600 text-white border-black shadow-xs'
+                  : 'bg-[#e0e6f1] hover:bg-white text-slate-900 border-black/40'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -230,10 +229,10 @@ export const PlanoContasTab: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveSubSection('formas')}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap border transition cursor-pointer ${
                 activeSubSection === 'formas'
-                  ? 'bg-emerald-100/90 text-emerald-900 border border-emerald-500/80 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.7)] font-bold'
-                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-400/80 font-medium shadow-[inset_0px_1px_2px_rgba(0,0,0,0.05)]'
+                  ? 'bg-emerald-600 text-white border-black shadow-xs'
+                  : 'bg-[#e0e6f1] hover:bg-white text-slate-900 border-black/40'
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
@@ -241,38 +240,48 @@ export const PlanoContasTab: React.FC = () => {
             </button>
           </div>
 
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+          <div className="relative w-full sm:w-64 ml-auto">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
             <input
               type="text"
               placeholder="Filtrar nesta lista..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full pl-8 pr-7 py-1 bg-white dark:bg-stone-800 border border-black/40 dark:border-stone-700 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* SEÇÃO 1: PLANO DE CONTAS */}
       {activeSubSection === 'contas' && (
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl overflow-hidden shadow-xs">
-          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300 select-none shadow-sm">
+        <div className="border border-black rounded-lg overflow-hidden bg-[#e0e6f1] dark:bg-stone-900 shadow-xs">
+          <div className="max-h-[calc(100vh-270px)] overflow-y-auto overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-stone-300 select-none">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Código</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Nome da Conta</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Classificação</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Descrição</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Status</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Ações</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Código</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Nome da Conta</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Classificação</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3">Descrição</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 text-center">Status</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 text-xs">
+              <tbody className="text-xs">
                 {filteredCategorias.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-zinc-500 dark:text-stone-400 font-semibold uppercase text-xs">
+                  <tr className="bg-[#e0e6f1]">
+                    <td colSpan={6} className="py-6 text-center text-slate-700 dark:text-stone-400 font-semibold uppercase text-xs">
                       Nenhuma conta cadastrada.
                     </td>
                   </tr>
@@ -281,31 +290,31 @@ export const PlanoContasTab: React.FC = () => {
                     const isReceita = cat.tipo === 'receita';
                     const isAtivo = cat.ativo !== false;
                     return (
-                      <tr key={cat.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                        <td className="py-1.5 px-3 font-mono font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap uppercase">
+                      <tr key={cat.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 border-b border-black/20 last:border-b-0 transition-colors">
+                        <td className="py-1.5 px-3 font-mono font-bold text-slate-800 dark:text-stone-300 whitespace-nowrap uppercase">
                           {cat.codigo}
                         </td>
-                        <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white whitespace-nowrap uppercase">
+                        <td className="py-1.5 px-3 font-bold text-slate-900 dark:text-white whitespace-nowrap uppercase">
                           {cat.nome}
                         </td>
                         <td className="py-1.5 px-3 whitespace-nowrap">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
                             isReceita
-                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                              : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                              ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-400 dark:border-emerald-800'
+                              : 'bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-300 border-rose-400 dark:border-rose-800'
                           }`}>
                             {isReceita ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                             <span>{cat.tipo}</span>
                           </span>
                         </td>
-                        <td className="py-1.5 px-3 text-xs text-zinc-500 dark:text-stone-400 max-w-xs truncate whitespace-nowrap uppercase">
+                        <td className="py-1.5 px-3 text-xs text-slate-700 dark:text-stone-400 max-w-xs truncate whitespace-nowrap uppercase">
                           {cat.descricao || '—'}
                         </td>
                         <td className="py-1.5 px-3 text-center whitespace-nowrap">
                           <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-black tracking-wide border ${
                             isAtivo 
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                              : 'bg-zinc-100 text-zinc-500 border-zinc-300'
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-400' 
+                              : 'bg-white/80 text-slate-600 border-slate-400'
                           }`}>
                             <span>{isAtivo ? 'ATIVO' : 'INATIVO'}</span>
                           </span>
@@ -315,14 +324,16 @@ export const PlanoContasTab: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleOpenEditCat(cat)}
-                              className="p-1 rounded text-zinc-600 hover:text-teal-600 hover:bg-zinc-100 transition cursor-pointer"
+                              className="p-1 rounded bg-white/80 hover:bg-white border border-black/30 hover:border-black text-slate-800 hover:text-teal-700 transition cursor-pointer"
+                              title="Editar conta"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteCat(cat)}
-                              className="p-1 rounded text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 transition cursor-pointer"
+                              className="p-1 rounded bg-white/80 hover:bg-rose-50 border border-black/30 hover:border-rose-600 text-rose-700 transition cursor-pointer"
+                              title="Excluir conta"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
