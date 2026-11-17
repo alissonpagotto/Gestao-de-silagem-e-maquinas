@@ -170,9 +170,9 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
         linkedCount > 0
           ? `A escala "${scale.name}" possui ${linkedCount} funcionário(s) ativo(s) vinculado(s). Deseja removê-la da lista de escalas disponíveis? (Os dados já salvos nos colaboradores serão preservados.)`
           : `Deseja excluir a escala "${scale.name}"?`,
-      confirmText: 'Excluir Escala',
-      cancelText: 'Cancelar',
-      type: 'danger',
+      confirmLabel: 'Excluir Escala',
+      cancelLabel: 'Cancelar',
+      variant: 'danger',
     });
 
     if (!confirmed) return;
@@ -191,9 +191,9 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
     const confirmed = await confirm({
       title: 'Restaurar Escalas Padrão',
       message: 'Deseja adicionar novamente as escalas padrão que não estiverem na lista atual?',
-      confirmText: 'Restaurar Padrões',
-      cancelText: 'Cancelar',
-      type: 'info',
+      confirmLabel: 'Restaurar Padrões',
+      cancelLabel: 'Cancelar',
+      variant: 'primary',
     });
     if (!confirmed) return;
 

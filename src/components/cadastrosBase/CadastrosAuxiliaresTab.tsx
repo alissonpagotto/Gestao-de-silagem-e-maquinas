@@ -1365,7 +1365,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
             return (
               <div
                 key={card.id}
-                className="bg-white dark:bg-stone-950 border border-slate-300 dark:border-stone-700 rounded-lg p-3 shadow-xs flex flex-col justify-between gap-2.5 hover:border-emerald-500/70 transition"
+                className="bg-[#e0e6f1] dark:bg-stone-950 border border-black dark:border-stone-700 rounded-lg p-3 shadow-xs flex flex-col justify-between gap-2.5 hover:shadow-md transition"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-start justify-between gap-2">
@@ -1374,7 +1374,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
                     >
                       {badge.label}
                     </span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-[10px] font-black text-slate-800 dark:text-stone-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/80 dark:bg-stone-900 border border-slate-300 dark:border-stone-700 text-[10px] font-black text-slate-800 dark:text-stone-200">
                       {card.count} {card.count === 1 ? 'item' : 'itens'}
                     </span>
                   </div>
@@ -1382,7 +1382,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
                   <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-snug">
                     {card.title}
                   </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-stone-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-700 dark:text-stone-400 leading-relaxed">
                     {card.description}
                   </p>
 
@@ -1391,14 +1391,14 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
                       {card.preview.map((item, idx) => (
                         <span
                           key={`${card.id}_prev_${idx}`}
-                          className="inline-block max-w-[180px] truncate px-1.5 py-0.5 rounded bg-slate-100 dark:bg-stone-900 border border-slate-200 dark:border-stone-800 text-[10px] font-medium text-slate-700 dark:text-stone-300"
+                          className="inline-block max-w-[180px] truncate px-1.5 py-0.5 rounded bg-white/80 dark:bg-stone-900 border border-slate-300 dark:border-stone-800 text-[10px] font-medium text-slate-800 dark:text-stone-300"
                           title={item}
                         >
                           {item}
                         </span>
                       ))}
                       {card.count > card.preview.length && (
-                        <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
                           +{card.count - card.preview.length}
                         </span>
                       )}
@@ -1406,9 +1406,9 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 dark:border-stone-800 flex items-center justify-between gap-2">
+                <div className="pt-2 border-t border-slate-300/80 dark:border-stone-800 flex items-center justify-between gap-2">
                   <span
-                    className="text-[10px] font-mono text-slate-400 truncate max-w-[160px]"
+                    className="text-[10px] font-mono text-slate-600 dark:text-stone-400 truncate max-w-[160px]"
                     title={card.storageKey}
                   >
                     {card.storageKey}
@@ -1419,7 +1419,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
                       <button
                         type="button"
                         onClick={() => onNavigateTab?.(card.secondaryTab!.tab)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-stone-700 bg-slate-100 hover:bg-slate-200 dark:bg-stone-900 dark:hover:bg-stone-800 text-[11px] font-bold text-slate-700 dark:text-stone-200 cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-stone-700 bg-white/80 hover:bg-white dark:bg-stone-900 dark:hover:bg-stone-800 text-[11px] font-bold text-slate-700 dark:text-stone-200 cursor-pointer"
                         title={card.secondaryTab.label}
                       >
                         <ArrowUpRight className="w-3 h-3" />
