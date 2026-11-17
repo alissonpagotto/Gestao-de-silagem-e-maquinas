@@ -941,23 +941,23 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="w-full flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       
       {/* 1. CABEÇALHO DO MÓDULO & AÇÕES PRINCIPAIS (LAYOUT COMPACTO) */}
-      <div className="bg-white rounded-xl border border-zinc-300 p-2.5 sm:p-3 shadow-2xs">
+      <div className="shrink-0 bg-[#cad4e6] rounded-lg border border-black p-2.5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-zinc-100 text-zinc-800 border border-zinc-300 shrink-0">
-              <CalendarDays className="w-5 h-5 text-zinc-800" />
+            <span className="p-1.5 rounded-lg bg-[#e0e6f1] text-black border border-black shrink-0">
+              <CalendarDays className="w-5 h-5 text-black" />
             </span>
             <div>
-              <h1 className="text-sm sm:text-base font-extrabold text-zinc-900 flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-extrabold text-black flex items-center gap-2 uppercase">
                 <span>Agenda de Serviços Agrícolas</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-300 text-zinc-700 font-bold">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#e0e6f1] border border-black text-black font-bold">
                   Logística & Frotas
                 </span>
               </h1>
-              <p className="text-[11px] text-zinc-500 mt-0.5">
+              <p className="text-[11px] text-slate-700 font-medium mt-0.5">
                 Cálculo de tempos (Deslocamento + Prancha + Execução), escala de frotas e logística de campo.
               </p>
             </div>
@@ -981,56 +981,56 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         </div>
 
         {/* 2. CARDS DE MÉTRICAS KPI (COMPACTOS: ALTURA E FONTES OTIMIZADAS) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-zinc-200">
-          <div className="bg-zinc-50 px-2.5 py-1.5 rounded-lg border border-zinc-300">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-zinc-500 block">Total Agendado</span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-black/20">
+          <div className="bg-[#e0e6f1] px-2.5 py-1.5 rounded-lg border border-black">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-700 block">Total Agendado</span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.total}</span>
-              <span className="text-[10px] font-semibold text-zinc-500">operações</span>
+              <span className="text-base sm:text-lg font-black text-black">{metrics.total}</span>
+              <span className="text-[10px] font-semibold text-slate-700">operações</span>
             </div>
           </div>
 
-          <div className="bg-amber-50/70 px-2.5 py-1.5 rounded-lg border border-amber-200">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-amber-800 block">Aguardando Saída</span>
+          <div className="bg-[#e0e6f1] px-2.5 py-1.5 rounded-lg border border-black">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-amber-900 block">Aguardando Saída</span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-base sm:text-lg font-black text-amber-900">{metrics.agendados}</span>
-              <span className="text-[10px] font-semibold text-amber-700">na base</span>
+              <span className="text-[10px] font-semibold text-amber-800">na base</span>
             </div>
           </div>
 
-          <div className="bg-emerald-50/70 px-2.5 py-1.5 rounded-lg border border-emerald-200">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-800 block">Em Campo / Execução</span>
+          <div className="bg-[#e0e6f1] px-2.5 py-1.5 rounded-lg border border-black">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-900 block">Em Campo / Execução</span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-base sm:text-lg font-black text-emerald-900">{metrics.emExecucao}</span>
-              <span className="text-[10px] font-semibold text-emerald-700">em operação</span>
+              <span className="text-[10px] font-semibold text-emerald-800">em operação</span>
             </div>
           </div>
 
-          <div className="bg-zinc-100 px-2.5 py-1.5 rounded-lg border border-zinc-300">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-zinc-700 block">Área Programada</span>
+          <div className="bg-[#e0e6f1] px-2.5 py-1.5 rounded-lg border border-black">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-800 block">Área Programada</span>
             <div className="flex items-baseline flex-wrap gap-x-2.5 sm:gap-x-3 gap-y-1 mt-0.5">
               {/* Bloco 1: Hectares */}
               <div className="flex items-baseline gap-1">
-                <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.totalHectares.toFixed(1)}</span>
-                <span className="text-[10px] font-semibold text-zinc-600">ha estimados</span>
+                <span className="text-base sm:text-lg font-black text-black">{metrics.totalHectares.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-slate-700">ha estimados</span>
               </div>
 
               {/* Divisor */}
-              <span className="text-zinc-400 font-bold select-none text-xs">/</span>
+              <span className="text-slate-500 font-bold select-none text-xs">/</span>
 
               {/* Bloco 2: Alqueires */}
               <div className="flex items-baseline gap-1">
-                <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.totalAlqueires.toFixed(1)}</span>
-                <span className="text-[10px] font-semibold text-zinc-600">alq estimados</span>
+                <span className="text-base sm:text-lg font-black text-black">{metrics.totalAlqueires.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-slate-700">alq estimados</span>
               </div>
 
               {/* Divisor */}
-              <span className="text-zinc-400 font-bold select-none text-xs">/</span>
+              <span className="text-slate-500 font-bold select-none text-xs">/</span>
 
               {/* Bloco 3: Horas */}
               <div className="flex items-baseline gap-1">
-                <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.totalHours.toFixed(1)}</span>
-                <span className="text-[10px] font-semibold text-zinc-600">hrs estimadas</span>
+                <span className="text-base sm:text-lg font-black text-black">{metrics.totalHours.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-slate-700">hrs estimadas</span>
               </div>
             </div>
           </div>
@@ -1038,7 +1038,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       </div>
 
       {/* 3. BARRA DE FILTROS E SELEÇÃO DE VISÃO COMPACTA */}
-      <div className="bg-white rounded-xl border border-zinc-300 p-2 sm:p-2.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2">
+      <div className="shrink-0 bg-[#cad4e6] rounded-lg border border-black p-2 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2">
         {/* Seletor de Abas de Visão */}
         <div className="flex items-center gap-1 bg-zinc-200 p-1 rounded-xl border border-zinc-300">
           <button
@@ -1079,20 +1079,20 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         {/* Filtros: Busca e Status */}
         <div className="flex flex-wrap items-center gap-1.5">
           <div className="relative min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-stone-400" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-500" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar cliente, fazenda, placa..."
-              className="w-full pl-7 pr-2.5 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100"
+              className="w-full pl-7 pr-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs font-medium text-black dark:text-stone-100"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="py-1 px-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-200"
+            className="py-1 px-2 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-stone-200"
           >
             <option value="todos">Todos os Status</option>
             <option value="agendado">Agendado</option>
@@ -1118,7 +1118,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       {/* VISÃO 1: CRONOGRAMA OPERACIONAL EM COLUNAS LADO A LADO (ESTILO KANBAN / MÁQUINAS PRINCIPAIS) */}
       {viewMode === 'cronograma' && (
-        <div className="w-full overflow-x-auto pb-4">
+        <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-auto pb-1">
           {/* Moldura Externa idêntica ao quadro de Equipes */}
           <div className="min-w-[840px] border-3 border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-md bg-white dark:bg-stone-950">
             
@@ -1475,25 +1475,25 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       {/* VISÃO 2: ESCALA POR PLACAS/FROTAS - TABELA ESTRUTURADA EM LINHAS HORIZONTAIS */}
       {viewMode === 'frotas' && (
-        <div className="bg-white dark:bg-stone-900 rounded-lg shadow-xs">
-          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
+        <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-                <tr className="bg-slate-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-extrabold border-b border-slate-300 dark:border-stone-700 uppercase text-[10px] sm:text-[11px] tracking-wider">
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Nº Agendamento</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Veículo Principal</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Cliente & Local</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Período</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 whitespace-nowrap">Volume / Área</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Trator</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Demais Veículos</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-right whitespace-nowrap">Ações</th>
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black">
+                <tr className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 font-black border-b border-black dark:border-stone-700 uppercase text-[10px] sm:text-[11px] tracking-wider">
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 whitespace-nowrap border-b border-black">Nº Agendamento</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 whitespace-nowrap border-b border-black">Veículo Principal</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black">Cliente & Local</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 whitespace-nowrap border-b border-black">Período</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 whitespace-nowrap border-b border-black">Volume / Área</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black">Trator</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black">Demais Veículos</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right whitespace-nowrap border-b border-black">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+              <tbody className="bg-[#e0e6f1] dark:bg-stone-900">
                 {activeAppointmentsForFleet.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                    <td colSpan={8} className="py-6 text-center text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase bg-[#e0e6f1] dark:bg-stone-900">
                       NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
@@ -1531,7 +1531,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                     return (
                       <tr 
                         key={a.id}
-                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800"
+                        className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors border-b border-black/20 dark:border-stone-800"
                       >
                         {/* 1ª Coluna: Nº Agendamento */}
                         <td className="py-3 px-3.5 align-middle whitespace-nowrap">
@@ -1689,14 +1689,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       {/* VISÃO 3: CALENDÁRIO OPERACIONAL */}
       {viewMode === 'calendario' && (
-        <ServiceCalendarView
-          appointments={filteredAppointments}
-          onSelectAppointment={handleEdit}
-          onCreateAppointmentForDate={handleCreateAppointmentForDate}
-          onExecuteService={handleOpenDispatch}
-          onPrintAppointment={handleOpenPrint}
-          resolvePrimaryVehicleDisplay={resolvePrimaryVehicleDisplay}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          <ServiceCalendarView
+            appointments={filteredAppointments}
+            onSelectAppointment={handleEdit}
+            onCreateAppointmentForDate={handleCreateAppointmentForDate}
+            onExecuteService={handleOpenDispatch}
+            onPrintAppointment={handleOpenPrint}
+            resolvePrimaryVehicleDisplay={resolvePrimaryVehicleDisplay}
+          />
+        </div>
       )}
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO DE AGENDAMENTO COM CALCULO DE TEMPO E ANTI-SOBREPOSIÇÃO */}

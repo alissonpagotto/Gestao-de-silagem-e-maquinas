@@ -430,17 +430,17 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
   const paidCount = competenceSettlements.filter(s => s.status === 'pago').length;
 
   return (
-    <div id="financial-tab-agenciadores" className="financial-subtab-clean space-y-4">
+    <div id="financial-tab-agenciadores" className="financial-subtab-clean flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* 1. TOPO: Cabeçalho do Submódulo e Ações Rápidas */}
-      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-transparent">
-          <div className="flex items-start space-x-3 bg-transparent">
-            <div className="p-2.5 bg-sky-600 text-white rounded-xl shadow-xs shrink-0">
-              <Handshake className="w-6 h-6" />
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-transparent">
+          <div className="flex items-start space-x-2.5 bg-transparent">
+            <div className="p-2 bg-sky-600 text-white rounded-lg shadow-xs shrink-0">
+              <Handshake className="w-5 h-5" />
             </div>
             <div className="bg-transparent">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black text-black dark:text-white uppercase tracking-wider">
+                <h3 className="text-sm sm:text-base font-black text-black dark:text-white uppercase tracking-wider">
                   Acertos & Repasses de Agenciadores
                 </h3>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
@@ -448,7 +448,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                   Gestão Exclusiva do Financeiro
                 </span>
               </div>
-              <p className="text-xs text-black/80 dark:text-stone-300 mt-0.5 font-medium">
+              <p className="text-[11px] text-black/80 dark:text-stone-300 mt-0.5 font-medium">
                 Controle financeiro de comissões por contratos e pedidos agenciados. A baixa de repasse é realizada exclusivamente por aqui (sem impacto na folha do RH).
               </p>
             </div>
@@ -459,14 +459,14 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               type="button"
               onClick={() => handleOpenAddModal()}
               disabled={brokerEmployees.length === 0}
-              className={`inline-flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs ${
+              className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs ${
                 brokerEmployees.length > 0
                   ? 'cursor-pointer active:scale-95'
                   : 'opacity-80 cursor-not-allowed'
               }`}
               title={brokerEmployees.length === 0 ? 'Cadastre um colaborador como Agenciador no RH primeiro' : 'Lançar nova comissão para agenciador'}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Novo Lançamento de Comissão</span>
             </button>
           </div>
@@ -475,26 +475,26 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* AVISO SE NÃO HOUVER NENHUM AGENCIADOR CADASTRADO NO SISTEMA */}
       {brokerEmployees.length === 0 && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-amber-950 space-y-2 shadow-2xs">
+        <div className="shrink-0 bg-amber-50 border border-black rounded-lg p-3 text-amber-950 space-y-1 shadow-2xs">
           <div className="flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-            <h4 className="text-sm font-bold uppercase">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <h4 className="text-xs font-bold uppercase">
               Nenhum Colaborador com a função "Agenciador" Encontrado
             </h4>
           </div>
-          <p className="text-xs text-amber-900 font-medium">
+          <p className="text-[11px] text-amber-900 font-medium">
             Para gerenciar os acertos e comissões nesta aba, é necessário ter pelo menos um colaborador cadastrado com a função de <strong>Agenciador</strong> (na Função 1 ou Função 2).
           </p>
-          <p className="text-xs text-amber-800">
+          <p className="text-[11px] text-amber-800">
             Vá até o menu lateral <strong>RH &gt; Funcionários</strong> e cadastre ou edite um colaborador selecionando <strong>"Agenciador"</strong> como função e informando a Região de Atuação e Regra de Comissão.
           </p>
         </div>
       )}
 
       {/* 2. CARDS DE MÉTRICAS (KPIS) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {/* Card 1: Total a Repassar (Pendente) */}
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Total a Repassar (Pendente)
@@ -503,11 +503,11 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <Clock className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
-            <div className="text-xl sm:text-2xl font-black text-amber-950 dark:text-amber-200 font-['Outfit']">
+          <div className="mt-1">
+            <div className="text-lg sm:text-xl font-black text-amber-950 dark:text-amber-200 font-['Outfit']">
               {formatCurrencyBRL(totalPendingAmount)}
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold">
+            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-700 dark:text-stone-400 mt-0.5 font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-amber-600"></span>
               <span>{pendingCount} lançamento(s) aguardando baixa</span>
             </div>
@@ -515,7 +515,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
         </div>
 
         {/* Card 2: Total Repassado (Pago / Baixado) */}
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Total Repassado (Baixado)
@@ -524,11 +524,11 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <CheckCircle2 className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
-            <div className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-200 font-['Outfit']">
+          <div className="mt-1">
+            <div className="text-lg sm:text-xl font-black text-emerald-950 dark:text-emerald-200 font-['Outfit']">
               {formatCurrencyBRL(totalPaidAmount)}
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold">
+            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-700 dark:text-stone-400 mt-0.5 font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-600"></span>
               <span>{paidCount} lançamento(s) quitados</span>
             </div>
@@ -536,7 +536,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
         </div>
 
         {/* Card 3: Total Geral Acumulado */}
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Volume de Comissões
@@ -545,18 +545,18 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <DollarSign className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
-            <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white font-['Outfit']">
+          <div className="mt-1">
+            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit']">
               {formatCurrencyBRL(totalPendingAmount + totalPaidAmount)}
             </div>
-            <div className="text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold">
+            <div className="text-[11px] text-zinc-700 dark:text-stone-400 mt-0.5 font-semibold">
               {totalSettlementsCount} comissão(ões) registradas
             </div>
           </div>
         </div>
 
         {/* Card 4: Agenciadores Ativos */}
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
               Agenciadores Ativos
@@ -565,11 +565,11 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               <User className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
-            <div className="text-xl sm:text-2xl font-black text-orange-950 dark:text-orange-200 font-['Outfit']">
+          <div className="mt-1">
+            <div className="text-lg sm:text-xl font-black text-orange-950 dark:text-orange-200 font-['Outfit']">
               {brokerEmployees.length}
             </div>
-            <div className="text-[11px] text-zinc-600 dark:text-stone-400 mt-1 font-semibold truncate">
+            <div className="text-[11px] text-zinc-700 dark:text-stone-400 mt-0.5 font-semibold truncate">
               {brokerEmployees.length > 0 ? 'Profissionais no quadro de intermediação' : 'Cadastre em RH > Funcionários'}
             </div>
           </div>
@@ -578,13 +578,13 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
 
       {/* 3. QUADRO DE AGENCIADORES CADASTRADOS (ATALHO E VISÃO GERAL) */}
       {brokerEmployees.length > 0 && (
-        <div className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-xl p-3.5 shadow-2xs space-y-2.5">
+        <div className="shrink-0 bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-2xs space-y-2 max-h-[165px] overflow-y-auto">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-1.5">
               <Handshake className="w-3.5 h-3.5 text-sky-600" />
               <span>Agenciadores Credenciados ({brokerEmployees.length})</span>
             </h4>
-            <span className="text-[11px] text-stone-500 font-medium">
+            <span className="text-[11px] text-stone-700 font-medium">
               Clique em um agenciador para filtrar ou criar acerto rápido
             </span>
           </div>
@@ -662,7 +662,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       )}
 
       {/* 4. BARRA DE FILTROS */}
-      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {/* Busca por texto */}
           <div className="relative min-w-[220px]">
@@ -672,7 +672,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
               placeholder="Buscar por agenciador, pedido ou região..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs text-black font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-400 rounded-lg text-xs text-black font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
             />
           </div>
 
@@ -718,7 +718,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <select
               value={selectedBrokerFilter}
               onChange={(e) => setSelectedBrokerFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+              className="px-2.5 py-1.5 bg-white border border-slate-400 rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
             >
               <option value="all">Todos os Agenciadores</option>
               {brokerEmployees.map(b => (
@@ -741,28 +741,28 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       </div>
 
       {/* 5. TABELA PRINCIPAL DE ACERTOS & REPASSES */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
-        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg shadow-xs overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left border-collapse text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-bold uppercase text-[10px] tracking-wider">
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Data / Mês</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Agenciador / Região</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Contrato / Pedido Agenciado</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Regra de Comissão</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Base Cálculo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Bruto</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Dedução</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Líquido</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Status / Baixa</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 shadow-sm">
+              <tr className="bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-stone-300 font-bold uppercase text-[10px] tracking-wider">
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Data / Mês</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Agenciador / Região</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Contrato / Pedido Agenciado</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Regra de Comissão</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right">Base Cálculo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right">Bruto</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right">Dedução</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right">Valor Líquido</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center">Status / Baixa</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-200 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
               {filteredSettlements.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-10 text-center text-stone-500 space-y-2">
-                    <Handshake className="w-8 h-8 mx-auto text-stone-400" />
+                  <td colSpan={10} className="py-10 text-center text-stone-600 bg-[#e0e6f1] space-y-2">
+                    <Handshake className="w-8 h-8 mx-auto text-stone-500" />
                     <p className="text-sm font-semibold">Nenhum acerto de agenciador encontrado para estes filtros.</p>
                     {brokerEmployees.length > 0 && (
                       <button
@@ -782,9 +782,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
                   return (
                     <tr 
                       key={item.id} 
-                      className={`hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800 ${
-                        isPaid ? 'even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900' : 'bg-amber-50/30'
-                      }`}
+                      className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800"
                     >
                       {/* Data / Mês */}
                       <td className="py-3 px-3 font-semibold text-black whitespace-nowrap">

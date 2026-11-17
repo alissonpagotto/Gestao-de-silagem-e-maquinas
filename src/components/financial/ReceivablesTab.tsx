@@ -1167,10 +1167,10 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   };
 
   return (
-    <div id="financial-tab-receber" className="financial-subtab-clean space-y-3">
+    <div id="financial-tab-receber" className="financial-subtab-clean flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* Toast de Sucesso da Baixa */}
       {successMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 font-bold text-xs flex items-center justify-between shadow-xs">
+        <div className="shrink-0 p-3 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-900 font-bold text-xs flex items-center justify-between shadow-xs">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successMessage}</span>
@@ -1186,8 +1186,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       )}
 
       {/* KPI Cards (Compact) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               A Receber (Em Aberto)
@@ -1204,7 +1204,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           </div>
         </div>
 
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Recebido (Liquidado)
@@ -1221,7 +1221,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           </div>
         </div>
 
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Faturamento Total
@@ -1240,7 +1240,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       </div>
 
       {/* Filters & CNAB Actions Bar (Compact) */}
-      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-2 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 text-black dark:text-white">
         <div className="flex items-center space-x-1.5 w-full lg:w-auto overflow-x-auto scrollbar-none">
           <CompetenceSelector
             competence={activeCompetence}
@@ -1310,31 +1310,31 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               placeholder="Buscar por cliente, tipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
             />
           </div>
         </div>
       </div>
 
       {/* Receivables Table (Dense & Compact) */}
-      <div className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs text-black">
-        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] border border-black rounded-lg overflow-hidden shadow-xs text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-300 shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] text-[11px] font-black text-black uppercase tracking-wider border-b border-black shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Data</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Cliente / Produtor</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Origem / Tipo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3">Volume</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3 text-right">Valor Total (R$)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2.5 px-3 text-right pr-4">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Data</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Cliente / Produtor</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Origem / Tipo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Volume</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3 text-right">Valor Total (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3 text-right pr-4">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <span
                         className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
@@ -1418,7 +1418,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-stone-500 font-semibold text-xs uppercase">
+                  <td colSpan={7} className="py-6 text-center text-stone-600 bg-[#e0e6f1] font-semibold text-xs uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

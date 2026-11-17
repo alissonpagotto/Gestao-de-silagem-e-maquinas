@@ -248,16 +248,16 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-none space-y-4">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden p-2 sm:p-3">
       
       {/* Top Banner / Summary */}
-      <div className="crm-card bg-white dark:bg-stone-900 p-2 sm:p-2.5 rounded-xl border border-slate-300 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 text-zinc-900 dark:text-white">
+      <div className="shrink-0 crm-card bg-[#cad4e6] dark:bg-stone-900 p-2 sm:p-2.5 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 text-black dark:text-white">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-stone-100 tracking-tight">
+            <h2 className="text-sm font-black text-black dark:text-stone-100 uppercase tracking-tight">
               Carteira de Clientes
             </h2>
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-md bg-[#e0e6f1] dark:bg-stone-800 text-black dark:text-stone-300 border border-black dark:border-stone-700 text-[10px] font-bold">
               {filteredClients.filter(c => c.status === 'cliente_ativo').length} Clientes ativos
             </span>
           </div>
@@ -307,24 +307,24 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white dark:bg-stone-900 p-2.5 rounded-2xl border border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs shadow-xs">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 p-2 rounded-lg border border-black dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs shadow-xs">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-stone-400" />
+          <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por código (0001), nome, estabelecimento, CPF/CNPJ ou cidade..."
-            className="w-full pl-7 pr-3 py-1 bg-stone-50 dark:bg-stone-800/50 rounded-lg border border-stone-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-xs"
+            className="w-full pl-7 pr-3 py-1 bg-white dark:bg-stone-800/50 rounded-lg border border-slate-400 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-xs text-black"
           />
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-stone-500 font-semibold text-xs">Atividade:</span>
+          <span className="text-black dark:text-stone-300 font-bold text-xs uppercase">Atividade:</span>
           <select
             value={selectedAtividade}
             onChange={(e) => setSelectedAtividade(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-medium text-stone-800 dark:text-stone-200 text-xs cursor-pointer focus:ring-1 focus:ring-emerald-500"
+            className="px-2 py-1 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 font-bold text-black dark:text-stone-200 text-xs cursor-pointer focus:ring-1 focus:ring-emerald-500"
           >
             <option value="todos">Todas as Atividades</option>
             {atividadesList.map((item) => (
@@ -336,13 +336,13 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
 
       {/* Kanban View */}
       {viewMode === 'kanban' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {columns.map((col) => {
             const colClients = filteredClients.filter((c) => c.status === col.id);
             const totalDemand = colClients.reduce((acc, c) => acc + (c.monthlyDemandTons || 0), 0);
 
             return (
-              <div key={col.id} className={`rounded-2xl border ${col.color} p-3 flex flex-col min-h-[420px]`}>
+              <div key={col.id} className="rounded-lg border border-black bg-[#e0e6f1] p-3 flex flex-col min-h-[320px]">
                 
                 {/* Column Header */}
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-200/80 dark:border-stone-700">
@@ -477,23 +477,23 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
         </div>
       ) : (
         /* List View - Formato Linha Única Slim Estrita */
-        <div className="bg-white dark:bg-stone-900 rounded-lg shadow-2xs">
-          <div className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
-            <table className="w-full text-left text-xs text-zinc-800 dark:text-stone-200 border-collapse">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm text-slate-600 dark:text-stone-400 font-bold border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
+        <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-2xs">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+            <table className="w-full text-left text-xs text-black dark:text-stone-200 border-collapse">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-200 font-black border-b border-black dark:border-stone-700 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Cliente & Estabelecimento</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Cidade / UF</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Atividade / Porte</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Demanda / Potencial</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5">Status</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 text-right">Ações</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2.5 border-b border-black">Cliente & Estabelecimento</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2.5 border-b border-black">Cidade / UF</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2.5 border-b border-black">Atividade / Porte</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2.5 border-b border-black">Demanda / Potencial</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2.5 border-b border-black">Status</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2.5 border-b border-black text-right">Ações</th>
                 </tr>
               </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
+            <tbody className="font-medium bg-[#e0e6f1] dark:bg-stone-900">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                  <td colSpan={6} className="py-6 text-center text-xs font-semibold text-slate-700 dark:text-stone-400 uppercase bg-[#e0e6f1] dark:bg-stone-900">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
@@ -503,7 +503,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                   const hasCustomPorte = Boolean(client.porteCapacidade && /[^\d]/.test(client.porteCapacidade));
                   const hasCustomPotencial = Boolean(client.potencialCompraMensal && /[^\d.,]/.test(client.potencialCompraMensal));
                   return (
-                  <tr key={client.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={client.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     {/* Nome, Estabelecimento e badges discretas dos serviços de interesse abaixo */}
                     <td className="py-1 px-2.5 align-middle">
                       <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">

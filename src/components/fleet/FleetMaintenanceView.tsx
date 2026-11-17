@@ -502,16 +502,16 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   };
 
   return (
-    <div className="w-full space-y-2.5 animate-in fade-in duration-200">
+    <div className="w-full flex-1 min-h-0 h-full max-h-full flex flex-col overflow-hidden animate-in fade-in duration-200">
       
       {/* Conteúdo da Tela de Manutenção - Oculto na Impressão da OS */}
-      <div className="w-full space-y-2.5 print:hidden">
+      <div className="w-full flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden print:hidden">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-2">
+        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5">
         <div>
           <div className="flex items-center space-x-2">
             <Wrench style={{ color: '#823028' }} className="w-5 h-5 text-[#823028]" />
-            <h2 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+            <h2 className="text-base font-bold text-black dark:text-stone-100 font-['Outfit']">
               Gestão de Manutenções & Ordens de Serviço (OS)
             </h2>
           </div>
@@ -522,19 +522,19 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           <button
             type="button"
             onClick={onOpenNewMaintenance}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 hover:brightness-95 text-slate-800 border border-slate-400 text-xs font-semibold rounded-xl shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-[#e0e6f1] hover:bg-[#d2dced] text-black border border-black text-xs font-bold rounded-lg shadow-2xs transition active:scale-95 cursor-pointer shrink-0 uppercase tracking-wide"
           >
-            <Plus className="w-4 h-4 text-slate-800 stroke-[2.2]" />
+            <Plus className="w-4 h-4 text-black stroke-[2.2]" />
             <span>NOVA ORDEM DE MANUTENÇÃO</span>
           </button>
         </div>
       </div>
 
       {/* KPI Cards - Compactados no padrão 3D Slim */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <div className="py-2 px-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               Total Investido em Manutenção
             </span>
             <DollarSign className="w-3.5 h-3.5 text-indigo-600" />
@@ -542,91 +542,91 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           <div className="text-xl font-black text-stone-900 dark:text-stone-100 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalCost)}
           </div>
-          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">{filteredLogs.length} ordens de serviço</p>
+          <p className="text-[10px] text-stone-600 dark:text-stone-400 mt-0.5">{filteredLogs.length} ordens de serviço</p>
         </div>
 
-        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
+        <div className="py-2 px-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               Peças & Insumos
             </span>
             <Layers className="w-3.5 h-3.5 text-sky-600" />
           </div>
-          <div className="text-xl font-black text-sky-700 dark:text-sky-400 mt-0.5 font-['Outfit']">
+          <div className="text-xl font-black text-sky-800 dark:text-sky-400 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalParts)}
           </div>
-          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">Filtros, facas, rolamentos, óleos</p>
+          <p className="text-[10px] text-stone-600 dark:text-stone-400 mt-0.5">Filtros, facas, rolamentos, óleos</p>
         </div>
 
-        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
+        <div className="py-2 px-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               Mão de Obra
             </span>
             <Wrench className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-black text-amber-700 dark:text-amber-400 mt-0.5 font-['Outfit']">
+          <div className="text-xl font-black text-amber-800 dark:text-amber-400 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalLabor)}
           </div>
-          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">Oficinas terceiras e mecânica</p>
+          <p className="text-[10px] text-stone-600 dark:text-stone-400 mt-0.5">Oficinas terceiras e mecânica</p>
         </div>
 
         {/* CARD REFORMA & ENTRESSAFRA */}
         <div 
           onClick={() => setFilterReformaOnly(prev => !prev)}
-          className={`py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border shadow-2xs transition cursor-pointer select-none ${
+          className={`py-2 px-3 rounded-lg border shadow-2xs transition cursor-pointer select-none ${
             filterReformaOnly
-              ? 'border-purple-500 ring-2 ring-purple-600/30 dark:ring-purple-500/40 bg-purple-50/20 dark:bg-purple-950/20'
-              : 'border-stone-200 dark:border-stone-800 hover:border-purple-300 dark:hover:border-purple-700'
+              ? 'border-purple-600 ring-2 ring-purple-600/30 dark:ring-purple-500/40 bg-purple-100/80 dark:bg-purple-950/20'
+              : 'bg-[#e0e6f1] dark:bg-stone-900 border-black dark:border-stone-800 hover:bg-[#d2dced]'
           }`}
           title={filterReformaOnly ? "Clique para desativar filtro de Reforma / Entressafra" : "Clique para filtrar manutenções de Reforma / Entressafra"}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               REFORMA & ENTRESSAFRA
             </span>
             <Hammer className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
           </div>
-          <div className="text-xl font-black text-purple-700 dark:text-purple-400 mt-0.5 font-['Outfit']">
+          <div className="text-xl font-black text-purple-800 dark:text-purple-400 mt-0.5 font-['Outfit']">
             {formatCurrencyBRL(totalReforma)}
           </div>
           <div className="flex items-center justify-between mt-0.5">
-            <p className="text-[10px] text-stone-500 dark:text-stone-400">
+            <p className="text-[10px] text-stone-600 dark:text-stone-400">
               {reformaCount} {reformaCount === 1 ? 'máquina em reforma' : 'máquinas em reforma'}
             </p>
             {filterReformaOnly && (
-              <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/60 px-1 py-0.2 rounded">
+              <span className="text-[9px] font-bold text-purple-700 dark:text-purple-400 bg-purple-200 dark:bg-purple-950/60 px-1 py-0.2 rounded">
                 Filtrando
               </span>
             )}
           </div>
         </div>
 
-        <div className="py-2 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs">
+        <div className="py-2 px-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               OS Em Aberto
             </span>
             <Clock className="w-3.5 h-3.5 text-rose-600" />
           </div>
-          <div className={`text-xl font-black mt-0.5 font-['Outfit'] ${pendingCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+          <div className={`text-xl font-black mt-0.5 font-['Outfit'] ${pendingCount > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
             {pendingCount}
           </div>
-          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">Veículos aguardando liberação</p>
+          <p className="text-[10px] text-stone-600 dark:text-stone-400 mt-0.5">Veículos aguardando liberação</p>
         </div>
       </div>
 
       {/* Filter and Search Bar (Compact Single-Line) */}
-      <div className="bg-white dark:bg-stone-900 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-1.5 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         {/* 1. Busca por texto */}
         <div className="relative min-w-[160px] sm:w-52">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar OS, veículo, peça..."
-            className="w-full pl-8 pr-2.5 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-1.5 focus:ring-indigo-600"
+            className="w-full pl-8 pr-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none focus:ring-1.5 focus:ring-indigo-600"
           />
           {searchTerm && (
             <button
@@ -640,9 +640,9 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         </div>
 
         {/* 2. Período de Datas (De: e Até:) */}
-        <div className="flex items-center space-x-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1">
-          <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-tight">De:</span>
+        <div className="flex items-center space-x-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg px-2 py-1">
+          <Calendar className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-tight">De:</span>
           <input 
             type="date" 
             value={startDate}
@@ -650,7 +650,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
             className="bg-transparent text-xs text-stone-900 dark:text-stone-100 focus:outline-none cursor-pointer"
           />
           <span className="text-stone-300 dark:text-stone-600">|</span>
-          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-tight">Até:</span>
+          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-tight">Até:</span>
           <input 
             type="date" 
             value={endDate}
@@ -684,7 +684,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         <select
           value={selectedLocation}
           onChange={(e) => setSelectedLocation(e.target.value)}
-          className="py-1 px-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
+          className="py-1 px-2 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
         >
           <option value="todos">Todos os Locais</option>
           <option value="roca">🌱 Roça (Campo)</option>
@@ -697,7 +697,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         <select
           value={selectedVehicle}
           onChange={(e) => setSelectedVehicle(e.target.value)}
-          className="py-1 px-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer max-w-[170px] truncate"
+          className="py-1 px-2 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer max-w-[170px] truncate"
         >
           <option value="todos">Todos os Veículos</option>
           {machineries.map((m) => (
@@ -711,7 +711,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         <select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
-          className="py-1 px-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
+          className="py-1 px-2 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
         >
           <option value="todos">Todos os Status</option>
           <option value="concluida">Concluída</option>
@@ -724,7 +724,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         <select
           value={selectedPartsOrigin}
           onChange={(e) => setSelectedPartsOrigin(e.target.value)}
-          className="py-1 px-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
+          className="py-1 px-2 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-1.5 focus:ring-indigo-600 cursor-pointer"
         >
           <option value="todos">Todas Origens</option>
           <option value="almoxarifado">Almoxarifado</option>
@@ -737,38 +737,38 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           <button
             type="button"
             onClick={handleClearAllFilters}
-            className="py-1 px-2 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-bold transition flex items-center space-x-1 cursor-pointer ml-auto"
+            className="py-1 px-2 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 hover:bg-[#d2dced] dark:hover:bg-stone-700 border border-black text-black dark:text-stone-300 text-xs font-bold transition flex items-center space-x-1 cursor-pointer ml-auto"
             title="Limpar todos os filtros"
           >
-            <X className="w-3 h-3 text-stone-500" />
+            <X className="w-3 h-3 text-black" />
             <span>Limpar</span>
           </button>
         )}
       </div>
 
       {/* Maintenance Logs Table (Clean, Compact, Slim Rows and Full-Width without Horizontal Scroll) */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-xs w-full">
-        <div className="w-full overflow-x-auto xl:overflow-x-visible max-h-[calc(100vh-270px)] overflow-y-auto scrollbar-none">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 overflow-hidden shadow-xs w-full">
+        <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs table-auto">
-            <thead className="bg-slate-100 dark:bg-stone-800 text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 sticky top-0 z-20 shadow-sm">
+            <thead className="bg-[#cad4e6] dark:bg-stone-800 text-[10px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 sticky top-0 z-20 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Data & OS</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Veículo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Local</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Executante</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Origem Peças</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2">Descrição do Serviço</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Peças</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">M. Obra</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Total</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-center whitespace-nowrap">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Data & OS</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2">Veículo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Local</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2">Executante</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 whitespace-nowrap">Origem Peças</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2">Descrição do Serviço</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Peças</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">M. Obra</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Total</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 text-center whitespace-nowrap">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800/60 font-medium">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-4 text-center text-xs font-semibold text-stone-500 uppercase">
+                  <td colSpan={11} className="py-8 text-center text-xs font-semibold text-stone-600 bg-[#e0e6f1] uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
@@ -778,7 +778,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
                   const execBadge = getExecutorBadge(log.executorType, log.workshopOrMechanic || log.executorName);
                   
                   return (
-                    <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition group border-b border-slate-200 dark:border-stone-800">
+                    <tr key={log.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition group border-b border-black/20 dark:border-stone-800">
                       
                       {/* Data & Nº OS */}
                       <td className="py-1 px-2 whitespace-nowrap">

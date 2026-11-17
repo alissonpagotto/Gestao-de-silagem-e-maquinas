@@ -263,10 +263,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-none space-y-4 sm:space-y-5 animate-fade-in">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2 overflow-hidden animate-fade-in">
       
       {/* 1. Header do Módulo 3D Slim */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
+      <header className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-1.5 shadow-xs">
         <div>
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 tracking-tight font-['Outfit']">
             Relatórios
@@ -281,7 +281,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <select
               value={selectedMonth}
               onChange={(e) => handleMonthChange(Number(e.target.value))}
-              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs cursor-pointer"
             >
               {monthsList.map((m, idx) => (
                 <option key={m} value={idx}>
@@ -296,9 +296,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           <button
             type="button"
             onClick={() => handleOpenPrintModal()}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white via-slate-50 to-slate-100 hover:bg-slate-100 dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-slate-800 shadow-[inset_0_1px_0px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.05)] transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-black dark:border-stone-700 bg-[#e0e6f1] hover:bg-[#d2dced] dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-black shadow-2xs transition cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <Printer className="w-3.5 h-3.5 text-black dark:text-stone-300" />
             <span>Imprimir Geral</span>
           </button>
 
@@ -306,9 +306,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       </header>
 
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
-      <div className="w-full flex flex-col">
+      <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
-        <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+        <div className="shrink-0 w-full bg-[#cad4e6] dark:bg-stone-900 border border-b-0 border-black dark:border-stone-700 rounded-t-lg overflow-x-auto scrollbar-none">
           <nav 
             aria-label="Abas de Relatórios"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
@@ -337,7 +337,11 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className="w-full border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden global p-3 space-y-3">
+        <div className={`w-full flex-1 min-h-0 border border-black dark:border-stone-700 rounded-b-lg bg-[#e0e6f1]/40 dark:bg-stone-900 shadow-sm ${
+          activeSubTab === 'cortes' || activeSubTab === 'vendas' || activeSubTab === 'despesas' || activeSubTab === 'consumo'
+            ? 'flex flex-col overflow-hidden p-2.5'
+            : 'overflow-y-auto overflow-x-hidden p-3 space-y-3'
+        }`}>
           {/* 3. Conteúdo da Aba Ativa */}
           {activeSubTab === 'dashboard' && (
             <ReportsDashboardTab

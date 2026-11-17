@@ -1094,13 +1094,13 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   }, [orders, searchTerm, activeCompetence]);
 
   return (
-    <div className="w-full relative">
+    <div className="w-full flex-1 min-h-0 h-full max-h-full flex flex-col overflow-hidden relative">
       {/* Container de tela interativo - Ocultado estritamente na impressão */}
-      <div className="w-full space-y-4 print:hidden">
+      <div className="w-full flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden print:hidden">
       
       {/* Alerta de Pop-up Bloqueado */}
       {popupBlockedWarning && (
-        <div className="p-3.5 bg-amber-500/10 dark:bg-amber-500/20 border-2 border-amber-500 rounded-xl flex items-center justify-between space-x-3 text-amber-950 dark:text-amber-200 text-xs font-black tracking-wide animate-in fade-in shadow-xs uppercase">
+        <div className="shrink-0 p-3.5 bg-amber-500/10 dark:bg-amber-500/20 border-2 border-amber-500 rounded-xl flex items-center justify-between space-x-3 text-amber-950 dark:text-amber-200 text-xs font-black tracking-wide animate-in fade-in shadow-xs uppercase">
           <div className="flex items-center space-x-2.5">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
             <span>ATENÇÃO: ATIVE AS JANELAS POP-UP PARA ESTE SITE PARA IMPRIMIR</span>
@@ -1118,14 +1118,14 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
       {/* Alertas */}
       {successMessage && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center space-x-2 text-emerald-800 dark:text-emerald-200 text-xs font-bold animate-in fade-in">
+        <div className="shrink-0 p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center space-x-2 text-emerald-800 dark:text-emerald-200 text-xs font-bold animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{successMessage}</span>
         </div>
       )}
 
       {errorMessage && (
-        <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold animate-in fade-in">
+        <div className="shrink-0 p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold animate-in fade-in">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{errorMessage}</span>
         </div>
@@ -1135,7 +1135,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
           MODO 1: FORMULÁRIO DE PEDIDO DE ENTRADA DE REFORMA (PASSO 2)
           ======================================================== */}
       {isCreatingNewOrder ? (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm p-4 sm:p-5 space-y-4 animate-in fade-in">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 shadow-sm p-4 space-y-3 animate-in fade-in">
           
           {/* Header do Formulário */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800 gap-2">
@@ -1467,15 +1467,15 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
         /* ========================================================
            MODO 2: TABELA HISTÓRICA DE PEDIDOS DE REFORMA
            ======================================================== */
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm p-4 space-y-3">
+        <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 shadow-sm p-3">
           
           {/* Header da Tabela Histórica */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-stone-200 dark:border-stone-800">
+          <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 font-['Outfit']">
+              <h3 className="text-sm font-black text-black dark:text-stone-100 font-['Outfit']">
                 Histórico de Pedidos de Reforma de Pneus
               </h3>
-              <p className="text-[11px] text-stone-500">
+              <p className="text-[11px] text-slate-700 dark:text-stone-400 font-medium">
                 Acompanhamento de ordens de remessa e status de retorno da recapadora
               </p>
             </div>
@@ -1488,7 +1488,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   placeholder="Buscar ordem, recapadora..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none w-48 sm:w-56"
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none w-48 sm:w-56"
                 />
               </div>
 
@@ -1525,10 +1525,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
           </div>
 
           {/* Tabela de Ordens */}
-          <div className="border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
-            <div className="max-h-[420px] overflow-y-auto">
+          <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-2xs">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-10 border-b border-stone-200 dark:border-stone-700 whitespace-nowrap">
+                <thead className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-10 border-b border-black dark:border-stone-700 whitespace-nowrap">
                   <tr className="whitespace-nowrap">
                     <th className="py-1.5 px-2.5 whitespace-nowrap">Nº do Pedido</th>
                     <th className="py-1.5 px-2.5 whitespace-nowrap">Data de Envio</th>
@@ -1541,10 +1541,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                     <th className="py-1.5 px-2.5 text-right whitespace-nowrap">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                   {filteredOrders.length === 0 ? (
                     <tr key="empty_filtered_orders_row">
-                      <td colSpan={9} className="py-4 text-center text-xs text-stone-500 font-semibold uppercase">
+                      <td colSpan={9} className="py-8 text-center bg-[#e0e6f1] text-xs text-stone-600 font-semibold uppercase">
                         NENHUM REGISTRO ENCONTRADO
                       </td>
                     </tr>
@@ -1555,7 +1555,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
 
                       return (
-                        <tr key={`reform_order_${order.id || orderIdx}_${orderIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition uppercase whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
+                        <tr key={`reform_order_${order.id || orderIdx}_${orderIdx}`} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition uppercase whitespace-nowrap border-b border-black/20 dark:border-stone-800">
                           <td className="py-1 px-2.5 font-mono font-black text-amber-700 dark:text-amber-400 whitespace-nowrap">
                             {order.orderNumber}
                           </td>

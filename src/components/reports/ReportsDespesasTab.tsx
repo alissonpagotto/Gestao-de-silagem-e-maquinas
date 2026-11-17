@@ -105,62 +105,62 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
   };
 
   return (
-    <div className="space-y-2.5 animate-fade-in financial-subtab-clean">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-fade-in financial-subtab-clean">
       
       {/* 1. Cards de Resumo Finos e Compactos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
+      <div className="shrink-0 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
         
-        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
-          <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
             <DollarSign className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block leading-tight truncate">
               Total Despesas no Período
             </span>
             <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-              <div className="text-sm sm:text-base font-black text-rose-600 dark:text-rose-400 font-['Outfit'] leading-tight truncate">
+              <div className="text-sm sm:text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] leading-tight truncate">
                 {formatCurrencyBRL(totalAmount)}
               </div>
-              <div className="text-[10px] text-stone-500 leading-tight truncate">
+              <div className="text-[10px] text-stone-600 leading-tight truncate">
                 {filteredExpenses.length} lançamentos
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
             <CheckCircle2 className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block leading-tight truncate">
               Despesas Pagas (Quitadas)
             </span>
             <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-              <div className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 font-['Outfit'] leading-tight truncate">
+              <div className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] leading-tight truncate">
                 {formatCurrencyBRL(paidAmount)}
               </div>
-              <div className="text-[10px] text-stone-500 leading-tight truncate">
+              <div className="text-[10px] text-stone-600 leading-tight truncate">
                 {filteredExpenses.filter(e => e.status === 'pago').length} quitadas
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 rounded-xl py-2 px-3 border border-stone-200 dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
-          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
             <Clock className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block leading-tight truncate">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block leading-tight truncate">
               A Pagar (Pendentes)
             </span>
             <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-              <div className="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 font-['Outfit'] leading-tight truncate">
+              <div className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] leading-tight truncate">
                 {formatCurrencyBRL(pendingAmount)}
               </div>
-              <div className="text-[10px] text-stone-500 leading-tight truncate">
+              <div className="text-[10px] text-stone-600 leading-tight truncate">
                 {filteredExpenses.filter(e => e.status !== 'pago').length} pendências
               </div>
             </div>
@@ -170,15 +170,15 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
       </div>
 
       {/* 2. Filtros, Busca, Competência e Exportação */}
-      <div className="bg-white dark:bg-stone-900 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por descrição, fornecedor ou máquina..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
           />
         </div>
 
@@ -186,7 +186,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688]"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688]"
           >
             <option value="todas">Todas as categorias</option>
             {categoryOptions.map(cat => (
@@ -197,7 +197,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688]"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688]"
           >
             <option value="todos">Todos os status</option>
             <option value="pago">Pagas</option>
@@ -214,7 +214,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
           <button
             type="button"
             onClick={handleExportCsv}
-            className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 font-bold text-xs rounded-lg transition cursor-pointer shrink-0"
+            className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-[#e0e6f1] dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-[#d2dced] dark:hover:bg-stone-700 border border-black dark:border-stone-700 font-bold text-xs rounded-lg transition cursor-pointer shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Exportar Despesas (CSV)</span>
@@ -223,47 +223,47 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
       </div>
 
       {/* 3. Tabela */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
-        <div className="max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg overflow-hidden shadow-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Vencimento</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Descrição</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Categoria</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Fornecedor</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Centro Custo / Safra</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Máquina / Veículo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-right">Valor (R$)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-center">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Vencimento</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Descrição</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Categoria</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Fornecedor</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Centro Custo / Safra</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Máquina / Veículo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Valor (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-center">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
-                    <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-600 dark:text-stone-400">
+                  <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
                       {formatDateBR(item.dueDate)}
                     </td>
                     <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
                       {item.description}
                     </td>
-                    <td className="py-2.5 px-3.5 font-medium text-stone-700 dark:text-stone-300">
+                    <td className="py-2.5 px-3.5 font-medium text-stone-800 dark:text-stone-300">
                       <span className="inline-flex items-center space-x-1">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.categoryColor || '#78716c' }} />
                         <span>{item.categoryName}</span>
                       </span>
                     </td>
-                    <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
+                    <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
                       {item.supplier || '-'}
                     </td>
-                    <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
+                    <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
                       {item.costCenterName || '-'}
                     </td>
-                    <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
+                    <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
                       {item.machineryName || '-'}
                     </td>
-                    <td className="py-2.5 px-3.5 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                    <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">
                       {formatCurrencyBRL(item.amount)}
                     </td>
                     <td className="py-2.5 px-3.5 text-center">
@@ -281,7 +281,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-stone-400">
+                  <td colSpan={8} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
                     Nenhuma despesa localizada no período e filtros selecionados.
                   </td>
                 </tr>

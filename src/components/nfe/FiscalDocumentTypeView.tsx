@@ -1304,11 +1304,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const IconComp = config.icon;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* 1. TOPO DA ABA COM CONTROLES E BOTÃO DE LANÇAMENTO */}
-      <div className="bg-[#edf4ff] dark:bg-stone-900 border border-[#edf4ff] dark:border-stone-800 rounded-xl p-3 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 select-none">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 select-none">
         <div className="flex items-center space-x-2.5">
-          <div className="p-2 rounded-lg bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 text-slate-800 dark:text-stone-200">
+          <div className="p-2 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 text-slate-800 dark:text-stone-200">
             <IconComp className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
           </div>
           <div>
@@ -1333,7 +1333,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       {/* FEEDBACK INLINE */}
       {feedback && (
-        <div className={`p-2.5 rounded-lg text-xs font-bold flex items-center justify-between border ${
+        <div className={`shrink-0 p-2.5 rounded-lg text-xs font-bold flex items-center justify-between border ${
           feedback.type === 'success' 
             ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-800'
             : 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800'
@@ -1349,7 +1349,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       )}
 
       {/* 2. BARRA DE BUSCA RÁPIDA E RESUMO */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-2.5">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-2.5">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
           <input
@@ -1357,7 +1357,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`Buscar por número, fornecedor, placa...`}
-            className="w-full pl-8 pr-3 py-1 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase"
+            className="w-full pl-8 pr-3 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 uppercase"
           />
         </div>
 
@@ -1370,11 +1370,11 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             />
           )}
 
-          <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-stone-300">
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-stone-800 border border-slate-300 dark:border-stone-700">
-              TOTAL DE REGISTROS: <strong className="text-slate-900 dark:text-white">{filteredDocuments.length}</strong>
+          <div className="flex items-center space-x-2 text-xs font-bold text-black dark:text-stone-300">
+            <span className="px-2 py-0.5 rounded-md bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700">
+              TOTAL DE REGISTROS: <strong className="text-black dark:text-white">{filteredDocuments.length}</strong>
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
+            <span className="px-2 py-0.5 rounded-md bg-[#e0e6f1] dark:bg-emerald-950/40 border border-black dark:border-emerald-800 text-emerald-900 dark:text-emerald-300">
               SOMA: <strong>{formatCurrencyBRL(filteredDocuments.reduce((acc, d) => acc + (d.totalAmount || 0), 0))}</strong>
             </span>
           </div>
@@ -1382,30 +1382,30 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       </div>
 
       {/* 3. TABELA HISTÓRICA COMPACTA SLIM PRO (PY-1) */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl shadow-2xs overflow-hidden">
-        <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg shadow-2xs overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-[10px] font-black uppercase text-slate-700 dark:text-stone-300 select-none">
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700">DOCUMENTO</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700">FORNECEDOR / TRANSPORTADORA</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700">VEÍCULO VINCULADO</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700 text-center">DATA</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700 text-right">VALOR TOTAL</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 border-r border-slate-300 dark:border-stone-700 text-center">STATUS</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 text-center">AÇÕES</th>
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 shadow-sm">
+              <tr className="bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-[10px] font-black uppercase text-black dark:text-stone-300 select-none">
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black border-r border-r-black/20 dark:border-stone-700">DOCUMENTO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black border-r border-r-black/20 dark:border-stone-700">FORNECEDOR / TRANSPORTADORA</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black border-r border-r-black/20 dark:border-stone-700">VEÍCULO VINCULADO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black border-r border-r-black/20 dark:border-stone-700 text-center">DATA</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black border-r border-r-black/20 dark:border-stone-700 text-right">VALOR TOTAL</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black border-r border-r-black/20 dark:border-stone-700 text-center">STATUS</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-2 border-b border-black text-center">AÇÕES</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800 text-slate-800 dark:text-stone-200">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800 text-slate-900 dark:text-stone-200">
               {filteredDocuments.length === 0 ? (
                 <tr key="empty_fiscal_category_docs">
-                  <td colSpan={7} className="py-4 text-center text-slate-500 font-semibold uppercase text-xs">
+                  <td colSpan={7} className="py-8 text-center bg-[#e0e6f1] text-slate-600 font-semibold uppercase text-xs">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (
                 filteredDocuments.map((doc, docIdx) => (
-                  <tr key={`fiscal_doc_${doc.id || docIdx}_${docIdx}`} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={`fiscal_doc_${doc.id || docIdx}_${docIdx}`} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-1 px-2 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {doc.number}
                     </td>

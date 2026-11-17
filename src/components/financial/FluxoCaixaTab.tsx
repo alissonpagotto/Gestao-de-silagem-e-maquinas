@@ -357,37 +357,37 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
   const isQuebra = temValorDigitado && diferencaCalculada < -0.005;
 
   return (
-    <div className="space-y-3.5 animate-in fade-in duration-150">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-in fade-in duration-150">
       
       {/* =========================================================================
           CENÁRIO 1: CAIXA ESTÁ FECHADO (ABERTURA DE CAIXA PADRÃO OURO)
          ========================================================================= */}
       {caixa.status !== 'ABERTO' ? (
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
           {/* Card Principal de Abertura */}
-          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-5 sm:p-7 shadow-xs max-w-2xl mx-auto my-6 text-center">
-            <div className="w-14 h-14 mx-auto mb-3.5 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-xs">
-              <Lock className="w-7 h-7" />
+          <div className="shrink-0 bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg p-3.5 sm:p-4 shadow-xs max-w-2xl mx-auto w-full text-center">
+            <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-[#cad4e6] dark:bg-amber-950/60 border border-black dark:border-amber-700 flex items-center justify-center text-amber-800 dark:text-amber-300 shadow-xs">
+              <Lock className="w-5 h-5" />
             </div>
 
-            <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white uppercase tracking-tight">
+            <h2 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white uppercase tracking-tight">
               🔓 ABERTURA DE CAIXA DIÁRIO
             </h2>
-            <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-stone-400 uppercase tracking-wider my-2">
-              <User className="w-3.5 h-3.5 text-slate-400" />
-              <span>👤 OPERADOR DE ABERTURA: <strong className="text-zinc-800 dark:text-stone-200">{operadorLogado}</strong></span>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-stone-400 uppercase tracking-wider my-1">
+              <User className="w-3.5 h-3.5 text-slate-600" />
+              <span>👤 OPERADOR DE ABERTURA: <strong className="text-zinc-900 dark:text-stone-200">{operadorLogado}</strong></span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-stone-400 font-medium max-w-md mx-auto mt-1 mb-5">
-              O caixa operacional está atualmente fechado. Informe o fundo de troco ou saldo de gaveta para iniciar as movimentações do dia e liberar as vendas no PDV.
+            <p className="text-[11px] text-slate-700 dark:text-stone-400 font-medium max-w-md mx-auto mt-0.5 mb-3">
+              O caixa operacional está fechado. Informe o fundo de troco para iniciar as movimentações e liberar as vendas no PDV.
             </p>
 
-            <form onSubmit={handleConfirmarAbertura} className="max-w-md mx-auto space-y-3.5">
+            <form onSubmit={handleConfirmarAbertura} className="max-w-md mx-auto space-y-2.5">
               <div className="text-left">
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 uppercase mb-1">
+                <label className="block text-[10.5px] font-black text-slate-800 dark:text-stone-300 uppercase mb-1">
                   VALOR INICIAL DE TROCO / FUNDO DE GAVETA *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-600 text-sm">
                     R$
                   </span>
                   <input
@@ -397,17 +397,14 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                     placeholder="0,00"
                     autoFocus
                     required
-                    className="w-full pl-10 pr-3 py-2 text-base font-black rounded-lg border border-slate-300 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-mono"
+                    className="w-full pl-10 pr-3 py-1.5 text-sm font-black rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-mono"
                   />
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-stone-500 font-medium mt-1 block">
-                  Ex: 100,00 ou 250,50 (Pode iniciar com 0,00 se não houver troco)
-                </span>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-sm transition active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-2 px-4 rounded-lg bg-gradient-to-b from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white font-black text-xs uppercase tracking-wider border border-black shadow-sm transition active:scale-95 cursor-pointer flex items-center justify-center gap-2"
               >
                 <Unlock className="w-4 h-4" />
                 <span>ABRIR CAIXA OPERACIONAL</span>
@@ -416,14 +413,14 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           </div>
 
           {/* Histórico Recente de Fechamentos */}
-          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-xs">
-            <div className="p-3 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+          <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs">
+            <div className="shrink-0 p-2.5 bg-[#cad4e6] dark:bg-stone-850 border-b border-black dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-slate-600 dark:text-stone-300" />
+                <History className="w-4 h-4 text-slate-800 dark:text-stone-300" />
                 <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
                   HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES
                 </span>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
+                <span className="text-[10px] font-bold text-slate-700 dark:text-stone-400">
                   ({historicoFiltrado.length} registro{historicoFiltrado.length !== 1 ? 's' : ''})
                 </span>
               </div>
@@ -435,24 +432,24 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
               />
             </div>
 
-            <div className="max-h-[calc(100vh-340px)] overflow-y-auto overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-slate-900 dark:text-stone-300 uppercase text-[10px] font-black border-b border-black dark:border-stone-700">
                   <tr>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">ID Caixa</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Abertura</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Fechamento</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Inicial</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Vendas PDV</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Apurado</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-center">Diferença</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Reimpressão</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">ID Caixa</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Abertura</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Fechamento</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Inicial</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Vendas PDV</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Apurado</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-center">Diferença</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Reimpressão</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-stone-800">
+                <tbody className="bg-[#e0e6f1] dark:bg-stone-900">
                   {historicoFiltrado.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-6 text-center text-slate-400 dark:text-stone-500 font-medium">
+                    <tr className="bg-[#e0e6f1]">
+                      <td colSpan={8} className="py-8 text-center text-slate-700 dark:text-stone-500 font-bold uppercase text-xs bg-[#e0e6f1]">
                         Nenhum fechamento de caixa registrado para a competência {effectiveCompetence}.
                       </td>
                     </tr>
@@ -461,12 +458,12 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                       const t = calcularTotaisCaixa(cx);
                       const dif = Number(cx.diferenca || 0);
                       return (
-                        <tr key={cx.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/40 dark:odd:bg-stone-900 hover:bg-slate-100 dark:hover:bg-stone-800/70 transition">
+                        <tr key={cx.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800/70 border-b border-black/20 transition">
                           <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white">{cx.id}</td>
-                          <td className="py-1.5 px-3 text-slate-600 dark:text-stone-300">{cx.dataHoraAbertura || cx.dataAbertura}</td>
-                          <td className="py-1.5 px-3 text-slate-600 dark:text-stone-300">{cx.dataHoraFechamento || cx.dataFechamento || '-'}</td>
+                          <td className="py-1.5 px-3 text-slate-700 dark:text-stone-300">{cx.dataHoraAbertura || cx.dataAbertura}</td>
+                          <td className="py-1.5 px-3 text-slate-700 dark:text-stone-300">{cx.dataHoraFechamento || cx.dataFechamento || '-'}</td>
                           <td className="py-1.5 px-3 text-right font-medium">{formatCurrencyBRL(cx.valorAbertura)}</td>
-                          <td className="py-1.5 px-3 text-right font-medium text-emerald-600">{formatCurrencyBRL(t.totalVendasPdv)}</td>
+                          <td className="py-1.5 px-3 text-right font-bold text-emerald-700">{formatCurrencyBRL(t.totalVendasPdv)}</td>
                           <td className="py-1.5 px-3 text-right font-bold text-zinc-900 dark:text-white">{formatCurrencyBRL(cx.valorFechamentoReal)}</td>
                           <td className="py-1.5 px-3 text-center">
                             <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded ${
@@ -484,7 +481,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                               <button
                                 type="button"
                                 onClick={() => dispararImpressaoRelatorioCaixa(cx, companyProfile, 'a4')}
-                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-zinc-800 dark:text-white transition cursor-pointer"
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-white hover:bg-slate-200 border border-black/40 text-zinc-900 transition cursor-pointer"
                                 title="Reimprimir em Folha A4"
                               >
                                 📄 A4
@@ -492,7 +489,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                               <button
                                 type="button"
                                 onClick={() => dispararImpressaoRelatorioCaixa(cx, companyProfile, 'termica')}
-                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-zinc-800 dark:text-white transition cursor-pointer"
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-white hover:bg-slate-200 border border-black/40 text-zinc-900 transition cursor-pointer"
                                 title="Reimprimir em Cupom Térmico 80mm"
                               >
                                 📟 80MM
@@ -512,88 +509,88 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
         /* =========================================================================
             CENÁRIO 2: CAIXA ESTÁ ABERTO (PAINEL MDI SLIM PRO COMPLETO)
            ========================================================================= */
-        <div className="space-y-3.5">
+        <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
           
-          {/* TOPO: INDICADORES MICRO COM SOFT COLORS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          {/* TOPO: INDICADORES */}
+          <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
             {/* Card 1: Saldo Inicial */}
-            <div className="bg-gradient-to-b from-blue-50/70 to-blue-100/50 dark:from-blue-950/30 dark:to-stone-900 border border-blue-200 dark:border-blue-900/60 rounded-xl p-3 shadow-2xs">
-              <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider block">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-blue-900/60 rounded-lg p-2.5 shadow-2xs">
+              <span className="text-[10px] font-black text-slate-700 dark:text-blue-300 uppercase tracking-wider block">
                 (+) SALDO INICIAL
               </span>
-              <div className="text-base sm:text-lg font-black text-blue-950 dark:text-blue-100 font-mono mt-0.5">
+              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-blue-100 font-mono mt-0.5">
                 {formatCurrencyBRL(totais.saldoInicial)}
               </div>
-              <span className="text-[9.5px] font-semibold text-blue-600/80 dark:text-blue-400 mt-1 block">
+              <span className="text-[9.5px] font-semibold text-slate-700 dark:text-blue-400 mt-0.5 block">
                 FUNDO DE TROCO INICIAL
               </span>
             </div>
 
             {/* Card 2: Vendas PDV Dinheiro */}
-            <div className="bg-gradient-to-b from-emerald-50/70 to-emerald-100/50 dark:from-emerald-950/30 dark:to-stone-900 border border-emerald-200 dark:border-emerald-900/60 rounded-xl p-3 shadow-2xs">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-emerald-900/60 rounded-lg p-2.5 shadow-2xs">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
+                <span className="text-[10px] font-black text-slate-700 dark:text-emerald-300 uppercase tracking-wider block">
                   (+) VENDAS PDV (DINHEIRO)
                 </span>
-                <span className="text-[9px] font-bold bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 px-1 py-0.2 rounded">
+                <span className="text-[9px] font-bold bg-[#cad4e6] border border-black/40 text-slate-900 px-1.5 py-0.2 rounded">
                   {caixa.vendasPdv?.length || 0}
                 </span>
               </div>
-              <div className="text-base sm:text-lg font-black text-emerald-950 dark:text-emerald-100 font-mono mt-0.5">
+              <div className="text-base sm:text-lg font-black text-emerald-800 dark:text-emerald-100 font-mono mt-0.5">
                 {formatCurrencyBRL(totais.vendasDinheiro)}
               </div>
-              <span className="text-[9.5px] font-semibold text-emerald-700/80 dark:text-emerald-400 mt-1 block">
+              <span className="text-[9.5px] font-semibold text-slate-700 dark:text-emerald-400 mt-0.5 block">
                 PIX: {formatCurrencyBRL(totais.vendasPix)}
               </span>
             </div>
 
             {/* Card 3: Suprimentos */}
-            <div className="bg-gradient-to-b from-cyan-50/70 to-cyan-100/50 dark:from-cyan-950/30 dark:to-stone-900 border border-cyan-200 dark:border-cyan-900/60 rounded-xl p-3 shadow-2xs">
-              <span className="text-[10px] font-bold text-cyan-800 dark:text-cyan-300 uppercase tracking-wider block">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-cyan-900/60 rounded-lg p-2.5 shadow-2xs">
+              <span className="text-[10px] font-black text-slate-700 dark:text-cyan-300 uppercase tracking-wider block">
                 (+) SUPRIMENTOS
               </span>
-              <div className="text-base sm:text-lg font-black text-cyan-950 dark:text-cyan-100 font-mono mt-0.5">
+              <div className="text-base sm:text-lg font-black text-cyan-900 dark:text-cyan-100 font-mono mt-0.5">
                 {formatCurrencyBRL(totais.totalSuprimentos)}
               </div>
-              <span className="text-[9.5px] font-semibold text-cyan-700/80 dark:text-cyan-400 mt-1 block">
+              <span className="text-[9.5px] font-semibold text-slate-700 dark:text-cyan-400 mt-0.5 block">
                 {caixa.suprimentos?.length || 0} ENTRADA(S) MANUAL(IS)
               </span>
             </div>
 
             {/* Card 4: Sangrias */}
-            <div className="bg-gradient-to-b from-rose-50/70 to-rose-100/50 dark:from-rose-950/30 dark:to-stone-900 border border-rose-200 dark:border-rose-900/60 rounded-xl p-3 shadow-2xs">
-              <span className="text-[10px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider block">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-rose-900/60 rounded-lg p-2.5 shadow-2xs">
+              <span className="text-[10px] font-black text-slate-700 dark:text-rose-300 uppercase tracking-wider block">
                 (-) SANGRIAS
               </span>
-              <div className="text-base sm:text-lg font-black text-rose-950 dark:text-rose-100 font-mono mt-0.5">
+              <div className="text-base sm:text-lg font-black text-rose-800 dark:text-rose-100 font-mono mt-0.5">
                 {formatCurrencyBRL(totais.totalSangrias)}
               </div>
-              <span className="text-[9.5px] font-semibold text-rose-700/80 dark:text-rose-400 mt-1 block">
+              <span className="text-[9.5px] font-semibold text-slate-700 dark:text-rose-400 mt-0.5 block">
                 {caixa.sangrias?.length || 0} RETIRADA(S) MANUAL(IS)
               </span>
             </div>
 
             {/* Card 5: Saldo Atual em Dinheiro */}
-            <div className="bg-gradient-to-b from-amber-50 to-amber-100/70 dark:from-amber-950/40 dark:to-stone-900 border-2 border-amber-400/80 dark:border-amber-600 rounded-xl p-3 shadow-xs">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-amber-600 rounded-lg p-2.5 shadow-xs">
               <span className="text-[10px] font-black text-amber-900 dark:text-amber-300 uppercase tracking-wider block">
                 (=) SALDO ATUAL EM DINHEIRO
               </span>
-              <div className="text-lg sm:text-xl font-black text-amber-950 dark:text-amber-200 font-mono mt-0.5">
+              <div className="text-lg sm:text-xl font-black text-slate-900 dark:text-amber-200 font-mono mt-0.5">
                 {formatCurrencyBRL(totais.saldoAtualDinheiro)}
               </div>
-              <span className="text-[9.5px] font-bold text-amber-800 dark:text-amber-400 mt-1 block">
+              <span className="text-[9.5px] font-bold text-slate-700 dark:text-amber-400 mt-0.5 block">
                 VALOR ESPERADO NA GAVETA
               </span>
             </div>
           </div>
 
           {/* CENTRO: BARRA DE AÇÕES SLIM COM 3 BOTÕES */}
-          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl p-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+          <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg p-2 shadow-2xs flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wide">
+              <span className="text-xs font-black text-slate-800 dark:text-stone-400 uppercase tracking-wide">
                 OPERACIONAL:
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-black/40">
                 CAIXA {caixa.id} (ABERTO DESDE {caixa.dataHoraAbertura || caixa.dataAbertura})
               </span>
             </div>
@@ -603,7 +600,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSuprimentoModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white font-bold text-xs uppercase tracking-wider shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1 rounded-lg bg-gradient-to-b from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 text-white font-bold text-xs uppercase tracking-wider border border-black shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>📥 [+] SUPRIMENTO DE CAIXA</span>
@@ -613,7 +610,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSangriaModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-xs uppercase tracking-wider shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1 rounded-lg bg-gradient-to-b from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-xs uppercase tracking-wider border border-black shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
                 <MinusCircle className="w-3.5 h-3.5" />
                 <span>📤 [-] SANGRIA DE CAIXA</span>
@@ -623,7 +620,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
               <button
                 type="button"
                 onClick={() => setIsFecharModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white font-black text-xs uppercase tracking-wider shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                className="px-3.5 py-1 rounded-lg bg-gradient-to-b from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white font-black text-xs uppercase tracking-wider border border-black shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
                 title="Pressione F12 para abrir rapidamente"
               >
                 <Lock className="w-3.5 h-3.5" />
@@ -632,21 +629,20 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
             </div>
           </div>
 
-          {/* EXTRATO COMPACTO EM LINHA ÚNICA ZEBRADA (SLIM PRO) */}
-          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
+          {/* EXTRATO COMPACTO DO CICLO ATIVO */}
+          <div className="flex-[2] min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-2xs">
             {/* Toolbar do Extrato */}
-            <div className="p-2.5 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2">
+            <div className="shrink-0 p-2 bg-[#cad4e6] dark:bg-stone-850 border-b border-black dark:border-stone-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
                   EXTRATO DE MOVIMENTAÇÕES DO CICLO ATIVO:
                 </span>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
+                <span className="text-[10px] font-bold text-slate-700 dark:text-stone-400">
                   ({extratoFiltrado.length} lançamentos)
                 </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* Seletor de Competência Padronizado por Setas (< Competência: MM/AAAA >) */}
                 <CompetenceSelector
                   competence={effectiveCompetence}
                   onPrev={handlePrevComp}
@@ -654,12 +650,12 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                 />
 
                 {/* Abas Rápidas do Extrato */}
-                <div className="flex items-center bg-slate-200 dark:bg-stone-800 p-0.5 rounded-lg border border-slate-300 dark:border-stone-700 text-[10px] font-bold">
+                <div className="flex items-center bg-[#e0e6f1] dark:bg-stone-800 p-0.5 rounded-lg border border-black/40 dark:border-stone-700 text-[10px] font-bold">
                   <button
                     type="button"
                     onClick={() => setFiltroExtrato('todos')}
                     className={`px-2 py-0.5 rounded cursor-pointer transition ${
-                      filtroExtrato === 'todos' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-stone-400'
+                      filtroExtrato === 'todos' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-700 dark:text-stone-400'
                     }`}
                   >
                     TODOS
@@ -668,7 +664,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                     type="button"
                     onClick={() => setFiltroExtrato('vendas')}
                     className={`px-2 py-0.5 rounded cursor-pointer transition ${
-                      filtroExtrato === 'vendas' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-stone-400'
+                      filtroExtrato === 'vendas' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-700 dark:text-stone-400'
                     }`}
                   >
                     VENDAS PDV
@@ -677,7 +673,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                     type="button"
                     onClick={() => setFiltroExtrato('suprimentos')}
                     className={`px-2 py-0.5 rounded cursor-pointer transition ${
-                      filtroExtrato === 'suprimentos' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-stone-400'
+                      filtroExtrato === 'suprimentos' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-700 dark:text-stone-400'
                     }`}
                   >
                     SUPRIMENTOS
@@ -686,7 +682,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                     type="button"
                     onClick={() => setFiltroExtrato('sangrias')}
                     className={`px-2 py-0.5 rounded cursor-pointer transition ${
-                      filtroExtrato === 'sangrias' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-stone-400'
+                      filtroExtrato === 'sangrias' ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-slate-700 dark:text-stone-400'
                     }`}
                   >
                     SANGRIAS
@@ -695,34 +691,34 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
 
                 {/* Campo de Busca Rápida */}
                 <div className="relative">
-                  <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3 h-3 text-slate-500 absolute left-2 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={buscaExtrato}
                     onChange={(e) => setBuscaExtrato(e.target.value)}
                     placeholder="Filtrar lançamentos..."
-                    className="pl-6 pr-2 py-0.5 text-xs rounded border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36 sm:w-48 font-medium"
+                    className="pl-6 pr-2 py-0.5 text-xs rounded border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36 sm:w-48 font-medium"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Tabela Zebrada py-1 */}
-            <div className="max-h-[380px] overflow-y-auto overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
+            {/* Tabela */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-slate-900 dark:text-stone-300 uppercase text-[10px] font-black border-b border-black dark:border-stone-700">
                   <tr>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Horário</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Tipo</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Descrição / Detalhes</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Forma Pgto</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Valor Líquido</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Horário</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Tipo</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Descrição / Detalhes</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Forma Pgto</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Valor Líquido</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium">
+                <tbody className="bg-[#e0e6f1] dark:bg-stone-900 font-medium">
                   {extratoFiltrado.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-400 dark:text-stone-500">
+                    <tr className="bg-[#e0e6f1]">
+                      <td colSpan={5} className="py-6 text-center text-slate-700 dark:text-stone-500 font-bold uppercase text-xs bg-[#e0e6f1]">
                         Nenhuma movimentação registrada para este filtro até o momento.
                       </td>
                     </tr>
@@ -735,9 +731,9 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                       return (
                         <tr
                           key={item.id}
-                          className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/40 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800/70 transition"
+                          className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800/70 border-b border-black/20 transition"
                         >
-                          <td className="py-1 px-3 text-slate-600 dark:text-stone-300 font-mono text-[11px] whitespace-nowrap">
+                          <td className="py-1 px-3 text-slate-700 dark:text-stone-300 font-mono text-[11px] whitespace-nowrap">
                             {item.dataHora}
                           </td>
                           <td className="py-1 px-3 whitespace-nowrap">
@@ -756,7 +752,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                           <td className="py-1 px-3 text-zinc-900 dark:text-white font-bold truncate max-w-xs sm:max-w-md">
                             {item.descricao}
                           </td>
-                          <td className="py-1 px-3 text-slate-600 dark:text-stone-300 uppercase text-[11px] whitespace-nowrap">
+                          <td className="py-1 px-3 text-slate-700 dark:text-stone-300 uppercase text-[11px] whitespace-nowrap">
                             {item.formaPagamento}
                           </td>
                           <td
@@ -778,40 +774,40 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
           </div>
 
           {/* HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES NA COMPETÊNCIA SELECIONADA */}
-          <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-xs mt-3">
-            <div className="p-3 bg-slate-100 dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 flex items-center justify-between">
+          <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs">
+            <div className="shrink-0 p-2 bg-[#cad4e6] dark:bg-stone-850 border-b border-black dark:border-stone-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-slate-600 dark:text-stone-300" />
+                <History className="w-4 h-4 text-slate-800 dark:text-stone-300" />
                 <span className="text-xs font-black uppercase text-zinc-900 dark:text-white">
                   HISTÓRICO DE FECHAMENTOS DE CAIXA ANTERIORES
                 </span>
-                <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-300">
+                <span className="text-[10px] font-bold text-emerald-900 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-black/40">
                   Competência {effectiveCompetence}
                 </span>
               </div>
-              <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400">
+              <span className="text-[10px] font-bold text-slate-700 dark:text-stone-400">
                 {historicoFiltrado.length} registro{historicoFiltrado.length !== 1 ? 's' : ''}
               </span>
             </div>
 
-            <div className="max-h-[340px] overflow-y-auto overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold border-b border-slate-300 dark:border-stone-700 shadow-sm">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-slate-900 dark:text-stone-300 uppercase text-[10px] font-black border-b border-black dark:border-stone-700">
                   <tr>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">ID Caixa</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Abertura</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Fechamento</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Inicial</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Vendas PDV</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Apurado</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-center">Diferença</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Reimpressão</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">ID Caixa</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Abertura</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3">Fechamento</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Inicial</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Vendas PDV</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Saldo Apurado</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-center">Diferença</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-1.5 px-3 text-right">Reimpressão</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium">
+                <tbody className="bg-[#e0e6f1] dark:bg-stone-900 font-medium">
                   {historicoFiltrado.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-6 text-center text-slate-400 dark:text-stone-500">
+                    <tr className="bg-[#e0e6f1]">
+                      <td colSpan={8} className="py-6 text-center text-slate-700 dark:text-stone-500 font-bold uppercase text-xs bg-[#e0e6f1]">
                         Nenhum fechamento de caixa registrado para a competência {effectiveCompetence}.
                       </td>
                     </tr>
@@ -820,12 +816,12 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                       const t = calcularTotaisCaixa(cx);
                       const dif = Number(cx.diferenca || 0);
                       return (
-                        <tr key={cx.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/40 dark:odd:bg-stone-900 hover:bg-slate-100 dark:hover:bg-stone-800/70 transition">
+                        <tr key={cx.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800/70 border-b border-black/20 transition">
                           <td className="py-1.5 px-3 font-bold text-zinc-900 dark:text-white">{cx.id}</td>
-                          <td className="py-1.5 px-3 text-slate-600 dark:text-stone-300">{cx.dataHoraAbertura || cx.dataAbertura}</td>
-                          <td className="py-1.5 px-3 text-slate-600 dark:text-stone-300">{cx.dataHoraFechamento || cx.dataFechamento || '-'}</td>
+                          <td className="py-1.5 px-3 text-slate-700 dark:text-stone-300">{cx.dataHoraAbertura || cx.dataAbertura}</td>
+                          <td className="py-1.5 px-3 text-slate-700 dark:text-stone-300">{cx.dataHoraFechamento || cx.dataFechamento || '-'}</td>
                           <td className="py-1.5 px-3 text-right font-medium">{formatCurrencyBRL(cx.valorAbertura)}</td>
-                          <td className="py-1.5 px-3 text-right font-medium text-emerald-600">{formatCurrencyBRL(t.totalVendasPdv)}</td>
+                          <td className="py-1.5 px-3 text-right font-bold text-emerald-700">{formatCurrencyBRL(t.totalVendasPdv)}</td>
                           <td className="py-1.5 px-3 text-right font-bold text-zinc-900 dark:text-white">{formatCurrencyBRL(cx.valorFechamentoReal)}</td>
                           <td className="py-1.5 px-3 text-center">
                             <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded ${
@@ -843,7 +839,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
                               <button
                                 type="button"
                                 onClick={() => dispararImpressaoRelatorioCaixa(cx, companyProfile, 'a4')}
-                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-zinc-800 dark:text-white transition cursor-pointer"
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-white hover:bg-slate-200 border border-black/40 text-zinc-900 transition cursor-pointer"
                                 title="Reimprimir em Folha A4"
                               >
                                 📄 A4

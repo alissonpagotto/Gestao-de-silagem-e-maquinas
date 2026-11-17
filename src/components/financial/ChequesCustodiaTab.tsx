@@ -524,7 +524,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 p-3.5 bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-2">
@@ -534,18 +534,18 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       )}
 
       {/* CARDS KPI SUPERIORES: ESTATÍSTICAS DA CUSTÓDIA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
         {/* Card 1: Em Carteira (Custódia Ativa) */}
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-400">
               Total em Carteira (Custódia)
             </span>
             <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
               <WalletCards className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1.5">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(stats.totalCustodia)}
           </div>
           <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center space-x-1">
@@ -555,16 +555,16 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
         </div>
 
         {/* Card 2: Compensados */}
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-400">
               Total Compensado / Liquidado
             </span>
             <span className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300">
               <CheckCircle2 className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1.5">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(stats.totalCompensado)}
           </div>
           <div className="text-[11px] font-bold text-sky-700 dark:text-sky-400 mt-1 flex items-center space-x-1">
@@ -574,16 +574,16 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
         </div>
 
         {/* Card 3: Repassados (Utilizados em Pagamentos) */}
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-400">
               Repassados (Pagamentos)
             </span>
             <span className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300">
               <ArrowUpRight className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1.5">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(stats.totalRepassado)}
           </div>
           <div className="text-[11px] font-bold text-violet-700 dark:text-violet-400 mt-1 flex items-center space-x-1">
@@ -593,16 +593,16 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
         </div>
 
         {/* Card 4: Devolvidos / Sustados */}
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-400">
               Devolvidos / Sustados
             </span>
             <span className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300">
               <AlertTriangle className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1.5">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(stats.totalDevolvido)}
           </div>
           <div className="text-[11px] font-bold text-rose-700 dark:text-rose-400 mt-1 flex items-center space-x-1">
@@ -612,16 +612,16 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
         </div>
 
         {/* Card 5: Volume Geral Cadastrado */}
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-400">
               Volume Total de Cheques
             </span>
             <span className="p-1.5 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-800 dark:text-stone-300">
               <DollarSign className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1.5">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(stats.totalGeral)}
           </div>
           <div className="text-[11px] font-bold text-slate-600 dark:text-stone-400 mt-1">
@@ -631,29 +631,29 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       </div>
 
       {/* BARRA DE FERRAMENTAS E FILTROS */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs space-y-2">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           {/* Busca por texto */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-500" />
             <input
               type="text"
               placeholder="Buscar por n° do cheque, emitente, CPF/CNPJ ou banco emissor..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-xs border border-slate-300 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
+              className="w-full pl-10 pr-4 py-1.5 text-xs border border-slate-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-emerald-600"
             />
           </div>
 
           {/* Navegador de Competência Opcional */}
           {competenceMonth && (
             <div className="flex items-center space-x-2 shrink-0">
-              <label className="flex items-center space-x-1.5 cursor-pointer text-xs font-bold text-slate-700 dark:text-stone-300 select-none">
+              <label className="flex items-center space-x-1.5 cursor-pointer text-xs font-bold text-slate-800 dark:text-stone-300 select-none">
                 <input
                   type="checkbox"
                   checked={filterByCompetence}
                   onChange={(e) => setFilterByCompetence(e.target.checked)}
-                  className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                  className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-400 focus:ring-emerald-500"
                 />
                 <span className="text-[11px] uppercase tracking-wide">Filtrar mês:</span>
               </label>
@@ -672,7 +672,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
           <button
             type="button"
             onClick={() => setIsNewChequeModalOpen(true)}
-            className="flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-xs shrink-0 active:scale-95"
+            className="flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-xs shrink-0 active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Novo Cheque Avulso</span>
@@ -680,9 +680,9 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
         </div>
 
         {/* Linha de Filtros Rápidos de Status e Conta */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-stone-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/20 dark:border-stone-800">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400 mr-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-black dark:text-stone-400 mr-1">
               Status:
             </span>
             {[
@@ -700,7 +700,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
                   statusFilter === tab.id
                     ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-2xs'
-                    : 'bg-white dark:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-300 dark:border-stone-700 hover:bg-slate-100 dark:hover:bg-stone-700/60'
+                    : 'bg-white dark:bg-stone-800 text-slate-800 dark:text-stone-300 border-slate-400 dark:border-stone-700 hover:bg-slate-100 dark:hover:bg-stone-700/60'
                 }`}
               >
                 {tab.label}
@@ -709,13 +709,13 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-stone-400">
+            <span className="text-[10px] font-black uppercase tracking-wider text-black dark:text-stone-400">
               Conta de Destino:
             </span>
             <select
               value={accountFilter}
               onChange={(e) => setAccountFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-800 dark:text-stone-200 font-semibold outline-none cursor-pointer"
+              className="px-2.5 py-1 text-xs border border-slate-400 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-200 font-semibold outline-none cursor-pointer"
             >
               <option value="all">Todas as Contas</option>
               {bankAccounts.map(acc => (
@@ -729,32 +729,32 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       </div>
 
       {/* TABELA DE CONTROLE E CUSTÓDIA DE CHEQUES */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-2xl shadow-xs overflow-hidden">
-        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg shadow-xs overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-              <tr className="bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 font-black uppercase tracking-wider text-[10px]">
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">N° Cheque</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Vencimento / Bom Para</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Emitente / CPF-CNPJ</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Banco de Origem</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5">Valor (R$)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 min-w-[220px]">Conta de Destino da Empresa</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-3.5 text-right">Ações</th>
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 shadow-sm">
+              <tr className="bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-stone-300 font-black uppercase tracking-wider text-[10px]">
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">N° Cheque</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Vencimento / Bom Para</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Emitente / CPF-CNPJ</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Banco de Origem</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">Valor (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 min-w-[200px]">Conta de Destino da Empresa</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
               {filteredCheques.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-stone-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-600 bg-[#e0e6f1] dark:text-stone-400">
                     <div className="flex flex-col items-center justify-center space-y-2">
-                      <WalletCards className="w-8 h-8 text-slate-400 stroke-[1.5]" />
+                      <WalletCards className="w-8 h-8 text-slate-500 stroke-[1.5]" />
                       <p className="font-semibold text-xs">Nenhum cheque encontrado para os filtros selecionados.</p>
                       <button
                         type="button"
                         onClick={() => { setSearchTerm(''); setStatusFilter('all'); setAccountFilter('all'); }}
-                        className="text-[11px] text-emerald-600 font-bold hover:underline cursor-pointer"
+                        className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer"
                       >
                         Limpar todos os filtros
                       </button>
@@ -784,7 +784,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
                   return (
                     <tr 
                       key={c.id}
-                      className="hover:bg-slate-50/80 dark:hover:bg-stone-850/50 transition"
+                      className="bg-[#e0e6f1] hover:bg-[#d2dced] border-b border-black/20 dark:hover:bg-stone-850/50 transition"
                     >
                       {/* 1. Status do Cheque */}
                       <td className="py-3 px-3.5 whitespace-nowrap">

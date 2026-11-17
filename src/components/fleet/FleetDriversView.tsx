@@ -429,18 +429,18 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   };
 
   return (
-    <div className="space-y-3 animate-in fade-in duration-200">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-in fade-in duration-200">
       
       {/* Compact Top Bar: Title + Interactive CNH Stat Badges */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 bg-white dark:bg-stone-900 p-2.5 sm:p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs no-print print:hidden">
+      <div className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 bg-[#cad4e6] dark:bg-stone-900 p-2.5 rounded-lg border border-black dark:border-stone-800 shadow-xs no-print print:hidden">
         
         {/* Left: Title & Subtitle */}
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 text-black dark:text-stone-300 border border-black flex items-center justify-center shrink-0">
             <UserCheck className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-stone-900 dark:text-stone-100 font-['Outfit'] leading-tight">
+            <h2 className="text-sm font-bold text-black dark:text-stone-100 font-['Outfit'] leading-tight">
               Gestão de Motoristas & CNHs
             </h2>
           </div>
@@ -452,8 +452,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             onClick={() => setFilterCnh(filterCnh === 'em_dia' ? 'todos' : 'em_dia')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center space-x-1.5 ${
               filterCnh === 'em_dia'
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
+                ? 'bg-emerald-600 text-white border-black shadow-xs'
+                : 'bg-[#e0e6f1] text-emerald-900 border-black dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 hover:bg-[#d2dced]'
             }`}
             title="Filtrar CNH em dia"
           >
@@ -465,8 +465,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             onClick={() => setFilterCnh(filterCnh === 'vencendo' ? 'todos' : 'vencendo')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center space-x-1.5 ${
               filterCnh === 'vencendo'
-                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100'
+                ? 'bg-amber-600 text-white border-black shadow-xs'
+                : 'bg-[#e0e6f1] text-amber-900 border-black dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800 hover:bg-[#d2dced]'
             }`}
             title="Filtrar CNH a vencer em 30 dias"
           >
@@ -478,8 +478,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             onClick={() => setFilterCnh(filterCnh === 'vencidas' ? 'todos' : 'vencidas')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center space-x-1.5 ${
               filterCnh === 'vencidas'
-                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100'
+                ? 'bg-rose-600 text-white border-black shadow-xs'
+                : 'bg-[#e0e6f1] text-rose-900 border-black dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800 hover:bg-[#d2dced]'
             }`}
             title="Filtrar CNH vencida"
           >
@@ -491,18 +491,18 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       </div>
 
       {/* Compact Search & Filter Toolbar (conforme simetria da aba de Veículos) */}
-      <div className="bg-white dark:bg-stone-900 p-2 sm:p-2.5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col lg:flex-row items-center justify-between gap-2.5 no-print print:hidden">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 p-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-col lg:flex-row items-center justify-between gap-2.5 no-print print:hidden">
         
         {/* Lado Esquerdo: Busca */}
         <div className="flex flex-1 items-center gap-2 max-w-md min-w-0 w-full lg:w-auto">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar motorista, CNH ou telefone..."
-              className="w-full pl-8.5 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-sky-600"
+              className="w-full pl-8.5 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-sky-600"
             />
           </div>
         </div>
@@ -521,7 +521,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               }
             }}
             title="Cadastrar Novo Motorista (Centralizado no Módulo RH)"
-            className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] border border-emerald-700/60 text-white text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+            className="px-3.5 py-1.5 rounded-lg bg-[#059669] hover:bg-[#047857] border border-black/40 text-white text-xs font-bold uppercase shadow-xs transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
           >
             <Plus className="w-4 h-4 text-white stroke-[2.5]" />
             <span>+ CADASTRAR MOTORISTA</span>
@@ -533,16 +533,16 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             id="btn-imprimir-lista-motoristas"
             onClick={handlePrint}
             title="Visualizar e Imprimir Lista de Motoristas em Folha A4"
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+            className="px-3.5 py-1.5 rounded-lg bg-[#e0e6f1] hover:bg-[#d2dced] dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-black dark:border-stone-600 text-black dark:text-stone-100 text-xs font-bold uppercase shadow-2xs transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <Printer className="w-3.5 h-3.5 text-black dark:text-stone-300" />
             <span>IMPRIMIR LISTA</span>
           </button>
 
           <select
             value={filterCnh}
             onChange={(e) => setFilterCnh(e.target.value as any)}
-            className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
           >
             <option value="todos">Todos os Motoristas ({driversList.length})</option>
             <option value="em_dia">Apenas CNH em dia ({cnhReport.valid.length})</option>
@@ -551,13 +551,13 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           </select>
 
           {/* View toggle */}
-          <div className="flex items-center bg-zinc-100 dark:bg-stone-800 p-0.5 rounded-xl border border-zinc-300 dark:border-stone-700 shrink-0">
+          <div className="flex items-center bg-[#e0e6f1] dark:bg-stone-800 p-0.5 rounded-lg border border-black dark:border-stone-700 shrink-0">
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
+              className={`p-1.5 rounded-md transition cursor-pointer ${
                 viewMode === 'table'
                   ? 'bg-zinc-800 text-white dark:bg-stone-700 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-stone-200'
+                  : 'text-zinc-700 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-stone-200'
               }`}
               title="Visualização em Lista / Tabela"
             >
@@ -565,10 +565,10 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
+              className={`p-1.5 rounded-md transition cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-zinc-800 text-white dark:bg-stone-700 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-stone-200'
+                  : 'text-zinc-700 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-stone-200'
               }`}
               title="Visualização em Cards"
             >
@@ -579,7 +579,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       </div>
 
       {/* Area de Impressão e Tabela de Motoristas */}
-      <div id="area-tabela-motoristas">
+      <div id="area-tabela-motoristas" className={viewMode === 'table' || driversList.length === 0 ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : 'hidden print:block'}>
         {/* Header exclusivo para impressão em papel A4 */}
         <div className="hidden print:block print-header-area mb-4 border-b-2 border-black pb-2 text-black">
           <div className="flex items-center justify-between">
@@ -636,24 +636,24 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         `}</style>
 
         {/* Drivers Table / List View */}
-        <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' || driversList.length === 0 ? 'block' : 'hidden print:block'}`}>
-          <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto print:max-h-none print:overflow-visible">
+        <div className={`bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 shadow-xs overflow-hidden ${viewMode === 'table' || driversList.length === 0 ? 'flex-1 min-h-0 flex flex-col' : 'hidden print:block'}`}>
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden print:max-h-none print:overflow-visible">
             <table className="w-full text-left border-collapse text-xs">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-                <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Motorista / Cargo</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">CNH & Categoria</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Validade CNH</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Veículo Habitual</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Contato / WhatsApp</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Status</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right no-print print:hidden">Ações</th>
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 shadow-sm">
+                <tr className="border-b border-black dark:border-stone-700 bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3">Motorista / Cargo</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3">CNH & Categoria</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3">Validade CNH</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3">Veículo Habitual</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3">Contato / WhatsApp</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-center">Status</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-right no-print print:hidden">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
+              <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800/60 font-medium">
                 {driversList.length === 0 ? (
                   <tr key="empty_drivers_row">
-                    <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 uppercase">
+                    <td colSpan={7} className="py-8 text-center text-xs font-semibold text-stone-600 bg-[#e0e6f1] uppercase">
                       NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
@@ -667,7 +667,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                     return (
                       <tr
                         key={driver.id}
-                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition group border-b border-slate-200 dark:border-stone-800"
+                        className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition group border-b border-black/20 dark:border-stone-800"
                       >
                         {/* Motorista / Cargo */}
                         <td className="py-1 px-3">
@@ -794,7 +794,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
       {/* Drivers Cards Grid View */}
       {driversList.length > 0 && viewMode === 'grid' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 no-print print:hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-0.5 no-print print:hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {driversList.map((driver) => {
           const isExpired = cnhReport.expired.some(e => e.id === driver.id);
           const isExpiring = cnhReport.expiringSoon.some(e => e.id === driver.id);
@@ -804,12 +805,12 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           return (
             <div
               key={driver.id}
-              className={`bg-white dark:bg-stone-900 rounded-2xl border p-5 shadow-xs transition flex flex-col justify-between space-y-4 ${
+              className={`bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border p-4 shadow-xs transition flex flex-col justify-between space-y-3 ${
                 isExpired
-                  ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20'
+                  ? 'border-rose-600 dark:border-rose-800/80'
                   : isExpiring
-                  ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/20'
-                  : 'border-stone-200 dark:border-stone-800 hover:border-blue-300'
+                  ? 'border-amber-600 dark:border-amber-800/80'
+                  : 'border-black dark:border-stone-800 hover:bg-[#d2dced]'
               }`}
             >
               <div>
@@ -904,6 +905,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
             </div>
           );
         })}
+        </div>
       </div>
       )}
 

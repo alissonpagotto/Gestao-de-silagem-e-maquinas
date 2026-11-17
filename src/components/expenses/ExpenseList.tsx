@@ -480,7 +480,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
 
         {/* Desktop Table View */}
-        <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#e0e6f1] dark:bg-stone-900">
+        <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
           <table className="w-full text-left text-xs text-black dark:text-stone-200 border-collapse">
             <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-200 font-black border-b border-black dark:border-stone-700 uppercase tracking-wider text-[10px]">
               <tr>

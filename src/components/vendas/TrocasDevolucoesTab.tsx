@@ -179,9 +179,9 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* BARRA SUPERIOR: COMPETÊNCIA + BOTÃO PRINCIPAL */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 bg-[#cad4e6] border border-black rounded-lg px-2.5 py-1.5">
         <CompetenceSelector
           competence={competenceMonth}
           onPrev={onPrevCompetence}
@@ -192,7 +192,7 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
           type="button"
           id="btn-nova-troca-devolucao"
           onClick={() => setIsNovaModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider border border-emerald-700/60 shadow-xs transition active:scale-95 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider border border-black shadow-xs transition active:scale-95 cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>+ NOVA TROCA / DEVOLUÇÃO</span>
@@ -200,7 +200,7 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
       </div>
 
       {successNotice && (
-        <div className="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-500 text-emerald-950 px-3 py-2 rounded text-xs font-bold">
+        <div className="shrink-0 flex items-center justify-between gap-2 bg-emerald-50 border border-black text-emerald-950 px-3 py-2 rounded-lg text-xs font-bold">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
             <span>{successNotice}</span>
@@ -218,63 +218,63 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
       {/* 3 CARDS COMPACTOS NO TOPO */}
       <section
         aria-label="Indicadores de Trocas e Devoluções"
-        className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+        className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2"
       >
-        <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 py-2 px-3 shadow-xs">
+        <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 py-2 px-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">
               Total Devolvido no Mês (R$)
             </span>
-            <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <RotateCcw className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
           </div>
           <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
             {formatCurrencyBRL(kpis.totalDevolvidoMes)}
           </div>
-          <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">
+          <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">
             Competência {competenceMonth}
           </span>
         </div>
 
-        <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 py-2 px-3 shadow-xs">
+        <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 py-2 px-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">
               Créditos Ativos de Clientes (Vale-Troca)
             </span>
-            <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <Wallet className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
           </div>
-          <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-400 mt-0.5">
+          <div className="text-base sm:text-lg font-black text-emerald-800 dark:text-emerald-400 mt-0.5">
             {formatCurrencyBRL(kpis.totalCreditosAtivos)}
           </div>
-          <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">
+          <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">
             {kpis.activeCreditsCount} {kpis.activeCreditsCount === 1 ? 'vale ativo' : 'vales ativos'}
           </span>
         </div>
 
-        <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 py-2 px-3 shadow-xs">
+        <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 py-2 px-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">
               Trocas Realizadas
             </span>
-            <ArrowLeftRight className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+            <ArrowLeftRight className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
           </div>
           <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
             {kpis.trocasRealizadasMes}{' '}
-            <span className="text-xs font-semibold text-slate-500 dark:text-stone-400">
+            <span className="text-xs font-semibold text-slate-700 dark:text-stone-400">
               ({kpis.trocasDiretasCount} diretas)
             </span>
           </div>
-          <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">
+          <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">
             Total histórico: {records.length} operações
           </span>
         </div>
       </section>
 
       {/* CONTAINER DA TABELA HISTÓRICA */}
-      <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-900 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 overflow-hidden">
         {/* BARRA DE BUSCA E FILTRO */}
-        <div className="p-2 sm:p-2.5 border-b border-slate-200 dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50/50 dark:bg-stone-850/50">
+        <div className="shrink-0 p-2 border-b border-black dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#cad4e6] dark:bg-stone-850">
           <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
               <Search className="w-3.5 h-3.5" />
             </div>
             <input
@@ -282,7 +282,7 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar protocolo (DEV-...), cliente, fornecedor ou produto..."
-              className="w-full pl-8 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded text-slate-900 dark:text-white font-semibold placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+              className="w-full pl-8 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded text-slate-900 dark:text-white font-semibold placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-600 shadow-2xs"
             />
             {searchTerm && (
               <button
@@ -299,80 +299,80 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
             <select
               value={tipoFilter}
               onChange={(e) => setTipoFilter(e.target.value as any)}
-              className="w-full appearance-none pl-2.5 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-bold text-slate-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs cursor-pointer"
+              className="w-full appearance-none pl-2.5 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded font-bold text-slate-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-slate-600 shadow-2xs cursor-pointer"
             >
               <option value="todos">Todos os Tipos</option>
               <option value="troca_direta">Troca Direta</option>
               <option value="devolucao_cliente">Devolução Cliente</option>
               <option value="devolucao_fornecedor">Devolução Fornecedor</option>
             </select>
-            <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-500">
               <ChevronDown className="w-3.5 h-3.5" />
             </div>
           </div>
         </div>
 
         {/* TABELA COM STICKY HEADER & ROLAGEM DEDICADA */}
-        <div className="w-full max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
           <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-              <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black">
+              <tr className="border-b border-black dark:border-stone-700 bg-[#cad4e6] dark:bg-stone-800">
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
                 >
                   Data
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
                 >
                   Nº Protocolo
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
                 >
                   Tipo
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
                 >
                   Cliente / Fornecedor
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
                 >
                   Produto(s)
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap"
                 >
                   Valor (R$)
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap"
                 >
                   Destino Financeiro
                 </th>
                 <th
                   scope="col"
-                  className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap"
+                  className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap"
                 >
                   Ações
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-stone-800 bg-white dark:bg-stone-900">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900">
               {filteredRecords.length === 0 ? (
-                <tr>
+                <tr className="bg-[#e0e6f1]">
                   <td
                     colSpan={8}
-                    className="py-6 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase"
+                    className="py-8 text-center text-xs font-bold text-slate-700 dark:text-stone-400 uppercase bg-[#e0e6f1]"
                   >
                     Nenhuma troca ou devolução registrada nesta competência
                   </td>
@@ -394,9 +394,9 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
                   return (
                     <tr
                       key={rec.id}
-                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors duration-150 border-b border-slate-200 dark:border-stone-800"
+                      className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors duration-150 border-b border-black/20 dark:border-stone-800"
                     >
-                      <td className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-stone-300 whitespace-nowrap">
+                      <td className="px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-stone-300 whitespace-nowrap">
                         {formatDateBR(rec.data)}
                       </td>
                       <td className="px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
@@ -427,18 +427,18 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
                           {rec.envolvidoNome}
                         </div>
                         {rec.numeroVendaOuNotaOrigem && (
-                          <div className="text-[10px] text-slate-500 dark:text-stone-400 font-medium">
+                          <div className="text-[10px] text-slate-600 dark:text-stone-400 font-medium">
                             Origem: {rec.numeroVendaOuNotaOrigem}
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-1.5 text-xs text-slate-800 dark:text-stone-200 max-w-[260px] truncate">
+                      <td className="px-3 py-1.5 text-xs text-slate-900 dark:text-stone-200 max-w-[260px] truncate">
                         <span className="font-semibold">
                           {firstReturned}
                           {extraReturned}
                         </span>
                         {exchangedSummary && (
-                          <span className="block text-[10px] font-bold text-sky-700 dark:text-sky-400 truncate">
+                          <span className="block text-[10px] font-bold text-sky-800 dark:text-sky-400 truncate">
                             {exchangedSummary}
                           </span>
                         )}
@@ -454,7 +454,7 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
                           <button
                             type="button"
                             onClick={() => setSelectedDetailsRecord(rec)}
-                            className="p-1 text-slate-600 hover:text-slate-950 hover:bg-slate-200/70 dark:text-stone-300 dark:hover:text-white dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                            className="p-1 text-slate-700 hover:text-slate-950 hover:bg-slate-200/70 dark:text-stone-300 dark:hover:text-white dark:hover:bg-stone-800 rounded transition cursor-pointer"
                             title="Visualizar detalhes"
                           >
                             <Eye className="w-3.5 h-3.5" />

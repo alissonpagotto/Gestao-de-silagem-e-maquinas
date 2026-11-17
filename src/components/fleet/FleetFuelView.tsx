@@ -114,14 +114,14 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
   const avgPrice = totalLiters > 0 ? totalCost / totalLiters : 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-2">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5">
         <div>
           <div className="flex items-center space-x-2">
             <Fuel className="w-5 h-5 text-[#cc1f2f]" />
-            <h2 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
+            <h2 className="text-base font-bold text-black dark:text-stone-100 font-['Outfit']">
               Controle de Combustível & Abastecimentos
             </h2>
           </div>
@@ -129,7 +129,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
         <button
           onClick={onOpenNewFuel}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold uppercase rounded-xl shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+          className="inline-flex items-center space-x-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 border border-black/40 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition active:scale-95 cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>REGISTRAR ABASTECIMENTO</span>
@@ -137,58 +137,58 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="p-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               Total de Litros
             </span>
             <Droplets className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-amber-800 dark:text-amber-400 mt-1 font-['Outfit']">
             {(Number(totalLiters) || 0).toLocaleString('pt-BR')} <span className="text-sm font-semibold">Litros</span>
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">Volume abastecido no período</p>
+          <p className="text-xs text-stone-600 mt-0.5">Volume abastecido no período</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+        <div className="p-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               Custo Total em Combustível
             </span>
             <DollarSign className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
             {formatCurrencyBRL(totalCost)}
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">Impacto no custo operacional</p>
+          <p className="text-xs text-stone-600 mt-0.5">Impacto no custo operacional</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+        <div className="p-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
               Preço Médio por Litro
             </span>
             <Calculator className="w-4 h-4 text-sky-600" />
           </div>
-          <div className="text-2xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
+          <div className="text-xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
             {formatCurrencyBRL(avgPrice)}/L
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">Preço médio ponderado</p>
+          <p className="text-xs text-stone-600 mt-0.5">Preço médio ponderado</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 p-2.5 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto flex-1">
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por placa, motorista, posto..."
-              className="w-full pl-9 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
           </div>
 
@@ -204,7 +204,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
           <select
             value={selectedVehicle}
             onChange={(e) => setSelectedVehicle(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
           >
             <option value="todos">Todos os Veículos</option>
             {machineries.map((m) => (
@@ -218,7 +218,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
           <select
             value={selectedFuelType}
             onChange={(e) => setSelectedFuelType(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
           >
             <option value="todos">Todos Combustíveis</option>
             <option value="Diesel S10">Diesel S10</option>
@@ -230,34 +230,34 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
       </div>
 
       {/* Fuel Logs Table */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-xs">
-        <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 overflow-hidden shadow-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Data</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Veículo / Placa</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Combustível</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Litros</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Preço / Litro</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Valor Total</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Leitura Atual</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Média Consumo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Motorista / Responsável</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4">Local / Posto</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-3 px-4 text-right">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Data</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Veículo / Placa</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Combustível</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Litros</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Preço / Litro</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Valor Total</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Leitura Atual</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Média Consumo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Motorista / Responsável</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Local / Posto</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800/60 font-medium">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-4 text-center text-xs font-semibold text-stone-500 uppercase">
+                  <td colSpan={11} className="py-8 text-center text-xs font-semibold text-stone-600 bg-[#e0e6f1] uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
-                  <tr key={log.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={log.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-3.5 px-4 font-mono text-stone-700 dark:text-stone-300">
                       {formatDateBR(log.date)}
                     </td>

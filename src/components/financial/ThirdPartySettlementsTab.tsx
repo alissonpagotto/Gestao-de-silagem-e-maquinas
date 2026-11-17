@@ -233,10 +233,10 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
   });
 
   return (
-    <div id="financial-tab-terceiros" className="financial-subtab-clean space-y-3">
+    <div id="financial-tab-terceiros" className="financial-subtab-clean flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* Header & Quick Stats (Compact) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Acertos Pendentes
@@ -253,7 +253,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
           </div>
         </div>
 
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Acertos Liquidados
@@ -270,7 +270,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
           </div>
         </div>
 
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Líquido Terceirização
@@ -289,7 +289,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       </div>
 
       {/* Filters & Action Bar (Compact) */}
-      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col xl:flex-row items-center justify-between gap-2 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-2 shadow-xs flex flex-col xl:flex-row items-center justify-between gap-2 text-black dark:text-white">
         <div className="flex items-center space-x-1.5 w-full xl:w-auto overflow-x-auto scrollbar-none pb-1 xl:pb-0">
           <CompetenceSelector
             competence={activeCompetence}
@@ -343,7 +343,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
               placeholder="Buscar por freteiro, operador, placa..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
             />
           </div>
 
@@ -359,26 +359,26 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       </div>
 
       {/* Settlements List (Dense & Compact) */}
-      <div className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs text-black">
-        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] border border-black rounded-lg overflow-hidden shadow-xs text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-300 shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] text-[11px] font-black text-black uppercase tracking-wider border-b border-black shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3">Data</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3">Terceiro / Prestador</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3">Função / Veículo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3">Produção</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3 text-right">Bruto</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3 text-right">Deduções</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3 text-right">Líquido</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-2 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3">Data</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3">Terceiro / Prestador</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3">Função / Veículo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3">Produção</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3 text-right">Bruto</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3 text-right">Deduções</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3 text-right">Líquido</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2 px-3 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <button
                         type="button"
@@ -484,7 +484,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-stone-500 font-medium text-xs">
+                  <td colSpan={9} className="py-8 text-center text-stone-600 bg-[#e0e6f1] font-medium text-xs">
                     {settlements.length === 0
                       ? 'Nenhum acerto de terceiro registrado.'
                       : 'Nenhum acerto encontrado para os filtros selecionados.'}

@@ -1835,7 +1835,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
   );
 
   return (
-    <div className="space-y-3">
+    <div className="w-full flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       
       {/* 
         NO MODO OPERADOR EXTERNO:
@@ -1844,7 +1844,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
         - Exibe no topo apenas a barra de ação com o botão verde destacado "Enviar de volta".
       */}
       {isOperatorModeActive ? (
-        <div className="no-print w-full flex items-center justify-between gap-2 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-2.5 sm:p-3 shadow-sm">
+        <div className="no-print shrink-0 w-full flex items-center justify-between gap-2 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-emerald-800/40 rounded-lg p-2.5 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#188038] animate-pulse"></span>
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -1873,7 +1873,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
         </div>
       ) : (
         /* Modo Administrativo Interno da Empresa (quando acessado pelo menu normal) */
-        <div className="no-print p-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-900 dark:via-stone-850 dark:to-stone-900 rounded-xl border border-slate-400 dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),inset_-1px_-1px_0px_rgba(0,0,0,0.15)] flex flex-wrap items-center justify-between gap-2">
+        <div className="no-print shrink-0 p-2 bg-[#cad4e6] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1 flex-wrap">
             <button
               type="button"
@@ -1930,7 +1930,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
       )}
 
       {/* ÁREA DE EXIBIÇÃO DO FORMULÁRIO SELECIONADO */}
-      <div ref={activeFormRef} className="w-full flex justify-center py-2">
+      <div ref={activeFormRef} className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex justify-center py-2.5 bg-[#e0e6f1] border border-black rounded-lg">
         {renderFormTemplate()}
       </div>
 

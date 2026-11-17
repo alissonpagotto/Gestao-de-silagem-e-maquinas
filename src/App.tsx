@@ -4215,7 +4215,7 @@ export default function App() {
 
           {/* TAB: Notas e Entradas (NF-e, Notas Fiscais, Entradas Manuais, Romaneios, Recibos) */}
           {(activeTab === 'fiscal' || activeTab === 'documentos_entrada' || activeTab === 'entradas' || activeTab === 'nfe_importar' || activeTab === 'nfe_notas') && (
-            <div id="fiscal-module-container" className="w-full max-w-none flex-1 min-h-0 flex flex-col">
+            <div id="fiscal-module-container" className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col overflow-hidden">
               <NfeModule
                 expenses={expenses}
                 companyProfile={companyProfile}

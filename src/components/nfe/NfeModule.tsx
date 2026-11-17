@@ -10409,10 +10409,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   return (
-    <div id="nfe-module" className="w-full max-w-none flex-1 min-h-0 flex flex-col">
+    <div id="nfe-module" className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col overflow-hidden">
       
       {/* 1. Header Unificado 3D Slim com Título, Contador e Botões Importar XML e Nova Entrada Manual */}
-      <header className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2 mb-3">
+      <header className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-1.5 mb-2">
         <div>
           <h2 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase">
             FISCAL & NOTAS
@@ -10426,7 +10426,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             onNext={handleNextCompetence}
           />
 
-          <div className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-stone-800 text-[10px] sm:text-[11px] font-bold text-zinc-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700 shadow-2xs">
+          <div className="px-2 py-0.5 rounded-md bg-[#e0e6f1] dark:bg-stone-800 text-[10px] sm:text-[11px] font-bold text-black dark:text-stone-300 border border-black dark:border-stone-700 shadow-2xs">
             {filteredUnifiedEntries.length} registro(s)
           </div>
 
@@ -10473,9 +10473,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </header>
 
       {/* 2. ESTRUTURA INTEGRADA DE PONTA A PONTA: MOLDURA MDI TRIDIMENSIONAL ACETINADA E BLOCO SÓLIDO */}
-      <div className="w-full flex-1 min-h-0 flex flex-col border border-[#edf4ff] dark:border-stone-700 rounded-xl overflow-y-auto overflow-x-hidden bg-[#edf4ff] dark:bg-stone-900 shadow-xs">
+      <div className="w-full flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-xl overflow-hidden bg-[#cad4e6] dark:bg-stone-900 shadow-xs">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA (CONTRATO MASTER) */}
-        <div className="w-full shrink-0 bg-[#edf4ff] dark:bg-stone-850 border-b border-[#edf4ff] dark:border-stone-700 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] overflow-x-auto scrollbar-none">
+        <div className="w-full shrink-0 bg-[#cad4e6] dark:bg-stone-850 border-b border-black dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
             aria-label="Abas de Fiscal & Notas"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
@@ -10588,7 +10588,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         {/* 3. PAINEL DE CONTEÚDO COLADO NA BASE INFERIOR DA BARRA DE ABAS SEM VÃOS VAZIOS (BLOCO SÓLIDO ÚNICO) */}
-        <div className="w-full flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden bg-[#cad4e6] dark:bg-stone-900 border-[#edf4ff] dark:border-stone-700 p-3 sm:p-3.5">
+        <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden bg-[#e0e6f1]/40 dark:bg-stone-900 p-2.5">
           {activeMainFiscalTab === 'pedido_compra' ? (
             <FiscalDocumentTypeView 
               category="pedido_compra" 
@@ -10640,7 +10640,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             />
           ) : (
             /* Conteúdo padrão de Notas e Entradas */
-            <div className="w-full flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto overflow-x-hidden pb-6">
+            <div className={`w-full flex-1 min-h-0 flex flex-col gap-2 ${parsedData ? 'overflow-y-auto overflow-x-hidden pb-4' : 'overflow-hidden'}`}>
       {successMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center space-x-2.5 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-semibold animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -10682,10 +10682,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           type="button"
           id="btn-direcao-notas-entrada"
           onClick={() => setActiveDocDirection('entrada')}
-          className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer text-left ${
+          className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-lg transition cursor-pointer text-left ${
             activeDocDirection === 'entrada'
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-[#059669] text-emerald-950 dark:text-emerald-100 shadow-sm'
-              : 'bg-white/80 dark:bg-stone-900/80 border-slate-200 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:border-emerald-400 hover:bg-emerald-50/40'
+              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-[#059669] text-emerald-950 dark:text-emerald-100 shadow-sm'
+              : 'bg-[#e0e6f1] dark:bg-stone-900/80 border border-black dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -10714,10 +10714,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           type="button"
           id="btn-direcao-notas-saida"
           onClick={() => setActiveDocDirection('saida')}
-          className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer text-left ${
+          className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-lg transition cursor-pointer text-left ${
             activeDocDirection === 'saida'
-              ? 'bg-blue-50 dark:bg-blue-950/60 border-[#1e40af] text-blue-950 dark:text-blue-100 shadow-sm'
-              : 'bg-white/80 dark:bg-stone-900/80 border-slate-200 dark:border-stone-700 text-slate-700 dark:text-stone-300 hover:border-blue-400 hover:bg-blue-50/40'
+              ? 'bg-blue-50 dark:bg-blue-950/60 border-2 border-[#1e40af] text-blue-950 dark:text-blue-100 shadow-sm'
+              : 'bg-[#e0e6f1] dark:bg-stone-900/80 border border-black dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -10744,7 +10744,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </div>
 
       {/* Pílulas Limpas de Filtro Rápido com Contadores (Central de Documentos) */}
-      <div className="shrink-0 flex flex-wrap items-center gap-1.5 bg-[#cad4e6] dark:bg-stone-900/90 border border-[#090a0a] dark:border-stone-800 rounded-xl px-3 py-2 shadow-2xs">
+      <div className="shrink-0 flex flex-wrap items-center gap-1.5 bg-[#cad4e6] dark:bg-stone-900/90 border border-black dark:border-stone-800 rounded-lg px-2.5 py-1.5 shadow-2xs">
         {(
           [
             { key: 'todos', label: 'Todos', count: centralDocPillCounts.todos },
@@ -10761,13 +10761,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             ? 'bg-[#1e40af] text-white border-[#1e3a8a] shadow-xs'
             : 'bg-[#059669] text-white border-[#047857] shadow-xs';
           const inactiveClassesByKey: Record<CentralDocumentFilter, string> = {
-            todos: 'bg-slate-100/90 hover:bg-slate-200/80 text-slate-700 border-slate-300/80 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
-            nfe: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#070707] border-[#0e0e0e] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
-            cte: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#070707] border-[#040404] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
-            nfse: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#0d0d0d] border-[#060606] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
-            nfce: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#000000] border-[#000000] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
-            mdfe: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#000000] border-[#080808] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
-            avulsas: 'bg-[#e0e6f1] hover:bg-slate-200/80 text-[#121212] border-[#0b0b0b] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            todos: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            nfe: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            cte: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            nfse: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            nfce: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            mdfe: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
+            avulsas: 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300 dark:border-stone-700',
           };
           return (
             <button
@@ -10784,7 +10784,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 className={`px-1.5 py-0.2 rounded-full text-[10px] font-black font-mono ${
                   isActive
                     ? 'bg-white/20 text-white'
-                    : 'bg-white dark:bg-stone-900 text-slate-600 dark:text-stone-300 border border-slate-200 dark:border-stone-700'
+                    : 'bg-white dark:bg-stone-900 text-slate-700 dark:text-stone-300 border border-slate-300 dark:border-stone-700'
                 }`}
               >
                 {pill.count}
@@ -10795,7 +10795,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       </div>
 
       {/* Barra de Ações: Campo de Busca Rápida de Documentos */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-[#cad4e6] dark:border-stone-800 rounded-xl py-2 px-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg py-2 px-3 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <form onSubmit={handleSearchNfe} className="flex-1 w-full">
           <div className="relative flex items-center w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
@@ -10811,7 +10811,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   ? 'Buscar por número, destinatário/tomador, veículo ou chave de acesso...'
                   : 'Buscar por número, fornecedor, veículo ou chave de acesso...'
               }
-              className="w-full pl-9 pr-10 py-1.5 bg-stone-50 dark:bg-stone-800/80 border border-stone-300 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition shadow-2xs"
+              className="w-full pl-9 pr-10 py-1.5 bg-white dark:bg-stone-800/80 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition shadow-2xs"
             />
             <button
               type="submit"
@@ -11835,8 +11835,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       )}
 
       {/* 3. HISTÓRICO UNIFICADO DE NOTAS E ENTRADAS (XML & REGISTROS MANUAIS) */}
-      <div id="painel-historico-notas-nfe" className={`${parsedData ? 'shrink-0' : 'flex-1 min-h-0'} flex flex-col gap-1.5`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+      <div id="painel-historico-notas-nfe" className={`${parsedData ? 'shrink-0' : 'flex-1 min-h-0'} flex flex-col gap-1.5 overflow-hidden`}>
+        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <div className="flex items-center space-x-2">
             <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
               <ReceiptText className={`w-3.5 h-3.5 ${activeDocDirection === 'saida' ? 'text-blue-700' : 'text-sky-600'}`} />
@@ -11851,41 +11851,41 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               onClick={handleManualSync}
               disabled={isSyncingDocs}
               title="Sincronizar em tempo real com a nuvem"
-              className="inline-flex items-center space-x-1 px-2 py-0.5 text-[11px] font-medium text-stone-500 hover:text-sky-600 dark:text-stone-400 dark:hover:text-sky-400 bg-stone-100 dark:bg-stone-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-md border border-stone-200 dark:border-stone-700 transition cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2 py-0.5 text-[11px] font-medium text-stone-700 hover:text-sky-700 dark:text-stone-400 dark:hover:text-sky-400 bg-[#e0e6f1] dark:bg-stone-800 hover:bg-[#d2dced] dark:hover:bg-sky-950/40 rounded-md border border-black/40 dark:border-stone-700 transition cursor-pointer"
             >
               <RotateCcw className={`w-3 h-3 ${isSyncingDocs ? 'animate-spin text-sky-600' : ''}`} />
               <span>{isSyncingDocs ? 'Sincronizando...' : 'Sincronizar'}</span>
             </button>
           </div>
           {filteredUnifiedEntries.length > 0 && (
-            <span className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-400">
+            <span className="text-[11px] sm:text-xs text-stone-700 dark:text-stone-400">
               Clique em uma linha para visualizar ou editar os detalhes.
             </span>
           )}
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs w-full max-w-full flex-1 min-h-0 flex flex-col">
-          <div className={`w-full max-w-full bg-[#cad4e6] border-[#080808] dark:bg-stone-900 ${parsedData ? 'h-[calc(100vh-295px)] min-h-[380px]' : 'flex-1 min-h-[360px]'} overflow-y-auto overflow-x-auto`}>
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg overflow-hidden shadow-2xs w-full max-w-full flex-1 min-h-0 flex flex-col">
+          <div className={`w-full max-w-full bg-[#e0e6f1] dark:bg-stone-900 ${parsedData ? 'h-[calc(100vh-295px)] min-h-[280px]' : 'flex-1 min-h-0'} overflow-y-auto overflow-x-hidden`}>
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider shadow-sm">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider shadow-sm">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[110px] shrink-0 whitespace-nowrap">DOCUMENTO</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[160px] lg:w-[200px] whitespace-nowrap">
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[110px] shrink-0 whitespace-nowrap">DOCUMENTO</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[160px] lg:w-[200px] whitespace-nowrap">
                     {activeDocDirection === 'saida' ? 'DESTINATÁRIO / TOMADOR' : 'FORNECEDOR'}
                   </th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
                   {activeDocDirection === 'saida' && (
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[135px] text-center shrink-0 whitespace-nowrap">STATUS SEFAZ</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[135px] text-center shrink-0 whitespace-nowrap">STATUS SEFAZ</th>
                   )}
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+              <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                 {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={activeDocDirection === 'saida' ? 7 : 6} className="py-6 text-center text-stone-500 font-semibold uppercase text-xs">
+                    <td colSpan={activeDocDirection === 'saida' ? 7 : 6} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
                       {activeDocDirection === 'saida'
                         ? 'NENHUMA NOTA DE SAÍDA REGISTRADA NESTA COMPETÊNCIA. CLIQUE EM "+ LANÇAR NOTA DE SAÍDA" PARA EMITIR/REGISTRAR.'
                         : 'NENHUM REGISTRO ENCONTRADO'}
@@ -11920,7 +11920,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           setViewingMdfeDoc(entry.rawMdfeDoc);
                         }
                       }}
-                      className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 cursor-pointer transition group whitespace-nowrap border-b border-slate-200 dark:border-stone-800"
+                      className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 cursor-pointer transition group whitespace-nowrap border-b border-black/20 dark:border-stone-800"
                       title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
                     >
                       <td className="py-1 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap">

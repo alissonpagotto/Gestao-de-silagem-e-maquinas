@@ -232,10 +232,10 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   };
 
   return (
-    <div id="financial-tab-pagar" className="financial-subtab-clean space-y-3">
+    <div id="financial-tab-pagar" className="financial-subtab-clean flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* KPI Cards (Compact) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-transparent">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               A Pagar (Pendentes)
@@ -252,7 +252,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
           </div>
         </div>
 
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Liquidadas (Pagas)
@@ -269,7 +269,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
           </div>
         </div>
 
-        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="financial-kpi-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-3 shadow-xs flex items-center justify-between text-black dark:text-white">
           <div className="bg-transparent">
             <span className="text-[11px] font-black text-black dark:text-stone-200 uppercase tracking-wider block">
               Volume Total de Contas
@@ -288,7 +288,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       </div>
 
       {/* Filters Bar (Compact) */}
-      <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-slate-400/70 dark:border-stone-800 rounded-xl px-3 py-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-2 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-black dark:text-white">
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto scrollbar-none">
           <CompetenceSelector
             competence={activeCompetence}
@@ -338,7 +338,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
           {/* Filtro por Intervalo de Datas (De: / Até:) */}
           <div className="flex items-center space-x-1.5 shrink-0">
-            <div className="flex items-center space-x-1 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-xs">
+            <div className="flex items-center space-x-1 bg-white px-2 py-0.5 rounded-lg border border-slate-400 text-xs">
               <span className="text-[11px] font-black text-black">De:</span>
               <input
                 type="date"
@@ -348,7 +348,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 title="Filtrar a partir desta data"
               />
             </div>
-            <div className="flex items-center space-x-1 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-xs">
+            <div className="flex items-center space-x-1 bg-white px-2 py-0.5 rounded-lg border border-slate-400 text-xs">
               <span className="text-[11px] font-black text-black">Até:</span>
               <input
                 type="date"
@@ -382,7 +382,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
               placeholder="Buscar fornecedor, despesa, responsável..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600 font-medium"
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 rounded-lg bg-white text-black placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600 font-medium"
             />
           </div>
 
@@ -400,20 +400,20 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
       </div>
 
       {/* Payables List Table */}
-      <div className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs text-black">
-        <div className="max-h-[calc(100vh-320px)] overflow-y-auto overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] border border-black rounded-lg overflow-hidden shadow-xs text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 text-[10px] font-bold text-black uppercase tracking-wider border-b border-slate-300 shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] text-[10px] font-bold text-black uppercase tracking-wider border-b border-black shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">VENCIMENTO</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">FORNECEDOR / DESCRIÇÃO</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">CATEGORIA</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 whitespace-nowrap">RESPONSÁVEL / BANCO</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 text-right whitespace-nowrap">VALOR (R$)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 py-1.5 px-2.5 text-right whitespace-nowrap pr-3">AÇÕES</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">VENCIMENTO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">FORNECEDOR / DESCRIÇÃO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">CATEGORIA</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">RESPONSÁVEL / BANCO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap">VALOR (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap pr-3">AÇÕES</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="bg-[#e0e6f1] divide-y divide-black/15">
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map((exp) => {
                   const isAbatido = exp.status === 'Liquidado / Abatido por Devolução';
@@ -422,7 +422,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                   const isOverdue = !isPaid && dueDateVal && dueDateVal < todayStr;
 
                   return (
-                    <tr key={exp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
+                    <tr key={exp.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-black/20 dark:border-stone-800">
                       {/* Vencimento com Identificação de Atraso */}
                       <td className="py-1 px-2.5 font-bold text-black whitespace-nowrap text-xs">
                         <div className="flex items-center space-x-1.5 font-mono">
@@ -646,7 +646,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-stone-500 font-semibold text-xs uppercase">
+                  <td colSpan={6} className="py-6 text-center text-stone-600 bg-[#e0e6f1] font-semibold text-xs uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

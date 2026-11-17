@@ -622,9 +622,9 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   };
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {successMsg && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between gap-2 text-emerald-800 dark:text-emerald-200 text-xs font-bold animate-in fade-in">
+        <div className="shrink-0 p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between gap-2 text-emerald-800 dark:text-emerald-200 text-xs font-bold animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
@@ -640,8 +640,8 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       )}
 
       {/* KPIs Compactos Unificados */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div className="border border-rose-300/90 dark:border-rose-800 rounded-xl bg-white dark:bg-stone-900 py-2 px-3 shadow-xs">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="border border-black dark:border-rose-800 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 py-2 px-3 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
               Aguardando Decisão Fiscal
@@ -652,13 +652,13 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
             <span className="text-lg font-black text-rose-700 dark:text-rose-400">
               {counts.aguardando} {counts.aguardando === 1 ? 'registro' : 'registros'}
             </span>
-            <span className="text-xs font-black text-stone-700 dark:text-stone-300">
+            <span className="text-xs font-black text-stone-800 dark:text-stone-300">
               {formatCurrencyBRL(counts.valorAguardando)}
             </span>
           </div>
         </div>
 
-        <div className="border border-emerald-300/80 dark:border-emerald-800 rounded-xl bg-white dark:bg-stone-900 py-2 px-3 shadow-xs">
+        <div className="border border-black dark:border-emerald-800 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 py-2 px-3 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               Notas de Devolução Emitidas
@@ -669,50 +669,51 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
             <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">
               {counts.emitidas}
             </span>
-            <span className="text-xs font-black text-stone-700 dark:text-stone-300">
+            <span className="text-xs font-black text-stone-800 dark:text-stone-300">
               {formatCurrencyBRL(counts.valorEmitidas)}
             </span>
           </div>
         </div>
 
-        <div className="border border-slate-300/80 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-900 py-2 px-3 shadow-xs">
+        <div className="border border-black dark:border-stone-700 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 py-2 px-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400">
               Descartadas pela Empresa
             </span>
-            <PackageX className="w-3.5 h-3.5 text-stone-500" />
+            <PackageX className="w-3.5 h-3.5 text-stone-600" />
           </div>
-          <div className="text-lg font-black text-stone-800 dark:text-stone-200 mt-0.5">
+          <div className="text-lg font-black text-stone-900 dark:text-stone-200 mt-0.5">
             {counts.descartadas}
           </div>
         </div>
       </div>
 
       {/* Painel Principal Unificado */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm p-4 space-y-3">
-        {/* Cabeçalho */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 pb-2.5 border-b border-stone-200 dark:border-stone-800">
-          <div>
-            <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 font-['Outfit'] flex items-center gap-1.5">
-              <RefreshCw className="w-4 h-4 text-emerald-600" />
-              <span>🔄 Devoluções & Garantias (Fila Fiscal & Emissão Unificada)</span>
-            </h3>
-            <p className="text-[11px] text-stone-500">
-              Banco único integrado ao Balcão/Estoque e Financeiro: registre novas devoluções, vincule a NF-e emitida ou baixe itens como perda.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Buscar protocolo, NF-e, fornecedor, item..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none w-52 sm:w-60"
-              />
+      <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
+        {/* Cabeçalho e Filtros */}
+        <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 space-y-2 shadow-xs">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2 pb-2 border-b border-black/20 dark:border-stone-800">
+            <div>
+              <h3 className="text-sm font-black text-black dark:text-stone-100 font-['Outfit'] flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-emerald-700" />
+                <span>🔄 Devoluções & Garantias (Fila Fiscal & Emissão Unificada)</span>
+              </h3>
+              <p className="text-[11px] text-slate-700 dark:text-stone-400 font-medium">
+                Banco único integrado ao Balcão/Estoque e Financeiro: registre novas devoluções, vincule a NF-e emitida ou baixe itens como perda.
+              </p>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar protocolo, NF-e, fornecedor, item..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none w-52 sm:w-60"
+                />
+              </div>
 
             <div className="flex items-center gap-1">
               {!hideCompetenceSelector && (
@@ -759,10 +760,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
           <button
             type="button"
             onClick={() => setStatusFilter('Aguardando Decisão Fiscal')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
               statusFilter === 'Aguardando Decisão Fiscal'
                 ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
-                : 'bg-rose-50/80 hover:bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/30 dark:text-rose-200 dark:border-rose-800'
+                : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-rose-900 border-black dark:bg-rose-950/30 dark:text-rose-200 dark:border-rose-800'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -781,10 +782,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
           <button
             type="button"
             onClick={() => setStatusFilter('Nota de Devolução Emitida')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
               statusFilter === 'Nota de Devolução Emitida'
                 ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                : 'bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-800'
+                : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-emerald-900 border-black dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-800'
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -803,10 +804,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
           <button
             type="button"
             onClick={() => setStatusFilter('Descartado pela Empresa')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
               statusFilter === 'Descartado pela Empresa'
                 ? 'bg-stone-700 text-white border-stone-800 shadow-xs'
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-800 border-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:border-stone-700'
+                : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-stone-900 border-black dark:bg-stone-800 dark:text-stone-200 dark:border-stone-700'
             }`}
           >
             <Ban className="w-3.5 h-3.5" />
@@ -825,10 +826,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
           <button
             type="button"
             onClick={() => setStatusFilter('todas')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
               statusFilter === 'todas'
                 ? 'bg-slate-800 text-white border-slate-900 shadow-xs'
-                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 dark:bg-stone-900 dark:text-stone-300 dark:border-stone-700'
+                : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-black border-black dark:bg-stone-900 dark:text-stone-300 dark:border-stone-700'
             }`}
           >
             <span>Todas</span>
@@ -843,29 +844,30 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
             </span>
           </button>
         </div>
+        </div>
 
         {/* Tabela Unificada */}
-        <div className="border border-slate-300 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
-          <div className="max-h-[calc(100vh-370px)] overflow-y-auto overflow-x-auto">
+        <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-2xs">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-20 border-b border-slate-300 dark:border-stone-700 shadow-sm">
+              <thead className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-20 border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="py-2.5 px-3">Data</th>
-                  <th className="py-2.5 px-3">Protocolo</th>
-                  <th className="py-2.5 px-3">Fornecedor / Origem</th>
-                  <th className="py-2.5 px-3">Produto(s) Devolvido(s)</th>
-                  <th className="py-2.5 px-3 text-right">Valor Total</th>
-                  <th className="py-2.5 px-3">Motivo / Financeiro</th>
-                  <th className="py-2.5 px-3 text-center">Situação Fiscal</th>
-                  <th className="py-2.5 px-3 text-right">Ações</th>
+                  <th className="py-2 px-3">Data</th>
+                  <th className="py-2 px-3">Protocolo</th>
+                  <th className="py-2 px-3">Fornecedor / Origem</th>
+                  <th className="py-2 px-3">Produto(s) Devolvido(s)</th>
+                  <th className="py-2 px-3 text-right">Valor Total</th>
+                  <th className="py-2 px-3">Motivo / Financeiro</th>
+                  <th className="py-2 px-3 text-center">Situação Fiscal</th>
+                  <th className="py-2 px-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+              <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                 {filteredRecords.length === 0 ? (
                   <tr>
                     <td
                       colSpan={8}
-                      className="py-6 text-center text-xs text-stone-500 font-semibold uppercase"
+                      className="py-8 text-center bg-[#e0e6f1] text-xs text-stone-600 font-semibold uppercase"
                     >
                       Nenhum registro de devolução ou garantia encontrado para este filtro
                     </td>
@@ -881,7 +883,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                     return (
                       <tr
                         key={`${rec.id}_${idx}`}
-                        className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800"
+                        className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800"
                       >
                         <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
                           {formatDateBR(rec.data)}

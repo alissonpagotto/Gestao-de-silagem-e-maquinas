@@ -471,13 +471,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   return (
     <div 
       id="venda-module-root"
-      className={`w-full max-w-none antialiased ${isPdvFullscreen && activeTab === 'pdv' ? 'min-h-full overflow-y-auto overflow-x-hidden' : activeTab === 'pdv' ? 'space-y-1 overflow-y-auto overflow-x-hidden global' : 'space-y-2.5'}`}
+      className={`w-full max-w-none antialiased ${isPdvFullscreen && activeTab === 'pdv' ? 'min-h-full overflow-y-auto overflow-x-hidden' : 'flex-1 min-h-0 h-full max-h-full flex flex-col gap-2 overflow-hidden p-2 sm:p-3'}`}
     >
       {/* 1. CABEÇALHO PADRONIZADO SLIM COM TÍTULO */}
       {(!isPdvFullscreen || activeTab !== 'pdv') && (
-        <header className="no-print flex items-center justify-between gap-2 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-1.5 shrink-0">
+        <header className="no-print flex items-center justify-between gap-2 bg-[#cad4e6] border border-black rounded-lg px-3 py-1.5 shrink-0">
           <div>
-            <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
+            <h1 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white tracking-tight uppercase">
               Venda
             </h1>
           </div>
@@ -485,10 +485,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
       )}
 
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
-      <div className={`w-full flex flex-col ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full' : ''}`}>
+      <div className={`w-full flex flex-col ${isPdvFullscreen && activeTab === 'pdv' ? 'h-full' : 'flex-1 min-h-0 overflow-hidden'}`}>
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
         {(!isPdvFullscreen || activeTab !== 'pdv') && (
-          <div className="w-full bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+          <div className="shrink-0 w-full bg-[#cad4e6] border border-b-0 border-black rounded-t-lg overflow-x-auto scrollbar-none">
             <nav 
               aria-label="Abas de Venda e PDV"
               className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
@@ -498,13 +498,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 id="tab-dashboard-vendas"
                 onClick={() => handleSelectTab('dashboard')}
                 style={activeTab === 'dashboard' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-black/30 ${
                   activeTab === 'dashboard'
-                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-black shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-[#cad4e6]/70 hover:bg-[#d2dced] dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-800 font-bold dark:text-stone-400 hover:text-black dark:hover:text-stone-200'
                 }`}
               >
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                 <span>DASHBOARD VENDAS</span>
               </button>
 
@@ -513,13 +513,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 id="tab-pdv-frente-caixa"
                 onClick={() => handleSelectTab('pdv')}
                 style={activeTab === 'pdv' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-black/30 ${
                   activeTab === 'pdv'
-                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-black shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-[#cad4e6]/70 hover:bg-[#d2dced] dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-800 font-bold dark:text-stone-400 hover:text-black dark:hover:text-stone-200'
                 }`}
               >
-                <ShoppingCart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                <ShoppingCart className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                 <span>PDV</span>
               </button>
 
@@ -528,13 +528,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 id="tab-fluxo-caixa-vendas"
                 onClick={() => handleSelectTab('fluxo_caixa')}
                 style={activeTab === 'fluxo_caixa' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-black/30 ${
                   activeTab === 'fluxo_caixa'
-                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-black shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-[#cad4e6]/70 hover:bg-[#d2dced] dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-800 font-bold dark:text-stone-400 hover:text-black dark:hover:text-stone-200'
                 }`}
               >
-                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <DollarSign className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                 <span>FLUXO DE CAIXA</span>
               </button>
 
@@ -543,21 +543,21 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 id="tab-trocas-devolucoes-vendas"
                 onClick={() => handleSelectTab('trocas_devolucoes')}
                 style={activeTab === 'trocas_devolucoes' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
                   activeTab === 'trocas_devolucoes'
-                    ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                    : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                    ? 'bg-orange-400/40 text-black font-black shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                    : 'bg-[#cad4e6]/70 hover:bg-[#d2dced] dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-800 font-bold dark:text-stone-400 hover:text-black dark:hover:text-stone-200'
                 }`}
               >
-                <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <ArrowLeftRight className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
                 <span>🔄 TROCAS & DEVOLUÇÕES</span>
               </button>
             </nav>
           </div>
         )}
 
-        {/* MOLDURA GERAL INTEGRADA (ALINHAMENTO SETA VERDE) */}
-        <div className={`w-full ${isPdvFullscreen && activeTab === 'pdv' ? 'min-h-full border-0 rounded-none p-0 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto overflow-x-hidden' : 'border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden global ' + (activeTab === 'pdv' ? 'p-1.5' : 'p-3 space-y-3')}`}>
+        {/* MOLDURA GERAL INTEGRADA */}
+        <div className={`w-full ${isPdvFullscreen && activeTab === 'pdv' ? 'min-h-full border-0 rounded-none p-0 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto overflow-x-hidden' : activeTab === 'pdv' ? 'flex-1 min-h-0 border border-black dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm overflow-y-auto overflow-x-hidden p-1.5' : 'flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-b-lg bg-[#e0e6f1]/40 dark:bg-stone-900 shadow-sm overflow-hidden p-2.5 gap-2.5'}`}>
           {activeTab === 'pdv' ? (
             <PdvView
               clients={clients}
@@ -585,7 +585,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           ) : (
             <>
               {/* BLOCO SUPERIOR: SELETOR DE COMPETÊNCIA PADRONIZADO */}
-              <div className="flex items-center justify-between gap-2">
+              <div className="shrink-0 flex items-center justify-between gap-2">
                 <CompetenceSelector
                   competence={competenceMonth}
                   onPrev={handlePrevCompetence}
@@ -593,61 +593,60 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 />
               </div>
 
-
-              {/* GRADE DE 4 CARDS DE INDICADORES (TOTAL FATURADO, VOLUME TOTAL, CONTRATOS, TICKET MÉDIO) */}
-              <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+              {/* GRADE DE 4 CARDS DE INDICADORES */}
+              <section aria-label="Indicadores de Vendas" className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 p-2 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Total Faturado</span>
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">Total Faturado</span>
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   </div>
                   <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5">
                     {formatCurrencyBRL(metrics.totalRevenue)}
                   </div>
-                  <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">Vendas no período</span>
+                  <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">Vendas no período</span>
                 </div>
 
-                <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+                <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 p-2 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Volume Total</span>
-                    <Scale className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">Volume Total</span>
+                    <Scale className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
                   </div>
                   <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5">
-                    {metrics.totalTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} <span className="text-xs font-bold text-slate-600 dark:text-stone-400 uppercase">Ton</span>
+                    {metrics.totalTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} <span className="text-xs font-bold text-slate-700 dark:text-stone-400 uppercase">Ton</span>
                   </div>
-                  <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">Silagem comercializada</span>
+                  <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">Silagem comercializada</span>
                 </div>
 
-                <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+                <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 p-2 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Contratos / Pedidos</span>
-                    <FileCheck2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                    <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">Contratos / Pedidos</span>
+                    <FileCheck2 className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                   </div>
                   <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5">
-                    {metrics.totalCount} <span className="text-xs font-semibold text-slate-500 dark:text-stone-400">({metrics.completedCount} concl.)</span>
+                    {metrics.totalCount} <span className="text-xs font-semibold text-slate-700 dark:text-stone-400">({metrics.completedCount} concl.)</span>
                   </div>
-                  <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">Volume de operações</span>
+                  <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">Volume de operações</span>
                 </div>
 
-                <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+                <div className="border border-black dark:border-stone-700/80 rounded-lg bg-[#e0e6f1] dark:bg-stone-850 p-2 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-stone-400 uppercase tracking-wider">Ticket Médio</span>
-                    <TrendingUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-[10px] font-black text-slate-700 dark:text-stone-400 uppercase tracking-wider">Ticket Médio</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-indigo-700 dark:text-indigo-400" />
                   </div>
                   <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5">
                     {formatCurrencyBRL(metrics.averageTicket)}
                   </div>
-                  <span className="text-[10px] text-slate-500 dark:text-stone-400 font-medium block uppercase">Média por venda</span>
+                  <span className="text-[10px] text-slate-700 dark:text-stone-400 font-semibold block uppercase">Média por venda</span>
                 </div>
               </section>
 
               {/* CONTAINER DA TABELA HISTÓRICA */}
-              <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-900 overflow-hidden">
-                {/* BARRA DE FILTROS (SEARCH & DROPDOWN) */}
-                <div className="p-2 sm:p-2.5 border-b border-slate-200 dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50/50 dark:bg-stone-850/50">
+              <div className="flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 overflow-hidden">
+                {/* BARRA DE FILTROS */}
+                <div className="shrink-0 p-2 border-b border-black dark:border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#cad4e6] dark:bg-stone-850">
                   {/* Campo de Busca */}
                   <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
                       <Search className="w-3.5 h-3.5" />
                     </div>
                     <input
@@ -655,7 +654,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Buscar cliente, fazenda ou nº da venda..."
-                      className="w-full pl-8 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded text-slate-900 dark:text-white font-semibold placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs"
+                      className="w-full pl-8 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded text-slate-900 dark:text-white font-semibold placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-600 shadow-2xs"
                     />
                     {searchTerm && (
                       <button
@@ -673,7 +672,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full appearance-none pl-2.5 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded font-bold text-slate-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs cursor-pointer"
+                      className="w-full appearance-none pl-2.5 pr-7 py-1 text-xs bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded font-bold text-slate-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-slate-600 shadow-2xs cursor-pointer"
                     >
                       <option value="todos">Todos os Status</option>
                       <option value="agendado">Agendado</option>
@@ -681,45 +680,45 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                       <option value="concluido">Concluído</option>
                       <option value="cancelado">Cancelado</option>
                     </select>
-                    <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
+                    <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-500">
                       <ChevronDown className="w-3.5 h-3.5" />
                     </div>
                   </div>
                 </div>
 
                 {/* TABELA DE VENDAS */}
-                <div className="w-full max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
                   <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-                      <tr className="border-b border-slate-300 dark:border-stone-700 bg-slate-100 dark:bg-stone-800">
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
+                    <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black">
+                      <tr className="border-b border-black dark:border-stone-700 bg-[#cad4e6] dark:bg-stone-800">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider w-16 whitespace-nowrap">
                           Nº
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                           CLIENTE
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider whitespace-nowrap">
                           DATA DA VENDA
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
                           TONELADAS / QTD
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap">
                           STATUS
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap">
                           TOTAL
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wider text-right w-20 whitespace-nowrap">
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-slate-900 dark:text-stone-300 uppercase tracking-wider text-right w-20 whitespace-nowrap">
                           <span className="sr-only">Ações</span>
                         </th>
                       </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-slate-100 dark:divide-stone-800 bg-white dark:bg-stone-900">
+                    <tbody className="bg-[#e0e6f1] dark:bg-stone-900">
                       {filteredSales.length === 0 ? (
-                        <tr className="bg-white dark:bg-stone-900">
-                          <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
+                        <tr className="bg-[#e0e6f1] dark:bg-stone-900">
+                          <td colSpan={7} className="py-8 text-center text-xs font-bold text-slate-700 dark:text-stone-400 uppercase bg-[#e0e6f1]">
                             NENHUM REGISTRO ENCONTRADO
                           </td>
                         </tr>
@@ -753,10 +752,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                           return (
                             <tr 
                               key={sale.id}
-                              className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-slate-200 dark:border-stone-800"
+                              className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-black/20 dark:border-stone-800"
                             >
                               {/* Nº */}
-                              <td className="px-3 py-1.5 text-xs font-mono text-slate-600 dark:text-stone-400 font-bold whitespace-nowrap">
+                              <td className="px-3 py-1.5 text-xs font-mono text-slate-700 dark:text-stone-400 font-bold whitespace-nowrap">
                                 #{itemNumber}
                               </td>
 
@@ -766,19 +765,19 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                                   {sale.clientName}
                                 </div>
                                 {sale.farmName && (
-                                  <div className="text-[10px] text-slate-500 dark:text-stone-400 font-medium uppercase">
+                                  <div className="text-[10px] text-slate-600 dark:text-stone-400 font-medium uppercase">
                                     {sale.farmName}
                                   </div>
                                 )}
                                 {sale.orderNumber && (
-                                  <div className="text-[10px] text-slate-500 font-medium uppercase">
+                                  <div className="text-[10px] text-slate-600 font-medium uppercase">
                                     Pedido: {sale.orderNumber}
                                   </div>
                                 )}
                               </td>
 
                               {/* Data */}
-                              <td className="px-3 py-1.5 text-xs text-slate-700 dark:text-stone-300 font-semibold whitespace-nowrap">
+                              <td className="px-3 py-1.5 text-xs text-slate-800 dark:text-stone-300 font-semibold whitespace-nowrap">
                                 {sale.startDate ? formatDateBR(sale.startDate) : '--'}
                               </td>
 
@@ -809,7 +808,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEdit(sale)}
-                                    className="p-1 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-stone-800 rounded transition-colors cursor-pointer"
+                                    className="p-1 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-stone-800 rounded transition-colors cursor-pointer"
                                     title="Editar venda"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
@@ -817,7 +816,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteService(sale.id, sale.clientName)}
-                                    className="p-1 text-slate-600 hover:text-rose-700 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 rounded transition-colors cursor-pointer"
+                                    className="p-1 text-slate-700 hover:text-rose-700 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 rounded transition-colors cursor-pointer"
                                     title="Excluir venda"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
