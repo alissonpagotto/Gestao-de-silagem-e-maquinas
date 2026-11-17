@@ -135,20 +135,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
-    // Se o usuário mudar para qualquer categoria diferente de Alimentação, limpa os funcionários do rateio
-    const newIsAlimentacao =
-      catName === 'ALIMENTAÇÃO' ||
-      catName === 'ALIMENTACAO' ||
-      catName.includes('ALIMENT') ||
-      catName.includes('REFEIÇ') ||
-      catName.includes('REFEIC') ||
-      catName.includes('RESTAURANTE');
-
-    if (!newIsAlimentacao) {
-      setSelectedTargets(['todos']);
-      setTargetToAdd('');
-    }
-
     setCategoryId(newCatId);
   };
 
@@ -363,9 +349,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [notes, setNotes] = useState('');
   const [mealType, setMealType] = useState<'cafe' | 'almoco' | 'janta'>('almoco');
   
-  // Apportionment multi-targets (list of employee IDs, team IDs, or 'todos'/'grupo_operadores'/'grupo_motoristas')
-  const [selectedTargets, setSelectedTargets] = useState<string[]>(['todos']);
-  const [targetToAdd, setTargetToAdd] = useState<string>('');
+  // Apportionment multi-targets (exclusive employee IDs; legacy team/group IDs preserved only when editing old records)
+  const [enableApportionment, setEnableApportionment] = useState<boolean>(false);
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [employeeRateioSearch, setEmployeeRateioSearch] = useState<string>('');
 
   // Grade discriminada de produtos / itens da despesa
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
@@ -644,8 +631,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setInvoiceNumber('');
     setNotes('');
     setMealType('almoco');
-    setSelectedTargets(['todos']);
-    setTargetToAdd('');
+    setEnableApportionment(false);
+    setSelectedTargets([]);
+    setEmployeeRateioSearch('');
     setHasQuantity(false);
     setQuantity('');
     setUnit('litros');
@@ -684,6 +672,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       invoiceNumber,
       notes,
       mealType,
+      enableApportionment,
       selectedTargets,
       expenseItems,
       hasQuantity,
@@ -771,16 +760,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         setUnitPrice('');
       }
 
-      if (editingExpense.employeeApportionment) {
+      if (editingExpense.employeeApportionment && editingExpense.employeeApportionment.trim()) {
         const parts = editingExpense.employeeApportionment.split(',').map((s) => s.trim()).filter(Boolean);
-        setSelectedTargets(parts.length > 0 ? parts : ['todos']);
+        if (parts.length > 0) {
+          setEnableApportionment(true);
+          setSelectedTargets(parts);
+        } else {
+          setEnableApportionment(false);
+          setSelectedTargets([]);
+        }
       } else if (editingExpense.employeeId) {
+        setEnableApportionment(true);
         setSelectedTargets([editingExpense.employeeId]);
       } else if (editingExpense.teamId) {
+        setEnableApportionment(true);
         setSelectedTargets([editingExpense.teamId]);
-      } else {
+      } else if (editingExpense.employeeName && editingExpense.employeeName.trim()) {
+        setEnableApportionment(true);
         setSelectedTargets(['todos']);
+      } else {
+        setEnableApportionment(false);
+        setSelectedTargets([]);
       }
+      setEmployeeRateioSearch('');
       const loadedItems = editingExpense.expense_items || (editingExpense as any).items || [];
       setExpenseItems(Array.isArray(loadedItems) ? loadedItems : []);
       setItemDescription('');
@@ -856,47 +858,62 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setReceiptName(undefined);
   };
 
-  const motoristasCount = activeEmployees.filter(
-    (e) => e.role?.toLowerCase().includes('motorista') || e.role?.toLowerCase().includes('caminh')
-  ).length;
-  const operadoresCount = activeEmployees.filter(
-    (e) =>
-      e.role?.toLowerCase().includes('ensiladeira') ||
-      e.role?.toLowerCase().includes('operador') ||
-      e.role?.toLowerCase().includes('trator')
-  ).length;
+  const handleToggleEmployeeTarget = (empId: string) => {
+    const cleaned = selectedTargets.filter((t) => t !== 'todos');
+    const exists = cleaned.includes(empId);
+    const nextTargets = exists
+      ? cleaned.filter((t) => t !== empId)
+      : [...cleaned, empId];
+    setSelectedTargets(nextTargets);
 
-  const handleAddTarget = (idToAdd?: string) => {
-    const target = idToAdd || targetToAdd;
-    if (!target) return;
-
-    if (target === 'todos') {
-      setSelectedTargets(['todos']);
-    } else {
-      const withoutTodos = selectedTargets.filter((t) => t !== 'todos');
-      if (!withoutTodos.includes(target)) {
-        setSelectedTargets([...withoutTodos, target]);
-        // Se ainda não houver veículo ou centro de custo selecionado, preenche com o do colaborador adicionado
-        if (!machineryId && !costCenterId) {
-          const linkedVeh = getLinkedVehicleForEmployee(target);
-          if (linkedVeh) {
-            setMachineryId(linkedVeh.id);
-            setCostCenterId('');
-          }
+    if (!exists) {
+      if (!machineryId && !costCenterId) {
+        const linkedVeh = getLinkedVehicleForEmployee(empId);
+        if (linkedVeh) {
+          setMachineryId(linkedVeh.id);
+          setCostCenterId('');
         }
       }
+    } else if (!costCenterId) {
+      const removedVeh = getLinkedVehicleForEmployee(empId);
+      if (removedVeh && machineryId === removedVeh.id) {
+        const nextLinked = nextTargets
+          .map((id) => getLinkedVehicleForEmployee(id))
+          .find(Boolean);
+        setMachineryId(nextLinked ? nextLinked.id : '');
+      }
     }
-    setTargetToAdd('');
   };
 
   const handleRemoveTarget = (idToRemove: string) => {
     const remaining = selectedTargets.filter((t) => t !== idToRemove);
-    if (remaining.length === 0) {
-      setSelectedTargets(['todos']);
-    } else {
-      setSelectedTargets(remaining);
+    setSelectedTargets(remaining);
+    if (!costCenterId) {
+      const removedVeh = getLinkedVehicleForEmployee(idToRemove);
+      if (removedVeh && machineryId === removedVeh.id) {
+        const nextLinked = remaining
+          .map((id) => getLinkedVehicleForEmployee(id))
+          .find(Boolean);
+        setMachineryId(nextLinked ? nextLinked.id : '');
+      }
     }
   };
+
+  const filteredRateioEmployees = useMemo(() => {
+    const q = employeeRateioSearch.trim().toLowerCase();
+    if (!q) return activeEmployees;
+    return activeEmployees.filter((emp) => {
+      const empVeh = getLinkedVehicleForEmployee(emp.id);
+      const vehLabel = empVeh
+        ? `${empVeh.licensePlateOrSerial || ''} ${empVeh.plate || ''} ${empVeh.model || ''} ${empVeh.name || ''}`.toLowerCase()
+        : '';
+      return (
+        (emp.name || '').toLowerCase().includes(q) ||
+        (emp.role || '').toLowerCase().includes(q) ||
+        vehLabel.includes(q)
+      );
+    });
+  }, [activeEmployees, employeeRateioSearch, getLinkedVehicleForEmployee]);
 
   const selectedCategory = safeCategories.find((c) => c.id === categoryId);
 
@@ -966,17 +983,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     });
   }
 
-  // Linked machineries inferred automatically from resolved employees and teams
+  // Linked machineries inferred automatically from resolved employees
   const linkedMachineries: Machinery[] = [];
   const linkedMachIdSet = new Set<string>();
 
   resolvedUniqueEmployees.forEach((emp) => {
-    const empName = (emp?.name || '').toLowerCase();
-    const m = machineries.find(
-      (mach) =>
-        mach.assignedDriverIds?.includes(emp.id) ||
-        (empName && mach.operatorOrDriver?.toLowerCase().includes(empName))
-    );
+    const m = getLinkedVehicleForEmployee(emp.id);
     if (m && !linkedMachIdSet.has(m.id)) {
       linkedMachIdSet.add(m.id);
       linkedMachineries.push(m);
@@ -985,7 +997,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   resolvedTargetTeams.forEach((t) => {
     if (t.machineryId) {
-      const m = machineries.find((mach) => mach.id === t.machineryId);
+      const m = availableMachineries.find((mach) => mach.id === t.machineryId);
       if (m && !linkedMachIdSet.has(m.id)) {
         linkedMachIdSet.add(m.id);
         linkedMachineries.push(m);
@@ -1065,7 +1077,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     resolvedEmployeeName = names.join(' + ');
   }
 
-  const primaryTeam = resolvedTargetTeams[0] || (resolvedUniqueEmployees[0]?.teamId ? teams.find((t) => t.id === resolvedUniqueEmployees[0].teamId) : undefined);
+  const primaryTeam = resolvedTargetTeams[0];
   const resolvedTeamId = primaryTeam?.id;
   const resolvedTeamName = primaryTeam?.name ? `Equipe ${primaryTeam.name}` : undefined;
   // Only resolve machinery if explicitly selected by the user (NO phantom auto-linking from employees)
@@ -1157,7 +1169,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     const effectiveDesc = supplier.trim() || 
       (editingExpense?.description ? editingExpense.description : (isAlimentacao ? `Refeição (${mealType === 'cafe' ? 'Café da Manhã' : mealType === 'almoco' ? 'Almoço' : 'Janta'})` : selectedCat?.name || 'Despesa Operacional'));
 
-    const singleEmp = selectedTargets.length === 1 && activeEmployees.some((e) => e.id === selectedTargets[0])
+    const shouldApplyApportionment = enableApportionment && !isFleetMaintenanceCategory && selectedTargets.length > 0;
+    const singleEmp = shouldApplyApportionment && selectedTargets.length === 1 && activeEmployees.some((e) => e.id === selectedTargets[0])
       ? activeEmployees.find((e) => e.id === selectedTargets[0])
       : undefined;
 
@@ -1244,11 +1257,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           machineryName: resolvedMachineryName || undefined,
           cost_center_id: resolvedCostCenterId || null,
           machine_id: resolvedMachineryId || null,
-          employeeId: isAlimentacao && singleEmp ? singleEmp.id : undefined,
-          employeeName: isAlimentacao ? resolvedEmployeeName : undefined,
-          teamId: isAlimentacao ? resolvedTeamId : undefined,
-          teamName: isAlimentacao ? resolvedTeamName : undefined,
-          employeeApportionment: isAlimentacao ? selectedTargets.join(',') : undefined,
+          employeeId: shouldApplyApportionment && singleEmp ? singleEmp.id : undefined,
+          employeeName: shouldApplyApportionment && resolvedEmployeeName ? resolvedEmployeeName : undefined,
+          teamId: shouldApplyApportionment ? resolvedTeamId : undefined,
+          teamName: shouldApplyApportionment ? resolvedTeamName : undefined,
+          employeeApportionment: shouldApplyApportionment ? selectedTargets.join(',') : undefined,
           invoiceNumber: invoiceNumber.trim() || undefined,
           notes: notes.trim() || undefined,
           quantity: isFleetMaintenanceCategory && readingKmOrHours ? parseFloat(readingKmOrHours) : (hasQuantity && quantity ? parseFloat(quantity) / installmentCount : undefined),
@@ -1312,11 +1325,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         machineryName: resolvedMachineryName || undefined,
         cost_center_id: resolvedCostCenterId || null,
         machine_id: resolvedMachineryId || null,
-        employeeId: isAlimentacao && singleEmp ? singleEmp.id : undefined,
-        employeeName: isAlimentacao ? resolvedEmployeeName : undefined,
-        teamId: isAlimentacao ? resolvedTeamId : undefined,
-        teamName: isAlimentacao ? resolvedTeamName : undefined,
-        employeeApportionment: isAlimentacao ? selectedTargets.join(',') : undefined,
+        employeeId: shouldApplyApportionment && singleEmp ? singleEmp.id : undefined,
+        employeeName: shouldApplyApportionment && resolvedEmployeeName ? resolvedEmployeeName : undefined,
+        teamId: shouldApplyApportionment ? resolvedTeamId : undefined,
+        teamName: shouldApplyApportionment ? resolvedTeamName : undefined,
+        employeeApportionment: shouldApplyApportionment ? selectedTargets.join(',') : undefined,
         invoiceNumber: invoiceNumber.trim() || undefined,
         notes: notes.trim() || undefined,
         quantity: isFleetMaintenanceCategory && readingKmOrHours ? parseFloat(readingKmOrHours) : (hasQuantity && quantity ? parseFloat(quantity) : undefined),
@@ -1707,8 +1720,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             </div>
 
-            {/* CAMPO OPCIONAL DE VÍNCULO: CENTRO DE CUSTO / MÁQUINA (QUANDO NÃO FOR MANUTENÇÃO DIRETA NEM ALIMENTAÇÃO) */}
-            {!isFleetMaintenanceCategory && !isAlimentacao && (
+            {/* CAMPO OPCIONAL DE VÍNCULO: CENTRO DE CUSTO / MÁQUINA (QUANDO NÃO FOR MANUTENÇÃO DIRETA) */}
+            {!isFleetMaintenanceCategory && (
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
                   CENTRO DE CUSTO / MÁQUINA (VÍNCULO OPCIONAL)
@@ -1846,242 +1859,207 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 )}
               </div>
             </div>
-          ) : isAlimentacao ? (
-            /* Rateio por Funcionários e Equipes (Seleção Múltipla) - Exclusivo para Alimentação */
-            <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
-                  FUNCIONÁRIOS E EQUIPES NO RATEIO ({totalParticipantsCount} {totalParticipantsCount === 1 ? 'PESSOA' : 'PESSOAS'})
-                </label>
-                <div className="flex items-center space-x-2 text-[9px]">
-                  {!selectedTargets.includes('todos') && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTargets(['todos'])}
-                      className="text-black font-bold hover:underline cursor-pointer uppercase"
-                    >
-                      + TODOS DA EMPRESA
-                    </button>
-                  )}
-                  {selectedTargets.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTargets(['todos'])}
-                      className="text-slate-700 hover:text-black font-medium cursor-pointer uppercase"
-                    >
-                      LIMPAR
-                    </button>
-                  )}
-                </div>
-              </div>
+          ) : (
+            /* Checkbox Opcional de Rateio Exclusivo por Funcionários */
+            <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={enableApportionment}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEnableApportionment(checked);
+                    if (!checked) {
+                      setSelectedTargets([]);
+                      setEmployeeRateioSearch('');
+                    }
+                  }}
+                  className="w-4 h-4 rounded border border-black bg-white text-emerald-700 focus:ring-emerald-600 cursor-pointer accent-emerald-700"
+                />
+                <span className="text-[11px] font-bold text-black uppercase tracking-wider">
+                  RATEAR ESTA DESPESA ENTRE FUNCIONÁRIOS?
+                </span>
+              </label>
 
-              {/* Linha de Seleção com Dropdown e Botão + ADICIONAR */}
-              <div className="flex items-center space-x-1">
-                <div className="relative flex-1">
-                  <select
-                    value={targetToAdd}
-                    onChange={(e) => {
-                      setTargetToAdd(e.target.value);
-                      if (e.target.value) {
-                        handleAddTarget(e.target.value);
-                      }
-                    }}
-                    className="w-full px-2 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-7 cursor-pointer uppercase"
-                  >
-                    <option value="">+ SELECIONE PARA ADICIONAR AO RATEIO...</option>
-                    
-                    <optgroup label="RATEIO COLETIVO & GRUPOS">
-                      <option value="todos">
-                        TODOS OS FUNCIONÁRIOS ({activeEmployees.length} PESSOAS NA EMPRESA)
-                      </option>
-                      {operadoresCount > 0 && (
-                        <option value="grupo_operadores">
-                          EQUIPE DE CAMPO / OPERADORES ({operadoresCount} PESSOAS)
-                        </option>
-                      )}
-                      {motoristasCount > 0 && (
-                        <option value="grupo_motoristas">
-                          MOTORISTAS DE CAMINHÃO ({motoristasCount} PESSOAS)
-                        </option>
-                      )}
-                    </optgroup>
-
-                    {teams.length > 0 && (
-                      <optgroup label="EQUIPES DA FROTA">
-                        {teams.map((team) => {
-                          const teamMembers = activeEmployees.filter((e) => e.teamId === team.id);
-                          return (
-                            <option key={team.id} value={team.id}>
-                              EQUIPE {team.name.toUpperCase()} ({teamMembers.length} PESSOAS){team.machineryName ? ` · ${team.machineryName.toUpperCase()}` : ''}
-                            </option>
-                          );
-                        })}
-                      </optgroup>
+              {enableApportionment && (
+                <div className="border-t border-black/20 pt-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
+                      FUNCIONÁRIOS NO RATEIO ({selectedTargets.length === 0 ? 0 : totalParticipantsCount}{' '}
+                      {(selectedTargets.length === 0 ? 0 : totalParticipantsCount) === 1 ? 'SELECIONADO' : 'SELECIONADOS'})
+                    </label>
+                    {selectedTargets.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTargets([]);
+                          setEmployeeRateioSearch('');
+                        }}
+                        className="text-[9px] text-slate-700 hover:text-black font-bold cursor-pointer uppercase"
+                      >
+                        LIMPAR
+                      </button>
                     )}
+                  </div>
 
-                    {activeEmployees.length > 0 && (
-                      <optgroup label={`FUNCIONÁRIOS CADASTRADOS (${activeEmployees.length})`}>
-                        {activeEmployees.map((emp) => {
-                          const empTeam = teams.find((t) => t.id === emp.teamId);
-                          const empName = (emp?.name || '').toLowerCase();
-                          const empMach = machineries.find(
-                            (m) =>
-                              m.assignedDriverIds?.includes(emp.id) ||
-                              (empName && m.operatorOrDriver?.toLowerCase().includes(empName))
-                          );
-                          return (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name.toUpperCase()} ({(emp.role || 'FUNCIONÁRIO').toUpperCase()}{empTeam ? ` · EQUIPE ${empTeam.name.toUpperCase()}` : ''}{empMach ? ` · ${empMach.licensePlateOrSerial || empMach.name}` : ''})
-                            </option>
-                          );
-                        })}
-                      </optgroup>
+                  {/* Campo de Busca Digitável Exclusivo de Funcionários */}
+                  <div className="relative">
+                    <Search className="w-3 h-3 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={employeeRateioSearch}
+                      onChange={(e) => setEmployeeRateioSearch(e.target.value)}
+                      placeholder="PESQUISAR FUNCIONÁRIO PELO NOME OU FUNÇÃO..."
+                      className="w-full pl-7 pr-7 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
+                    />
+                    {employeeRateioSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setEmployeeRateioSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-black cursor-pointer"
+                        title="Limpar busca"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     )}
-                  </select>
-                  <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => handleAddTarget()}
-                  className="h-7.5 px-2.5 shrink-0 rounded-md bg-[#059669] hover:bg-emerald-700 text-white border border-black flex items-center space-x-1 shadow-xs text-[10px] font-bold uppercase transition cursor-pointer"
-                  title="Adicionar equipe ou funcionário ao rateio"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>+ ADICIONAR</span>
-                </button>
-              </div>
+                  </div>
 
-              {/* Chips de Funcionários / Equipes Selecionados - Linha Contínua Micro */}
-              <div className="flex flex-wrap gap-1 max-h-12 overflow-y-auto scrollbar-none py-0.5">
-                {selectedTargets.map((targetId) => {
-                  if (targetId === 'todos') {
-                    return (
-                      <div
-                        key="todos"
-                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
-                      >
-                        <Users className="w-3 h-3 text-blue-700" />
-                        <span>TODOS OS FUNCIONÁRIOS ({activeEmployees.length} PESSOAS)</span>
+                  {/* Lista de Seleção Contendo Apenas os Funcionários Cadastrados */}
+                  <div className="max-h-36 overflow-y-auto rounded-md border border-gray-400 bg-white divide-y divide-gray-200">
+                    {filteredRateioEmployees.length === 0 ? (
+                      <div className="p-2 text-center text-[10px] font-semibold text-slate-600 uppercase">
+                        NENHUM FUNCIONÁRIO CADASTRADO ENCONTRADO.
                       </div>
-                    );
-                  }
+                    ) : (
+                      filteredRateioEmployees.map((emp) => {
+                        const isChecked = selectedTargets.includes(emp.id);
+                        const empMach = getLinkedVehicleForEmployee(emp.id);
+                        return (
+                          <label
+                            key={emp.id}
+                            className={`flex items-center justify-between gap-2 px-2.5 py-1.5 cursor-pointer transition text-xs ${
+                              isChecked ? 'bg-emerald-50 font-bold text-black' : 'hover:bg-slate-100 text-black font-medium'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleEmployeeTarget(emp.id)}
+                                className="w-3.5 h-3.5 rounded border-gray-400 text-emerald-700 accent-emerald-700 cursor-pointer shrink-0"
+                              />
+                              <span className="truncate uppercase">{emp.name.toUpperCase()}</span>
+                              <span className="text-[9px] text-slate-600 font-semibold uppercase shrink-0">
+                                ({(emp.role || 'FUNCIONÁRIO').toUpperCase()})
+                              </span>
+                            </div>
+                            {empMach && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-gray-300 text-[9px] font-bold text-emerald-800 uppercase shrink-0">
+                                <Tractor className="w-2.5 h-2.5" />
+                                <span>
+                                  {empMach.licensePlateOrSerial
+                                    ? `${empMach.licensePlateOrSerial} · ${empMach.model || empMach.name}`
+                                    : (empMach.model || empMach.name)}
+                                </span>
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
 
-                  if (targetId === 'grupo_operadores') {
-                    return (
-                      <div
-                        key="grupo_operadores"
-                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
-                      >
-                        <Tractor className="w-3 h-3 text-emerald-700" />
-                        <span>OPERADORES & TRATORISTAS ({operadoresCount})</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTarget('grupo_operadores')}
-                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
-                          title="Remover do rateio"
-                        >
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    );
-                  }
+                  {/* Chips dos Funcionários Selecionados */}
+                  {selectedTargets.length > 0 && (
+                    <div className="flex flex-wrap gap-1 max-h-14 overflow-y-auto scrollbar-none py-0.5">
+                      {selectedTargets.map((targetId) => {
+                        const empMatch = activeEmployees.find((e) => e.id === targetId);
+                        if (empMatch) {
+                          const empMach = getLinkedVehicleForEmployee(empMatch.id);
+                          return (
+                            <div
+                              key={empMatch.id}
+                              className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                            >
+                              <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white text-[8px] flex items-center justify-center font-bold">
+                                {empMatch.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span>{empMatch.name.toUpperCase()}</span>
+                              {empMach && (
+                                <span className="text-[9px] text-emerald-700 font-semibold">
+                                  · {(empMach.licensePlateOrSerial || empMach.model || empMach.name).toUpperCase()}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTarget(empMatch.id)}
+                                className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
+                                title="Remover funcionário do rateio"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          );
+                        }
 
-                  if (targetId === 'grupo_motoristas') {
-                    return (
-                      <div
-                        key="grupo_motoristas"
-                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
-                      >
-                        <Users className="w-3 h-3 text-emerald-700" />
-                        <span>MOTORISTAS DE CAMINHÃO ({motoristasCount})</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTarget('grupo_motoristas')}
-                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
-                          title="Remover do rateio"
-                        >
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  const teamMatch = teams.find((t) => t.id === targetId);
-                  if (teamMatch) {
-                    const teamMembers = activeEmployees.filter((e) => e.teamId === teamMatch.id);
-                    return (
-                      <div
-                        key={teamMatch.id}
-                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
-                      >
-                        <Users className="w-3 h-3 text-amber-700" />
-                        <span>EQUIPE {teamMatch.name.toUpperCase()} ({teamMembers.length} FUNC.)</span>
-                        {teamMatch.machineryName && (
-                          <span className="text-[9px] opacity-75 font-normal">· {teamMatch.machineryName.toUpperCase()}</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTarget(teamMatch.id)}
-                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
-                          title="Remover equipe do rateio"
-                        >
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  const empMatch = activeEmployees.find((e) => e.id === targetId);
-                  if (empMatch) {
-                    const empTeam = teams.find((t) => t.id === empMatch.teamId);
-                    return (
-                      <div
-                        key={empMatch.id}
-                        className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
-                      >
-                        <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white text-[8px] flex items-center justify-center font-bold">
-                          {empMatch.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span>{empMatch.name.toUpperCase()}</span>
-                        <span className="text-[9px] text-slate-700 font-normal">
-                          ({(empMatch.role || 'FUNCIONÁRIO').toUpperCase()}{empTeam ? ` · EQ. ${empTeam.name.toUpperCase()}` : ''})
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTarget(empMatch.id)}
-                          className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
-                          title="Remover funcionário do rateio"
-                        >
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  return null;
-                })}
-              </div>
-
-              {/* Informative Rateio / Auto-Linking Feedback Box Compacto */}
-              <div className="px-2 py-1 rounded border border-gray-400 bg-white text-[10px] flex items-center justify-between">
-                <div className="flex items-center space-x-1.5 font-bold text-black uppercase">
-                  <Calculator className="w-3 h-3 text-blue-600" />
-                  <span>RATEIO: {totalParticipantsCount} {totalParticipantsCount === 1 ? 'PESSOA' : 'PESSOAS'} NO TOTAL</span>
-                  {linkedMachineries.length > 0 && (
-                    <span className="text-emerald-700 font-semibold ml-2">
-                      · MÁQ: {linkedMachineries.map((m) => m.licensePlateOrSerial || m.model || m.name).join(', ').toUpperCase()}
-                    </span>
+                        return (
+                          <div
+                            key={targetId}
+                            className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                          >
+                            <Users className="w-3 h-3 text-slate-700" />
+                            <span>{targetId === 'todos' ? `TODOS (${activeEmployees.length})` : targetId}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTarget(targetId)}
+                              className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
+                              title="Remover do rateio"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
+
+                  {/* Resumo Claro de Rateio e Vínculo Automático com Veículo no DRE */}
+                  <div className="px-2 py-1 rounded border border-gray-400 bg-white text-[10px] flex flex-wrap items-center justify-between gap-1">
+                    <div className="flex flex-wrap items-center gap-1 font-bold text-black uppercase">
+                      <Calculator className="w-3 h-3 text-blue-600 shrink-0" />
+                      {selectedTargets.length === 0 ? (
+                        <span>SELECIONE UM OU MAIS FUNCIONÁRIOS PARA O RATEIO</span>
+                      ) : (
+                        <>
+                          <span>
+                            Rateio entre {totalParticipantsCount} funcionário(s)
+                          </span>
+                          {linkedMachineries.length > 0 && (
+                            <span className="text-emerald-700 font-bold">
+                              {'->'} Vinculado automaticamente ao(s) veículo(s):{' '}
+                              {linkedMachineries
+                                .map((m) =>
+                                  m.licensePlateOrSerial
+                                    ? `${m.licensePlateOrSerial} / ${m.model || m.name}`
+                                    : (m.model || m.name)
+                                )
+                                .join(', ')
+                                .toUpperCase()}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {numAmount > 0 && selectedTargets.length > 0 && (
+                      <span className="text-emerald-700 font-extrabold text-xs shrink-0">
+                        R$ {rateioPerPerson.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / PESSOA
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {numAmount > 0 && (
-                  <span className="text-emerald-700 font-extrabold text-xs">
-                    R$ {rateioPerPerson.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / PESSOA
-                  </span>
-                )}
-              </div>
+              )}
             </div>
-          ) : null}
+          )}
 
           {/* BLOCO 3 (CARD): PAGAMENTO — STATUS, FORMA, DATA EFETIVA E CONTA DE DÉBITO / CARTÃO / CHEQUE */}
           <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">

@@ -245,16 +245,20 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
   // --- 3. Identify Assigned Drivers ---
   const assignedDriverIds = useMemo(() => {
+    const idSet = new Set<string>();
     if (vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0) {
-      return vehicle.assignedDriverIds;
+      vehicle.assignedDriverIds.forEach((id) => idSet.add(id));
     }
     if (vehicle.operatorOrDriver) {
       const names = vehicle.operatorOrDriver.split(',').map((s) => s.trim().toLowerCase());
-      return employees
+      employees
         .filter((emp) => names.includes(emp.name.toLowerCase()))
-        .map((emp) => emp.id);
+        .forEach((emp) => idSet.add(emp.id));
     }
-    return [];
+    employees
+      .filter((emp) => emp.machineryId === vehicle.id)
+      .forEach((emp) => idSet.add(emp.id));
+    return Array.from(idSet);
   }, [vehicle, employees]);
 
   const assignedDrivers = useMemo(() => {
@@ -276,12 +280,46 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     }
   }, [assignedDrivers, employees, expenseDriverId]);
 
+  const getApportionedAmountForVehicle = React.useCallback(
+    (exp: Expense): number => {
+      const baseAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      if (!exp.employeeApportionment || !exp.employeeApportionment.trim()) {
+        return baseAmount;
+      }
+      const parts = exp.employeeApportionment.split(',').map((s) => s.trim()).filter(Boolean);
+      if (parts.length === 0) return baseAmount;
+
+      if (parts.includes('todos')) {
+        const activeEmps = employees.filter((e) => e.status !== 'inativo');
+        const total = Math.max(activeEmps.length, 1);
+        const matched = assignedDriverIds.filter((id) => activeEmps.some((e) => e.id === id)).length;
+        if (matched > 0) return +(baseAmount * (matched / total)).toFixed(2);
+        return exp.machineryId === vehicle.id ? +(baseAmount / total).toFixed(2) : 0;
+      }
+
+      const matched = parts.filter((id) => assignedDriverIds.includes(id)).length;
+      if (matched > 0) {
+        return +(baseAmount * (matched / parts.length)).toFixed(2);
+      }
+      if (exp.machineryId === vehicle.id && parts.length === 1) {
+        return baseAmount;
+      }
+      return 0;
+    },
+    [assignedDriverIds, employees, vehicle.id]
+  );
+
   // --- 4. Driver Expenses Breakdown (Alimentação, Salários, Rescisão, Diárias, etc.) ---
   const vehicleDriverExpenses = useMemo(() => {
     const plateClean = (vehicle.licensePlateOrSerial || '').toLowerCase().trim();
     const modelClean = (vehicle.model || vehicle.name || '').toLowerCase().trim();
 
     return localExpenses.filter((exp) => {
+      // Rateio proporcional explícito por funcionários
+      if (exp.employeeApportionment && exp.employeeApportionment.trim()) {
+        return getApportionedAmountForVehicle(exp) > 0;
+      }
+
       // Direct machineryId match
       if (exp.machineryId === vehicle.id) {
         const cat = (exp.categoryName || exp.categoryId || '').toLowerCase();
@@ -330,7 +368,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
       return hasVehicleTag && hasDriverTag;
     }).sort((a, b) => new Date(b.dueDate || b.paymentDate || b.createdAt).getTime() - new Date(a.dueDate || a.paymentDate || a.createdAt).getTime());
-  }, [localExpenses, vehicle, assignedDriverIds, assignedDriverNames]);
+  }, [localExpenses, vehicle, assignedDriverIds, assignedDriverNames, getApportionedAmountForVehicle]);
 
   // Driver Payroll Records
   const driverPayrolls = useMemo(() => {
@@ -348,7 +386,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
     vehicleDriverExpenses.forEach((exp) => {
       const text = `${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`.toLowerCase();
-      const effectiveAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      const effectiveAmount = getApportionedAmountForVehicle(exp);
       if (
         exp.isVacationExpense ||
         Boolean(exp.dreGrossAmount) ||
@@ -390,7 +428,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       outros,
       total,
     };
-  }, [vehicleDriverExpenses, driverPayrolls, assignedDrivers]);
+  }, [vehicleDriverExpenses, driverPayrolls, assignedDrivers, getApportionedAmountForVehicle]);
 
   // --- 5. Revenues from Services and Silage Delivery Orders ---
   const vehicleServices = useMemo(() => {
@@ -441,9 +479,11 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
   // Other vehicle direct expenses (IPVA, seguro, licenciamento, pneus)
   const otherVehicleCosts = useMemo(() => {
+    const driverExpIds = new Set(vehicleDriverExpenses.map((e) => e.id));
     return localExpenses
       .filter((exp) => {
         if (exp.machineryId !== vehicle.id) return false;
+        if (driverExpIds.has(exp.id) || (exp.employeeApportionment && exp.employeeApportionment.trim())) return false;
         const cat = (exp.categoryName || exp.categoryId || '').toLowerCase();
         const desc = (exp.description || '').toLowerCase();
         // Exclude fuel, maintenance and driver
@@ -453,7 +493,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
         return !isFuel && !isMaint && !isDriver;
       })
       .reduce((sum, exp) => sum + exp.amount, 0);
-  }, [localExpenses, vehicle.id]);
+  }, [localExpenses, vehicle.id, vehicleDriverExpenses]);
 
   const totalDirectVehicleCosts = totalFuelCost + totalMaintenanceCost + otherVehicleCosts;
   const totalDriverCosts = driverExpensesByCategory.total;
@@ -1169,7 +1209,12 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                         {exp.paymentMethod}
                       </td>
                       <td className="p-2.5 text-right font-black font-mono text-rose-600 dark:text-rose-400">
-                        {formatCurrencyBRL(exp.amount)}
+                        {formatCurrencyBRL(getApportionedAmountForVehicle(exp))}
+                        {exp.employeeApportionment && exp.employeeApportionment.includes(',') && (
+                          <div className="text-[9px] font-semibold text-stone-500 uppercase">
+                            Rateio (Total {formatCurrencyBRL(exp.amount)})
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
