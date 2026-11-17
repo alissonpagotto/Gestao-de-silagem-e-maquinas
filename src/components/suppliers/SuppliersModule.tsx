@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchFornecedores, mapRowToSupplier, toValidUUID, isSupabaseConfigured, upsertFornecedor, deleteFornecedor } from '../../lib/supabaseService';
-import { saveStoredSuppliers, ensureSequentialSupplierCodes, getActiveCompanyId } from '../../lib/storage';
+import { getStoredSuppliers, saveStoredSuppliers, ensureSequentialSupplierCodes, getActiveCompanyId } from '../../lib/storage';
 import {
   Plus,
   Search,
@@ -84,6 +84,28 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       }
     }
   }, [suppliers]);
+
+  useEffect(() => {
+    const handleSuppliersUpdated = (e?: Event) => {
+      const detail = (e as CustomEvent | undefined)?.detail;
+      const source = Array.isArray(detail) ? detail : getStoredSuppliers();
+      const { items } = ensureSequentialSupplierCodes(Array.isArray(source) ? source : []);
+      setLocalSuppliers(items);
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key || e.key === 'agrocontrol_fornecedores' || e.key.includes('suppliers')) {
+        handleSuppliersUpdated();
+      }
+    };
+
+    window.addEventListener('agrocontrol_fornecedores_updated', handleSuppliersUpdated);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('agrocontrol_fornecedores_updated', handleSuppliersUpdated);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   const onSaveSuppliersRef = useRef(onSaveSuppliers);
   useEffect(() => {

@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
-import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts } from '../../lib/storage';
+import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts, getStoredSuppliers, saveStoredSuppliers, ensureSequentialSupplierCodes } from '../../lib/storage';
 import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate, formatDateBR, formatCpfCnpj, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatCorporateCardDisplay, syncExpenseWithCardsAndBank } from '../../lib/cardFinancialSync';
 import { ExpenseCategoriesModal } from './ExpenseCategoriesModal';
@@ -320,6 +320,42 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const supplierContainerRef = useRef<HTMLDivElement>(null);
+  const formScrollRef = useRef<HTMLFormElement>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => {
+    const stored = getStoredSuppliers();
+    const base = Array.isArray(suppliers) && suppliers.length > 0 ? suppliers : stored;
+    return ensureSequentialSupplierCodes(Array.isArray(base) ? base : []).items;
+  });
+
+  useEffect(() => {
+    const stored = getStoredSuppliers();
+    const mergedMap = new Map<string, Supplier>();
+    [...(Array.isArray(stored) ? stored : []), ...(Array.isArray(suppliers) ? suppliers : [])].forEach((s) => {
+      if (s && s.id) mergedMap.set(s.id, s);
+    });
+    setLocalSuppliers(ensureSequentialSupplierCodes(Array.from(mergedMap.values())).items);
+  }, [suppliers, isOpen]);
+
+  useEffect(() => {
+    const handleSuppliersUpdated = (e?: Event) => {
+      const detail = (e as CustomEvent | undefined)?.detail;
+      const source = Array.isArray(detail) ? detail : getStoredSuppliers();
+      setLocalSuppliers(ensureSequentialSupplierCodes(Array.isArray(source) ? source : []).items);
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'agrocontrol_fornecedores' || e.key.includes('suppliers')) {
+        handleSuppliersUpdated();
+      }
+    };
+    window.addEventListener('agrocontrol_fornecedores_updated', handleSuppliersUpdated);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('agrocontrol_fornecedores_updated', handleSuppliersUpdated);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
   const [costCenterId, setCostCenterId] = useState('');
   const [machineryId, setMachineryId] = useState('');
   const [readingKmOrHours, setReadingKmOrHours] = useState<string>('');
@@ -341,20 +377,24 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     if (e) e.preventDefault();
     const desc = itemDescription.trim();
     if (!desc) {
-      alert('Por favor, informe a descrição do item / gasto.');
+      setFormError('Por favor, informe a descrição do item / gasto.');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     const cleanQtyStr = itemQuantity.replace(',', '.');
     const qty = parseFloat(cleanQtyStr);
     if (isNaN(qty) || qty <= 0) {
-      alert('Por favor, informe uma quantidade válida maior que zero.');
+      setFormError('Por favor, informe uma quantidade válida maior que zero.');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     const unitVal = parseCurrencyToFloat(itemUnitValue);
     if (unitVal <= 0) {
-      alert('Por favor, informe um valor unitário válido (R$).');
+      setFormError('Por favor, informe um valor unitário válido (R$).');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    setFormError(null);
 
     const totalVal = +(qty * unitVal).toFixed(2);
     const newItem: ExpenseItem = {
@@ -620,6 +660,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setCheckBank('');
     setCheckAmount('');
     setComplementaryPayments([]);
+    setFormError(null);
   }, [safeCategories, today, priorityBankAccountId]);
 
   const expenseGuard = useModalUnsavedGuard({
@@ -661,12 +702,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     ],
   });
 
-  const handleCloseModal = () => {
-    expenseGuard.confirmClose(() => {
-      resetFormState();
-      onClose();
-    });
-  };
+  const handleImmediateClose = useCallback(() => {
+    setFormError(null);
+    setIsSupplierDropdownOpen(false);
+    expenseGuard.resetDirty();
+    resetFormState();
+    onClose();
+  }, [expenseGuard, resetFormState, onClose]);
+
+  const handleCloseModal = handleImmediateClose;
 
   // Load existing data if editing or reset completely if new/closed
   useEffect(() => {
@@ -771,7 +815,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     };
   }, []);
 
-  const filteredSuppliers = suppliers.filter((s) => {
+  const filteredSuppliers = localSuppliers.filter((s) => {
     if (!supplier || !supplier.trim()) return true;
     const q = (supplier || '').toLowerCase().trim();
     const cleanQ = q.replace(/\D/g, '');
@@ -1044,57 +1088,69 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    const showValidationError = (msg: string) => {
+      setFormError(msg);
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    if (!dueDate) {
+      showValidationError('Por favor, informe a data de vencimento / lançamento.');
+      return;
+    }
+
     if (isNaN(numAmount) || numAmount <= 0) {
-      alert('Por favor, informe um valor válido para a despesa.');
+      showValidationError('Por favor, informe um valor válido para a despesa.');
       return;
     }
 
     if (isFleetMaintenanceCategory && !machineryId) {
-      alert('POR FAVOR, SELECIONE O VEÍCULO / MÁQUINA DA FROTA PARA O VÍNCULO DE MANUTENÇÃO.');
+      showValidationError('POR FAVOR, SELECIONE O VEÍCULO / MÁQUINA DA FROTA PARA O VÍNCULO DE MANUTENÇÃO.');
       return;
     }
 
     if (isCheckPayment) {
       if (!checkNumber.trim()) {
-        alert('POR FAVOR, INFORME O NÚMERO DO CHEQUE.');
+        showValidationError('POR FAVOR, INFORME O NÚMERO DO CHEQUE.');
         return;
       }
       if (numCheckAmount <= 0) {
-        alert('POR FAVOR, INFORME O VALOR DO CHEQUE (R$).');
+        showValidationError('POR FAVOR, INFORME O VALOR DO CHEQUE (R$).');
         return;
       }
       if (isCheckUnderpaid && saldoADistribuir > 0.009) {
-        alert(`EXISTE UM SALDO RESTANTE DE ${formatCurrencyBRL(saldoADistribuir)} A DISTRIBUIR. ADICIONE UMA FORMA COMPLEMENTAR DE PAGAMENTO (EX: PIX OU DINHEIRO) ATÉ ZERAR O SALDO.`);
+        showValidationError(`EXISTE UM SALDO RESTANTE DE ${formatCurrencyBRL(saldoADistribuir)} A DISTRIBUIR. ADICIONE UMA FORMA COMPLEMENTAR DE PAGAMENTO (EX: PIX OU DINHEIRO) ATÉ ZERAR O SALDO.`);
         return;
       }
       for (const comp of complementaryPayments) {
         const compVal = parseCurrencyToFloat(comp.amount);
         if (compVal <= 0) {
-          alert('POR FAVOR, INFORME UM VALOR VÁLIDO PARA CADA FORMA COMPLEMENTAR.');
+          showValidationError('POR FAVOR, INFORME UM VALOR VÁLIDO PARA CADA FORMA COMPLEMENTAR.');
           return;
         }
       }
     }
 
     if (status === 'pago' && !bankAccountId && !isCardPayment && !isCashOrSignedNote && !isCheckPayment) {
-      alert('POR FAVOR, SELECIONE A CONTA DE DÉBITO (ORIGEM) PARA A DESPESA PAGA.');
+      showValidationError('POR FAVOR, SELECIONE A CONTA DE DÉBITO (ORIGEM) PARA A DESPESA PAGA.');
       return;
     }
 
     if (isCardPayment) {
       if (!bankAccountId) {
-        alert('POR FAVOR, SELECIONE A CONTA BANCÁRIA VINCULADA AO CARTÃO.');
+        showValidationError('POR FAVOR, SELECIONE A CONTA BANCÁRIA VINCULADA AO CARTÃO.');
         return;
       }
       if (!corporateCardId) {
-        alert('POR FAVOR, SELECIONE O CARTÃO CORPORATIVO UTILIZADO.');
+        showValidationError('POR FAVOR, SELECIONE O CARTÃO CORPORATIVO UTILIZADO.');
         return;
       }
     }
 
     const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
 
-    const matchedSupplier = suppliers.find(
+    const matchedSupplier = localSuppliers.find(
       (s) => (supplierId && s.id === supplierId) || (s.name && s.name.trim().toLowerCase() === supplier.trim().toLowerCase())
     );
     const resolvedSupplierId = supplierId || matchedSupplier?.id || undefined;
@@ -1344,7 +1400,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
     }
 
-    handleCloseModal();
+    handleImmediateClose();
   };
 
   if (!isOpen) return null;
@@ -1353,11 +1409,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     <>
       <div id="modal-nova-despesa" className="fixed inset-0 z-50 flex items-center justify-center px-2 sm:px-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
         <div
-          className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
         
-        {/* Header */}
-        <div className="px-3.5 py-2 border-b border-black bg-[#cad4e6] text-black flex items-center justify-between shrink-0 rounded-t-lg">
+        {/* Seção 1: Cabeçalho Fixo */}
+        <div className="shrink-0 relative z-30 px-3.5 py-2 border-b border-black bg-[#cad4e6] text-black flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-white text-black flex items-center justify-center border border-black shadow-2xs shrink-0">
               <Receipt className="w-3.5 h-3.5 text-slate-800" />
@@ -1373,17 +1429,37 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={handleCloseModal}
+            onClick={handleImmediateClose}
             className="p-1 rounded-md text-slate-800 hover:text-black hover:bg-black/10 transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5 text-black" />
           </button>
         </div>
 
-        {/* Form - Altura Total 95vh com Scroll Interno e Rodapé Fixo */}
-        <form onSubmit={handleSubmit} {...expenseGuard.captureProps} className="flex-1 min-h-0 flex flex-col bg-[#cad4e6] text-black overflow-hidden">
-          {/* Bloco de Campos com Rolagem Vertical Reativa */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5 bg-[#cad4e6]">
+        {/* Seção 2: Corpo Rolável */}
+        <form
+          id="expense-modal-form"
+          ref={formScrollRef}
+          noValidate
+          onSubmit={handleSubmit}
+          {...expenseGuard.captureProps}
+          className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2.5 sm:p-3.5 space-y-2.5 bg-[#cad4e6] text-black"
+        >
+          {formError && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-rose-700 bg-rose-100 text-rose-900 text-xs font-bold uppercase shadow-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-700" />
+                <span className="truncate sm:whitespace-normal">{formError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormError(null)}
+                className="p-0.5 rounded hover:bg-rose-200 text-rose-800 shrink-0 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           
           {/* BLOCO 1 (CARD): CATEGORIA (50%) + DATA (25%) + VALOR TOTAL (25%) */}
           <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
@@ -1442,7 +1518,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div className="col-span-3">
-              <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5 flex items-center justify-between">
+              <label className="text-[10px] font-bold text-black uppercase tracking-wider mb-0.5 flex flex-wrap items-center justify-between gap-1">
                 <span>VALOR TOTAL (R$) <span className="text-rose-600">*</span></span>
                 {expenseItems.length > 0 && (
                   <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-400">
@@ -2478,8 +2554,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
 
           {/* BLOCO 5 (CARD): ITENS / PRODUTOS LANÇADOS NESTA DESPESA */}
-          <div className="w-full rounded-xl border border-black bg-[#e0e6f1] p-2.5 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between">
+          <div className="w-full rounded-xl border border-black bg-[#e0e6f1] p-2.5 space-y-2 shadow-2xs overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
                 <Package className="w-3.5 h-3.5 text-black" />
                 <span className="text-[11px] font-bold text-black uppercase tracking-wide">
@@ -2583,7 +2659,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 Nenhum item discriminado. Adicione itens acima para discriminar produtos/serviços e calcular automaticamente o valor total.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-black bg-white">
+              <div className="max-h-52 overflow-y-auto overflow-x-auto rounded-lg border border-black bg-white">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#cad4e6] border-b border-black text-[10px] font-bold text-black uppercase tracking-wider">
@@ -2641,36 +2717,35 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             )}
           </div>
 
-          </div>
-
-          {/* Botões de Ação - Rodapé Compacto Fixo */}
-          <div className="px-3.5 py-2 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleCloseModal}
-              className="px-3.5 py-1 rounded-md bg-white hover:bg-slate-100 border border-black text-black text-xs font-bold uppercase transition cursor-pointer"
-            >
-              CANCELAR
-            </button>
-            <button
-              type="submit"
-              disabled={isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009}
-              title={
-                isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
-                  ? `Saldo restante de ${formatCurrencyBRL(saldoADistribuir)} a distribuir antes de salvar.`
-                  : undefined
-              }
-              className={`px-4 py-1 rounded-md text-white border border-black text-xs font-bold uppercase transition shadow-xs ${
-                isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
-                  ? 'bg-slate-400 cursor-not-allowed opacity-60'
-                  : 'bg-[#059669] hover:bg-emerald-700 cursor-pointer'
-              }`}
-            >
-              {editingExpense ? 'ATUALIZAR DESPESA' : 'SALVAR DESPESA'}
-            </button>
-          </div>
-
         </form>
+
+        {/* Seção 3: Rodapé Fixo no Topo de Camada */}
+        <div className="shrink-0 relative z-30 px-3.5 py-2.5 border-t border-black bg-[#cad4e6] flex items-center justify-end space-x-2">
+          <button
+            type="button"
+            onClick={handleImmediateClose}
+            className="px-3.5 py-1.5 rounded-md bg-white hover:bg-slate-100 border border-black text-black text-xs font-bold uppercase transition cursor-pointer"
+          >
+            CANCELAR
+          </button>
+          <button
+            type="submit"
+            form="expense-modal-form"
+            disabled={isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009}
+            title={
+              isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
+                ? `Saldo restante de ${formatCurrencyBRL(saldoADistribuir)} a distribuir antes de salvar.`
+                : undefined
+            }
+            className={`px-4 py-1.5 rounded-md text-white border border-black text-xs font-bold uppercase transition shadow-xs ${
+              isCheckPayment && isCheckUnderpaid && saldoADistribuir > 0.009
+                ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                : 'bg-[#059669] hover:bg-emerald-700 cursor-pointer'
+            }`}
+          >
+            {editingExpense ? 'ATUALIZAR DESPESA' : 'SALVAR DESPESA'}
+          </button>
+        </div>
 
       </div>
     </div>
@@ -2704,13 +2779,26 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         isOpen={isSupplierModalOpen}
         onClose={() => setIsSupplierModalOpen(false)}
         initialName={supplier}
+        suppliersList={localSuppliers}
         onSave={(newSup) => {
-          const updated = [...suppliers, newSup];
+          const currentStored = getStoredSuppliers();
+          const mergedMap = new Map<string, Supplier>();
+          [...currentStored, ...localSuppliers].forEach((s) => {
+            if (s && s.id) mergedMap.set(s.id, s);
+          });
+          mergedMap.set(newSup.id, newSup);
+          const { items: normalized } = ensureSequentialSupplierCodes(Array.from(mergedMap.values()));
+          const savedSup = normalized.find((s) => s.id === newSup.id) || newSup;
+          saveStoredSuppliers(normalized);
+          setLocalSuppliers(normalized);
           if (onSaveSuppliers) {
-            onSaveSuppliers(updated);
+            onSaveSuppliers(normalized);
           }
-          setSupplier(newSup.name);
-          setSupplierId(newSup.id);
+          window.dispatchEvent(new CustomEvent('agrocontrol_fornecedores_updated', { detail: normalized }));
+          window.dispatchEvent(new Event('storage'));
+          setSupplier(savedSup.name);
+          setSupplierId(savedSup.id);
+          setIsSupplierDropdownOpen(false);
           setIsSupplierModalOpen(false);
         }}
       />

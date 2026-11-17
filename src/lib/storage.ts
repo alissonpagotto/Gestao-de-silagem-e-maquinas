@@ -505,6 +505,7 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
       window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated', { detail: cleaned }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_expenses_updated', { detail: cleaned }));
     }
   } catch (e) {
     console.warn('Erro ao salvar despesas:', e);
@@ -1897,6 +1898,9 @@ export function saveStoredSuppliers(suppliers: Supplier[]): void {
     const json = JSON.stringify(withCodes);
     safeLocalStorageSetItem('agrocontrol_fornecedores', json);
     safeLocalStorageSetItem(STORAGE_KEYS.SUPPLIERS, json);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_fornecedores_updated', { detail: withCodes }));
+    }
   } catch (e) {
     console.warn('Failed to save suppliers', e);
   }

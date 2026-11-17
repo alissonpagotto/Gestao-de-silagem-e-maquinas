@@ -4550,7 +4550,7 @@ export default function App() {
         onSaveCostCenters={setCostCenters}
         onSaveEmployees={setEmployees}
         onSaveTeams={setFleetTeams}
-        onSaveSuppliers={setSuppliers}
+        onSaveSuppliers={handleSaveSuppliers}
         onSaveBankAccounts={handleSaveBankAccounts}
       />
 
