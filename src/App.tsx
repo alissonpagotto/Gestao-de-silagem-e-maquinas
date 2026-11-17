@@ -2256,6 +2256,93 @@ export default function App() {
     setSubscriberModulesConfig(getEffectiveModulesConfig(loadedProfile));
   };
 
+  // Sincronização automática de Consumo Particular / Desconto em Folha (RH > Adiantamentos & Folha)
+  const syncSalaryAdvancesFromExpenses = (savedExpenses: Expense[]) => {
+    const expMap = new Map<string, Expense>();
+    savedExpenses.forEach((exp) => {
+      if (exp && exp.id) expMap.set(exp.id, exp);
+    });
+    if (expMap.size === 0) return;
+
+    const currentAdvances = getStoredSalaryAdvances();
+    const existingByKey = new Map<string, SalaryAdvance>();
+    currentAdvances.forEach((adv) => {
+      if (adv.expenseId && adv.expenseDeductionItemId) {
+        existingByKey.set(`${adv.expenseId}__${adv.expenseDeductionItemId}`, adv);
+      } else if (adv.id) {
+        existingByKey.set(adv.id, adv);
+      }
+    });
+
+    // Remove lançamentos anteriores vinculados a estas despesas para evitar duplicações em edições
+    const remainingAdvances = currentAdvances.filter(
+      (adv) => !(adv.expenseId && expMap.has(adv.expenseId))
+    );
+
+    const generatedAdvances: SalaryAdvance[] = [];
+    savedExpenses.forEach((exp) => {
+      const deductions = Array.isArray(exp.employeePayrollDeductions) ? exp.employeePayrollDeductions : [];
+      if (deductions.length === 0) return;
+
+      const rawDate = (exp.dueDate || new Date().toISOString().split('T')[0]).split('T')[0];
+      const dateParts = rawDate.split('-');
+      const refMonth =
+        dateParts.length === 3
+          ? `${dateParts[1]}/${dateParts[0]}`
+          : (() => {
+              const now = new Date();
+              return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+            })();
+      const formattedDateBR =
+        dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : rawDate;
+      const supplierOrDesc = (exp.supplier || exp.description || 'Despesa').trim();
+
+      deductions.forEach((item) => {
+        const val = Number(item.amount) || 0;
+        if (val <= 0 || !item.employeeId) return;
+
+        const advId = `adv_exp_${exp.id}_${item.id}`;
+        const prev = existingByKey.get(`${exp.id}__${item.id}`) || existingByKey.get(advId);
+        const formattedVal = val.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        const reason = `Consumo ${supplierOrDesc} - dia ${formattedDateBR} - ${item.itemDescription} (R$ ${formattedVal})`;
+
+        generatedAdvances.push({
+          id: advId,
+          expenseId: exp.id,
+          expenseDeductionItemId: item.id,
+          origin: 'expense_consumption',
+          employeeId: item.employeeId,
+          employeeName: item.employeeName,
+          date: rawDate,
+          amount: val,
+          paymentMethod: exp.paymentMethod || 'assinado_nota',
+          referenceMonth: refMonth,
+          status: prev?.status === 'descontado' ? 'descontado' : 'pendente',
+          reason,
+          notes: exp.notes
+            ? `Despesa: ${supplierOrDesc} | ${exp.notes}`
+            : `Gerado automaticamente via Despesa (${supplierOrDesc})`,
+          discountType: 'Cota Única',
+          installmentNumber: 1,
+          totalInstallments: 1,
+          monthlyInterestRate: 0,
+          totalAmountWithInterest: val,
+          responsibleUser: currentUser?.displayName || currentUser?.email || 'SISTEMA',
+          attachmentUrl: exp.receiptUrl,
+          attachmentName: exp.receiptName,
+          createdAt: prev?.createdAt || new Date().toISOString(),
+        });
+      });
+    });
+
+    const nextAdvances = [...generatedAdvances, ...remainingAdvances];
+    saveStoredSalaryAdvances(nextAdvances);
+    setAdvances(nextAdvances);
+  };
+
   // Expense Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveExpense = (newOrUpdated: Expense | Expense[]) => {
     const rawItems = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
@@ -2367,6 +2454,8 @@ export default function App() {
         return nextList;
       });
     }
+
+    syncSalaryAdvancesFromExpenses(items);
   };
 
   const handleRemovePayrollExpense = (payableId: string, payrollId?: string) => {
@@ -2408,6 +2497,12 @@ export default function App() {
         }
       }
       deleteContaAPagar(id, activeTenantId).catch(err => console.warn('Supabase deleteContaAPagar notice:', err));
+      const currentAdvances = getStoredSalaryAdvances();
+      const filteredAdvances = currentAdvances.filter((adv) => adv.expenseId !== id);
+      if (filteredAdvances.length !== currentAdvances.length) {
+        saveStoredSalaryAdvances(filteredAdvances);
+        setAdvances(filteredAdvances);
+      }
       setExpenses((prev) => {
         const nextList = prev.filter((e) => e.id !== id);
         saveStoredExpenses(nextList);

@@ -282,7 +282,16 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
   const getApportionedAmountForVehicle = React.useCallback(
     (exp: Expense): number => {
-      const baseAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      const rhDeductionTotal = Number(
+        exp.employeePayrollDeductionsTotal ??
+          (Array.isArray(exp.employeePayrollDeductions)
+            ? exp.employeePayrollDeductions.reduce((s, item) => s + (Number(item.amount) || 0), 0)
+            : 0)
+      );
+      const rawAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      const baseAmount = exp.dreGrossAmount
+        ? rawAmount
+        : Math.max(0, +(rawAmount - rhDeductionTotal).toFixed(2));
       if (!exp.employeeApportionment || !exp.employeeApportionment.trim()) {
         return baseAmount;
       }
@@ -492,7 +501,15 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
         const isDriver = cat.includes('aliment') || cat.includes('salár') || cat.includes('rescis') || cat.includes('diári') || exp.employeeId;
         return !isFuel && !isMaint && !isDriver;
       })
-      .reduce((sum, exp) => sum + exp.amount, 0);
+      .reduce((sum, exp) => {
+        const rhDeductionTotal = Number(
+          exp.employeePayrollDeductionsTotal ??
+            (Array.isArray(exp.employeePayrollDeductions)
+              ? exp.employeePayrollDeductions.reduce((s, item) => s + (Number(item.amount) || 0), 0)
+              : 0)
+        );
+        return sum + Math.max(0, +(Number(exp.amount || 0) - rhDeductionTotal).toFixed(2));
+      }, 0);
   }, [localExpenses, vehicle.id, vehicleDriverExpenses]);
 
   const totalDirectVehicleCosts = totalFuelCost + totalMaintenanceCost + otherVehicleCosts;

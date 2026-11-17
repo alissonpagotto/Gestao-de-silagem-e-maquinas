@@ -68,8 +68,17 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [selectedStatus, setSelectedStatus] = useState<string>('todos');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>('todos');
-  const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'amount_desc' | 'amount_asc'>('date_asc');
+  const [sortBy, setSortBy] = useState<'recent' | 'date_asc' | 'date_desc' | 'amount_desc' | 'amount_asc'>('recent');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+
+  const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  const getEffectiveStatus = (exp: Expense): ExpenseStatus => {
+    if (exp.status === 'pendente' && exp.dueDate && exp.dueDate.trim() < todayIso) {
+      return 'atrasado';
+    }
+    return exp.status;
+  };
 
   const activeCompany = useMemo(() => {
     return companyProfile || getStoredCompanyProfile();
@@ -107,8 +116,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
       if (!matchesSearch) return false;
 
-      // Status
-      if (selectedStatus !== 'todos' && exp.status !== selectedStatus) {
+      // Status (avalia Pendente vs. Vencido com base na Data de Vencimento)
+      if (selectedStatus !== 'todos' && getEffectiveStatus(exp) !== selectedStatus) {
         return false;
       }
 
@@ -127,6 +136,33 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       const dateA = (a?.dueDate || '').trim();
       const dateB = (b?.dueDate || '').trim();
 
+      if (sortBy === 'recent') {
+        const getTimestamp = (item: Expense): number => {
+          const rawUpdated = item.updatedAt || (item as any).updated_at;
+          if (rawUpdated) {
+            const t = Date.parse(rawUpdated);
+            if (!isNaN(t)) return t;
+          }
+          if (item.createdAt) {
+            const t = Date.parse(item.createdAt);
+            if (!isNaN(t)) return t;
+          }
+          const match = String(item.id || '').match(/(\d{13})/);
+          if (match) return parseInt(match[1], 10);
+          return 0;
+        };
+
+        const timeA = getTimestamp(a);
+        const timeB = getTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+
+        const expDateA = (a?.date || a?.issueDate || a?.dueDate || '').trim();
+        const expDateB = (b?.date || b?.issueDate || b?.dueDate || '').trim();
+        if (expDateA !== expDateB) return expDateB.localeCompare(expDateA);
+
+        return dateB.localeCompare(dateA);
+      }
+
       if (sortBy === 'date_asc') {
         if (dateA !== dateB) return dateA.localeCompare(dateB);
         return (a?.description || '').localeCompare(b?.description || '');
@@ -139,7 +175,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       if (sortBy === 'amount_asc') return (a?.amount || 0) - (b?.amount || 0);
       return 0;
     });
-  }, [expenses, searchTerm, selectedStatus, selectedCategory, selectedCostCenter, sortBy]);
+  }, [expenses, searchTerm, selectedStatus, selectedCategory, selectedCostCenter, sortBy, todayIso]);
 
   // Export CSV
   const handleExportCSV = () => {
@@ -207,7 +243,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         return (
           <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
             <AlertCircle className="w-3 h-3 text-rose-600" />
-            <span>Atrasado</span>
+            <span>Vencido</span>
           </span>
         );
       case 'agendado':
@@ -269,8 +305,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
     filteredExpenses.forEach((exp, idx) => {
       const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-      const statusColor = exp.status === 'pago' ? '#059669' : exp.status === 'atrasado' ? '#dc2626' : '#d97706';
-      const statusText = exp.status === 'pago' ? 'PAGO' : exp.status === 'atrasado' ? 'ATRASADO' : 'PENDENTE';
+      const effectiveStatus = getEffectiveStatus(exp);
+      const statusColor = effectiveStatus === 'pago' ? '#059669' : effectiveStatus === 'atrasado' ? '#dc2626' : '#d97706';
+      const statusText = effectiveStatus === 'pago' ? 'PAGO' : effectiveStatus === 'atrasado' ? 'VENCIDO' : 'PENDENTE';
 
       html += `
         <tr style="background:${bg}; border-bottom:1px solid #e2e8f0;">
@@ -408,7 +445,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               <option value="todos">Todos os Status</option>
               <option value="pago">Pagas</option>
               <option value="pendente">Pendentes</option>
-              <option value="atrasado">Atrasadas</option>
+              <option value="atrasado">Vencidas / Atrasadas</option>
               <option value="agendado">Agendadas</option>
             </select>
           </div>
@@ -455,6 +492,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               onChange={(e) => setSortBy(e.target.value as any)}
               className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-slate-400 dark:border-stone-700 font-bold text-black dark:text-white"
             >
+              <option value="recent">Últimos Lançamentos (Mais Recentes)</option>
               <option value="date_asc">Vencimento (Mais Próximo / Evolução)</option>
               <option value="date_desc">Vencimento (Mais Distante)</option>
               <option value="amount_desc">Maior Valor (R$)</option>
@@ -546,6 +584,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   {/* Due Date & Payment Date */}
                   <td className="py-1.5 px-3 whitespace-nowrap">
                     <div className="font-bold text-black dark:text-white leading-snug">{formatDateBR(exp.dueDate)}</div>
+                    {(exp.date || exp.issueDate) && (exp.date || exp.issueDate) !== exp.dueDate && (
+                      <div className="text-[9px] text-slate-600 dark:text-stone-400 font-semibold">
+                        Desp: {formatDateBR(exp.date || exp.issueDate || '')}
+                      </div>
+                    )}
                     {exp.paymentDate && exp.status === 'pago' && (
                       <div className="text-[9px] text-black dark:text-emerald-400 font-bold">
                         Pago: {formatDateBR(exp.paymentDate)}
@@ -612,7 +655,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                       title="Clique para alternar Pago / Pendente"
                       className="cursor-pointer hover:opacity-85 transition"
                     >
-                      {getStatusBadge(exp.status)}
+                      {getStatusBadge(getEffectiveStatus(exp))}
                     </button>
                   </td>
 
@@ -716,7 +759,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                       )
                     }
                   >
-                    {getStatusBadge(exp.status)}
+                    {getStatusBadge(getEffectiveStatus(exp))}
                   </button>
                 </div>
               </div>

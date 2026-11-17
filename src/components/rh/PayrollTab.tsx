@@ -1476,12 +1476,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
         ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
         : '';
+      const isExpenseConsumption = adv.origin === 'expense_consumption' || Boolean(adv.expenseId);
       const reason = adv.reason ? `: ${adv.reason}` : '';
+      const itemDesc = isExpenseConsumption
+        ? (adv.reason || 'Consumo Particular')
+        : `${parcelLabel}Vale Adiantamento${reason}`;
       const verba = getVerbaForDeduction('Vale / Adiantamento', adv.reason);
       generatedDeductItems.push({
         id: `ded_adv_${adv.id || idx}`,
         type: 'Vale / Adiantamento',
-        description: `${parcelLabel}Vale Adiantamento${reason}`,
+        description: itemDesc,
         verbaCode: verba.codigo,
         verbaDescription: verba.descricao,
         date: formatDateBR(adv.date),
@@ -1831,47 +1835,90 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         loadedDeductItems = payroll.deductionItems;
       } else if (Array.isArray(payroll.payload?.deductionItems) && payroll.payload.deductionItems.length > 0) {
         loadedDeductItems = payroll.payload.deductionItems;
-      } else if (recType === 'monthly') {
-        empAdvances.forEach((adv, idx) => {
+      }
+
+      if (recType === 'monthly') {
+        const buildAdvanceDeductItem = (adv: SalaryAdvance, idx: number): PayrollDeductionItem => {
           const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
             ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
             : '';
+          const isExpenseConsumption = adv.origin === 'expense_consumption' || Boolean(adv.expenseId);
           const reason = adv.reason ? `: ${adv.reason}` : '';
           const verba = getVerbaForDeduction('Vale / Adiantamento', adv.reason);
-          loadedDeductItems.push({
+          return {
             id: `ded_adv_${adv.id || idx}`,
             type: 'Vale / Adiantamento',
-            description: `${parcelLabel}Vale Adiantamento${reason}`,
+            description: isExpenseConsumption
+              ? (adv.reason || 'Consumo Particular')
+              : `${parcelLabel}Vale Adiantamento${reason}`,
             verbaCode: verba.codigo,
             verbaDescription: verba.descricao,
             date: formatDateBR(adv.date),
             amount: Number(adv.amount) || 0,
             isManual: false,
             sourceId: adv.id,
-          });
-        });
+          };
+        };
 
-        empAbsences.forEach((abs, idx) => {
-          const isHours = abs.absenceUnit === 'horas' || abs.unit === 'horas' || (abs.absenceHours !== undefined && abs.absenceHours > 0);
-          const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
-            ? Number(abs.discountAmount)
-            : (isHours
-                ? Math.round((((payroll.baseSalary || 3500) / 220) * (Number(abs.absenceHours) || 8)) * 100) / 100
-                : Math.round((((payroll.baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100);
-          const verba = getVerbaForDeduction('Falta / Atraso', abs.reason);
-          const defaultDesc = isHours ? `Falta (${abs.absenceHours || 8}h)` : `Falta (${abs.daysCount || 1}d)`;
-          loadedDeductItems.push({
-            id: `ded_abs_${abs.id || idx}`,
-            type: 'Falta / Atraso',
-            description: abs.reason || defaultDesc,
-            verbaCode: verba.codigo,
-            verbaDescription: verba.descricao,
-            date: formatDateBR(abs.date),
-            amount: itemDiscount,
-            isManual: false,
-            sourceId: abs.id,
+        if (loadedDeductItems.length === 0) {
+          empAdvances.forEach((adv, idx) => {
+            loadedDeductItems.push(buildAdvanceDeductItem(adv, idx));
           });
-        });
+
+          empAbsences.forEach((abs, idx) => {
+            const isHours = abs.absenceUnit === 'horas' || abs.unit === 'horas' || (abs.absenceHours !== undefined && abs.absenceHours > 0);
+            const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
+              ? Number(abs.discountAmount)
+              : (isHours
+                  ? Math.round((((payroll.baseSalary || 3500) / 220) * (Number(abs.absenceHours) || 8)) * 100) / 100
+                  : Math.round((((payroll.baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100);
+            const verba = getVerbaForDeduction('Falta / Atraso', abs.reason);
+            const defaultDesc = isHours ? `Falta (${abs.absenceHours || 8}h)` : `Falta (${abs.daysCount || 1}d)`;
+            loadedDeductItems.push({
+              id: `ded_abs_${abs.id || idx}`,
+              type: 'Falta / Atraso',
+              description: abs.reason || defaultDesc,
+              verbaCode: verba.codigo,
+              verbaDescription: verba.descricao,
+              date: formatDateBR(abs.date),
+              amount: itemDiscount,
+              isManual: false,
+              sourceId: abs.id,
+            });
+          });
+        } else if (payroll.status !== 'pago') {
+          // Reconcilia novos/editados/removidos adiantamentos (incluindo consumos de despesas) em folhas pendentes
+          const activeAdvIds = new Set(empAdvances.map(a => a.id));
+          const expAdvMap = new Map(empAdvances.map((a, idx) => [a.id, buildAdvanceDeductItem(a, idx)]));
+          loadedDeductItems = loadedDeductItems
+            .filter(it => {
+              if (it.sourceId && String(it.sourceId).startsWith('adv_exp_') && !activeAdvIds.has(it.sourceId)) {
+                return false;
+              }
+              return true;
+            })
+            .map(it => {
+              if (it.sourceId && expAdvMap.has(it.sourceId)) {
+                const fresh = expAdvMap.get(it.sourceId)!;
+                return { ...it, description: fresh.description, date: fresh.date, amount: fresh.amount };
+              }
+              return it;
+            });
+
+          const existingSourceIds = new Set(loadedDeductItems.map(it => it.sourceId).filter(Boolean));
+          empAdvances.forEach((adv, idx) => {
+            if (adv.id && !existingSourceIds.has(adv.id)) {
+              loadedDeductItems.push(buildAdvanceDeductItem(adv, idx));
+            }
+          });
+
+          const reconciledAdvancesTotal = loadedDeductItems
+            .filter(it => !it.isManual && (it.type === 'Vale / Adiantamento' || it.verbaCode === '502'))
+            .reduce((s, it) => s + (Number(it.amount) || 0), 0);
+          if (empAdvances.length > 0 || reconciledAdvancesTotal !== (payroll.advancesDiscount || 0)) {
+            setAdvancesDiscount(reconciledAdvancesTotal);
+          }
+        }
       }
 
       // Se houver desconto sindical na lista de deduções vindo de dados legados, extrai o valor para o campo fixo e purga da lista
@@ -2331,7 +2378,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const activeEmployees = employees.filter(e => e.status === 'ativo' && !isThirdPartyDriver(e) && !isBrokerEmployee(e));
     const existingEmpIds = new Set(monthPayrolls.map(p => p.employeeId));
 
-    // Atualiza folhas mensais pendentes do mês com eventuais novas comissões apuradas nas ordens de serviço
+    // Atualiza folhas mensais pendentes do mês com eventuais novas comissões e adiantamentos/consumos
     const updatedPayrolls = localPayrolls.map(p => {
       if (payrollType !== 'monthly') return p;
       if (p.referenceMonth !== currentMonthRef || p.status !== 'pendente' || getRecordPayrollType(p) !== 'monthly') return p;
@@ -2340,8 +2387,43 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       const commData = getEmployeeMonthCommissions(emp.id, currentMonthRef, internalServices, employees);
       const newComm = commData.total;
-      if (p.commissionAmount !== newComm) {
-        const net = Math.max(0, (p.baseSalary + (p.overtimeAmount || 0) + (p.bonusAmount || 0) + newComm) - (p.inssDiscount + p.advancesDiscount + p.otherDiscounts));
+      const empAdvs = advances.filter(
+        a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef && (a.status as string) !== 'cancelado'
+      );
+      const newAdvTotal = empAdvs.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+
+      const currentDedItems: PayrollDeductionItem[] = Array.isArray(p.deductionItems)
+        ? p.deductionItems
+        : (Array.isArray(p.payload?.deductionItems) ? p.payload.deductionItems : []);
+      const activeAdvIds = new Set(empAdvs.map(a => a.id));
+      const nonStaleItems = currentDedItems.filter(it => {
+        if (it.sourceId && String(it.sourceId).startsWith('adv_exp_') && !activeAdvIds.has(it.sourceId)) {
+          return false;
+        }
+        return true;
+      });
+      const existingAdvSourceIds = new Set(nonStaleItems.map(it => it.sourceId).filter(Boolean));
+      const advItemsToAdd: PayrollDeductionItem[] = empAdvs
+        .filter(adv => !adv.id || !existingAdvSourceIds.has(adv.id))
+        .map((adv, idx) => {
+          const isExp = adv.origin === 'expense_consumption' || Boolean(adv.expenseId);
+          const verba = getVerbaForDeduction('Vale / Adiantamento', adv.reason);
+          return {
+            id: `ded_adv_${adv.id || idx}`,
+            type: 'Vale / Adiantamento',
+            description: isExp ? (adv.reason || 'Consumo Particular') : (adv.reason ? `Vale Adiantamento: ${adv.reason}` : 'Vale Adiantamento'),
+            verbaCode: verba.codigo,
+            verbaDescription: verba.descricao,
+            date: formatDateBR(adv.date),
+            amount: Number(adv.amount) || 0,
+            isManual: false,
+            sourceId: adv.id,
+          };
+        });
+      const nextDedItems = [...nonStaleItems, ...advItemsToAdd];
+
+      if (p.commissionAmount !== newComm || p.advancesDiscount !== newAdvTotal || advItemsToAdd.length > 0 || nonStaleItems.length !== currentDedItems.length) {
+        const net = Math.max(0, (p.baseSalary + (p.overtimeAmount || 0) + (p.bonusAmount || 0) + newComm) - ((p.inssDiscount || 0) + (p.irrfDiscount || 0) + (p.sindicalDiscount || 0) + newAdvTotal + (p.otherDiscounts || 0)));
         let updatedNotes = p.notes || '';
         if (newComm > 0 && !updatedNotes.includes('Comissões')) {
           updatedNotes = updatedNotes ? `${updatedNotes} • Comissões: ${formatCurrencyBRL(newComm)}` : `Comissões: ${formatCurrencyBRL(newComm)}`;
@@ -2349,8 +2431,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         return {
           ...p,
           commissionAmount: newComm,
+          advancesDiscount: newAdvTotal,
+          deductionItems: nextDedItems,
           netSalary: net,
           notes: updatedNotes,
+          payload: {
+            ...(p.payload || {}),
+            deductionItems: nextDedItems,
+          },
         };
       }
       return p;
@@ -2560,8 +2648,31 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         const irrf = isClt ? calculateOfficialIrrf(grossBase, inss) : 0;
         const sindical = isClt ? 25.23 : 0;
         
-        const empAdvances = advances.filter(a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef);
-        const advTotal = empAdvances.reduce((sum, a) => sum + a.amount, 0);
+        const empAdvances = advances.filter(
+          a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef && (a.status as string) !== 'cancelado'
+        );
+        const advTotal = empAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+        const dedItemsMonthly: PayrollDeductionItem[] = empAdvances.map((adv, idx) => {
+          const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
+            ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
+            : '';
+          const isExp = adv.origin === 'expense_consumption' || Boolean(adv.expenseId);
+          const reason = adv.reason ? `: ${adv.reason}` : '';
+          const verba = getVerbaForDeduction('Vale / Adiantamento', adv.reason);
+          return {
+            id: `ded_adv_${adv.id || idx}`,
+            type: 'Vale / Adiantamento',
+            description: isExp
+              ? (adv.reason || 'Consumo Particular')
+              : `${parcelLabel}Vale Adiantamento${reason}`,
+            verbaCode: verba.codigo,
+            verbaDescription: verba.descricao,
+            date: formatDateBR(adv.date),
+            amount: Number(adv.amount) || 0,
+            isManual: false,
+            sourceId: adv.id,
+          };
+        });
         const net = Math.max(0, grossBase - inss - irrf - sindical - advTotal);
 
         let initialNote = '';
@@ -2612,6 +2723,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           isProportional: admData.isAdmittedInCompetenceMonth,
           advancesDiscount: advTotal,
           otherDiscounts: 0,
+          deductionItems: dedItemsMonthly,
           netSalary: net,
           status: 'pendente',
           notes: initialNote,
@@ -2631,6 +2743,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             fgtsDoMes: Math.round((fullContractual * 0.08) * 100) / 100,
             baseCalculoIrrf: Math.max(0, fullContractual - inss),
             faixaIrrf: getFaixaIrrf(Math.max(0, fullContractual - inss)),
+            deductionItems: dedItemsMonthly,
           },
           createdAt: new Date().toISOString(),
         } as PayrollRecord;

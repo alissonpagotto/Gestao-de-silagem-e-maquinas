@@ -163,7 +163,16 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
   const getApportionedAmountForVehicle = React.useCallback(
     (exp: Expense): number => {
-      const baseAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      const rhDeductionTotal = Number(
+        exp.employeePayrollDeductionsTotal ??
+          (Array.isArray(exp.employeePayrollDeductions)
+            ? exp.employeePayrollDeductions.reduce((s, item) => s + (Number(item.amount) || 0), 0)
+            : 0)
+      );
+      const rawAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      const baseAmount = exp.dreGrossAmount
+        ? rawAmount
+        : Math.max(0, +(rawAmount - rhDeductionTotal).toFixed(2));
       if (!exp.employeeApportionment || !exp.employeeApportionment.trim()) {
         return baseAmount;
       }
@@ -362,7 +371,15 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
     const driverExpIds = new Set(driverExpenses.map(d => d.id));
     return vehicleDirectExpenses
       .filter(e => !e.categoryId?.includes('combust') && !e.categoryId?.includes('manut') && !driverExpIds.has(e.id) && !e.isVacationExpense && !(e.employeeApportionment && e.employeeApportionment.trim()))
-      .reduce((acc, curr) => acc + curr.amount, 0);
+      .reduce((acc, curr) => {
+        const rhDeductionTotal = Number(
+          curr.employeePayrollDeductionsTotal ??
+            (Array.isArray(curr.employeePayrollDeductions)
+              ? curr.employeePayrollDeductions.reduce((s, item) => s + (Number(item.amount) || 0), 0)
+              : 0)
+        );
+        return acc + Math.max(0, +(Number(curr.amount || 0) - rhDeductionTotal).toFixed(2));
+      }, 0);
   }, [vehicleDirectExpenses, driverExpenses]);
 
   const totalVehicleExpenses = totalFuelCost + totalMaintenanceCost + totalOtherVehicleExpenses;

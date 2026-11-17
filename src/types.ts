@@ -123,6 +123,8 @@ export interface Expense {
   teamId?: string;
   teamName?: string;
   employeeApportionment?: string;
+  employeePayrollDeductions?: EmployeePayrollDeductionItem[];
+  employeePayrollDeductionsTotal?: number;
   invoiceNumber?: string;
   issueDate?: string;
   entryDate?: string;
@@ -187,6 +189,7 @@ export interface Expense {
     notes?: string;
   }[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AuthorizedBuyer {
@@ -1612,6 +1615,14 @@ export interface BrokerSettlement {
   createdAt: string;
 }
 
+export interface EmployeePayrollDeductionItem {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  itemDescription: string;
+  amount: number;
+}
+
 export interface PayrollCommissionItem {
   id: string;
   description: string;
@@ -1786,6 +1797,10 @@ export interface SalaryAdvance {
   tipo_registro?: string; // 'vale_salarial'
   valor?: number;
   type?: string;
+  // Vínculo automático com Consumo Particular lançado em Despesas
+  expenseId?: string;
+  expenseDeductionItemId?: string;
+  origin?: string;
 }
 
 export interface MedicalCertificateRecord {

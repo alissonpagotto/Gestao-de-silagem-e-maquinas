@@ -23,7 +23,7 @@ import {
   AlertCircle,
   Settings,
 } from 'lucide-react';
-import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard } from '../../types';
+import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard, EmployeePayrollDeductionItem } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts, getStoredSuppliers, saveStoredSuppliers, ensureSequentialSupplierCodes } from '../../lib/storage';
 import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate, formatDateBR, formatCpfCnpj, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -170,10 +170,31 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     return priority ? priority.id : (effectiveBankAccounts[0]?.id || '');
   }, [effectiveBankAccounts]);
 
+  const calculateNextDay10 = useCallback((baseDateStr: string): string => {
+    if (!baseDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)) return baseDateStr;
+    const [yStr, mStr, dStr] = baseDateStr.split('-');
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);
+    const day = parseInt(dStr, 10);
+    if (!year || !month || !day) return baseDateStr;
+
+    let targetYear = year;
+    let targetMonth = month;
+    if (day >= 10) {
+      targetMonth += 1;
+      if (targetMonth > 12) {
+        targetMonth = 1;
+        targetYear += 1;
+      }
+    }
+    return `${targetYear}-${String(targetMonth).padStart(2, '0')}-10`;
+  }, []);
+
   const [supplierId, setSupplierId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [categoryId, setCategoryId] = useState('');
-  const [dueDate, setDueDate] = useState(today);
+  const [expenseDate, setExpenseDate] = useState(today);
+  const [dueDate, setDueDate] = useState(() => calculateNextDay10(today));
   const [paymentDate, setPaymentDate] = useState('');
   const [status, setStatus] = useState<ExpenseStatus>('pendente');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('assinado_nota');
@@ -181,6 +202,48 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [corporateCardId, setCorporateCardId] = useState<string>('');
   const [isPaymentMethodsManagerOpen, setIsPaymentMethodsManagerOpen] = useState(false);
   const { activeMethods: activeGlobalPaymentMethods } = useGlobalPaymentMethods();
+
+  const isImmediateCashMethod = useCallback(
+    (method: PaymentMethod): boolean => {
+      const mLower = String(method || '').toLowerCase();
+      if (
+        mLower === 'dinheiro' ||
+        mLower === 'pix' ||
+        mLower === 'cartao_debito' ||
+        mLower === 'transferencia' ||
+        mLower.includes('avista') ||
+        mLower.includes('a_vista')
+      ) {
+        return true;
+      }
+      const matched = activeGlobalPaymentMethods.find((m) => getPaymentMethodKey(m) === method);
+      if (matched && !matched.geraParcelaPrazo && matched.tipo !== 'cartao_credito') {
+        return true;
+      }
+      return false;
+    },
+    [activeGlobalPaymentMethods]
+  );
+
+  const isDeferredNext10Method = useCallback(
+    (method: PaymentMethod): boolean => {
+      const mLower = String(method || '').toLowerCase();
+      if (
+        mLower === 'assinado_nota' ||
+        mLower === 'prazo_carteira' ||
+        mLower === 'safra_prazo' ||
+        mLower === 'boleto' ||
+        mLower === 'cheque' ||
+        mLower.includes('assinado') ||
+        mLower.includes('prazo')
+      ) {
+        return true;
+      }
+      const matched = activeGlobalPaymentMethods.find((m) => getPaymentMethodKey(m) === method);
+      return Boolean(matched?.geraParcelaPrazo);
+    },
+    [activeGlobalPaymentMethods]
+  );
 
   const selectedAccount = useMemo(() => {
     return effectiveBankAccounts.find((a) => a.id === bankAccountId);
@@ -202,18 +265,20 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const handleStatusChange = (newStatus: ExpenseStatus) => {
     setStatus(newStatus);
+    const baseExpDate = expenseDate || today;
     if (newStatus === 'pago') {
       if (!paymentDate) {
-        setPaymentDate(dueDate || today);
+        setPaymentDate(baseExpDate);
       }
       if (paymentMethod !== 'dinheiro' && paymentMethod !== 'assinado_nota' && paymentMethod !== 'cheque') {
         if (!bankAccountId && priorityBankAccountId) {
           setBankAccountId(priorityBankAccountId);
         }
       }
-      // Se estava em assinado_nota (típico de pendente), sugere pix ao liquidar
+      // Se estava em assinado_nota (típico de pendente), sugere pix ao liquidar e iguala vencimento à data da despesa
       if (paymentMethod === 'assinado_nota') {
         setPaymentMethod('pix');
+        setDueDate(baseExpDate);
         if (priorityBankAccountId) {
           setBankAccountId(priorityBankAccountId);
         }
@@ -223,18 +288,39 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       // Sempre que alterar para "A PAGAR (PENDENTE)", se for cartão mantém o cartão
       if (paymentMethod !== 'cartao_credito' && paymentMethod !== 'cartao_debito') {
         setPaymentMethod('assinado_nota');
+        setDueDate(calculateNextDay10(baseExpDate));
       }
+    }
+  };
+
+  const handleExpenseDateChange = (newExpDate: string) => {
+    setExpenseDate(newExpDate);
+    if (!newExpDate) return;
+    if (paymentMethod === 'cartao_credito') {
+      if (selectedCard?.dueDay) {
+        setDueDate(calculateCardInvoiceDueDate(selectedCard.dueDay));
+      } else {
+        setDueDate(calculateNextDay10(newExpDate));
+      }
+    } else if (isImmediateCashMethod(paymentMethod)) {
+      setDueDate(newExpDate);
+    } else if (isDeferredNext10Method(paymentMethod)) {
+      setDueDate(calculateNextDay10(newExpDate));
     }
   };
 
   const handlePaymentMethodChange = (newMethod: PaymentMethod) => {
     setPaymentMethod(newMethod);
+    const baseExpDate = expenseDate || today;
+
     if (newMethod === 'dinheiro' || newMethod === 'assinado_nota') {
       setBankAccountId('');
       setCorporateCardId('');
+      setDueDate(newMethod === 'assinado_nota' ? calculateNextDay10(baseExpDate) : baseExpDate);
     } else if (newMethod === 'cheque') {
       setBankAccountId('');
       setCorporateCardId('');
+      setDueDate(calculateNextDay10(baseExpDate));
       if (!checkAmount) {
         const currentAmountNum = parseFloat(amount) || 0;
         if (currentAmountNum > 0) {
@@ -252,23 +338,38 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       if (cards.length > 0) {
         const matchingCard = cards.find((c) => c.id === corporateCardId) || cards[0];
         setCorporateCardId(matchingCard.id);
-        if (newMethod === 'cartao_credito' && matchingCard.dueDay) {
-          setDueDate(calculateCardInvoiceDueDate(matchingCard.dueDay));
+        if (newMethod === 'cartao_credito') {
+          setDueDate(
+            matchingCard.dueDay
+              ? calculateCardInvoiceDueDate(matchingCard.dueDay)
+              : calculateNextDay10(baseExpDate)
+          );
           setStatus('pendente');
         } else if (newMethod === 'cartao_debito') {
           setStatus('pago');
+          setDueDate(baseExpDate);
           if (!paymentDate) {
-            setPaymentDate(dueDate || today);
+            setPaymentDate(baseExpDate);
           }
         }
       } else {
         setCorporateCardId('');
+        if (newMethod === 'cartao_credito') {
+          setDueDate(calculateNextDay10(baseExpDate));
+        } else {
+          setDueDate(baseExpDate);
+        }
       }
     } else {
-      // Outras modalidades (Pix, Boleto, Transferência): remove cartão e restaura conta se necessário
+      // Outras modalidades (Pix, Boleto, Transferência, A Prazo, etc.)
       setCorporateCardId('');
       if (!bankAccountId && priorityBankAccountId) {
         setBankAccountId(priorityBankAccountId);
+      }
+      if (isImmediateCashMethod(newMethod)) {
+        setDueDate(baseExpDate);
+      } else if (isDeferredNext10Method(newMethod)) {
+        setDueDate(calculateNextDay10(baseExpDate));
       }
     }
   };
@@ -353,6 +454,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [enableApportionment, setEnableApportionment] = useState<boolean>(false);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [employeeRateioSearch, setEmployeeRateioSearch] = useState<string>('');
+
+  // Consumo Particular / Desconto em Folha (RH)
+  const [enableRhConsumption, setEnableRhConsumption] = useState<boolean>(false);
+  const [rhDeductionItems, setRhDeductionItems] = useState<EmployeePayrollDeductionItem[]>([]);
+  const [rhDraftEmpId, setRhDraftEmpId] = useState<string>('');
+  const [rhDraftDesc, setRhDraftDesc] = useState<string>('');
+  const [rhDraftAmountStr, setRhDraftAmountStr] = useState<string>('');
 
   // Grade discriminada de produtos / itens da despesa
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
@@ -616,7 +724,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setItemUnitValue('');
     setAmount('');
     setCategoryId(safeCategories[0]?.id || '');
-    setDueDate(today);
+    setExpenseDate(today);
+    setDueDate(calculateNextDay10(today));
     setPaymentDate('');
     setStatus('pendente');
     setPaymentMethod('assinado_nota');
@@ -634,6 +743,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setEnableApportionment(false);
     setSelectedTargets([]);
     setEmployeeRateioSearch('');
+    setEnableRhConsumption(false);
+    setRhDeductionItems([]);
+    setRhDraftEmpId('');
+    setRhDraftDesc('');
+    setRhDraftAmountStr('');
     setHasQuantity(false);
     setQuantity('');
     setUnit('litros');
@@ -649,7 +763,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setCheckAmount('');
     setComplementaryPayments([]);
     setFormError(null);
-  }, [safeCategories, today, priorityBankAccountId]);
+  }, [safeCategories, today, priorityBankAccountId, calculateNextDay10]);
 
   const expenseGuard = useModalUnsavedGuard({
     isOpen,
@@ -659,6 +773,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       supplier,
       amount,
       categoryId,
+      expenseDate,
       dueDate,
       paymentDate,
       status,
@@ -674,6 +789,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       mealType,
       enableApportionment,
       selectedTargets,
+      enableRhConsumption,
+      rhDeductionItems,
+      rhDraftEmpId,
+      rhDraftDesc,
+      rhDraftAmountStr,
       expenseItems,
       hasQuantity,
       quantity,
@@ -711,7 +831,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     if (editingExpense) {
       setAmount(editingExpense.amount.toString());
       setCategoryId(editingExpense.categoryId);
-      setDueDate(editingExpense.dueDate);
+      setExpenseDate(editingExpense.date || editingExpense.issueDate || editingExpense.dueDate || today);
+      setDueDate(editingExpense.dueDate || today);
       setStatus(editingExpense.status || 'pendente');
       setPaymentDate(editingExpense.status === 'pago' ? (editingExpense.paymentDate || '') : '');
       setPaymentMethod(editingExpense.paymentMethod);
@@ -783,6 +904,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         setSelectedTargets([]);
       }
       setEmployeeRateioSearch('');
+      const loadedRhDeductions = Array.isArray(editingExpense.employeePayrollDeductions)
+        ? editingExpense.employeePayrollDeductions
+        : [];
+      setRhDeductionItems(loadedRhDeductions);
+      setEnableRhConsumption(loadedRhDeductions.length > 0);
+      setRhDraftEmpId('');
+      setRhDraftDesc('');
+      setRhDraftAmountStr('');
       const loadedItems = editingExpense.expense_items || (editingExpense as any).items || [];
       setExpenseItems(Array.isArray(loadedItems) ? loadedItems : []);
       setItemDescription('');
@@ -1007,7 +1136,61 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const totalParticipantsCount = resolvedUniqueEmployees.length > 0 ? resolvedUniqueEmployees.length : 1;
   const numAmount = parseFloat(amount) || 0;
-  const rateioPerPerson = numAmount > 0 ? numAmount / totalParticipantsCount : 0;
+  const rhDeductionsTotal = useMemo(
+    () => +(rhDeductionItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0)).toFixed(2),
+    [rhDeductionItems]
+  );
+  const netRateioBaseAmount = Math.max(0, +(numAmount - (enableRhConsumption ? rhDeductionsTotal : 0)).toFixed(2));
+  const rateioPerPerson = netRateioBaseAmount > 0 ? netRateioBaseAmount / totalParticipantsCount : 0;
+
+  const handleAddRhDeduction = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault();
+    if (!rhDraftEmpId) {
+      setFormError('POR FAVOR, SELECIONE O FUNCIONÁRIO PARA O DESCONTO EM FOLHA (RH).');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const desc = rhDraftDesc.trim();
+    if (!desc) {
+      setFormError('POR FAVOR, INFORME O ITEM / BREVE DESCRIÇÃO DO CONSUMO PARTICULAR.');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const val = parseCurrencyToFloat(rhDraftAmountStr);
+    if (isNaN(val) || val <= 0) {
+      setFormError('POR FAVOR, INFORME UM VALOR A DESCONTAR (R$) VÁLIDO MAIOR QUE ZERO.');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const emp = activeEmployees.find((em) => em.id === rhDraftEmpId) || employees.find((em) => em.id === rhDraftEmpId);
+    if (!emp) {
+      setFormError('FUNCIONÁRIO SELECIONADO NÃO ENCONTRADO.');
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const nextTotal = +(rhDeductionsTotal + val).toFixed(2);
+    if (numAmount > 0 && nextTotal > numAmount + 0.009) {
+      setFormError(`O TOTAL DOS DESCONTOS EM FOLHA (${formatCurrencyBRL(nextTotal)}) NÃO PODE ULTRAPASSAR O VALOR TOTAL DA DESPESA (${formatCurrencyBRL(numAmount)}).`);
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setFormError(null);
+    const newDeduction: EmployeePayrollDeductionItem = {
+      id: `rh_ded_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      employeeId: emp.id,
+      employeeName: emp.name,
+      itemDescription: desc,
+      amount: +val.toFixed(2),
+    };
+    setRhDeductionItems((prev) => [...prev, newDeduction]);
+    setRhDraftEmpId('');
+    setRhDraftDesc('');
+    setRhDraftAmountStr('');
+  };
+
+  const handleRemoveRhDeduction = (idToRemove: string) => {
+    setRhDeductionItems((prev) => prev.filter((item) => item.id !== idToRemove));
+  };
 
   const isCashOrSignedNote = paymentMethod === 'dinheiro' || paymentMethod === 'assinado_nota';
   const isCheckPayment = paymentMethod === 'cheque';
@@ -1107,8 +1290,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    if (!expenseDate) {
+      showValidationError('Por favor, informe a data da despesa.');
+      return;
+    }
+
     if (!dueDate) {
-      showValidationError('Por favor, informe a data de vencimento / lançamento.');
+      showValidationError('Por favor, informe a data de vencimento.');
       return;
     }
 
@@ -1160,6 +1348,38 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
     }
 
+    let finalRhDeductions: EmployeePayrollDeductionItem[] = enableRhConsumption ? [...rhDeductionItems] : [];
+    if (enableRhConsumption) {
+      const hasDraftEmp = Boolean(rhDraftEmpId);
+      const hasDraftDesc = Boolean(rhDraftDesc.trim());
+      const draftVal = parseCurrencyToFloat(rhDraftAmountStr);
+      const hasDraftVal = draftVal > 0;
+
+      if (hasDraftEmp || hasDraftDesc || hasDraftVal) {
+        if (hasDraftEmp && hasDraftDesc && hasDraftVal) {
+          const draftEmp = activeEmployees.find((em) => em.id === rhDraftEmpId) || employees.find((em) => em.id === rhDraftEmpId);
+          if (draftEmp) {
+            finalRhDeductions.push({
+              id: `rh_ded_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              employeeId: draftEmp.id,
+              employeeName: draftEmp.name,
+              itemDescription: rhDraftDesc.trim(),
+              amount: +draftVal.toFixed(2),
+            });
+          }
+        } else {
+          showValidationError('COMPLETE TODOS OS CAMPOS DO CONSUMO PARTICULAR (FUNCIONÁRIO, ITEM E VALOR) OU LIMPE O RASCUNHO ANTES DE SALVAR.');
+          return;
+        }
+      }
+    }
+
+    const finalRhTotal = +(finalRhDeductions.reduce((acc, item) => acc + (Number(item.amount) || 0), 0)).toFixed(2);
+    if (finalRhTotal > numAmount + 0.009) {
+      showValidationError(`O TOTAL DOS DESCONTOS EM FOLHA (${formatCurrencyBRL(finalRhTotal)}) NÃO PODE SER MAIOR QUE O VALOR TOTAL DA DESPESA (${formatCurrencyBRL(numAmount)}).`);
+      return;
+    }
+
     const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
 
     const matchedSupplier = localSuppliers.find(
@@ -1185,17 +1405,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
     let finalDueDate = dueDate;
     let finalStatus = status;
-    let finalPaymentDate = status === 'pago' ? (paymentDate || dueDate) : undefined;
+    let finalPaymentDate = status === 'pago' ? (paymentDate || expenseDate || dueDate) : undefined;
 
     if (paymentMethod === 'cartao_credito') {
       finalStatus = 'pendente';
-      if (cardObj?.dueDay) {
-        finalDueDate = calculateCardInvoiceDueDate(cardObj.dueDay);
-      }
       finalPaymentDate = undefined;
     } else if (paymentMethod === 'cartao_debito') {
       finalStatus = 'pago';
-      finalPaymentDate = paymentDate || dueDate || today;
+      finalPaymentDate = paymentDate || expenseDate || dueDate || today;
     }
 
     const finalBankAccountId = (finalStatus === 'pago' || isCardPayment) && !isCashOrSignedNote && !isCheckPayment ? selectedBankAccountObj?.id : undefined;
@@ -1224,7 +1441,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           categoryId: selectedCat?.id || 'geral',
           categoryName: selectedCat?.name || 'Geral',
           categoryColor: selectedCat?.color || '#10b981',
+          date: expenseDate,
+          issueDate: expenseDate,
           dueDate: dateStr,
+          data_vencimento: dateStr,
           paymentDate: i === 0 && finalStatus === 'pago' ? (finalPaymentDate || dateStr) : undefined,
           status: i === 0 ? finalStatus : 'pendente',
           paymentMethod,
@@ -1271,7 +1491,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           receiptName: i === 0 ? receiptName : undefined,
           expense_items: expenseItems.length > 0 ? expenseItems : undefined,
           items: expenseItems.length > 0 ? expenseItems : undefined,
+          employeePayrollDeductions: i === 0 && finalRhDeductions.length > 0 ? finalRhDeductions : undefined,
+          employeePayrollDeductionsTotal: i === 0 && finalRhTotal > 0 ? finalRhTotal : undefined,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       }
 
@@ -1292,7 +1515,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         categoryId: selectedCat?.id || 'geral',
         categoryName: selectedCat?.name || 'Geral',
         categoryColor: selectedCat?.color || '#10b981',
+        date: expenseDate,
+        issueDate: expenseDate,
         dueDate: finalDueDate,
+        data_vencimento: finalDueDate,
         paymentDate: finalPaymentDate,
         status: finalStatus,
         paymentMethod,
@@ -1339,7 +1565,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         receiptName,
         expense_items: expenseItems.length > 0 ? expenseItems : undefined,
         items: expenseItems.length > 0 ? expenseItems : undefined,
+        employeePayrollDeductions: finalRhDeductions.length > 0 ? finalRhDeductions : undefined,
+        employeePayrollDeductionsTotal: finalRhTotal > 0 ? finalRhTotal : undefined,
         createdAt: editingExpense ? editingExpense.createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       const syncRes = syncExpenseWithCardsAndBank(expenseData, editingExpense, effectiveBankAccounts);
@@ -1368,7 +1597,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           id: `maint_exp_${Date.now()}`,
           machineryId: targetMachId,
           machineryPlateOrName: primaryMachinery.licensePlateOrSerial || primaryMachinery.name,
-          date: dueDate,
+          date: expenseDate || dueDate,
           type: 'corretiva',
           serviceCategory,
           description: effectiveDesc,
@@ -1474,9 +1703,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
           )}
           
-          {/* BLOCO 1 (CARD): CATEGORIA (50%) + DATA (25%) + VALOR TOTAL (25%) */}
+          {/* BLOCO 1 (CARD): CATEGORIA + DATA DA DESPESA + DATA DE VENCIMENTO + VALOR TOTAL */}
           <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
-            <div className="col-span-6">
+            <div className="col-span-12 sm:col-span-5">
               <div className="flex items-center justify-between mb-0.5">
                 <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
                   CATEGORIA <span className="text-rose-600">*</span>
@@ -1517,20 +1746,40 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             </div>
 
-            <div className="col-span-3">
+            <div className="col-span-6 sm:col-span-2">
               <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
-                DATA <span className="text-rose-600">*</span>
+                DATA DA DESPESA <span className="text-rose-600">*</span>
+              </label>
+              <input
+                type="date"
+                required
+                value={expenseDate}
+                onChange={(e) => handleExpenseDateChange(e.target.value)}
+                className="w-full px-2 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+              />
+            </div>
+
+            <div className="col-span-6 sm:col-span-2">
+              <label className="flex items-center justify-between gap-1 text-[10px] font-bold text-black uppercase tracking-wider mb-0.5">
+                <span className="truncate">
+                  DATA DE VENCIMENTO <span className="text-rose-600">*</span>
+                </span>
               </label>
               <input
                 type="date"
                 required
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-2.5 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                title={
+                  isDeferredNext10Method(paymentMethod)
+                    ? 'Calculado automaticamente para o próximo dia 10 (editável manualmente)'
+                    : 'Data de vencimento (editável manualmente)'
+                }
+                className="w-full px-2 h-7.5 rounded-md border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
               />
             </div>
 
-            <div className="col-span-3">
+            <div className="col-span-12 sm:col-span-3">
               <label className="text-[10px] font-bold text-black uppercase tracking-wider mb-0.5 flex flex-wrap items-center justify-between gap-1">
                 <span>VALOR TOTAL (R$) <span className="text-rose-600">*</span></span>
                 {expenseItems.length > 0 && (
@@ -2051,15 +2300,195 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                       )}
                     </div>
                     {numAmount > 0 && selectedTargets.length > 0 && (
-                      <span className="text-emerald-700 font-extrabold text-xs shrink-0">
-                        R$ {rateioPerPerson.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / PESSOA
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {rhDeductionsTotal > 0 && (
+                          <span className="text-[9px] font-bold text-slate-700 uppercase">
+                            (Base líq: R$ {netRateioBaseAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                          </span>
+                        )}
+                        <span className="text-emerald-700 font-extrabold text-xs shrink-0">
+                          R$ {rateioPerPerson.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / PESSOA
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* SUB-BLOCO: CONSUMO PARTICULAR / DESCONTO EM FOLHA (RH) */}
+          <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={enableRhConsumption}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEnableRhConsumption(checked);
+                    if (!checked) {
+                      setRhDeductionItems([]);
+                      setRhDraftEmpId('');
+                      setRhDraftDesc('');
+                      setRhDraftAmountStr('');
+                    }
+                  }}
+                  className="w-4 h-4 rounded border border-black bg-white text-rose-700 focus:ring-rose-600 cursor-pointer accent-rose-700"
+                />
+                <span className="text-[11px] font-bold text-black uppercase tracking-wider">
+                  💸 Lançar consumo particular de funcionário para desconto em folha (RH)?
+                </span>
+              </label>
+
+              {enableRhConsumption && rhDeductionItems.length > 0 && (
+                <span className="text-[10px] font-extrabold text-rose-800 bg-rose-100 border border-rose-400 px-2 py-0.5 rounded uppercase">
+                  {rhDeductionItems.length} {rhDeductionItems.length === 1 ? 'desconto' : 'descontos'} · R$ {rhDeductionsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+
+            {enableRhConsumption && (
+              <div className="border-t border-black/20 pt-2 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] font-bold text-black uppercase">
+                  <span>CONSUMO PARTICULAR / DESCONTO EM FOLHA (RH)</span>
+                  <span className="text-[9px] font-semibold text-slate-700 normal-case">
+                    Estes itens serão abatidos do rateio da empresa e lançados automaticamente em RH &gt; Adiantamentos / Holerite.
+                  </span>
+                </div>
+
+                {/* Campos de Inclusão Rápida */}
+                <div className="grid grid-cols-12 gap-1.5 items-end bg-white/60 p-2 rounded-lg border border-black">
+                  <div className="col-span-12 sm:col-span-4">
+                    <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                      Funcionário <span className="text-rose-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={rhDraftEmpId}
+                        onChange={(e) => setRhDraftEmpId(e.target.value)}
+                        className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-6 uppercase cursor-pointer"
+                      >
+                        <option value="">-- SELECIONE O FUNCIONÁRIO --</option>
+                        {activeEmployees.map((emp) => (
+                          <option key={emp.id} value={emp.id} className="uppercase">
+                            {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="col-span-12 sm:col-span-4">
+                    <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                      Item / Breve Descrição <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Chocolate, Refrigerante, Cigarro..."
+                      value={rhDraftDesc}
+                      onChange={(e) => setRhDraftDesc(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddRhDeduction();
+                        }
+                      }}
+                      className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:normal-case"
+                    />
+                  </div>
+
+                  <div className="col-span-6 sm:col-span-2">
+                    <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                      Valor a Descontar (R$) <span className="text-rose-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 pointer-events-none">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="0,00"
+                        value={rhDraftAmountStr}
+                        onChange={(e) => setRhDraftAmountStr(maskCurrencyLive(e.target.value))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddRhDeduction();
+                          }
+                        }}
+                        className="w-full h-7.5 pl-7 pr-2 rounded border border-gray-400 bg-white text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-6 sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={handleAddRhDeduction}
+                      className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white border border-black text-[10px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                      title="Adicionar desconto particular em folha"
+                    >
+                      <Plus className="w-3 h-3 shrink-0" />
+                      <span className="truncate">+ Adicionar Desconto</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mini-lista de Descontos Vinculados */}
+                {rhDeductionItems.length > 0 && (
+                  <div className="max-h-36 overflow-y-auto rounded-lg border border-black bg-white divide-y divide-gray-200">
+                    {rhDeductionItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs hover:bg-slate-50"
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-black uppercase">{item.employeeName}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="font-medium text-slate-800 uppercase truncate">{item.itemDescription}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-extrabold text-rose-700 font-mono">
+                            - R$ {(Number(item.amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRhDeduction(item.id)}
+                            className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Remover desconto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Resumo Contábil da Separação Empresa vs RH */}
+                {numAmount > 0 && rhDeductionsTotal > 0 && (
+                  <div className="px-2.5 py-1.5 rounded border border-gray-400 bg-white text-[10px] flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-black uppercase">
+                      Total Fornecedor (Contas a Pagar):{' '}
+                      <span className="text-slate-900">
+                        R$ {numAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </span>
+                    <span className="font-bold text-rose-700 uppercase">
+                      Desconto em Folha (RH):{' '}
+                      - R$ {rhDeductionsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="font-extrabold text-emerald-800 uppercase">
+                      Base Líquida Rateio / DRE Frota:{' '}
+                      R$ {netRateioBaseAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* BLOCO 3 (CARD): PAGAMENTO — STATUS, FORMA, DATA EFETIVA E CONTA DE DÉBITO / CARTÃO / CHEQUE */}
           <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
