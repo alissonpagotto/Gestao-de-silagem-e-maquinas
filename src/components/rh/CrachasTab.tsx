@@ -227,9 +227,9 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
   const activeBadgeDims = getBadgeDimensions(badgeTheme.size);
 
   return (
-    <div className="space-y-3">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* Barra Superior de Título e Botões de Ação */}
-      <div className="no-print bg-[#e0e6f1] dark:bg-stone-800 border border-black/20 dark:border-stone-700 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="no-print shrink-0 bg-[#e0e6f1] dark:bg-stone-800 border border-black/20 dark:border-stone-700 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 flex items-center justify-center shrink-0">
             <IdCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -272,7 +272,7 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
 
       {/* Alerta amigável quando usuário clicar em imprimir sem selecionar nenhum funcionário */}
       {selectionWarning && (
-        <div className="no-print flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-400 text-amber-950 text-xs font-bold shadow-2xs">
+        <div className="no-print shrink-0 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-400 text-amber-950 text-xs font-bold shadow-2xs">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>{selectionWarning}</span>
@@ -288,10 +288,10 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
       )}
 
       {/* Layout Dividido (Split View): Seleção à Esquerda | Pré-visualização à Direita */}
-      <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <div className="no-print flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
         {/* PAINEL ESQUERDO: SELEÇÃO DE COLABORADORES */}
-        <div className="lg:col-span-4 bg-[#e0e6f1] dark:bg-stone-800 border border-black/25 dark:border-stone-700 rounded-xl p-3 space-y-2.5">
-          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-black/15 dark:border-stone-700">
+        <div className="lg:col-span-4 h-full min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-800 border border-black/25 dark:border-stone-700 rounded-xl p-3 gap-2.5 overflow-hidden">
+          <div className="shrink-0 flex items-center justify-between gap-2 pb-1.5 border-b border-black/15 dark:border-stone-700">
             <div className="flex items-center gap-1.5">
               <Users className="w-4 h-4 text-slate-800 dark:text-stone-200" />
               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
@@ -319,7 +319,7 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
           </div>
 
           {/* Barra de Busca Rápida */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -331,7 +331,7 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
           </div>
 
           {/* Lista com Checkboxes */}
-          <div className="space-y-1.5 max-h-[540px] overflow-y-auto pr-0.5">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-1.5 pr-0.5">
             {filteredList.length === 0 ? (
               <div className="bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-lg p-6 text-center text-xs text-slate-500 font-medium">
                 Nenhum colaborador ativo encontrado.
@@ -384,8 +384,8 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
         </div>
 
         {/* PAINEL DIREITO: PRÉ-VISUALIZAÇÃO REALISTA DOS CRACHÁS */}
-        <div className="lg:col-span-8 bg-[#e0e6f1] dark:bg-stone-800 border border-black/25 dark:border-stone-700 rounded-xl p-4 space-y-3 min-h-[420px]">
-          <div className="flex items-center justify-between gap-2 pb-2 border-b border-black/15 dark:border-stone-700">
+        <div className="lg:col-span-8 h-full min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-800 border border-black/25 dark:border-stone-700 rounded-xl p-4 gap-3 overflow-hidden">
+          <div className="shrink-0 flex items-center justify-between gap-2 pb-2 border-b border-black/15 dark:border-stone-700">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
               Pré-visualização do Crachá ({activeBadgeDims.shortLabel})
             </span>
@@ -394,34 +394,36 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
             </span>
           </div>
 
-          {selectedEntries.length === 0 ? (
-            <div className="bg-white/80 dark:bg-stone-900 border border-dashed border-slate-400 dark:border-stone-700 rounded-xl p-10 text-center flex flex-col items-center justify-center gap-2">
-              <IdCard className="w-10 h-10 text-slate-400" />
-              <div className="text-sm font-bold text-slate-800 dark:text-stone-200">
-                Nenhum colaborador selecionado
-              </div>
-              <p className="text-xs text-slate-600 dark:text-stone-400 max-w-md">
-                Marque um ou mais colaboradores na lista à esquerda para visualizar o crachá com código de barras Code 128 e liberar a impressão.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-start justify-center sm:justify-start gap-5 p-2">
-              {selectedEntries.map(({ employee, regNumber }) => (
-                <div key={`preview_${employee.id}`} className="flex flex-col items-center gap-1.5">
-                  <EmployeeBadgeCard
-                    employee={employee}
-                    registrationNumber={regNumber}
-                    companyName={companyDisplayName}
-                    companyLogoUrl={companyProfile?.logoUrl}
-                    theme={badgeTheme}
-                  />
-                  <span className="text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide">
-                    REG {regNumber} • {activeBadgeDims.shortLabel}
-                  </span>
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            {selectedEntries.length === 0 ? (
+              <div className="h-full min-h-[220px] bg-white/80 dark:bg-stone-900 border border-dashed border-slate-400 dark:border-stone-700 rounded-xl p-10 text-center flex flex-col items-center justify-center gap-2">
+                <IdCard className="w-10 h-10 text-slate-400" />
+                <div className="text-sm font-bold text-slate-800 dark:text-stone-200">
+                  Nenhum colaborador selecionado
                 </div>
-              ))}
-            </div>
-          )}
+                <p className="text-xs text-slate-600 dark:text-stone-400 max-w-md">
+                  Marque um ou mais colaboradores na lista à esquerda para visualizar o crachá com código de barras Code 128 e liberar a impressão.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-start justify-center sm:justify-start gap-5 p-2">
+                {selectedEntries.map(({ employee, regNumber }) => (
+                  <div key={`preview_${employee.id}`} className="flex flex-col items-center gap-1.5">
+                    <EmployeeBadgeCard
+                      employee={employee}
+                      registrationNumber={regNumber}
+                      companyName={companyDisplayName}
+                      companyLogoUrl={companyProfile?.logoUrl}
+                      theme={badgeTheme}
+                    />
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide">
+                      REG {regNumber} • {activeBadgeDims.shortLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

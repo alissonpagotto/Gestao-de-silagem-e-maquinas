@@ -550,14 +550,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
     }
   }, [propExternalNewEmployeeTrigger]);
 
-  const isFeriasTab = activeTab === 'ferias';
-
   return (
-    <div
-      className={`w-full max-w-none ${
-        isFeriasTab ? 'flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden' : 'space-y-3 sm:space-y-4'
-      }`}
-    >
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       
       {/* Top Header com Título, Subtítulo e Botões de Ação 3D Slim */}
       <header className="no-print shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-300 dark:border-stone-800 shadow-[0_1px_0px_0px_rgba(255,255,255,0.8)] dark:shadow-[0_1px_0px_0px_rgba(255,255,255,0.05)] pb-2">
@@ -607,7 +601,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       </header>
 
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
-      <div className={`w-full flex flex-col ${isFeriasTab ? 'flex-1 min-h-0 overflow-hidden' : ''}`}>
+      <div className="w-full flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
         <div className="w-full shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
@@ -787,13 +781,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
-        <div
-          className={`w-full min-h-0 border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm p-3 ${
-            isFeriasTab
-              ? 'flex-1 flex flex-col overflow-hidden'
-              : 'overflow-x-hidden overflow-y-auto global space-y-3'
-          }`}
-        >
+        <div className="w-full flex-1 min-h-0 border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm p-3 flex flex-col overflow-hidden">
 
       {/* Renderização do Conteúdo de Cada Aba */}
       {activeTab === 'dashboard' && (

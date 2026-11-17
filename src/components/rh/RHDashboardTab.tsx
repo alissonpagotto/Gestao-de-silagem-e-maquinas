@@ -76,10 +76,10 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
   const activeLeaves = leaves.filter(l => l.status === 'ativo');
 
   return (
-    <div className="w-full max-w-none space-y-4 sm:space-y-6">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-3 sm:gap-4 overflow-hidden">
       
       {/* 4 Cards de Métricas Principais (Exatamente como no print) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
         {/* Card 1: Funcionários Ativos */}
         <div 
@@ -167,11 +167,11 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
       </div>
 
       {/* Grid com 2 Painéis Superiores: Férias Próximas / Afastamentos Ativos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
         
         {/* Painel 1: Férias Próximas / Em Gozo */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-5 shadow-xs flex flex-col min-h-[160px] text-black dark:text-white">
-          <div className="flex items-center justify-between mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-2.5">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col min-h-[140px] max-h-[210px] overflow-hidden text-black dark:text-white">
+          <div className="shrink-0 flex items-center justify-between mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-2.5">
             <h3 className="text-sm font-black text-black dark:text-white">
               Férias Próximas / Em Gozo
             </h3>
@@ -186,7 +186,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
 
           {activeVacationsList.length > 0 ? (
-            <div className="divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
               {activeVacationsList.map((vac) => {
                 const isGozo = String(vac.status).toLowerCase() === 'em_gozo' || String(vac.situacao_execucao).toUpperCase() === 'EM_GOZO';
                 return (
@@ -218,8 +218,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
         </div>
 
         {/* Painel 2: Afastamentos Ativos */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-5 shadow-xs flex flex-col min-h-[160px] text-black dark:text-white">
-          <div className="flex items-center justify-between mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-2.5">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col min-h-[140px] max-h-[210px] overflow-hidden text-black dark:text-white">
+          <div className="shrink-0 flex items-center justify-between mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-2.5">
             <h3 className="text-sm font-black text-black dark:text-white">
               Afastamentos Ativos
             </h3>
@@ -234,7 +234,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
 
           {activeLeaves.length > 0 ? (
-            <div className="divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
               {activeLeaves.map((leave) => (
                 <div key={leave.id} className="pt-2 flex items-center justify-between text-xs">
                   <div>
@@ -262,8 +262,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
       </div>
 
       {/* Painel Inferior: Folhas — Mês Atual (ex: Folhas — Mês Atual (09/2026)) */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-5 shadow-xs text-black dark:text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-blue-200/60 dark:border-stone-800 pb-3">
+      <div className="crm-card flex-1 min-h-0 flex flex-col overflow-hidden bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs text-black dark:text-white">
+        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-3">
           <div>
             <h3 className="text-sm font-black text-black dark:text-white">
               Folhas — Mês Atual ({currentMonthRef})
@@ -294,7 +294,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
         </div>
 
         {currentMonthPayrolls.length > 0 ? (
-          <div className="max-h-[380px] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden border border-slate-300 dark:border-stone-700 rounded-lg">
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
                 <tr>
@@ -364,7 +364,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
             </table>
           </div>
         ) : (
-          <div className="py-12 flex flex-col items-center justify-center text-center">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center py-8">
             <p className="text-black/75 dark:text-stone-400 font-semibold uppercase text-xs">
               NENHUM REGISTRO ENCONTRADO
             </p>

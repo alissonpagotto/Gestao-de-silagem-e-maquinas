@@ -3399,9 +3399,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   }, [filteredEmployees, employees, activeCompany, cnhReport]);
 
   return (
-    <div id="employees-module" className="space-y-3 sm:space-y-3.5 animate-fade-in">
+    <div id="employees-module" className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-fade-in">
       {/* SUB-BARRA DE ABAS REATIVA (MDI SLIM DESIGN) */}
-      <div className="no-print flex flex-wrap items-center gap-1.5 pb-0.5">
+      <div className="no-print shrink-0 flex flex-wrap items-center gap-1.5 pb-0.5">
         <button
           type="button"
           onClick={() => setEmployeesSubView('listagem')}
@@ -3466,9 +3466,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onSelectEmployee={(id) => setSelectedEmployeeForHistoryId(id)}
         />
       ) : employeesSubView === 'demitidos' ? (
-        <div className="space-y-2">
+        <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
           {/* Barra de Filtro e Totalizador Slim */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-white dark:bg-stone-850 p-2 rounded border border-slate-300/80 dark:border-stone-700/80 shadow-xs">
+          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-white dark:bg-stone-850 p-2 rounded border border-slate-300/80 dark:border-stone-700/80 shadow-xs">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-black uppercase text-slate-800 dark:text-stone-200 tracking-wide flex items-center gap-1.5">
                 <span>🗂️ QUADRO DE EX-COLABORADORES / DESLIGADOS / AFASTADOS</span>
@@ -3501,8 +3501,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </div>
 
           {/* Tabela Slim (py-1) de Ex-Colaboradores */}
-          <div className="border border-slate-300 dark:border-stone-700/80 rounded-lg bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
-            <div className="max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto w-full">
+          <div className="flex-1 min-h-0 flex flex-col border border-slate-300 dark:border-stone-700/80 rounded-lg bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
                   <tr>
@@ -3651,7 +3651,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       ) : (
         <>
           {/* CNH Alert, Vacation Alert & Staff Summary Cards (Moldura Unificada Slim Design Pro) */}
-          <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
+          <div className="shrink-0 border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
           <div className="px-2 py-1 flex items-center justify-between text-black dark:text-stone-100">
             <div>
@@ -3756,9 +3756,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       </div>
 
       {/* CONTAINER UNIFICADO DA TABELA E BUSCA (SLIM DESIGN PRO) */}
-      <div className="border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 overflow-hidden shadow-2xs">
+      <div className="flex-1 min-h-0 flex flex-col border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 overflow-hidden shadow-2xs">
         {/* Search Bar & Quick Vacation Alert Filter Badges */}
-        <div className="p-2 border-b border-slate-200 dark:border-stone-700/80 bg-slate-50/60 dark:bg-stone-800/40 space-y-2">
+        <div className="shrink-0 p-2 border-b border-slate-200 dark:border-stone-700/80 bg-slate-50/60 dark:bg-stone-800/40 space-y-2">
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -3829,7 +3829,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
 
         {/* Employees Table */}
-        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto w-full border border-slate-300 dark:border-stone-700 rounded-lg">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
               <tr>

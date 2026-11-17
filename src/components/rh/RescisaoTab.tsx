@@ -958,12 +958,12 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   }, [competenceTerminations, statusFilter, searchTerm]);
 
   return (
-    <div className="w-full space-y-2.5 antialiased financial-subtab-clean">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden antialiased financial-subtab-clean">
       
       {/* Banner de Feedback da Integração Financeira */}
       {integrationBanner && (
         <div
-          className={`p-3 rounded-xl border flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-200 ${
+          className={`shrink-0 p-3 rounded-xl border flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-200 ${
             integrationBanner.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
               : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
@@ -992,7 +992,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       )}
 
       {/* 1. KPIs de Resumo Rápido Compactos */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+      <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
         <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
           <span className="text-[10px] font-black uppercase text-black dark:text-stone-300 block leading-tight truncate">
             Total de Rescisões
@@ -1042,7 +1042,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* 3. Barra de Busca e Filtros de Status */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 text-black/60 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -1112,18 +1112,18 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* 4. TABELA DE HISTÓRICO DE RESCISÕES */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="overflow-x-auto">
+      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
+            <thead className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Colaborador (Nome e Cargo)</th>
-                <th className="py-2.5 px-3">Data de Admissão</th>
-                <th className="py-2.5 px-3">Data de Desligamento</th>
-                <th className="py-2.5 px-3">Tipo de Rescisão</th>
-                <th className="py-2.5 px-3 text-right">Valor Líquido Rescisório (R$)</th>
-                <th className="py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Status</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Colaborador (Nome e Cargo)</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Data de Admissão</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Data de Desligamento</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Tipo de Rescisão</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Líquido Rescisório (R$)</th>
+                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-medium">

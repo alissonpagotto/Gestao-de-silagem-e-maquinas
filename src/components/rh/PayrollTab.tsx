@@ -3023,12 +3023,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const calculatedModalNet = Math.max(0, modalGrossTotal - modalDiscountsTotal);
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       
       {/* Banner de Feedback da Integração Financeira */}
       {integrationBanner && (
         <div
-          className={`p-3 rounded-xl border flex items-start justify-between gap-3 shadow-xs ${
+          className={`shrink-0 p-3 rounded-xl border flex items-start justify-between gap-3 shadow-xs ${
             integrationBanner.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200'
               : integrationBanner.type === 'error'
@@ -3054,7 +3054,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       )}
 
       {/* Month Selector Bar & Action Controls */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         
         {/* Month Selector + Tipo de Folha */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-start shrink-0">
@@ -3164,7 +3164,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Quick Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Salários Base</span>
           <span className="text-sm sm:text-base font-black text-black dark:text-white font-['Outfit']">
@@ -3197,7 +3197,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Banner Informativo de Regras de Negócio */}
-      <div className="crm-card bg-blue-100/80 dark:bg-stone-800/80 border border-blue-300 dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+      <div className="crm-card shrink-0 bg-blue-100/80 dark:bg-stone-800/80 border border-blue-300 dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
         <div className="flex items-center space-x-2 text-black dark:text-stone-200">
           <ShieldCheck className="w-4 h-4 text-[#0963cb] shrink-0" />
           {payrollType === '13_first_packet' ? (
@@ -3217,7 +3217,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
+      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -3240,8 +3240,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Payroll Table */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="max-h-[calc(100vh-330px)] overflow-y-auto overflow-x-auto">
+      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
               <tr>

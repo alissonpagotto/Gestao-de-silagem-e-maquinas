@@ -2860,7 +2860,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-2.5 w-full max-w-full overflow-hidden">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 w-full max-w-full overflow-hidden">
       
       {/* Top Header & Actions */}
       <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
@@ -3159,7 +3159,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
       {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
       <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs text-black dark:text-white overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto rounded-xl">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-xl">
           <table className="w-full table-auto text-left text-xs border-separate border-spacing-0">
             <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-black dark:text-white uppercase tracking-wider shadow-sm">
               <tr>

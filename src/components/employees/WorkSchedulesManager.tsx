@@ -218,9 +218,9 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
   });
 
   return (
-    <div className="space-y-3">
+    <div className={isModalContext ? 'flex flex-col gap-3' : 'flex-1 min-h-0 h-full max-h-full flex flex-col gap-3 overflow-hidden'}>
       {/* Cabeçalho Oficial da Sub-aba / Gerenciador */}
-      <div className="bg-[#e0e6f1] border border-black rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+      <div className="shrink-0 bg-[#e0e6f1] border border-black rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
             <Clock className="w-4 h-4 text-black shrink-0" />
@@ -270,7 +270,7 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
       {isFormOpen && (
         <form
           onSubmit={handleSaveSchedule}
-          className="bg-[#e0e6f1] border border-black rounded-xl p-3.5 space-y-3 shadow-xs"
+          className="shrink-0 bg-[#e0e6f1] border border-black rounded-xl p-3.5 space-y-3 shadow-xs"
         >
           <div className="flex items-center justify-between pb-1.5 border-b border-black/15">
             <div className="flex items-center gap-2">
@@ -467,7 +467,7 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
       )}
 
       {/* Lista / Quadro Oficial de Escalas Cadastradas */}
-      <div className="bg-[#e0e6f1] border border-black rounded-xl overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] border border-black rounded-xl overflow-hidden">
         {schedules.length === 0 ? (
           <div className="p-6 text-center space-y-2 bg-white/70">
             <p className="text-xs font-bold text-black uppercase">
@@ -483,9 +483,9 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#cad4e6] border-b border-black text-black uppercase text-[10px] font-black tracking-wider">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] border-b border-black text-black uppercase text-[10px] font-black tracking-wider">
                 <tr>
                   <th className="py-2 px-3">Nome da Escala / Turno</th>
                   <th className="py-2 px-3 whitespace-nowrap">Entrada / Saída</th>

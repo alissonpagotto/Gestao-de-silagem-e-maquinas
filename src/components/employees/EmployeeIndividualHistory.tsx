@@ -273,7 +273,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
 
   if (!currentEmployee && (!employees || employees.length === 0)) {
     return (
-      <div className="p-8 text-center text-slate-500 bg-white rounded border border-slate-300">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 text-center text-slate-500 bg-white rounded border border-slate-300">
         <UserSquare2 className="w-12 h-12 mx-auto text-slate-400 mb-2" />
         <p className="text-xs font-bold uppercase tracking-wider">Nenhum colaborador cadastrado no sistema</p>
       </div>
@@ -281,10 +281,10 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
   }
 
   return (
-    <div className="space-y-3 animate-fade-in text-slate-800">
+    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-3 overflow-hidden animate-fade-in text-slate-800">
       
       {/* 1. BARRA SUPERIOR DE SELEÇÃO RÁPIDA DE COLABORADOR (MDI SLIM DESIGN) */}
-      <div className="no-print bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 rounded-lg p-2.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.06)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+      <div className="shrink-0 no-print bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 rounded-lg p-2.5 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.06)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
         
         {/* Seletor de Colaborador */}
         <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -347,7 +347,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
       </div>
 
       {!currentEmployee ? (
-        <div className="border border-slate-300 rounded-lg bg-white p-8 text-center space-y-2 shadow-xs">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center border border-slate-300 rounded-lg bg-white p-8 text-center space-y-2 shadow-xs">
           <UserSquare2 className="w-10 h-10 mx-auto text-slate-400" />
           <h4 className="text-xs font-black uppercase text-slate-700 tracking-wider">
             NENHUM COLABORADOR SELECIONADO
@@ -359,7 +359,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
       ) : (
       <>
       {/* 2. CARD RESUMO DO COLABORADOR (CABEÇALHO COM AVATAR E DADOS ESSENCIAIS) */}
-      <div className="border border-slate-300 rounded-lg bg-white p-3 shadow-xs">
+      <div className="shrink-0 border border-slate-300 rounded-lg bg-white p-3 shadow-xs">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
           
           <div className="flex items-center gap-3">
@@ -483,6 +483,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
         </div>
       </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3 pr-0.5">
       {/* 4. BLOCO 1: [ALTERAÇÕES DE SALÁRIOS] ➔ LINHA DO TEMPO DE SALÁRIO */}
       {(activeBlock === 'todos' || activeBlock === 'salarios') && (
         <section className="border border-slate-300 rounded-lg bg-white overflow-hidden shadow-xs">
@@ -977,6 +978,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
           )}
         </section>
       )}
+      </div>
       </>
       )}
 
