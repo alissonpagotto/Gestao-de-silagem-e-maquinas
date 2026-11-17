@@ -326,28 +326,28 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   }, [activeCompany, filteredExpenses]);
 
   return (
-    <div className="crm-card bg-white dark:bg-stone-900 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-xs overflow-hidden text-zinc-900 dark:text-white">
+    <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden text-black dark:text-white">
       
       {/* Top Filter & Search Bar */}
-      <div className="p-3 sm:p-3.5 border-b border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-800/50 space-y-2.5">
+      <div className="shrink-0 p-2.5 sm:p-3 border border-black dark:border-stone-700 rounded-lg bg-[#cad4e6] dark:bg-stone-900 space-y-2 shadow-xs">
         
         {/* Search & Actions Row */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           
           {/* Search Input */}
           <div className="relative flex-1 max-w-md sm:max-w-lg">
-            <Search className="absolute left-3 top-2 w-3.5 h-3.5 text-zinc-400 dark:text-stone-400" />
+            <Search className="absolute left-3 top-2 w-3.5 h-3.5 text-slate-500 dark:text-stone-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por descrição, fornecedor, trator ou NF..."
-              className="w-full pl-8 pr-4 py-1.5 bg-white dark:bg-stone-800 text-xs rounded-xl border border-zinc-200 dark:border-stone-700 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white font-bold"
+              className="w-full pl-8 pr-4 py-1.5 bg-white dark:bg-stone-800 text-xs rounded-lg border border-slate-400 dark:border-stone-700 text-black dark:text-white placeholder-slate-500 dark:placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-slate-700 dark:focus:ring-white font-bold"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-2 text-zinc-400 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-white text-xs font-bold cursor-pointer"
+                className="absolute right-2.5 top-2 text-slate-500 dark:text-stone-400 hover:text-black dark:hover:text-white text-xs font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -358,16 +358,16 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           <div className="flex items-center space-x-1.5 flex-wrap sm:flex-nowrap justify-end shrink-0">
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border border-zinc-200 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-black dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 border border-slate-400 dark:border-stone-700 rounded-lg transition shadow-2xs cursor-pointer"
               title="Exportar dados para Excel / CSV"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-600 dark:text-emerald-400" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
               <span className="hidden sm:inline">CSV</span>
             </button>
 
             <button
               onClick={() => setIsPrintModalOpen(true)}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-emerald-300 bg-white dark:bg-emerald-950/60 hover:bg-zinc-100 dark:hover:bg-emerald-900 border border-zinc-200 dark:border-emerald-800 rounded-xl transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-black dark:text-emerald-300 bg-white dark:bg-emerald-950/60 hover:bg-slate-100 dark:hover:bg-emerald-900 border border-slate-400 dark:border-emerald-800 rounded-lg transition shadow-2xs cursor-pointer"
               title="Compartilhar lista de despesas por WhatsApp"
             >
               <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -376,16 +376,16 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
             <button
               onClick={() => setIsPrintModalOpen(true)}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border border-zinc-200 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-black dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-slate-100 dark:hover:bg-stone-700 border border-slate-400 dark:border-stone-700 rounded-lg transition shadow-2xs cursor-pointer"
               title="Imprimir relatório com logotipo e dados cadastrais da empresa"
             >
-              <Printer className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-300" />
+              <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
               <span className="hidden sm:inline">Imprimir</span>
             </button>
 
             <button
               onClick={onNewExpense}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#059669] hover:bg-emerald-700 rounded-xl transition shadow-xs active:scale-95 cursor-pointer uppercase tracking-wider"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#059669] hover:bg-emerald-700 rounded-lg border border-emerald-800 transition shadow-xs active:scale-95 cursor-pointer uppercase tracking-wider"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ NOVO LANÇAMENTO</span>
@@ -399,11 +399,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           
           {/* Status Filter */}
           <div>
-            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Status</label>
+            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Status</label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-slate-400 dark:border-stone-700 font-bold text-black dark:text-white"
             >
               <option value="todos">Todos os Status</option>
               <option value="pago">Pagas</option>
@@ -415,11 +415,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
           {/* Category Filter */}
           <div>
-            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Categoria</label>
+            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Categoria</label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-slate-400 dark:border-stone-700 font-bold text-black dark:text-white"
             >
               <option value="todas">Todas as Categorias</option>
               {safeCategories.map((c) => (
@@ -432,11 +432,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
           {/* Cost Center Filter */}
           <div>
-            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Centro de Custo</label>
+            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Centro de Custo</label>
             <select
               value={selectedCostCenter}
               onChange={(e) => setSelectedCostCenter(e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-slate-400 dark:border-stone-700 font-bold text-black dark:text-white"
             >
               <option value="todos">Todos os Centros</option>
               {costCenters.map((cc) => (
@@ -449,11 +449,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
           {/* Sort By */}
           <div>
-            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Ordenar por</label>
+            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Ordenar por</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-slate-400 dark:border-stone-700 font-bold text-black dark:text-white"
             >
               <option value="date_asc">Vencimento (Mais Próximo / Evolução)</option>
               <option value="date_desc">Vencimento (Mais Distante)</option>
@@ -466,40 +466,43 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
       </div>
 
-      {/* Summary of current view */}
-      <div className="px-4 py-2 bg-zinc-50 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-800 text-xs text-zinc-600 dark:text-stone-300 flex items-center justify-between">
-        <span>
-          Mostrando <strong className="text-zinc-900 dark:text-white font-black">{filteredExpenses.length}</strong> lançamento(s)
-        </span>
-        <span>
-          Soma do filtro: <strong className="text-zinc-900 dark:text-white font-black">{formatCurrencyBRL(totalFiltered)}</strong>
-        </span>
-      </div>
+      {/* Table Container (Locked Height + Internal Scroll Only) */}
+      <div className="flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-lg overflow-hidden bg-[#e0e6f1] dark:bg-stone-900 shadow-xs">
 
-      {/* Desktop Table View */}
-      <div className="max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto border border-slate-300 dark:border-stone-700 rounded-lg hidden md:block">
-        <table className="w-full text-left text-xs text-zinc-900 dark:text-stone-200 border-collapse">
-          <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm text-zinc-700 dark:text-stone-300 font-black border-b border-slate-300 dark:border-stone-700 uppercase tracking-wider text-[10px]">
-            <tr>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Descrição & Fornecedor</th>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Categoria</th>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Vencimento</th>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Centro / Máquina</th>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Valor</th>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3">Status</th>
-              <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
-            {filteredExpenses.length === 0 ? (
+        {/* Summary of current view */}
+        <div className="shrink-0 px-3 py-1.5 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-xs text-black dark:text-stone-200 flex items-center justify-between">
+          <span>
+            Mostrando <strong className="text-black dark:text-white font-black">{filteredExpenses.length}</strong> lançamento(s)
+          </span>
+          <span>
+            Soma do filtro: <strong className="text-black dark:text-white font-black">{formatCurrencyBRL(totalFiltered)}</strong>
+          </span>
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#e0e6f1] dark:bg-stone-900">
+          <table className="w-full text-left text-xs text-black dark:text-stone-200 border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-200 font-black border-b border-black dark:border-stone-700 uppercase tracking-wider text-[10px]">
               <tr>
-                <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase">
-                  NENHUM REGISTRO ENCONTRADO
-                </td>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Descrição & Fornecedor</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Categoria</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Vencimento</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Centro / Máquina</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Valor</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700 text-right">Ações</th>
               </tr>
-            ) : (
-              filteredExpenses.map((exp) => (
-                <tr key={exp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition-colors border-b border-slate-200 dark:border-stone-800">
+            </thead>
+            <tbody className="font-medium bg-[#e0e6f1] dark:bg-stone-900">
+              {filteredExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-xs font-semibold text-slate-700 dark:text-stone-400 uppercase bg-[#e0e6f1] dark:bg-stone-900">
+                    NENHUM REGISTRO ENCONTRADO
+                  </td>
+                </tr>
+              ) : (
+                filteredExpenses.map((exp) => (
+                  <tr key={exp.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors border-b border-black/20 dark:border-stone-800">
                   
                   {/* Description & Supplier */}
                   <td className="py-1.5 px-3 max-w-xs">
@@ -666,14 +669,14 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       </div>
 
       {/* Mobile Card List View */}
-      <div className="divide-y divide-zinc-100 dark:divide-stone-800 md:hidden bg-white dark:bg-stone-900">
+      <div className="md:hidden flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-black/20 dark:divide-stone-800 bg-[#e0e6f1] dark:bg-stone-900">
         {filteredExpenses.length === 0 ? (
-          <div className="py-6 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+          <div className="py-6 text-center text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
             NENHUM REGISTRO ENCONTRADO
           </div>
         ) : (
           filteredExpenses.map((exp) => (
-            <div key={exp.id} className="p-4 space-y-3">
+            <div key={exp.id} className="p-4 space-y-3 bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 transition-colors">
               
               <div className="flex items-start justify-between">
                 <div>
@@ -758,6 +761,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             </div>
           ))
         )}
+      </div>
+
       </div>
 
       {/* Print Preview Modal with Company Logo & Data */}

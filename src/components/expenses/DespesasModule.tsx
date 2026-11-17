@@ -142,10 +142,10 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
   return (
     <div 
       id="modulo-despesas-master"
-      className="w-full min-h-full flex flex-col space-y-4 bg-[#edf4ff] dark:bg-stone-900 overflow-y-auto overflow-x-hidden scrollbar-thin p-2 sm:p-3 select-none"
+      className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 bg-[#edf4ff] dark:bg-stone-900 overflow-hidden p-2 sm:p-3 select-none"
     >
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-300 dark:border-stone-800 pb-2.5">
+      <div className="shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-black/20 dark:border-stone-800 pb-2">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-black text-black dark:text-stone-100 uppercase tracking-tight font-['Outfit']">

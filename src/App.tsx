@@ -3976,7 +3976,7 @@ export default function App() {
             <main 
               id="crm-main-content"
               className={`flex-1 min-h-0 flex flex-col ${
-                (activeTab === 'rh' || activeTab === 'funcionarios') && !isCurrentTabDenied
+                (activeTab === 'rh' || activeTab === 'funcionarios' || activeTab === 'despesas') && !isCurrentTabDenied
                   ? 'overflow-hidden'
                   : 'overflow-y-auto overflow-x-hidden'
               } ${isPdvFullscreen ? 'p-0 pb-0' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-6'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
