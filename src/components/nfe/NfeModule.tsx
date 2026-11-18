@@ -8469,7 +8469,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const cleanNum = query.replace(/\D/g, '') || query;
 
       if (existingExpense) {
-        const reconstructed = buildNfeDataFromExpense(existingExpense, companyProfile, localInventory);
+        const reconstructed = buildNfeDataFromExpense(existingExpense, localInventory, companyProfile);
         setParsedData(reconstructed);
         setEditingExpenseId(existingExpense.id);
         setSuccessMessage(`Nota Fiscal nº ${cleanNum} encontrada nas despesas e carregada com sucesso!`);
@@ -10991,70 +10991,36 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* Seletor Principal de Direção (Entrada vs. Saída) no Topo da Central de Documentos */}
       <div
         id="seletor-direcao-central-documentos"
-        className="shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-2"
+        className="shrink-0 flex flex-wrap items-center gap-2 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-2.5 py-1.5 shadow-2xs"
       >
         <button
           type="button"
           id="btn-direcao-notas-entrada"
           onClick={() => setActiveDocDirection('entrada')}
-          className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-lg transition cursor-pointer text-left ${
+          title="Notas de compra/entrada importadas via XML ou lançadas manualmente"
+          className={`px-3 py-1.5 rounded-md text-xs font-bold border inline-flex items-center gap-1.5 uppercase transition cursor-pointer whitespace-nowrap ${
             activeDocDirection === 'entrada'
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-[#059669] text-emerald-950 dark:text-emerald-100 shadow-sm'
-              : 'bg-[#e0e6f1] dark:bg-stone-900/80 border border-black dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
+              ? 'border-black bg-emerald-700 text-white'
+              : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base leading-none shrink-0">📥</span>
-            <div className="min-w-0">
-              <span className="block text-xs font-black uppercase tracking-wide truncate">
-                NOTAS DE ENTRADA (Compras / Recebidas)
-              </span>
-              <span className="block text-[10px] font-semibold opacity-75 truncate">
-                Notas de compra/entrada importadas via XML ou lançadas manualmente
-              </span>
-            </div>
-          </div>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-black font-mono shrink-0 ${
-              activeDocDirection === 'entrada'
-                ? 'bg-[#059669] text-white'
-                : 'bg-slate-200 dark:bg-stone-800 text-slate-700 dark:text-stone-300'
-            }`}
-          >
-            {competenceFilteredEntries.length}
-          </span>
+          <span>📥</span>
+          <span>NOTAS DE ENTRADA ({competenceFilteredEntries.length})</span>
         </button>
 
         <button
           type="button"
           id="btn-direcao-notas-saida"
           onClick={() => setActiveDocDirection('saida')}
-          className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-lg transition cursor-pointer text-left ${
+          title="Notas fiscais emitidas pela empresa para clientes e tomadores"
+          className={`px-3 py-1.5 rounded-md text-xs font-bold border inline-flex items-center gap-1.5 uppercase transition cursor-pointer whitespace-nowrap ${
             activeDocDirection === 'saida'
-              ? 'bg-blue-50 dark:bg-blue-950/60 border-2 border-[#1e40af] text-blue-950 dark:text-blue-100 shadow-sm'
-              : 'bg-[#e0e6f1] dark:bg-stone-900/80 border border-black dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
+              ? 'border-black bg-emerald-700 text-white'
+              : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base leading-none shrink-0">📤</span>
-            <div className="min-w-0">
-              <span className="block text-xs font-black uppercase tracking-wide truncate">
-                NOTAS DE SAÍDA (Emitidas pela Empresa)
-              </span>
-              <span className="block text-[10px] font-semibold opacity-75 truncate">
-                Notas fiscais emitidas pela empresa para clientes e tomadores
-              </span>
-            </div>
-          </div>
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-black font-mono shrink-0 ${
-              activeDocDirection === 'saida'
-                ? 'bg-[#1e40af] text-white'
-                : 'bg-slate-200 dark:bg-stone-800 text-slate-700 dark:text-stone-300'
-            }`}
-          >
-            {competenceFilteredSaidaEntries.length}
-          </span>
+          <span>📤</span>
+          <span>NOTAS DE SAÍDA ({competenceFilteredSaidaEntries.length})</span>
         </button>
       </div>
 

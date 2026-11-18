@@ -47,8 +47,8 @@ export function useAbastecimentosRealtime(
   } = options;
 
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => {
-    if (initialLogs && initialLogs.length > 0) return sanitizeFuelLogs(initialLogs);
-    return getStoredFuelLogs();
+    if (Array.isArray(initialLogs)) return sanitizeFuelLogs(initialLogs);
+    return sanitizeFuelLogs(getStoredFuelLogs());
   });
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -72,7 +72,7 @@ export function useAbastecimentosRealtime(
 
   const refetch = useCallback(async (): Promise<FuelLog[]> => {
     if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
-      const localLogs = getStoredFuelLogs();
+      const localLogs = sanitizeFuelLogs(getStoredFuelLogs());
       setFuelLogs(localLogs);
       return localLogs;
     }

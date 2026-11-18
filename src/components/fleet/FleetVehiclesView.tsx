@@ -1457,23 +1457,25 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   return (
     <div className="w-full flex flex-col space-y-2">
 
-      {/* Sub-abas de Navegação: VEÍCULOS & MÁQUINAS | TIPOS DE TROCAS (100% Fixo / Âncora) */}
-      <div className="shrink-0 flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-stone-200 dark:border-stone-800">
-        <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-2xs">
+      {/* Sub-abas de Navegação: VEÍCULOS & MÁQUINAS | CADASTRO REVISÕES PERIÓDICAS */}
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2 flex items-center justify-between flex-wrap gap-2 shadow-xs">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             id="subtab-btn-veiculos"
             onClick={() => setVehicleSubTab('frota')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer select-none ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold border inline-flex items-center space-x-1.5 uppercase transition cursor-pointer select-none whitespace-nowrap ${
               vehicleSubTab === 'frota'
-                ? 'bg-[#0963cb] text-white shadow-xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+                ? 'border-black bg-emerald-700 text-white'
+                : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
             }`}
           >
-            <Truck className="w-3.5 h-3.5" />
-            <span>VEÍCULOS & MÁQUINAS</span>
-            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-              vehicleSubTab === 'frota' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
+            <Truck className="w-3.5 h-3.5 shrink-0" />
+            <span>VEÍCULOS &amp; MÁQUINAS</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold font-mono ${
+              vehicleSubTab === 'frota'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-200 text-slate-800'
             }`}>
               {machineries.length}
             </span>
@@ -1483,18 +1485,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             type="button"
             id="subtab-btn-tipos-trocas"
             onClick={() => setVehicleSubTab('tipos_trocas')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer select-none ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold border inline-flex items-center space-x-1.5 uppercase transition cursor-pointer select-none whitespace-nowrap ${
               vehicleSubTab === 'tipos_trocas'
-                ? 'bg-[#0963cb] text-white shadow-xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800'
+                ? 'border-black bg-emerald-700 text-white'
+                : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
             }`}
           >
-            <Wrench className="w-3.5 h-3.5 text-amber-500" />
+            <Wrench className={`w-3.5 h-3.5 shrink-0 ${vehicleSubTab === 'tipos_trocas' ? 'text-amber-300' : 'text-amber-600'}`} />
             <span>CADASTRO REVISÕES PERIÓDICAS</span>
             <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
               vehicleSubTab === 'tipos_trocas'
-                ? 'bg-emerald-400 text-emerald-950'
-                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                ? 'bg-white/20 text-white'
+                : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
             }`}>
               REGRAS DO GRUPO
             </span>
@@ -1506,10 +1508,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             <button
               type="button"
               onClick={() => setVehicleSubTab('tipos_trocas')}
-              className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 hover:bg-amber-100 text-xs font-bold uppercase transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-md border border-black bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold uppercase transition flex items-center space-x-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
               title="Configurar matriz de manutenção preventiva para cada grupo de veículos"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-700" />
               <span>CONFIGURAR REGRAS DO GRUPO</span>
             </button>
           </div>
@@ -1537,13 +1539,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           )}
 
           {/* Barra de Filtros Superior (SLIM DESIGN PRO) */}
-          <div className="flex items-end gap-3 w-full bg-slate-50 dark:bg-stone-900 p-3 border border-slate-300 dark:border-stone-800 rounded-lg shadow-sm shrink-0">
+          <div className="flex flex-wrap items-end gap-3 w-full bg-[#cad4e6] dark:bg-stone-900 p-3 border border-black dark:border-stone-800 rounded-lg shadow-sm shrink-0">
             
             {/* Div do Select: SELECIONE A CATEGORIA (com botão de engrenagem nativo) */}
             <div className="flex flex-col gap-1">
               <label 
                 htmlFor="filter-group-category" 
-                className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase leading-none"
+                className="text-[11px] font-bold text-black dark:text-stone-400 uppercase leading-none"
               >
                 SELECIONE A CATEGORIA
               </label>
@@ -1555,7 +1557,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     setSelectedGroupCategory(e.target.value.toUpperCase());
                     handleCancelEditRule();
                   }}
-                  className="h-[34px] bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded px-2 text-xs font-bold uppercase focus:outline-none min-w-[200px] sm:min-w-[240px] text-stone-800 dark:text-stone-200 cursor-pointer shadow-2xs"
+                  className="h-[34px] bg-white dark:bg-stone-800 border border-black/50 dark:border-stone-700 rounded px-2 text-xs font-bold uppercase focus:outline-none min-w-[200px] sm:min-w-[240px] text-stone-900 dark:text-stone-200 cursor-pointer shadow-2xs"
                 >
                   {availableGroupCategories.map((cat) => (
                     <option key={cat} value={cat.toUpperCase()} className="uppercase">
@@ -1567,10 +1569,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   type="button"
                   id="btn-gerenciar-categorias-preventivo"
                   onClick={() => setIsCategoriesModalOpen(true)}
-                  className="h-[34px] w-[34px] flex items-center justify-center bg-slate-200 hover:bg-slate-300 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-400 dark:border-stone-600 rounded text-slate-700 dark:text-stone-200 transition-colors shadow-sm cursor-pointer shrink-0"
+                  className="h-[34px] w-[34px] flex items-center justify-center bg-white hover:bg-slate-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-black/50 dark:border-stone-600 rounded text-slate-800 dark:text-stone-200 transition-colors shadow-sm cursor-pointer shrink-0"
                   title="EDITAR LISTA DE CATEGORIAS"
                 >
-                  <Settings className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+                  <Settings className="w-4 h-4 text-slate-800 dark:text-stone-300" />
                 </button>
               </div>
             </div>
@@ -1579,7 +1581,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             <div className="flex flex-col gap-1">
               <label 
                 htmlFor="filter-maintenance-subgroup" 
-                className="text-[11px] font-bold text-slate-600 dark:text-stone-400 uppercase leading-none"
+                className="text-[11px] font-bold text-black dark:text-stone-400 uppercase leading-none"
               >
                 SUBGRUPO DE MANUTENÇÃO
               </label>
@@ -1588,7 +1590,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   id="filter-maintenance-subgroup"
                   value={filterSubgroup}
                   onChange={(e) => setFilterSubgroup(e.target.value)}
-                  className="h-[34px] bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded px-2 text-xs font-bold uppercase focus:outline-none min-w-[200px] sm:min-w-[240px] text-stone-800 dark:text-stone-200 cursor-pointer shadow-2xs"
+                  className="h-[34px] bg-white dark:bg-stone-800 border border-black/50 dark:border-stone-700 rounded px-2 text-xs font-bold uppercase focus:outline-none min-w-[200px] sm:min-w-[240px] text-stone-900 dark:text-stone-200 cursor-pointer shadow-2xs"
                 >
                   <option value="TODOS OS SUBGRUPOS">TODOS OS SUBGRUPOS</option>
                   {availableMaintenanceSubgroups.map((sg) => (
@@ -1601,10 +1603,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   type="button"
                   id="btn-gerenciar-subgrupos-preventivo"
                   onClick={() => setIsMaintenanceCategoriesModalOpen(true)}
-                  className="h-[34px] w-[34px] flex items-center justify-center bg-slate-200 hover:bg-slate-300 dark:bg-stone-800 dark:hover:bg-stone-700 border border-slate-400 dark:border-stone-600 rounded text-slate-700 dark:text-stone-200 transition-colors shadow-sm cursor-pointer shrink-0"
+                  className="h-[34px] w-[34px] flex items-center justify-center bg-white hover:bg-slate-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-black/50 dark:border-stone-600 rounded text-slate-800 dark:text-stone-200 transition-colors shadow-sm cursor-pointer shrink-0"
                   title="GERENCIAR LISTA DE SUBGRUPOS"
                 >
-                  <Settings className="w-4 h-4 text-slate-700 dark:text-stone-300" />
+                  <Settings className="w-4 h-4 text-slate-800 dark:text-stone-300" />
                 </button>
               </div>
             </div>
@@ -1614,7 +1616,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               type="button"
               id="btn-cadastrar-item-plano"
               onClick={handleOpenCreateRuleModal}
-              className="h-[34px] self-end bg-[#059669] hover:bg-emerald-700 text-white font-bold px-4 text-xs rounded transition-colors tracking-wider shadow flex items-center justify-center gap-1 cursor-pointer select-none whitespace-nowrap uppercase"
+              className="h-[34px] self-end bg-[#059669] hover:bg-emerald-700 border border-emerald-900 text-white font-bold px-4 text-xs rounded transition-colors tracking-wider shadow flex items-center justify-center gap-1 cursor-pointer select-none whitespace-nowrap uppercase"
               title="Cadastrar novo item no plano preventivo deste grupo"
             >
               + CADASTRAR ITEM
@@ -1623,40 +1625,40 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           </div>
 
           {/* Card Mestre de Parametrização para a Categoria Selecionada */}
-          <div className="flex flex-col bg-white dark:bg-stone-900 rounded-lg border border-slate-300 dark:border-stone-800 shadow-sm overflow-x-hidden w-full">
+          <div className="flex flex-col bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 shadow-sm overflow-x-hidden w-full">
             
             {/* Header da Categoria Selecionada */}
-            <div className="shrink-0 p-3 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800">
+            <div className="shrink-0 p-3 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-800">
               <div className="flex items-center gap-2 w-full pb-1">
-                <span className="text-sm font-bold text-slate-800 dark:text-stone-100 uppercase">{selectedGroupCategory.toUpperCase()}</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100/90 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-500/80 uppercase">
+                <span className="text-sm font-bold text-black dark:text-stone-100 uppercase">{selectedGroupCategory.toUpperCase()}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100/90 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-600 uppercase">
                   {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
                     ? `${filteredRulesCount} DE ${currentCategoryRules.length} REGRAS (${filterSubgroup})`
                     : `${currentCategoryRules.length} REGRAS ATIVAS`}
                 </span>
               </div>
 
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+              <p className="text-[11px] text-slate-800 dark:text-stone-400 mt-0.5 font-medium">
                 Estes insumos e intervalos de fábrica alimentarão automaticamente o bloco "ITENS RECOMENDADOS" na Nova Ordem de Manutenção.
               </p>
             </div>
 
             {/* Tabela de Regras Ativas da Categoria (ROLAGEM EXCLUSIVA DO GRID INTERNO) */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#e0e6f1] dark:bg-stone-900">
               <table className="w-full text-left border-collapse text-xs">
-                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 shadow-sm">
-                  <tr className="bg-slate-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-slate-300 dark:border-stone-700">
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">QUANTIDADE QUE O VEÍCULO USA</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">VÍNCULO COM ALMOXARIFADO</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">AÇÕES</th>
+                <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 shadow-sm">
+                  <tr className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-200 text-[10.5px] uppercase font-black tracking-wider border-b border-black dark:border-stone-700">
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3">PRODUTO / INSUMO / FLUIDO</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center">INTERVALO DE FÁBRICA</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center">QUANTIDADE QUE O VEÍCULO USA</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center">VÍNCULO COM ALMOXARIFADO</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right">AÇÕES</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                   {filteredGroupedRules.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-stone-400 dark:text-stone-500 font-bold uppercase text-xs">
+                    <tr className="bg-[#e0e6f1] dark:bg-stone-900">
+                      <td colSpan={5} className="py-8 text-center text-slate-700 dark:text-stone-500 font-bold uppercase text-xs bg-[#e0e6f1] dark:bg-stone-900">
                         {filterSubgroup && filterSubgroup !== 'TODOS OS SUBGRUPOS'
                           ? `NENHUM ITEM PREVENTIVO CONFIGURADO NO SUBGRUPO "${filterSubgroup}" PARA ESTA CATEGORIA`
                           : 'NENHUM ITEM PREVENTIVO CONFIGURADO PARA ESTA CATEGORIA'}
@@ -1708,10 +1710,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                             <React.Fragment key={rule.id || idx}>
                               {/* Linha Normal do Item */}
                               <tr 
-                                className={`hover:bg-slate-50/80 dark:hover:bg-stone-800/60 transition ${
+                                className={`hover:bg-[#d2dced] dark:hover:bg-stone-800/60 transition border-b border-black/15 dark:border-stone-800 ${
                                   isInlineEditing
-                                    ? 'bg-sky-50/60 dark:bg-sky-950/30'
-                                    : idx % 2 === 0 ? 'bg-white dark:bg-stone-900' : 'bg-slate-50/40 dark:bg-stone-850/40'
+                                    ? 'bg-sky-50/80 dark:bg-sky-950/30'
+                                    : 'bg-[#e0e6f1] dark:bg-stone-900'
                                 }`}
                               >
                                 <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100 uppercase">
@@ -1966,8 +1968,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             </div>
 
             {/* Rodapé com botão de salvar consolidação */}
-            <div className="shrink-0 p-3 bg-stone-50 dark:bg-stone-850 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between flex-wrap gap-2">
-              <span className="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase">
+            <div className="shrink-0 p-3 bg-[#cad4e6] dark:bg-stone-850 border-t border-black dark:border-stone-800 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] text-slate-800 dark:text-stone-400 font-bold uppercase">
                 CHAVE LOCALSTORAGE: agrocontrol_plano_preventivo_grupos
               </span>
               <div className="flex items-center space-x-2">
@@ -2409,7 +2411,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         )}
 
       {/* Header & Filter Controls */}
-      <div className="bg-white dark:bg-stone-900 p-4 sm:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+      <div className="bg-[#cad4e6] dark:bg-stone-900 p-3 sm:p-4 rounded-lg border border-black dark:border-stone-800 shadow-xs space-y-3">
         
         {/* Top bar: Search + Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
@@ -2417,13 +2419,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           {/* Lado Esquerdo: Search Input */}
           <div className="flex flex-1 items-center gap-2 max-w-2xl min-w-0">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 type="text"
                 placeholder="Buscar por placa, modelo, nº de série, titular, CPF/CNPJ, tipo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/60 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white dark:focus:bg-stone-800 shadow-inner"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800/60 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-600 focus:bg-white dark:focus:bg-stone-800 shadow-xs"
               />
             </div>
           </div>
@@ -2437,7 +2439,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               id="btn-cadastrar-veiculo"
               onClick={onOpenNewVehicle}
               title="CADASTRAR NOVO VEÍCULO OU MÁQUINA NA FROTA"
-              className="px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] border border-emerald-700/60 text-white text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+              className="px-3.5 py-1.5 rounded-lg bg-[#059669] hover:bg-[#047857] border border-emerald-900 text-white text-xs font-bold uppercase shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Plus className="w-4 h-4 text-white stroke-[2.5]" />
               <span className="text-white font-bold uppercase tracking-wider">+ CADASTRAR VEÍCULO</span>
@@ -2447,9 +2449,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             <button
               onClick={handleOpenPrint}
               title="Visualizar e Imprimir Lista Completa da Frota em A4"
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+              className="px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-black/50 dark:border-stone-600 text-slate-900 dark:text-stone-100 hover:text-black text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+              <Printer className="w-3.5 h-3.5 text-slate-800 dark:text-stone-300" />
               <span>IMPRIMIR LISTA</span>
             </button>
 
@@ -2458,21 +2460,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               onClick={handleSyncMeters}
               disabled={isSyncing}
               title="Sincronizar Odômetro & Horímetro com os últimos abastecimentos e manutenções"
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
+              className="px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-black/50 dark:border-stone-600 text-slate-900 dark:text-stone-100 hover:text-black text-xs font-bold uppercase shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-700 dark:text-stone-300 ${isSyncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-800 dark:text-stone-300 ${isSyncing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">SINCRONIZAR LEITURAS</span>
               <span className="sm:hidden">SINCRONIZAR</span>
             </button>
 
             {/* View toggle (Tabela / Cards) */}
-            <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-0.5 rounded-xl border border-stone-200 dark:border-stone-700">
+            <div className="flex items-center bg-white/80 dark:bg-stone-800 p-0.5 rounded-lg border border-black/40 dark:border-stone-700">
               <button
                 onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                className={`p-1.5 rounded-md transition cursor-pointer ${
                   viewMode === 'table'
-                    ? 'bg-white dark:bg-stone-700 text-sky-600 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'text-slate-700 hover:text-black dark:text-stone-400 dark:hover:text-white'
                 }`}
                 title="Visualização em Tabela"
               >
@@ -2480,10 +2482,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                className={`p-1.5 rounded-md transition cursor-pointer ${
                   viewMode === 'grid'
-                    ? 'bg-white dark:bg-stone-700 text-sky-600 shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'text-slate-700 hover:text-black dark:text-stone-400 dark:hover:text-white'
                 }`}
                 title="Visualização em Cards"
               >
@@ -2496,9 +2498,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         </div>
 
         {/* Filter Bar (Categorias, Propriedade, Status) */}
-        <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-stone-100 dark:border-stone-800 text-xs font-semibold">
+        <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-black/20 dark:border-stone-800 text-xs font-semibold">
           
-          <span className="text-stone-400 dark:text-stone-500 text-[11px] font-bold uppercase tracking-wider flex items-center space-x-1 mr-1">
+          <span className="text-black dark:text-stone-400 text-[11px] font-bold uppercase tracking-wider flex items-center space-x-1 mr-1">
             <Filter className="w-3.5 h-3.5" />
             <span>Filtros:</span>
           </span>
@@ -2507,7 +2509,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
           >
             <option value="todos">Todos os Tipos / Categorias</option>
             {availableCategories.map((cat) => (
@@ -2521,7 +2523,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           <select
             value={selectedOwnership}
             onChange={(e) => setSelectedOwnership(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
           >
             <option value="todos">Todos os Regimes de Posse</option>
             {availableRegimes.map((reg) => (
@@ -2535,7 +2537,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
           >
             <option value="todos">Todos os Status</option>
             <option value="operacional">Operacional</option>
@@ -2553,13 +2555,13 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 setSelectedStatus('todos');
                 setSearchTerm('');
               }}
-              className="text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 text-xs underline cursor-pointer ml-auto"
+              className="text-slate-800 hover:text-rose-700 dark:hover:text-rose-400 text-xs font-bold underline cursor-pointer ml-auto"
             >
               Limpar Filtros
             </button>
           )}
 
-          <div className="ml-auto text-stone-400 text-xs font-mono">
+          <div className="ml-auto text-slate-900 dark:text-stone-400 text-xs font-mono font-bold">
             {filteredVehicles.length} de {machineries.length} cadastrados
           </div>
 
@@ -2569,8 +2571,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
       {/* Vehicles Table View */}
       {viewMode === 'table' ? (
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-300 dark:border-stone-800 overflow-hidden shadow-xs text-black dark:text-white">
-          <div className="w-full max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto">
+        <div className="crm-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 overflow-hidden shadow-xs text-black dark:text-white">
+          <div className="w-full max-h-[calc(100vh-310px)] overflow-y-auto overflow-x-auto bg-[#e0e6f1] dark:bg-stone-900">
             <table className="w-full text-left text-xs sm:text-sm table-fixed">
               <colgroup>
                 <col className="w-[11%]" />
@@ -2583,23 +2585,23 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 <col className="w-[9%]" />
                 <col className="w-[9%]" />
               </colgroup>
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-xs font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-xs font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CÓDIGO / FROTA</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">TIPO & MODELO</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PROPRIEDADE</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PESOS & CARGA</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">HORÍMETRO / KM</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">MOTORISTA</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CUSTO TOTAL</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">STATUS</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-right text-black dark:text-white font-black truncate">AÇÕES</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CÓDIGO / FROTA</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">TIPO & MODELO</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PROPRIEDADE</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">PESOS & CARGA</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">HORÍMETRO / KM</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">MOTORISTA</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">CUSTO TOTAL</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-black dark:text-white font-black truncate">STATUS</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-2 xl:px-2.5 text-right text-black dark:text-white font-black truncate">AÇÕES</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800/60 font-medium bg-[#87AFE3] dark:bg-stone-900 text-black dark:text-white">
+              <tbody className="divide-y divide-black/15 dark:divide-stone-800/60 font-medium bg-[#e0e6f1] dark:bg-stone-900 text-black dark:text-white">
                 {filteredVehicles.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-4 text-center text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase">
+                  <tr className="bg-[#e0e6f1] dark:bg-stone-900">
+                    <td colSpan={9} className="py-6 text-center text-xs font-semibold text-slate-700 dark:text-stone-300 uppercase bg-[#e0e6f1] dark:bg-stone-900">
                       NENHUM REGISTRO ENCONTRADO
                     </td>
                   </tr>
@@ -2642,7 +2644,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     const categoryTag = getVehicleCategoryTag(vehicle);
 
                     return (
-                      <tr key={vehicle.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                      <tr key={vehicle.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:even:bg-stone-800/50 dark:odd:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/15 dark:border-stone-800">
                         
                         {/* Identificação / Placa / Nº Série */}
                         <td className="py-1 px-2 xl:px-2.5 align-top">
@@ -2972,7 +2974,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             return (
               <div
                 key={vehicle.id}
-                className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 shadow-xs hover:border-sky-300 dark:hover:border-sky-700 transition flex flex-col justify-between space-y-4"
+                className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 p-4 shadow-xs hover:bg-[#d2dced] dark:hover:border-sky-700 transition flex flex-col justify-between space-y-3"
               >
                 <div>
                   
@@ -3091,21 +3093,21 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
                   {/* Owner Section (No Nome de Quem) */}
                   {vehicle.ownerName && (
-                    <div className="mt-2.5 p-2 rounded-lg bg-stone-50 dark:bg-stone-800/60 border border-stone-100 dark:border-stone-800 text-[11px]">
-                      <div className="text-stone-400 text-[10px] font-bold uppercase">No Nome de:</div>
+                    <div className="mt-2.5 p-2 rounded-lg bg-white/75 dark:bg-stone-800/60 border border-black/20 dark:border-stone-800 text-[11px]">
+                      <div className="text-slate-600 text-[10px] font-bold uppercase">No Nome de:</div>
                       <div className="font-bold text-stone-900 dark:text-stone-100">{vehicle.ownerName}</div>
                       {vehicle.ownerDocument && (
-                        <div className="text-stone-500 font-mono text-[10px]">CPF/CNPJ: {vehicle.ownerDocument}</div>
+                        <div className="text-stone-600 font-mono text-[10px]">CPF/CNPJ: {vehicle.ownerDocument}</div>
                       )}
                     </div>
                   )}
 
                   {/* Technical Specs List */}
-                  <div className="mt-3 pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2 text-xs">
+                  <div className="mt-3 pt-3 border-t border-black/15 dark:border-stone-800 space-y-2 text-xs">
                     
                     {/* Weights (Tara / Lotação / PBT) */}
                     {(vehicle.taraWeightKg || vehicle.capacityLoadKg || pbt) && (
-                      <div className="flex items-center justify-between text-[11px] bg-stone-50/70 dark:bg-stone-800/40 p-1.5 rounded-lg">
+                      <div className="flex items-center justify-between text-[11px] bg-white/75 dark:bg-stone-800/40 border border-black/20 p-1.5 rounded-lg">
                         <span className="text-stone-500 font-semibold flex items-center space-x-1">
                           <Weight className="w-3 h-3 text-stone-400" />
                           <span>Pesos:</span>
@@ -3171,7 +3173,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                <div className="pt-3 border-t border-black/15 dark:border-stone-800 flex items-center justify-between">
                   <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
                     <button
                       onClick={() => onOpenHistory(vehicle)}

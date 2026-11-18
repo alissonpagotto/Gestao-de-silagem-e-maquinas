@@ -11,7 +11,7 @@ import {
   Droplet 
 } from 'lucide-react';
 import { FuelLog, Machinery } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, isFictitiousOrZeroFuelLog } from '../../lib/storage';
 import { 
   formatFuelLogEfficiency, 
   formatDualFuelLogEfficiency, 
@@ -78,7 +78,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
     const term = (searchTerm || '').trim().toLowerCase();
     const selVehicleLower = String(selectedVehicle || '').toLowerCase();
     return (localLogs || []).filter(log => {
-      if (!log) return false;
+      if (!log || isFictitiousOrZeroFuelLog(log)) return false;
       const matchDate = (!startDate || !endDate) ? true : (log.date >= startDate && log.date <= endDate);
       const plateOrName = String(log.machineryPlateOrName || (log as any).vehiclePlate || (log as any).vehicleName || '').toLowerCase();
       const driver = String(log.driverOrOperator || '').toLowerCase();

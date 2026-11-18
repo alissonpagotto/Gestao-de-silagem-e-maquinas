@@ -15,7 +15,7 @@ import {
   Download
 } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, sanitizeFuelLogs, isFictitiousOrZeroFuelLog } from '../../lib/storage';
 import { 
   formatFuelLogEfficiency, 
   formatDualFuelLogEfficiency, 
@@ -78,7 +78,8 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
   }, [activeCompetence]);
 
   // Sincronização em tempo real via Hook unificado (Realtime + Polling 30s + Foco da Janela)
-  const { fuelLogs: localLogs } = useAbastecimentosRealtime(fuelLogs);
+  const { fuelLogs: rawLocalLogs } = useAbastecimentosRealtime(fuelLogs);
+  const localLogs = useMemo(() => sanitizeFuelLogs(rawLocalLogs), [rawLocalLogs]);
 
   // Filtered Fuel Logs (Respeitando a competência ativa)
   const filteredLogs = useMemo(() => {
@@ -86,7 +87,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
     const { start, end } = competenceRange;
 
     return (localLogs || []).filter((log) => {
-      if (!log) return false;
+      if (!log || isFictitiousOrZeroFuelLog(log)) return false;
       const logDate = log.date ? log.date.slice(0, 10) : '';
       const matchDate = !logDate || (logDate >= start && logDate <= end);
       if (!matchDate) return false;

@@ -2764,7 +2764,7 @@ const MOCK_FUEL_LOG_IDS = new Set([
 
 export function isFictitiousOrZeroFuelLog(log: any): boolean {
   if (!log || typeof log !== 'object') return true;
-  if (log.capacidade_total !== undefined && log.liters === undefined && log.litros === undefined) {
+  if (log.capacidade_total !== undefined && !log.machineryId) {
     return true;
   }
   const id = String(log.id || '').trim().toLowerCase();
@@ -5216,8 +5216,14 @@ export const saveCompanyAbastecimentos = (logs: FuelLog[], companyId?: string): 
     localStorage.setItem('agrocontrol_fuel_logs', json);
   } catch {}
 };
-export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] =>
-  sanitizeFuelLogs(getCompanyData<FuelLog>('abastecimentos', getStoredFuelLogs, companyId));
+export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] => {
+  const raw = getCompanyData<FuelLog>('abastecimentos', getStoredFuelLogs, companyId);
+  const cleaned = sanitizeFuelLogs(raw);
+  if (cleaned.length !== raw.length) {
+    saveCompanyAbastecimentos(cleaned, companyId);
+  }
+  return cleaned;
+};
 
 export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?: string): void => {
   saveCompanyData('manutencoes', manutencoes, companyId);

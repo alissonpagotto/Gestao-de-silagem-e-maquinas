@@ -77,6 +77,7 @@ import {
   saveStoredServices,
   getStoredFuelLogs,
   saveStoredFuelLogs,
+  sanitizeFuelLogs,
   getStoredMaintenanceLogs,
   saveStoredMaintenanceLogs,
   getStoredCompanyProfile,
@@ -799,9 +800,9 @@ export default function App() {
         const cloudFuels = await fetchAbastecimentos(activeTenantId);
         if (cloudFuels !== null && Array.isArray(cloudFuels) && cloudFuels.length > 0 && isMounted) {
           setFuelLogs(prev => {
-            const map = new Map(prev.map(f => [f.id, f]));
-            cloudFuels.forEach(f => map.set(f.id, f));
-            const merged = Array.from(map.values());
+            const map = new Map(sanitizeFuelLogs(prev).map(f => [f.id, f]));
+            sanitizeFuelLogs(cloudFuels).forEach(f => map.set(f.id, f));
+            const merged = sanitizeFuelLogs(Array.from(map.values()));
             lastSyncedState.current.fuelLogs = JSON.stringify(merged);
             saveStoredFuelLogs(merged);
             return merged;
@@ -1428,11 +1429,12 @@ export default function App() {
         (_payload) => {
           fetchAbastecimentos(activeTenantId).then(fresh => {
             if (fresh && isMounted) {
-              const ser = JSON.stringify(fresh);
+              const cleanFresh = sanitizeFuelLogs(fresh);
+              const ser = JSON.stringify(cleanFresh);
               if (ser !== lastSyncedState.current.fuelLogs) {
                 lastSyncedState.current.fuelLogs = ser;
-                setFuelLogs(fresh);
-                saveStoredFuelLogs(fresh);
+                setFuelLogs(cleanFresh);
+                saveStoredFuelLogs(cleanFresh);
               }
             }
           });
@@ -1444,11 +1446,12 @@ export default function App() {
         (_payload) => {
           fetchAbastecimentos(activeTenantId).then(fresh => {
             if (fresh && isMounted) {
-              const ser = JSON.stringify(fresh);
+              const cleanFresh = sanitizeFuelLogs(fresh);
+              const ser = JSON.stringify(cleanFresh);
               if (ser !== lastSyncedState.current.fuelLogs) {
                 lastSyncedState.current.fuelLogs = ser;
-                setFuelLogs(fresh);
-                saveStoredFuelLogs(fresh);
+                setFuelLogs(cleanFresh);
+                saveStoredFuelLogs(cleanFresh);
               }
             }
           });
@@ -1553,12 +1556,13 @@ export default function App() {
     const handleFocusSync = () => {
       if (document.visibilityState === 'visible' && isMounted) {
         fetchAbastecimentos(activeTenantId).then(fresh => {
-          if (fresh && fresh.length > 0 && isMounted) {
-            const ser = JSON.stringify(fresh);
+          if (fresh && isMounted) {
+            const cleanFresh = sanitizeFuelLogs(fresh);
+            const ser = JSON.stringify(cleanFresh);
             if (ser !== lastSyncedState.current.fuelLogs) {
               lastSyncedState.current.fuelLogs = ser;
-              setFuelLogs(fresh);
-              saveStoredFuelLogs(fresh);
+              setFuelLogs(cleanFresh);
+              saveStoredFuelLogs(cleanFresh);
             }
           }
         }).catch(() => {});

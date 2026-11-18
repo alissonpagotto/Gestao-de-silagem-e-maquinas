@@ -215,16 +215,16 @@ export const PlanoContasTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Sub-Tabs de Alternância e Busca na mesma linha */}
-        <div className="pt-2 border-t border-black/20 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+        {/* Sub-Tabs de Alternância e Busca em Faixa Oficial #cad4e6 + border-black */}
+        <div className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveSubSection('contas')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap border transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold uppercase whitespace-nowrap border transition cursor-pointer ${
                 activeSubSection === 'contas'
-                  ? 'bg-emerald-600 text-white border-black shadow-xs'
-                  : 'bg-[#e0e6f1] hover:bg-white text-slate-900 border-black/40'
+                  ? 'border-black bg-emerald-700 text-white'
+                  : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -234,10 +234,10 @@ export const PlanoContasTab: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveSubSection('formas')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap border transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold uppercase whitespace-nowrap border transition cursor-pointer ${
                 activeSubSection === 'formas'
-                  ? 'bg-emerald-600 text-white border-black shadow-xs'
-                  : 'bg-[#e0e6f1] hover:bg-white text-slate-900 border-black/40'
+                  ? 'border-black bg-emerald-700 text-white'
+                  : 'border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
@@ -252,7 +252,7 @@ export const PlanoContasTab: React.FC = () => {
               placeholder="Filtrar nesta lista..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-7 py-1 bg-white dark:bg-stone-800 border border-black/40 dark:border-stone-700 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+              className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-stone-800 border border-black/40 dark:border-stone-700 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             />
             {searchTerm && (
               <button
