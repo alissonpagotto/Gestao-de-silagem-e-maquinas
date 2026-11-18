@@ -502,6 +502,183 @@ export const getEmployeeMonthCommissions = (
   };
 };
 
+export interface EmployeeTerminationVariablesSummary {
+  dismissalMonthRef: string;
+  monthOvertimeAmount: number;
+  monthCommissionAmount: number;
+  averageOvertimeMonthly: number;
+  averageCommissionMonthly: number;
+  averageVariablesMonthly: number;
+  monthsConsidered: number;
+  totalHistoryOvertime: number;
+  totalHistoryCommission: number;
+}
+
+const normalizePayrollCompetenceRef = (ref?: string | null): string => {
+  const clean = String(ref || '').trim();
+  if (!clean) return '';
+  if (clean.includes('/')) {
+    const [m, y] = clean.split('/');
+    const mm = parseInt(m, 10);
+    const yyyy = parseInt(y, 10);
+    if (!isNaN(mm) && !isNaN(yyyy) && mm >= 1 && mm <= 12) {
+      return `${String(mm).padStart(2, '0')}/${yyyy}`;
+    }
+  }
+  if (clean.includes('-')) {
+    const [y, m] = clean.split('-');
+    const yyyy = parseInt(y, 10);
+    const mm = parseInt(m, 10);
+    if (!isNaN(mm) && !isNaN(yyyy) && mm >= 1 && mm <= 12) {
+      return `${String(mm).padStart(2, '0')}/${yyyy}`;
+    }
+  }
+  return clean;
+};
+
+/**
+ * Apura Horas Extras e Comissões do mês da rescisão e calcula a média mensal
+ * dos últimos 12 meses (ou meses trabalhados desde a admissão) para reflexos CLT
+ * sobre 13º Salário Proporcional, Férias Proporcionais + 1/3 e Aviso Prévio Indenizado.
+ */
+export const getEmployeeTerminationVariablesSummary = (params: {
+  employee?: Partial<Employee> | null;
+  admissionDate?: string;
+  terminationDate?: string;
+  payrolls?: PayrollRecord[];
+  services?: ServiceOrder[];
+  employees?: Employee[];
+}): EmployeeTerminationVariablesSummary => {
+  const {
+    employee,
+    admissionDate,
+    terminationDate,
+    payrolls = [],
+    services = [],
+    employees = [],
+  } = params;
+
+  const empty: EmployeeTerminationVariablesSummary = {
+    dismissalMonthRef: '',
+    monthOvertimeAmount: 0,
+    monthCommissionAmount: 0,
+    averageOvertimeMonthly: 0,
+    averageCommissionMonthly: 0,
+    averageVariablesMonthly: 0,
+    monthsConsidered: 0,
+    totalHistoryOvertime: 0,
+    totalHistoryCommission: 0,
+  };
+
+  if (!employee || !employee.id || !terminationDate) return empty;
+
+  const termClean = terminationDate.split('T')[0];
+  const termParts = termClean.split('-').map(Number);
+  if (termParts.length !== 3 || isNaN(termParts[0]) || isNaN(termParts[1])) return empty;
+  const termYear = termParts[0];
+  const termMonth = termParts[1];
+  const dismissalMonthRef = `${String(termMonth).padStart(2, '0')}/${termYear}`;
+
+  let admYear = 0;
+  let admMonth = 0;
+  if (admissionDate) {
+    const admClean = admissionDate.split('T')[0];
+    const admParts = admClean.split('-').map(Number);
+    if (admParts.length === 3 && !isNaN(admParts[0]) && !isNaN(admParts[1])) {
+      admYear = admParts[0];
+      admMonth = admParts[1];
+    }
+  }
+
+  const empId = String(employee.id || '').trim().toLowerCase();
+  const empNameNorm = String(employee.name || '').trim().toLowerCase();
+  const monthlyPayrolls = (Array.isArray(payrolls) ? payrolls : []).filter((p) => {
+    if (!p) return false;
+    const pType = p.payrollType || p.payroll_type || 'monthly';
+    if (pType === '13_first_packet' || pType === '13_second_packet') return false;
+    const pEmpId = String(p.employeeId || '').trim().toLowerCase();
+    const pEmpName = String(p.employeeName || '').trim().toLowerCase();
+    return (empId && pEmpId === empId) || (empNameNorm && pEmpName === empNameNorm);
+  });
+
+  const payrollByMonth = new Map<string, PayrollRecord>();
+  monthlyPayrolls.forEach((p) => {
+    const normRef = normalizePayrollCompetenceRef(p.referenceMonth);
+    if (normRef && !payrollByMonth.has(normRef)) {
+      payrollByMonth.set(normRef, p);
+    }
+  });
+
+  const safeEmployees = employees.length > 0 ? employees : [employee as Employee];
+
+  // 1. Valores do mês do afastamento (Folha do mês + Ordens de Serviço da competência)
+  const termPayroll = payrollByMonth.get(dismissalMonthRef);
+  const termLiveComm = getEmployeeMonthCommissions(employee.id, dismissalMonthRef, services, safeEmployees);
+  const monthOvertimeAmount = Number((termPayroll?.overtimeAmount || 0).toFixed(2));
+  const monthCommissionAmount = Number(
+    Math.max(termPayroll?.commissionAmount || 0, termLiveComm.total || 0).toFixed(2)
+  );
+
+  // 2. Histórico dos últimos 12 meses anteriores ao afastamento (limitado à data de admissão)
+  let totalHistoryOvertime = 0;
+  let totalHistoryCommission = 0;
+  let monthsWithRecords = 0;
+
+  for (let i = 1; i <= 12; i++) {
+    const d = new Date(termYear, termMonth - 1 - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+
+    if (admYear > 0 && admMonth > 0) {
+      if (y < admYear || (y === admYear && m < admMonth)) {
+        break;
+      }
+    }
+
+    const mRef = `${String(m).padStart(2, '0')}/${y}`;
+    const p = payrollByMonth.get(mRef);
+    const liveComm = getEmployeeMonthCommissions(employee.id, mRef, services, safeEmployees);
+    const ot = Number((p?.overtimeAmount || 0).toFixed(2));
+    const comm = Number(Math.max(p?.commissionAmount || 0, liveComm.total || 0).toFixed(2));
+
+    if (p || liveComm.total > 0) {
+      monthsWithRecords++;
+      totalHistoryOvertime += ot;
+      totalHistoryCommission += comm;
+    }
+  }
+
+  let averageOvertimeMonthly = 0;
+  let averageCommissionMonthly = 0;
+  let monthsConsidered = 0;
+
+  if (monthsWithRecords > 0) {
+    monthsConsidered = Math.min(12, monthsWithRecords);
+    averageOvertimeMonthly = Number((totalHistoryOvertime / monthsConsidered).toFixed(2));
+    averageCommissionMonthly = Number((totalHistoryCommission / monthsConsidered).toFixed(2));
+  } else if (monthOvertimeAmount > 0 || monthCommissionAmount > 0) {
+    monthsConsidered = 1;
+    totalHistoryOvertime = monthOvertimeAmount;
+    totalHistoryCommission = monthCommissionAmount;
+    averageOvertimeMonthly = monthOvertimeAmount;
+    averageCommissionMonthly = monthCommissionAmount;
+  }
+
+  const averageVariablesMonthly = Number((averageOvertimeMonthly + averageCommissionMonthly).toFixed(2));
+
+  return {
+    dismissalMonthRef,
+    monthOvertimeAmount,
+    monthCommissionAmount,
+    averageOvertimeMonthly,
+    averageCommissionMonthly,
+    averageVariablesMonthly,
+    monthsConsidered,
+    totalHistoryOvertime: Number(totalHistoryOvertime.toFixed(2)),
+    totalHistoryCommission: Number(totalHistoryCommission.toFixed(2)),
+  };
+};
+
 /**
  * Converte valor bruto do banco, string com máscara ou número para float numérico válido.
  * Trata tanto inteiros puros (ex: 1512 -> 1512.00, '1512' -> 1512.00)

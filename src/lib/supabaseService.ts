@@ -9763,6 +9763,10 @@ export function buildRhRescisaoRow(t: TerminationRecord, companyId?: string) {
     funcionario_id: canonicalEmpId,
     proventos: {
       saldoSalario: t.calculation?.salaryBalance ?? 0,
+      horasExtrasMes: t.calculation?.monthOvertimeAmount ?? 0,
+      comissoesMes: t.calculation?.monthCommissionAmount ?? 0,
+      mediaVariaveisMensal: t.calculation?.averageVariablesMonthly ?? 0,
+      mediaVariaveisReflexos: t.calculation?.variablesReflectionTotalAmount ?? 0,
       avisoPrevio: t.calculation?.noticeAmount ?? 0,
       decimoTerceiroProporcional: t.calculation?.thirteenthProportionalAmount ?? 0,
       feriasVencidas: t.calculation?.vacationExpiredAmount ?? 0,

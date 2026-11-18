@@ -23,6 +23,8 @@ import {
   NoticeType,
   TerminationCalculation,
   VacationRecord,
+  PayrollRecord,
+  ServiceOrder,
 } from '../../types';
 import {
   formatCurrencyBRL,
@@ -35,6 +37,7 @@ import {
   formatNumberBRL,
   formatEmployeeBankDeposit,
   sanitizeTerminationPaymentDescription,
+  getEmployeeTerminationVariablesSummary,
 } from './payrollHelpers';
 import { findEmployeeFromStorage } from './pixUtils';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -43,6 +46,8 @@ interface ResignCalculationModalProps {
   isOpen: boolean;
   onClose: () => void;
   employees: Employee[];
+  payrolls?: PayrollRecord[];
+  services?: ServiceOrder[];
   vacations?: VacationRecord[];
   companyProfile?: CompanyProfile;
   advances?: SalaryAdvance[];
@@ -58,6 +63,8 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   isOpen,
   onClose,
   employees = [],
+  payrolls = [],
+  services = [],
   vacations = [],
   companyProfile,
   advances = [],
@@ -88,9 +95,13 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   const [paymentDescription, setPaymentDescription] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
-  // Controles de Inclusão e Deduções
+  // Controles de Inclusão, Variáveis (Horas Extras & Comissões) e Deduções
   const [includeFgtsFine, setIncludeFgtsFine] = useState<boolean>(false);
   const [includeInssDiscount, setIncludeInssDiscount] = useState<boolean>(true);
+  const [monthOvertimeInput, setMonthOvertimeInput] = useState<string>('0,00');
+  const [monthCommissionInput, setMonthCommissionInput] = useState<string>('0,00');
+  const [averageVariablesInput, setAverageVariablesInput] = useState<string>('0,00');
+  const [isManualVariables, setIsManualVariables] = useState<boolean>(false);
   const [customAbsencesDiscount, setCustomAbsencesDiscount] = useState<string>('0,00');
   const [customAdvancesDiscount, setCustomAdvancesDiscount] = useState<string>('0,00');
   const [otherDeductionsInput, setOtherDeductionsInput] = useState<string>('0,00');
@@ -155,6 +166,39 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       const matchedEmp = employees.find(
         (e) => e.id === initialTermination.employeeId || e.name === initialTermination.employeeName
       ) || findEmployeeFromStorage(initialTermination.employeeId || initialTermination.employeeName);
+
+      const hasSavedVariables =
+        initialTermination.isManualVariables !== undefined ||
+        initialTermination.customMonthOvertime !== undefined ||
+        initialTermination.customMonthCommission !== undefined ||
+        initialTermination.customAverageVariables !== undefined ||
+        (initialTermination.calculation?.monthOvertimeAmount || 0) > 0 ||
+        (initialTermination.calculation?.monthCommissionAmount || 0) > 0 ||
+        (initialTermination.calculation?.averageVariablesMonthly || 0) > 0;
+
+      if (hasSavedVariables) {
+        const savedOt = initialTermination.customMonthOvertime ?? formatNumberBRL(initialTermination.calculation?.monthOvertimeAmount || 0);
+        const savedComm = initialTermination.customMonthCommission ?? formatNumberBRL(initialTermination.calculation?.monthCommissionAmount || 0);
+        const savedAvg = initialTermination.customAverageVariables ?? formatNumberBRL(initialTermination.calculation?.averageVariablesMonthly || 0);
+        setMonthOvertimeInput(savedOt);
+        setMonthCommissionInput(savedComm);
+        setAverageVariablesInput(savedAvg);
+        setIsManualVariables(Boolean(initialTermination.isManualVariables ?? (initialTermination.status !== 'rascunho')));
+      } else {
+        const pulled = getEmployeeTerminationVariablesSummary({
+          employee: matchedEmp || { id: initialTermination.employeeId, name: initialTermination.employeeName },
+          admissionDate: initialTermination.admissionDate,
+          terminationDate: initialTermination.terminationDate,
+          payrolls,
+          services,
+          employees,
+        });
+        setMonthOvertimeInput(formatNumberBRL(pulled.monthOvertimeAmount));
+        setMonthCommissionInput(formatNumberBRL(pulled.monthCommissionAmount));
+        setAverageVariablesInput(formatNumberBRL(pulled.averageVariablesMonthly));
+        setIsManualVariables(initialTermination.status !== 'rascunho');
+      }
+
       if (initialTermination.paymentDescription && initialTermination.paymentDescription.trim()) {
         setPaymentDescription(
           sanitizeTerminationPaymentDescription(initialTermination.paymentDescription, matchedEmp)
@@ -185,6 +229,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       setIsManualFgts(false);
       setIncludeFgtsFine(false);
       setIncludeInssDiscount(true);
+      setMonthOvertimeInput('0,00');
+      setMonthCommissionInput('0,00');
+      setAverageVariablesInput('0,00');
+      setIsManualVariables(false);
       setCustomAbsencesDiscount('0,00');
       setCustomAdvancesDiscount('0,00');
       setOtherDeductionsInput('0,00');
@@ -201,6 +249,27 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
     return employees.find((e) => e.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
 
+  // Apuração automática de Horas Extras, Comissões do mês e Médias dos últimos 12 meses
+  const autoVariablesSummary = useMemo(() => {
+    return getEmployeeTerminationVariablesSummary({
+      employee: selectedEmployee,
+      admissionDate,
+      terminationDate,
+      payrolls,
+      services,
+      employees,
+    });
+  }, [selectedEmployee, admissionDate, terminationDate, payrolls, services, employees]);
+
+  // Mantém variáveis sincronizadas ao alterar datas/colaborador quando não estiver em edição manual
+  useEffect(() => {
+    if (!isOpen || !selectedEmployee || isManualVariables) return;
+    if (initialTermination && initialTermination.status !== 'rascunho') return;
+    setMonthOvertimeInput(formatNumberBRL(autoVariablesSummary.monthOvertimeAmount));
+    setMonthCommissionInput(formatNumberBRL(autoVariablesSummary.monthCommissionAmount));
+    setAverageVariablesInput(formatNumberBRL(autoVariablesSummary.averageVariablesMonthly));
+  }, [isOpen, selectedEmployee, isManualVariables, initialTermination, autoVariablesSummary]);
+
   // Ao selecionar um funcionário em um novo cálculo, preenche dados iniciais
   const handleSelectEmployee = (empId: string) => {
     setSelectedEmployeeId(empId);
@@ -214,6 +283,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       setCustomFgtsBalance('');
       setVacationExpiredPeriods(0);
       setVacationExpiredInput('0');
+      setMonthOvertimeInput('0,00');
+      setMonthCommissionInput('0,00');
+      setAverageVariablesInput('0,00');
+      setIsManualVariables(false);
       setPaymentDescription('');
       setDraftBannerMessage(null);
       setVacationAlert(null);
@@ -273,6 +346,20 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       .filter((ab) => ab.employeeId === emp.id && ab.type === 'injustificada' && ab.status === 'pendente')
       .reduce((sum, ab) => sum + (ab.discountAmount !== undefined && ab.discountAmount > 0 ? Number(ab.discountAmount) : (sal > 0 ? (ab.unit === 'horas' || ab.absenceHours ? Math.round(((sal / 220) * (Number(ab.absenceHours) || 8)) * 100) / 100 : Math.round(((sal / 30) * (ab.daysCount || 1)) * 100) / 100) : 0)), 0);
     setCustomAbsencesDiscount(pendingAbsences > 0 ? formatNumberBRL(pendingAbsences) : '0,00');
+
+    // Puxar Horas Extras, Comissões e Média (últimos 12 meses / trabalhados)
+    const vars = getEmployeeTerminationVariablesSummary({
+      employee: emp,
+      admissionDate: cleanAdm,
+      terminationDate: todayIso,
+      payrolls,
+      services,
+      employees,
+    });
+    setMonthOvertimeInput(formatNumberBRL(vars.monthOvertimeAmount));
+    setMonthCommissionInput(formatNumberBRL(vars.monthCommissionAmount));
+    setAverageVariablesInput(formatNumberBRL(vars.averageVariablesMonthly));
+    setIsManualVariables(false);
 
     setIsManualFgts(false);
     setCustomFgtsBalance('');
@@ -467,6 +554,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   // Motor de Cálculo da Rescisão
   const calculation: TerminationCalculation = useMemo(() => {
     const salary = typeof baseSalary === 'number' ? baseSalary : parseRawOrFormattedToFloat(baseSalaryDisplay);
+    const monthOvertimeAmount = parseRawOrFormattedToFloat(monthOvertimeInput);
+    const monthCommissionAmount = parseRawOrFormattedToFloat(monthCommissionInput);
+    const averageVariablesMonthly = parseRawOrFormattedToFloat(averageVariablesInput);
+
     if (salary <= 0 || !selectedEmployee) {
       return {
         workedDaysCurrentMonth: 0,
@@ -480,6 +571,17 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         vacationOneThirdBonus: 0,
         noticeDays: 30,
         noticeAmount: 0,
+        monthOvertimeAmount: 0,
+        monthCommissionAmount: 0,
+        averageOvertimeMonthly: 0,
+        averageCommissionMonthly: 0,
+        averageVariablesMonthly: 0,
+        variablesMonthsConsidered: 0,
+        variablesReflectionNoticeAmount: 0,
+        variablesReflectionThirteenthAmount: 0,
+        variablesReflectionVacationAmount: 0,
+        variablesReflectionVacationOneThird: 0,
+        variablesReflectionTotalAmount: 0,
         fgtsEstimatedBalance: 0,
         fgtsFineRate: 0,
         fgtsFineAmount: 0,
@@ -504,16 +606,22 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
     // 1. Saldo de Salário
     const salaryBalance = Number((dailyRate * workedDays).toFixed(2));
 
-    // 2. Aviso Prévio
+    // 2. Aviso Prévio (incorporando média mensal de variáveis HE + Comissões)
     let noticeAmount = 0;
+    let noticeBaseAmount = 0;
+    let variablesReflectionNoticeAmount = 0;
     let noticeDeduction = 0;
     if (reason === 'sem_justa_causa') {
       if (noticeType === 'indenizado') {
-        noticeAmount = Number((dailyRate * dateAnalysis.noticeDays).toFixed(2));
+        noticeBaseAmount = Number((dailyRate * dateAnalysis.noticeDays).toFixed(2));
+        noticeAmount = Number((((salary + averageVariablesMonthly) / 30) * dateAnalysis.noticeDays).toFixed(2));
+        variablesReflectionNoticeAmount = Math.max(0, Number((noticeAmount - noticeBaseAmount).toFixed(2)));
       }
     } else if (reason === 'acordo_mutuo') {
       if (noticeType === 'indenizado') {
-        noticeAmount = Number(((dailyRate * dateAnalysis.noticeDays) / 2).toFixed(2));
+        noticeBaseAmount = Number(((dailyRate * dateAnalysis.noticeDays) / 2).toFixed(2));
+        noticeAmount = Number(((((salary + averageVariablesMonthly) / 30) * dateAnalysis.noticeDays) / 2).toFixed(2));
+        variablesReflectionNoticeAmount = Math.max(0, Number((noticeAmount - noticeBaseAmount).toFixed(2)));
       }
     } else if (reason === 'pedido_demissao') {
       if (noticeType === 'dispensado') {
@@ -523,11 +631,13 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       }
     }
 
-    // 3. 13º Salário Proporcional
+    // 3. 13º Salário Proporcional + Reflexo das Médias
     let thirteenthMonths = dateAnalysis.thirteenthMonths;
     let thirteenthProportionalAmount = 0;
+    let variablesReflectionThirteenthAmount = 0;
     if (reason !== 'com_justa_causa') {
       thirteenthProportionalAmount = Number(((salary / 12) * thirteenthMonths).toFixed(2));
+      variablesReflectionThirteenthAmount = Number(((averageVariablesMonthly / 12) * thirteenthMonths).toFixed(2));
     } else {
       thirteenthMonths = 0;
     }
@@ -538,27 +648,42 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       : Math.min(dateAnalysis.completedAcquisitionPeriods, Math.max(0, vacationExpiredPeriods));
     const vacationExpiredAmount = Number((effectiveExpiredCount * salary).toFixed(2));
 
-    // 5. Férias Proporcionais
+    // 5. Férias Proporcionais + Reflexo das Médias
     let vacationPropMonths = dateAnalysis.vacationProportionalMonths;
     let vacationProportionalAmount = 0;
+    let variablesReflectionVacationAmount = 0;
     if (reason !== 'com_justa_causa') {
       vacationProportionalAmount = Number(((salary / 12) * vacationPropMonths).toFixed(2));
+      variablesReflectionVacationAmount = Number(((averageVariablesMonthly / 12) * vacationPropMonths).toFixed(2));
     } else {
       vacationPropMonths = 0;
     }
 
-    // 6. 1/3 Constitucional de Férias
+    // 6. 1/3 Constitucional de Férias (e 1/3 sobre reflexo das médias em férias)
     let vacationOneThirdBonus = 0;
     if (vacationExpiredAmount > 0 || vacationProportionalAmount > 0) {
       vacationOneThirdBonus = Number(((vacationExpiredAmount + vacationProportionalAmount) / 3).toFixed(2));
     }
+    const variablesReflectionVacationOneThird =
+      variablesReflectionVacationAmount > 0
+        ? Number((variablesReflectionVacationAmount / 3).toFixed(2))
+        : 0;
+
+    // Soma dos reflexos das médias sobre Férias + 1/3 e 13º (linha discriminada no TRCT)
+    const variablesReflectionTotalAmount = Number(
+      (
+        variablesReflectionThirteenthAmount +
+        variablesReflectionVacationAmount +
+        variablesReflectionVacationOneThird
+      ).toFixed(2)
+    );
 
     // 7. Estimativa do FGTS e Multa Rescisória
     let fgtsBase = 0;
     if (isManualFgts && customFgtsBalance !== '') {
       fgtsBase = parseRawOrFormattedToFloat(customFgtsBalance);
     } else {
-      fgtsBase = Number((salary * 0.08 * dateAnalysis.totalMonths).toFixed(2));
+      fgtsBase = Number(((salary + averageVariablesMonthly) * 0.08 * dateAnalysis.totalMonths).toFixed(2));
     }
 
     let fgtsFineRate = 0;
@@ -570,25 +695,31 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
     const calculatedFgtsFine = Number(((fgtsBase * fgtsFineRate) / 100).toFixed(2));
     const fgtsFineAmount = includeFgtsFine ? calculatedFgtsFine : 0;
 
-    // Total Bruto dos Proventos
+    // Total Bruto dos Proventos (Saldo + HE Mês + Comissões Mês + Aviso + 13º + Férias + 1/3 + Reflexos Variáveis + Multa FGTS)
     const grossTotal = Number((
       salaryBalance +
+      monthOvertimeAmount +
+      monthCommissionAmount +
       noticeAmount +
       thirteenthProportionalAmount +
       vacationExpiredAmount +
       vacationProportionalAmount +
       vacationOneThirdBonus +
+      variablesReflectionTotalAmount +
       fgtsFineAmount
     ).toFixed(2));
 
-    // Deduções
-    const rawInssSalary = Number(calculateINSS(salaryBalance).toFixed(2));
-    const rawInssThirteenth = Number(calculateINSS(thirteenthProportionalAmount).toFixed(2));
+    // Deduções (INSS considera também HE/Comissões do mês e reflexo das médias no 13º)
+    const inssSalaryBase = salaryBalance + monthOvertimeAmount + monthCommissionAmount;
+    const inssThirteenthBase = thirteenthProportionalAmount + variablesReflectionThirteenthAmount;
+
+    const rawInssSalary = Number(calculateINSS(inssSalaryBase).toFixed(2));
+    const rawInssThirteenth = Number(calculateINSS(inssThirteenthBase).toFixed(2));
 
     const inssSalaryBalance = includeInssDiscount ? rawInssSalary : 0;
     const inssThirteenth = includeInssDiscount ? rawInssThirteenth : 0;
 
-    const irrfBase = Math.max(0, salaryBalance - inssSalaryBalance);
+    const irrfBase = Math.max(0, inssSalaryBase - inssSalaryBalance);
     let irrfDiscount = 0;
     if (irrfBase > 2826.65) {
       irrfDiscount = Number(((irrfBase * 0.075) - 169.44).toFixed(2));
@@ -622,6 +753,17 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       vacationOneThirdBonus,
       noticeDays: dateAnalysis.noticeDays,
       noticeAmount,
+      monthOvertimeAmount,
+      monthCommissionAmount,
+      averageOvertimeMonthly: isManualVariables ? 0 : autoVariablesSummary.averageOvertimeMonthly,
+      averageCommissionMonthly: isManualVariables ? 0 : autoVariablesSummary.averageCommissionMonthly,
+      averageVariablesMonthly,
+      variablesMonthsConsidered: autoVariablesSummary.monthsConsidered,
+      variablesReflectionNoticeAmount,
+      variablesReflectionThirteenthAmount,
+      variablesReflectionVacationAmount,
+      variablesReflectionVacationOneThird,
+      variablesReflectionTotalAmount,
       fgtsEstimatedBalance: fgtsBase,
       fgtsFineRate,
       fgtsFineAmount,
@@ -648,6 +790,11 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
     vacationExpiredPeriods,
     isManualFgts,
     customFgtsBalance,
+    monthOvertimeInput,
+    monthCommissionInput,
+    averageVariablesInput,
+    isManualVariables,
+    autoVariablesSummary,
     customAbsencesDiscount,
     customAdvancesDiscount,
     otherDeductionsInput,
@@ -769,6 +916,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         vacationExpiredPeriods,
         customFgtsBalance,
         isManualFgts,
+        isManualVariables,
+        customMonthOvertime: monthOvertimeInput,
+        customMonthCommission: monthCommissionInput,
+        customAverageVariables: averageVariablesInput,
         customAbsencesDiscount,
         customAdvancesDiscount,
         otherDeductionsInput,
@@ -825,6 +976,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         vacationExpiredPeriods,
         customFgtsBalance,
         isManualFgts,
+        isManualVariables,
+        customMonthOvertime: monthOvertimeInput,
+        customMonthCommission: monthCommissionInput,
+        customAverageVariables: averageVariablesInput,
         customAbsencesDiscount,
         customAdvancesDiscount,
         otherDeductionsInput,
@@ -1138,6 +1293,94 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                 </div>
               </div>
 
+              {/* Seção 3B: Comissões, Horas Extras & Médias CLT */}
+              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="block text-xs font-black text-black dark:text-stone-200">
+                      Horas Extras, Comissões & Reflexos CLT
+                    </span>
+                    <span className="text-[10px] text-slate-700 dark:text-stone-400 font-medium">
+                      {autoVariablesSummary.monthsConsidered > 0
+                        ? `Apuração automática (${autoVariablesSummary.monthsConsidered} mês(es) analisado(s)): Média HE ${formatMoneyBRL(autoVariablesSummary.averageOvertimeMonthly)} + Comissões ${formatMoneyBRL(autoVariablesSummary.averageCommissionMonthly)}`
+                        : 'Puxado das folhas/OS do RH ou informe manualmente abaixo'}
+                    </span>
+                  </div>
+
+                  {selectedEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualVariables(false);
+                        setMonthOvertimeInput(formatNumberBRL(autoVariablesSummary.monthOvertimeAmount));
+                        setMonthCommissionInput(formatNumberBRL(autoVariablesSummary.monthCommissionAmount));
+                        setAverageVariablesInput(formatNumberBRL(autoVariablesSummary.averageVariablesMonthly));
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 border border-gray-400 dark:border-stone-700 rounded-lg hover:bg-gray-100 transition cursor-pointer shrink-0"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Puxar das Folhas / OS</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Horas Extras Mês Rescisão (R$)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={monthOvertimeInput}
+                      onChange={(e) => {
+                        setIsManualVariables(true);
+                        handleMoneyChange(setMonthOvertimeInput)(e);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="0,00"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-emerald-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Comissões Mês Rescisão (R$)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={monthCommissionInput}
+                      onChange={(e) => {
+                        setIsManualVariables(true);
+                        handleMoneyChange(setMonthCommissionInput)(e);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="0,00"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-emerald-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                      Média Mensal p/ Reflexos CLT (R$)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={averageVariablesInput}
+                      onChange={(e) => {
+                        setIsManualVariables(true);
+                        handleMoneyChange(setAverageVariablesInput)(e);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="0,00"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-emerald-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Seção 4: Deduções e Ajustes Financeiros */}
               <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1329,6 +1572,10 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                         includeInssDiscount,
                         customFgtsBalance,
                         isManualFgts,
+                        isManualVariables,
+                        customMonthOvertime: monthOvertimeInput,
+                        customMonthCommission: monthCommissionInput,
+                        customAverageVariables: averageVariablesInput,
                         paymentDescription: paymentDescription.trim() || undefined,
                         notes,
                         status: initialTermination?.status || 'rascunho',
@@ -1356,9 +1603,25 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                     <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.salaryBalance)}</span>
                   </div>
 
+                  {(calculation.monthOvertimeAmount || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Horas Extras Mês Rescisão:</span>
+                      <span className="font-bold text-emerald-800 dark:text-emerald-400">{formatMoneyBRL(calculation.monthOvertimeAmount || 0)}</span>
+                    </div>
+                  )}
+
+                  {(calculation.monthCommissionAmount || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Comissões Mês Rescisão:</span>
+                      <span className="font-bold text-emerald-800 dark:text-emerald-400">{formatMoneyBRL(calculation.monthCommissionAmount || 0)}</span>
+                    </div>
+                  )}
+
                   {calculation.noticeAmount > 0 && (
                     <div className="flex justify-between">
-                      <span>Aviso Prévio ({calculation.noticeDays}d):</span>
+                      <span>
+                        Aviso Prévio ({calculation.noticeDays}d{(calculation.variablesReflectionNoticeAmount || 0) > 0 ? ' c/ Médias' : ''}):
+                      </span>
                       <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.noticeAmount)}</span>
                     </div>
                   )}
@@ -1384,6 +1647,13 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                     <span>1/3 Constitucional Férias:</span>
                     <span className="font-bold text-black dark:text-white">{formatMoneyBRL(calculation.vacationOneThirdBonus)}</span>
                   </div>
+
+                  {(calculation.variablesReflectionTotalAmount || 0) > 0 && (
+                    <div className="flex justify-between text-emerald-800 dark:text-emerald-400 font-bold">
+                      <span>Média Variáveis (Férias + 13º):</span>
+                      <span>{formatMoneyBRL(calculation.variablesReflectionTotalAmount || 0)}</span>
+                    </div>
+                  )}
 
                   {includeFgtsFine && calculation.fgtsFineAmount > 0 && (
                     <div className="flex justify-between text-amber-800 dark:text-amber-400 font-bold">

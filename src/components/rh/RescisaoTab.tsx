@@ -31,7 +31,9 @@ import {
   NoticeType,
   TerminationCalculation,
   VacationRecord,
-  Expense
+  Expense,
+  PayrollRecord,
+  ServiceOrder
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -43,12 +45,15 @@ import {
   saveStoredExpenses,
   getStoredMachineries,
   saveStoredEmployees,
+  getStoredPayrolls,
+  getStoredServices,
   STORAGE_KEYS
 } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   saveCloudTerminations,
   fetchCloudTerminations,
+  fetchCloudPayrolls,
   upsertRhRescisaoRecord,
   deleteRhRescisaoRecord,
   mapRowToTerminationRecord,
@@ -81,6 +86,8 @@ import { useResolvedMediaUrl } from '../../lib/imageStorage';
 
 interface RescisaoTabProps {
   employees: Employee[];
+  payrolls?: PayrollRecord[];
+  services?: ServiceOrder[];
   vacations?: VacationRecord[];
   companyProfile?: CompanyProfile;
   advances?: SalaryAdvance[];
@@ -93,6 +100,8 @@ interface RescisaoTabProps {
 
 export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   employees = [],
+  payrolls: propPayrolls = [],
+  services: propServices = [],
   vacations = [],
   companyProfile,
   advances = [],
@@ -373,7 +382,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }
   };
 
-  // Sincronização inicial com o Supabase da tabela public.rh_rescisoes
+  const [cloudPayrolls, setCloudPayrolls] = useState<PayrollRecord[]>([]);
+
+  // Sincronização inicial com o Supabase da tabela public.rh_rescisoes e folhas para média de variáveis
   useEffect(() => {
     fetchCloudTerminations(activeTenantId).then((cloudList) => {
       if (cloudList && Array.isArray(cloudList) && cloudList.length > 0) {
@@ -389,7 +400,37 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         });
       }
     }).catch((err) => console.warn('Aviso ao sincronizar rescisões com o Supabase:', err));
+
+    if (isSupabaseConfigured && activeTenantId) {
+      fetchCloudPayrolls(activeTenantId)
+        .then((list) => {
+          if (Array.isArray(list) && list.length > 0) {
+            setCloudPayrolls(list);
+          }
+        })
+        .catch(() => {});
+    }
   }, [activeTenantId]);
+
+  const resolvedPayrolls = useMemo<PayrollRecord[]>(() => {
+    const map = new Map<string, PayrollRecord>();
+    const addList = (list: PayrollRecord[]) => {
+      (Array.isArray(list) ? list : []).forEach((p) => {
+        if (!p) return;
+        const pType = p.payrollType || p.payroll_type || 'monthly';
+        const key = `${String(p.employeeId || p.employeeName || '').toLowerCase()}__${String(p.referenceMonth || '').trim()}__${pType}`;
+        map.set(key, p);
+      });
+    };
+    addList(getStoredPayrolls());
+    addList(propPayrolls);
+    addList(cloudPayrolls);
+    return Array.from(map.values());
+  }, [propPayrolls, cloudPayrolls]);
+
+  const resolvedServices = useMemo<ServiceOrder[]>(() => {
+    return propServices && propServices.length > 0 ? propServices : getStoredServices();
+  }, [propServices]);
 
   // Escuta em Tempo Real (Supabase Realtime)
   useEffect(() => {
@@ -1299,6 +1340,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           setEditingTermination(null);
         }}
         employees={employees}
+        payrolls={resolvedPayrolls}
+        services={resolvedServices}
         vacations={vacations}
         companyProfile={companyProfile}
         advances={advances}
@@ -1484,10 +1527,30 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                       <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.workedDaysCurrentMonth || 0} dias</td>
                       <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.salaryBalance || 0)}</td>
                     </tr>
+                    {(viewingTRCT.calculation?.monthOvertimeAmount || 0) > 0 && (
+                      <tr>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">01A</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Horas Extras Mês Rescisão</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Mês Afast.</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.monthOvertimeAmount || 0)}</td>
+                      </tr>
+                    )}
+                    {(viewingTRCT.calculation?.monthCommissionAmount || 0) > 0 && (
+                      <tr>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">01B</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Comissões Mês Rescisão</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Mês Afast.</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.monthCommissionAmount || 0)}</td>
+                      </tr>
+                    )}
                     {(viewingTRCT.calculation?.noticeAmount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">02</td>
-                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Aviso Prévio Indenizado</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">
+                          {(viewingTRCT.calculation?.variablesReflectionNoticeAmount || 0) > 0
+                            ? 'Aviso Prévio Indenizado (Base + Média Variáveis)'
+                            : 'Aviso Prévio Indenizado'}
+                        </td>
                         <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.noticeDays || 30} dias</td>
                         <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.noticeAmount || 0)}</td>
                       </tr>
@@ -1518,6 +1581,28 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                       <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Art. 7º CF</td>
                       <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.vacationOneThirdBonus || 0)}</td>
                     </tr>
+                    {(() => {
+                      const varRefTotal =
+                        viewingTRCT.calculation?.variablesReflectionTotalAmount ??
+                        Number(
+                          (
+                            (viewingTRCT.calculation?.variablesReflectionThirteenthAmount || 0) +
+                            (viewingTRCT.calculation?.variablesReflectionVacationAmount || 0) +
+                            (viewingTRCT.calculation?.variablesReflectionVacationOneThird || 0)
+                          ).toFixed(2)
+                        );
+                      if (varRefTotal <= 0) return null;
+                      return (
+                        <tr>
+                          <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">06A</td>
+                          <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Média de Variáveis (HE / Comissões) sobre Férias e 13º</td>
+                          <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">
+                            Média {formatMoneyBRL(viewingTRCT.calculation?.averageVariablesMonthly || 0)}/mês
+                          </td>
+                          <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(varRefTotal)}</td>
+                        </tr>
+                      );
+                    })()}
                     {viewingTRCT.calculation?.includeFgtsFine && (viewingTRCT.calculation?.fgtsFineAmount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">07</td>

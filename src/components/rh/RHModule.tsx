@@ -898,6 +898,8 @@ export const RHModule: React.FC<RHModuleProps> = ({
         <RescisaoTab
           key={`rh_tab_rescisao_${tabRefreshEpoch}`}
           employees={sortedEmployees}
+          payrolls={payrolls}
+          services={services}
           vacations={vacations}
           companyProfile={companyProfile}
           advances={advances}

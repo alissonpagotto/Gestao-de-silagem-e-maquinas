@@ -1886,6 +1886,18 @@ export interface TerminationCalculation {
   vacationOneThirdBonus: number; // 1/3 Constitucional sobre Férias Vencidas e Proporcionais
   noticeDays: number; // Dias de aviso prévio
   noticeAmount: number; // Aviso Prévio Indenizado (se aplicável)
+  // Variáveis do Mês da Rescisão e Reflexos Médios (HE + Comissões)
+  monthOvertimeAmount?: number; // Horas Extras do Mês da Rescisão
+  monthCommissionAmount?: number; // Comissões do Mês da Rescisão
+  averageOvertimeMonthly?: number; // Média mensal de Horas Extras (até 12 meses)
+  averageCommissionMonthly?: number; // Média mensal de Comissões (até 12 meses)
+  averageVariablesMonthly?: number; // Média mensal combinada incorporada à base
+  variablesMonthsConsidered?: number; // Quantidade de meses considerados na média
+  variablesReflectionNoticeAmount?: number; // Parcela da média incorporada ao Aviso Prévio Indenizado
+  variablesReflectionThirteenthAmount?: number; // Reflexo das médias no 13º Salário Proporcional
+  variablesReflectionVacationAmount?: number; // Reflexo das médias nas Férias Proporcionais
+  variablesReflectionVacationOneThird?: number; // 1/3 sobre o reflexo das médias nas Férias
+  variablesReflectionTotalAmount?: number; // Soma de reflexos em Férias + 1/3 + 13º (linha discriminada)
   fgtsEstimatedBalance: number; // Saldo base para cálculo da multa rescisória
   fgtsFineRate: number; // 40%, 20% ou 0%
   fgtsFineAmount: number; // Multa rescisória do FGTS (R$)
@@ -1931,6 +1943,10 @@ export interface TerminationRecord {
   vacationExpiredPeriods?: number;
   customFgtsBalance?: string;
   isManualFgts?: boolean;
+  isManualVariables?: boolean;
+  customMonthOvertime?: string;
+  customMonthCommission?: string;
+  customAverageVariables?: string;
   customAbsencesDiscount?: string;
   customAdvancesDiscount?: string;
   otherDeductionsInput?: string;
