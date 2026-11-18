@@ -502,51 +502,45 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
         </div>
       </header>
 
-      {/* 2. Sub-abas Oficiais no Topo do Módulo */}
-      <div className="shrink-0 w-full bg-[#cad4e6] dark:bg-stone-850 border border-black dark:border-stone-700 rounded-lg overflow-hidden">
+      {/* 2. Sub-abas em Pílulas Compactas + Busca Rápida na Faixa Superior */}
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg p-2.5 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
         <nav
           aria-label="Sub-abas de Fornecedores e Transportadoras"
-          className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
+          className="flex flex-wrap items-center gap-2 shrink-0"
         >
           <button
             type="button"
             id="subtab-fornecedores"
             onClick={() => setActiveSubTab('fornecedores')}
-            style={activeSubTab === 'fornecedores' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-            className={`flex-1 min-w-max flex items-center justify-center gap-2 px-4 py-2 text-xs tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 uppercase transition cursor-pointer select-none whitespace-nowrap ${
               activeSubTab === 'fornecedores'
-                ? 'bg-orange-400/40 text-black font-black shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                ? 'border border-black bg-emerald-700 text-white shadow-sm'
+                : 'border border-slate-400 bg-white text-slate-800 hover:bg-slate-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700'
             }`}
           >
-            <span>🏢 FORNECEDORES</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-white/80 text-slate-900 border border-black/20">
-              {generalSuppliers.length}
-            </span>
+            <span>🏭</span>
+            <span>FORNECEDORES ({generalSuppliers.length})</span>
           </button>
 
           <button
             type="button"
             id="subtab-transportadoras"
             onClick={() => setActiveSubTab('transportadoras')}
-            style={activeSubTab === 'transportadoras' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-            className={`flex-1 min-w-max flex items-center justify-center gap-2 px-4 py-2 text-xs tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 uppercase transition cursor-pointer select-none whitespace-nowrap ${
               activeSubTab === 'transportadoras'
-                ? 'bg-orange-400/40 text-black font-black shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
-                : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+                ? 'border border-black bg-emerald-700 text-white shadow-sm'
+                : 'border border-slate-400 bg-white text-slate-800 hover:bg-slate-100 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700'
             }`}
           >
-            <span>🚚 TRANSPORTADORAS &amp; VEÍCULOS</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-white/80 text-slate-900 border border-black/20">
-              {carrierSuppliers.length} • {thirdPartyPlates.length} placa{thirdPartyPlates.length === 1 ? '' : 's'}
+            <span>🚛</span>
+            <span>
+              TRANSPORTADORAS &amp; VEÍCULOS ({carrierSuppliers.length} • {thirdPartyPlates.length}{' '}
+              {thirdPartyPlates.length === 1 ? 'PLACA' : 'PLACAS'})
             </span>
           </button>
         </nav>
-      </div>
 
-      {/* 3. Barra de Pesquisa Superior Slim */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg p-2">
-        <div className="relative">
+        <div className="relative flex-1 min-w-0">
           <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -558,7 +552,7 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
             }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 text-black dark:text-stone-100 placeholder:text-slate-500 border border-slate-400 dark:border-stone-700 rounded-lg text-xs font-medium focus:ring-2 focus:ring-zinc-900/10 outline-none transition"
+            className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 text-black dark:text-stone-100 placeholder:text-slate-500 border border-black/40 dark:border-stone-700 rounded-md text-xs font-medium focus:ring-2 focus:ring-zinc-900/10 outline-none transition"
           />
         </div>
       </div>
@@ -826,7 +820,7 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
 
                     {/* Formulário Inline de Placa / Veículo & Motorista */}
                     {isAddingHere && (
-                      <div className="px-3 py-2.5 bg-[#edf4ff] dark:bg-stone-850 border-b border-slate-300 dark:border-stone-700 space-y-2">
+                      <div className="px-3 py-2.5 bg-[#cad4e6]/70 dark:bg-stone-850 border-b border-black dark:border-stone-700 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10.5px] font-black uppercase text-slate-900 dark:text-stone-200">
                             {inlineEditingPlateId
