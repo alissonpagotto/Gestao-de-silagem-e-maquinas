@@ -6314,7 +6314,119 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // ---------------------------------------------------------------------------
   // CENTRAL DE DOCUMENTOS UNIFICADA (XML + MANUAIS + NF-e/CT-e/NFS-e/NFC-e/MDF-e)
   // ---------------------------------------------------------------------------
+  const formatNaturezaLabel = (rawNature?: string, categoryHint?: string, fallback?: string): string => {
+    const raw = String(rawNature || '').trim();
+    const upper = raw.toUpperCase();
+    const natureMap: Record<string, string> = {
+      'COMPRA DE MERCADORIA': 'Compra de Mercadoria',
+      'COMPRA DE COMBUSTÍVEL': 'Combustível',
+      'COMPRA DE COMBUSTIVEL': 'Combustível',
+      'COMPRA DE MATERIAL PARA USO OU CONSUMO': 'Uso e Consumo',
+      'COMPRA DE BEM PARA O ATIVO IMOBILIZADO': 'Ativo Imobilizado',
+      'AQUISIÇÃO DE SERVIÇO DE FRETE': 'Serviço de Frete',
+      'AQUISICAO DE SERVICO DE FRETE': 'Serviço de Frete',
+      'DEVOLUÇÃO MERCADORIA DE CLIENTE': 'Devolução de Cliente',
+      'ENTRADA DE BONIFICAÇÃO, DOAÇÃO OU BRINDE': 'Bonificação / Brinde',
+      'RETORNO MERCADORIA DE CONSERTO (ENTRADA)': 'Retorno de Conserto',
+      'RETORNO DE BEM DO ATIVO IMOBILIZADO': 'Retorno Ativo Imob.',
+      'ENTRADA EM GARANTIA': 'Garantia',
+      'ENTRADA PEÇAS SEGURADORA (SINISTRO)': 'Seguradora / Sinistro',
+      'COMPRA DE ENERGIA ELÉTRICA': 'Energia Elétrica',
+      'AQUISIÇÃO DE SERVIÇO DE COMUNICAÇÃO': 'Comunicação',
+      'ENTRADA DE AMOSTRA GRÁTIS': 'Amostra Grátis',
+      'OUTRAS ENTRADAS OU PRESTAÇÃO DE SERVIÇOS': 'Outras Entradas / Serv.',
+    };
+    if (upper && natureMap[upper]) return natureMap[upper];
+
+    // Se a natureza já veio legível (sem ser frase automática de XML/Compra), aproveita de forma limpa
+    if (
+      raw &&
+      !/^compra\s+nf-?e\b/i.test(raw) &&
+      !/^nf-?e\s*[\w\d\/-]*\s*importad[ao]\s+via\s+xml/i.test(raw) &&
+      !/^importad[ao]\s+via\s+(nf-?e|xml)/i.test(raw) &&
+      !/^entrada\s+manual:/i.test(raw)
+    ) {
+      return raw;
+    }
+
+    const cat = String(categoryHint || '').toLowerCase();
+    if (cat.includes('combust') || cat.includes('diesel') || cat.includes('arla')) return 'Combustível';
+    if (cat.includes('peca') || cat.includes('peça') || cat.includes('manutencao') || cat.includes('manutenção')) return 'Compra de Peças';
+    if (cat.includes('lona') || cat.includes('embalag')) return 'Lona / Embalagem';
+    if (cat.includes('inocul')) return 'Inoculante';
+    if (cat.includes('sement')) return 'Sementes';
+    if (cat.includes('adubo') || cat.includes('fertiliz')) return 'Adubo / Fertilizante';
+    if (cat.includes('frete') || cat.includes('transport')) return 'Serviço de Frete';
+    if (cat.includes('servic') || cat.includes('serviç')) return 'Prestação de Serviço';
+    if (cat.includes('consumo')) return 'Uso e Consumo';
+
+    return fallback || 'Operação Fiscal';
+  };
+
+  const extractManualObservation = (rawTexts: Array<string | undefined>, supplier?: string, docNumber?: string): string => {
+    const cleanSupplier = (supplier || '').trim().toLowerCase();
+    const cleanNum = (docNumber || '').replace(/\D/g, '');
+    const cleaned: string[] = [];
+
+    for (const txt of rawTexts) {
+      if (!txt) continue;
+      let t = String(txt)
+        .replace(/<!--\s*NFE_ITEMS_JSON:[\s\S]*?-->/gi, '')
+        .replace(/\[ITENS_NFE:[\s\S]*?\]/gi, '')
+        .replace(/NF-?e\s*[\w\d\/-]*\s*importad[ao]\s+via\s+xml\.?/gi, '')
+        .replace(/Importad[ao]\s+via\s+(NF-?e\s*\(XML\)|XML)\.?/gi, '')
+        .replace(/Chave:\s*[0-9A-Za-z]+\.?/gi, '')
+        .replace(/Desdobrada\s+em\s+\d+\s+parcela\(s\)\s+no\s+Contas\s+a\s+Pagar\.?/gi, '')
+        .replace(/Lançamento\s+de\s+parcela\s+via\s+NF-?e[^.\n]*\.?/gi, '')
+        .replace(/Fornecedor:\s*[^.\n]+\.?/gi, '')
+        .replace(/Total:\s*R\$\s*[\d.,]+\.?/gi, '')
+        .replace(/^Compra\s+NF-?e\s*[\w\d\/-]*\s*[-–:]?\s*/i, '')
+        .replace(/^Entrada\s+manual:\s*[^.\n]*\.?/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!t) continue;
+      const lower = t.toLowerCase();
+      if (cleanSupplier && lower === cleanSupplier) continue;
+      if (cleanNum && lower === cleanNum) continue;
+      if (lower === 'nf-e' || lower === 'xml / nf-e' || lower === 'produto registrado na nf-e') continue;
+      if (!cleaned.includes(t)) cleaned.push(t);
+    }
+
+    return cleaned.join(' • ');
+  };
+
+  const buildCompactNatureSummary = (opts: {
+    nature: string;
+    vehicleOrOs?: string;
+    itemsCount?: number;
+    manualObs?: string;
+  }): { summary: string; tooltip: string } => {
+    const parts: string[] = [];
+    if (opts.nature) parts.push(opts.nature);
+    if (opts.vehicleOrOs) {
+      const v = opts.vehicleOrOs.trim();
+      if (v && !parts.some((p) => p.toLowerCase().includes(v.toLowerCase()))) {
+        parts.push(v);
+      }
+    }
+    if (opts.itemsCount && opts.itemsCount > 0) {
+      parts.push(`${opts.itemsCount} ${opts.itemsCount === 1 ? 'item' : 'itens'}`);
+    }
+    const summary = parts.join(' • ') || '-';
+    const tooltip = opts.manualObs ? `${summary}\nObs.: ${opts.manualObs}` : summary;
+    return { summary, tooltip };
+  };
+
   const unifiedEntries = useMemo(() => {
+    const storedEntradaItens = getStoredDocumentosEntradaItens();
+    const itemsCountByDocId = new Map<string, number>();
+    storedEntradaItens.forEach((it) => {
+      const docId = String(it.documento_entrada_id || '').trim();
+      if (!docId) return;
+      itemsCountByDocId.set(docId, (itemsCountByDocId.get(docId) || 0) + 1);
+    });
+
     const list: Array<{
       id: string;
       sourceType: 'xml' | 'manual' | 'legacy_fiscal' | 'mdfe';
@@ -6322,6 +6434,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       documentNumber: string;
       supplier: string;
       description: string;
+      tooltip?: string;
+      searchExtra?: string;
       date: string;
       amount: number;
       status: string;
@@ -6336,15 +6450,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // 1. Notas Fiscais Eletrônicas via XML
     notasFiscaisExibicao.forEach(exp => {
-      const expDate = (exp as any).issueDate || (exp as any).entryDate || (exp as any).data_emissao || (exp as any).data_entrada || (exp as any).date || exp.dueDate || exp.createdAt || '';
-      const vehPlate = (exp as any).vehiclePlate || (exp as any).machineryName;
+      const expAny = exp as any;
+      const expDate = expAny.issueDate || expAny.entryDate || expAny.data_emissao || expAny.data_entrada || expAny.date || exp.dueDate || exp.createdAt || '';
+      const vehPlate = expAny.vehiclePlate || expAny.machineryName || (expAny.serviceOrderNumber ? `OS ${expAny.serviceOrderNumber}` : '');
+      const itemsCount = Array.isArray(exp.nfeItems) && exp.nfeItems.length > 0
+        ? exp.nfeItems.length
+        : Array.isArray(expAny.items) && expAny.items.length > 0
+          ? expAny.items.length
+          : (itemsCountByDocId.get(exp.id) || 0);
+
+      const nature = formatNaturezaLabel(
+        exp.operationNature || expAny.transactionType || expAny.nfeNaturezaOperacao,
+        `${exp.categoryId || ''} ${exp.description || ''}`,
+        'Compra de Mercadoria'
+      );
+      const manualObs = extractManualObservation([exp.notes, exp.description], exp.supplier, exp.invoiceNumber);
+      const { summary, tooltip } = buildCompactNatureSummary({
+        nature,
+        vehicleOrOs: vehPlate,
+        itemsCount,
+        manualObs,
+      });
+
       list.push({
         id: exp.id,
         sourceType: 'xml',
         docCategory: 'nfe',
         documentNumber: exp.invoiceNumber || 'NF-e',
         supplier: exp.supplier || 'Fornecedor NF-e',
-        description: exp.description || 'Importada via NF-e (XML)',
+        description: summary,
+        tooltip,
+        searchExtra: `${exp.description || ''} ${manualObs}`,
         date: expDate,
         amount: Number(exp.amount) || 0,
         status: exp.status || 'pendente',
@@ -6373,7 +6509,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const docDate = doc.data || doc.data_entrada || doc.data_emissao || docAny.issueDate || doc.created_at || doc.data_vencimento || '';
       const docSupplier = doc.fornecedor || doc.fornecedor_nome || docAny.supplierName || 'Fornecedor';
       const docAmount = Number(doc.valor_total ?? docAny.totalAmount) || 0;
-      const vehLabel = doc.vehiclePlate || doc.machineryName || doc.vehicleModel || undefined;
+      const vehLabel = doc.vehiclePlate || doc.machineryName || doc.vehicleModel || (docAny.serviceOrderNumber ? `OS ${docAny.serviceOrderNumber}` : '') || undefined;
+      const itemsCount = Array.isArray(doc.itens) && doc.itens.length > 0
+        ? doc.itens.length
+        : (itemsCountByDocId.get(doc.id) || 0);
+
+      const nature = formatNaturezaLabel(
+        doc.natureza_operacao || docAny.operationNature || docAny.transactionType,
+        `${docAny.category || ''} ${doc.descricao || ''} ${doc.observacoes || ''}`,
+        tipo
+      );
+      const manualObs = extractManualObservation([doc.observacoes, docAny.notes, doc.descricao], docSupplier, docNum);
+      const { summary, tooltip } = buildCompactNatureSummary({
+        nature,
+        vehicleOrOs: vehLabel,
+        itemsCount,
+        manualObs,
+      });
 
       list.push({
         id: doc.id,
@@ -6381,7 +6533,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         docCategory: docCat,
         documentNumber: docNum,
         supplier: docSupplier,
-        description: doc.observacoes || docAny.notes || doc.descricao || `Entrada manual: ${tipo}`,
+        description: summary,
+        tooltip,
+        searchExtra: `${doc.observacoes || ''} ${doc.descricao || ''} ${manualObs}`,
         date: docDate,
         amount: docAmount,
         status: doc.status || 'Finalizado',
@@ -6396,15 +6550,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 3. Documentos legados de agrocontrol_notas_nfe / cte / nfec / nfse
     legacyFiscalDocs.forEach(fDoc => {
       if (!fDoc || !fDoc.id) return;
+      const fDocAny = fDoc as any;
       const docCat = classifyCentralDocumentCategory(fDoc.documentTypeLabel || fDoc.category, fDoc.category);
       const vehLabel = fDoc.vehiclePlate || fDoc.vehicleModel || undefined;
+      const itemsCount = Array.isArray(fDoc.items) ? fDoc.items.length : 0;
+      const nature = formatNaturezaLabel(
+        fDocAny.operationNature || fDocAny.naturezaOperacao || fDocAny.finalidade,
+        `${fDoc.category || ''} ${fDoc.description || ''}`,
+        fDoc.documentTypeLabel || 'Documento Fiscal'
+      );
+      const manualObs = extractManualObservation([fDoc.notes, fDoc.description], fDoc.supplierName, fDoc.number);
+      const { summary, tooltip } = buildCompactNatureSummary({
+        nature,
+        vehicleOrOs: vehLabel,
+        itemsCount,
+        manualObs,
+      });
+
       list.push({
         id: fDoc.id,
         sourceType: 'legacy_fiscal',
         docCategory: docCat,
         documentNumber: fDoc.number || fDoc.documentTypeLabel || 'NF',
         supplier: fDoc.supplierName || 'Fornecedor',
-        description: fDoc.description || fDoc.notes || `${fDoc.documentTypeLabel || 'Documento Fiscal'}`,
+        description: summary,
+        tooltip,
+        searchExtra: `${fDoc.description || ''} ${fDoc.notes || ''}`,
         date: fDoc.issueDate || fDoc.createdAt || '',
         amount: Number(fDoc.totalAmount) || 0,
         status: fDoc.status || 'CONFIRMADO',
@@ -6419,13 +6590,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     mdfeDocs.forEach(mDoc => {
       if (!mDoc || !mDoc.id) return;
       const routeDesc = `${mDoc.municipiosCarregamento || mDoc.ufCarregamento || ''} → ${mDoc.municipiosDescarregamento || mDoc.ufDescarregamento || ''}`.trim();
+      const validRoute = routeDesc && routeDesc !== '→' ? routeDesc : '';
+      const nfeCount = Array.isArray((mDoc as any).nfesVinculadas) ? (mDoc as any).nfesVinculadas.length : 0;
+      const nature = validRoute || 'Manifesto MDF-e';
+      const { summary, tooltip } = buildCompactNatureSummary({
+        nature,
+        vehicleOrOs: mDoc.veiculoPlaca || undefined,
+        itemsCount: nfeCount,
+        manualObs: mDoc.observacoes || undefined,
+      });
+
       list.push({
         id: mDoc.id,
         sourceType: 'mdfe',
         docCategory: 'mdfe',
         documentNumber: mDoc.numero ? `MDF-e ${mDoc.numero}` : 'MDF-e',
         supplier: mDoc.motoristaNome || (mDoc.veiculoPlaca ? `Veículo ${mDoc.veiculoPlaca}` : 'Manifesto de Carga'),
-        description: routeDesc ? `${routeDesc}${mDoc.veiculoPlaca ? ` • Placa ${mDoc.veiculoPlaca}` : ''}` : (mDoc.observacoes || 'Manifesto MDF-e'),
+        description: summary,
+        tooltip,
+        searchExtra: `${routeDesc} ${mDoc.observacoes || ''}`,
         date: mDoc.dataEmissao || mDoc.createdAt || '',
         amount: Number(mDoc.valorTotalCarga) || 0,
         status: mDoc.status || 'AUTORIZADO',
@@ -6481,6 +6664,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         item.documentNumber.toLowerCase().includes(term) ||
         item.supplier.toLowerCase().includes(term) ||
         item.description.toLowerCase().includes(term) ||
+        (item.searchExtra || '').toLowerCase().includes(term) ||
         item.documentType.toLowerCase().includes(term) ||
         (item.vehicleLabel || '').toLowerCase().includes(term)
       );
@@ -6498,6 +6682,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       documentNumber: string;
       supplier: string; // Destinatário / Tomador
       description: string;
+      tooltip?: string;
+      searchExtra?: string;
       date: string;
       amount: number;
       status: string;
@@ -6525,19 +6711,46 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ? (n.cteTomadorFinalNome || n.destinatarioNome || 'Tomador não informado')
         : (n.destinatarioNome || 'Consumidor Avulso');
 
+      const tipoLower = (n.tipoDocumento || '').toLowerCase();
+      const rawNature =
+        n.nfeNaturezaOperacao ||
+        n.nfseNaturezaOperacao ||
+        (tipoLower.includes('serviço') || tipoLower.includes('servico')
+          ? 'Prestação de Serviço'
+          : tipoLower.includes('retorno')
+            ? 'Retorno / Devolução'
+            : tipoLower.includes('remessa')
+              ? 'Remessa'
+              : tipoLower.includes('ct-e')
+                ? `Frete CT-e${n.cteMunicipioInicio && n.cteMunicipioTermino ? ` (${n.cteMunicipioInicio} → ${n.cteMunicipioTermino})` : ''}`
+                : tipoLower.includes('venda')
+                  ? 'Venda de Mercadoria'
+                  : n.tipoDocumento);
+      const vehOrPlate = n.veiculoPlaca || n.nfeTransportadoraPlaca || n.veiculoModelo || undefined;
+      const itemsCount = Array.isArray(n.itens) ? n.itens.length : 0;
+      const manualObs = extractManualObservation([n.observacoes, n.nfseObservacoesFiscais, n.descricao], displayParty, n.numero);
+      const { summary, tooltip } = buildCompactNatureSummary({
+        nature: formatNaturezaLabel(rawNature, n.tipoDocumento, shortType),
+        vehicleOrOs: vehOrPlate,
+        itemsCount,
+        manualObs,
+      });
+
       list.push({
         id: n.id,
         sourceType: 'nota_saida',
         docCategory: docCat,
         documentNumber: n.numero ? `${shortType} ${n.numero}${n.serie ? `/${n.serie}` : ''}` : shortType,
         supplier: displayParty,
-        description: n.descricao || n.tipoDocumento,
+        description: summary,
+        tooltip,
+        searchExtra: `${n.descricao || ''} ${n.observacoes || ''}`,
         date: n.dataEmissao || n.createdAt || '',
         amount: Number(n.valorTotal) || 0,
         status: n.status || 'EMITIDA',
         documentType: shortType,
         badgeColor: badge,
-        vehicleLabel: n.veiculoPlaca || n.veiculoModelo || undefined,
+        vehicleLabel: vehOrPlate,
         rawNotaSaida: n,
       });
     });
@@ -6554,6 +6767,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         item.documentNumber.toLowerCase().includes(term) ||
         item.supplier.toLowerCase().includes(term) ||
         item.description.toLowerCase().includes(term) ||
+        (item.searchExtra || '').toLowerCase().includes(term) ||
         item.documentType.toLowerCase().includes(term) ||
         (item.vehicleLabel || '').toLowerCase().includes(term) ||
         (item.rawNotaSaida?.chaveAcesso || '').toLowerCase().includes(term) ||
@@ -12021,27 +12235,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg overflow-hidden shadow-2xs w-full max-w-full flex-1 min-h-0 flex flex-col">
-          <div className={`w-full max-w-full bg-[#e0e6f1] dark:bg-stone-900 ${parsedData ? 'h-[calc(100vh-295px)] min-h-[280px]' : 'flex-1 min-h-0'} overflow-y-auto overflow-x-hidden`}>
-            <table className="w-full text-left text-xs sm:text-sm">
+          <div className={`w-full max-w-full bg-[#e0e6f1] dark:bg-stone-900 ${parsedData ? 'h-[calc(100vh-295px)] min-h-[280px]' : 'flex-1 min-h-0'} overflow-y-auto overflow-x-auto`}>
+            <table className="w-full table-auto text-left text-xs">
               <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-bold tracking-wider shadow-sm">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[110px] shrink-0 whitespace-nowrap">DOCUMENTO</th>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[160px] lg:w-[200px] whitespace-nowrap">
-                    {activeDocDirection === 'saida' ? 'DESTINATÁRIO / TOMADOR' : 'FORNECEDOR'}
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 whitespace-nowrap">DOCUMENTO</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 max-w-[180px] whitespace-nowrap">
+                    {activeDocDirection === 'saida' ? 'DESTINATÁRIO' : 'FORNECEDOR'}
                   </th>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 min-w-[150px] whitespace-nowrap">DESCRIÇÃO / OBS.</th>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2 w-[85px] text-center shrink-0 whitespace-nowrap">DATA</th>
-                  {activeDocDirection === 'saida' && (
-                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[135px] text-center shrink-0 whitespace-nowrap">STATUS SEFAZ</th>
-                  )}
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-2.5 w-[105px] text-right shrink-0 whitespace-nowrap">VALOR</th>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-1.5 px-3 text-right min-w-[360px] w-[360px] shrink-0 whitespace-nowrap">AÇÃO</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 max-w-[165px] whitespace-nowrap">NATUREZA / REF.</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">DATA</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">VALOR</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">STATUS</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">CONTADOR</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">AÇÕES</th>
                 </tr>
               </thead>
               <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                 {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={activeDocDirection === 'saida' ? 7 : 6} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
+                    <td colSpan={8} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
                       {activeDocDirection === 'saida'
                         ? 'NENHUMA NOTA DE SAÍDA REGISTRADA NESTA COMPETÊNCIA. CLIQUE EM "+ LANÇAR NOTA DE SAÍDA" PARA EMITIR/REGISTRAR.'
                         : 'NENHUM REGISTRO ENCONTRADO'}
@@ -12051,384 +12264,361 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   filteredUnifiedEntries.map((entry, idx) => {
                     const isXml = entry.sourceType === 'xml';
                     const rawNotaSaida = (entry as any).rawNotaSaida as NotaSaidaRecord | undefined;
+                    const tooltipText = (entry as any).tooltip || entry.description;
+                    const compCnpj = (companyProfile || getStoredCompanyProfile())?.cnpjCpf;
+                    const isVaiContador = rawNotaSaida
+                      ? classifySaidaEnviarContador({
+                          tipoDocumento: rawNotaSaida.tipoDocumento,
+                          explicitFlag: rawNotaSaida.enviarContador,
+                        }).enviarContador
+                      : entry.rawExpense
+                        ? classifyEntryEnviarContador({
+                            documentType: 'NF-e',
+                            recipientCnpj: entry.rawExpense.recipientCnpj || entry.rawExpense.destinatarioCnpj,
+                            companyCnpj: compCnpj,
+                            isXml: true,
+                            explicitFlag: entry.rawExpense.enviarContador,
+                          }).enviarContador
+                        : entry.rawManualDoc
+                          ? classifyEntryEnviarContador({
+                              documentType: entry.rawManualDoc.tipo_documento,
+                              recipientCnpj: entry.rawManualDoc.destinatario_cnpj,
+                              companyCnpj: compCnpj,
+                              isXml: false,
+                              explicitFlag: entry.rawManualDoc.enviarContador,
+                            }).enviarContador
+                          : entry.rawLegacyFiscalDoc
+                            ? classifyEntryEnviarContador({
+                                documentType: entry.rawLegacyFiscalDoc.documentTypeLabel || entry.rawLegacyFiscalDoc.category,
+                                companyCnpj: compCnpj,
+                                isXml: false,
+                                explicitFlag: entry.rawLegacyFiscalDoc.enviarContador,
+                              }).enviarContador
+                            : classifySaidaEnviarContador({
+                                tipoDocumento: 'MDF-e',
+                                explicitFlag: (entry.rawMdfeDoc as any)?.enviarContador,
+                              }).enviarContador;
+
                     return (
                       <tr 
                         key={`unified_entry_${entry.sourceType}_${entry.id || 'doc'}_${idx}`} 
                         id={`row-doc-${entry.id || idx}`}
-                      onClick={(e) => {
-                        const target = e.target as HTMLElement;
-                        if (target && target.closest('button')) {
-                          return;
-                        }
-                        if (rawNotaSaida) {
-                          setViewingNotaSaida(rawNotaSaida);
-                        } else if (entry.rawExpense) {
-                          handleEditNota(entry.rawExpense);
-                        } else if (entry.rawManualDoc) {
-                          if (entry.rawManualDoc.status === 'Rascunho') {
-                            handleOpenEditManualDoc(entry.rawManualDoc);
-                          } else {
-                            setViewingManualDoc(entry.rawManualDoc);
-                          }
-                        } else if (entry.rawLegacyFiscalDoc) {
-                          setViewingLegacyDoc(entry.rawLegacyFiscalDoc);
-                        } else if (entry.rawMdfeDoc) {
-                          setViewingMdfeDoc(entry.rawMdfeDoc);
-                        }
-                      }}
-                      className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 cursor-pointer transition group whitespace-nowrap border-b border-black/20 dark:border-stone-800"
-                      title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
-                    >
-                      <td className="py-1 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap">
-                        <div className="flex items-center space-x-1.5 truncate">
-                          {rawNotaSaida ? (
-                            <ArrowUpRight className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400 shrink-0 transition" />
-                          ) : isXml ? (
-                            <FileEdit className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 transition" />
-                          ) : entry.sourceType === 'mdfe' ? (
-                            <Truck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 transition" />
-                          ) : (
-                            <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 transition" />
-                          )}
-                          <span className="truncate group-hover:underline underline-offset-2 font-bold text-stone-900 dark:text-stone-100 uppercase">
-                            {entry.documentNumber}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-1 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 max-w-[240px]">
-                          <span className="truncate uppercase" title={entry.supplier || '-'}>
-                            {(entry.supplier || '-').toUpperCase()}
-                          </span>
-                          {entry.vehicleLabel && (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[9px] font-bold uppercase shrink-0"
-                              title={`Veículo / Placa: ${entry.vehicleLabel}`}
-                            >
-                              <Truck className="w-2.5 h-2.5" />
-                              <span className="truncate max-w-[85px]">{entry.vehicleLabel}</span>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-1 px-2.5 text-xs text-stone-600 dark:text-stone-300 whitespace-nowrap">
-                        <span className="truncate max-w-[240px] sm:max-w-none block uppercase" title={entry.description}>
-                          {(entry.description || '-').toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-1 px-2 text-stone-500 text-center whitespace-nowrap text-xs font-mono">
-                        {formatDateBR(entry.date)}
-                      </td>
-                      {activeDocDirection === 'saida' && (
-                        <td className="py-1 px-2.5 text-center whitespace-nowrap">
-                          {rawNotaSaida?.status === 'AUTORIZADA' ? (
-                            <span
-                              className="h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400 dark:border-emerald-700 uppercase tracking-wider whitespace-nowrap"
-                              title={rawNotaSaida.protocoloAutorizacao ? `Protocolo: ${rawNotaSaida.protocoloAutorizacao}` : 'Autorizada pela SEFAZ'}
-                            >
-                              <span>✅ AUTORIZADA</span>
-                            </span>
-                          ) : rawNotaSaida?.status === 'RASCUNHO' ? (
-                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 dark:border-amber-700 uppercase tracking-wider whitespace-nowrap">
-                              RASCUNHO
-                            </span>
-                          ) : rawNotaSaida?.status === 'CANCELADA' ? (
-                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-400 uppercase tracking-wider whitespace-nowrap">
-                              CANCELADA
-                            </span>
-                          ) : (
-                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 uppercase tracking-wider whitespace-nowrap">
-                              {entry.status || 'EMITIDA'}
-                            </span>
-                          )}
-                        </td>
-                      )}
-                      <td className="py-1 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
-                        {formatCurrencyBRL(entry.amount)}
-                      </td>
-                      <td 
                         onClick={(e) => {
-                          e.stopPropagation();
+                          const target = e.target as HTMLElement;
+                          if (target && target.closest('button')) {
+                            return;
+                          }
+                          if (rawNotaSaida) {
+                            setViewingNotaSaida(rawNotaSaida);
+                          } else if (entry.rawExpense) {
+                            handleEditNota(entry.rawExpense);
+                          } else if (entry.rawManualDoc) {
+                            if (entry.rawManualDoc.status === 'Rascunho') {
+                              handleOpenEditManualDoc(entry.rawManualDoc);
+                            } else {
+                              setViewingManualDoc(entry.rawManualDoc);
+                            }
+                          } else if (entry.rawLegacyFiscalDoc) {
+                            setViewingLegacyDoc(entry.rawLegacyFiscalDoc);
+                          } else if (entry.rawMdfeDoc) {
+                            setViewingMdfeDoc(entry.rawMdfeDoc);
+                          }
                         }}
-                        className="py-1 px-3 text-right whitespace-nowrap min-w-[360px] w-[360px] shrink-0"
+                        className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 cursor-pointer transition group whitespace-nowrap border-b border-black/20 dark:border-stone-800"
+                        title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
                       >
-                        <div 
-                          className="flex flex-row items-center justify-end gap-1.5 sm:gap-2 flex-nowrap whitespace-nowrap"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                        >
-                          {/* 1. Tag de status no início da linha */}
+                        <td className="py-2 px-2 font-mono font-bold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap max-w-[115px]">
+                          <div className="flex items-center gap-1 truncate">
+                            {rawNotaSaida ? (
+                              <ArrowUpRight className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400 shrink-0 transition" />
+                            ) : isXml ? (
+                              <FileEdit className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 transition" />
+                            ) : entry.sourceType === 'mdfe' ? (
+                              <Truck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 transition" />
+                            ) : (
+                              <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 transition" />
+                            )}
+                            <span className="truncate group-hover:underline underline-offset-2 font-bold text-stone-900 dark:text-stone-100 uppercase">
+                              {entry.documentNumber}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2 px-2 font-semibold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap max-w-[180px] truncate" title={entry.supplier || '-'}>
+                          {(entry.supplier || '-').toUpperCase()}
+                        </td>
+                        <td className="py-2 px-2 text-xs text-stone-700 dark:text-stone-300 whitespace-nowrap max-w-[165px] truncate" title={tooltipText}>
+                          {(entry.description || '-').toUpperCase()}
+                        </td>
+                        <td className="py-2 px-2 text-stone-600 dark:text-stone-400 text-center whitespace-nowrap text-xs font-mono">
+                          {formatDateBR(entry.date)}
+                        </td>
+                        <td className="py-2 px-2 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs">
+                          {formatCurrencyBRL(entry.amount)}
+                        </td>
+                        <td className="py-2 px-2 text-center whitespace-nowrap text-xs">
                           {rawNotaSaida ? (
-                            <>
+                            <div className="inline-flex items-center justify-center gap-1">
+                              {rawNotaSaida.status === 'AUTORIZADA' ? (
+                                <span
+                                  className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400 dark:border-emerald-700 uppercase tracking-wide whitespace-nowrap"
+                                  title={rawNotaSaida.protocoloAutorizacao ? `Protocolo: ${rawNotaSaida.protocoloAutorizacao}` : 'Autorizada pela SEFAZ'}
+                                >
+                                  ✅ AUTORIZ.
+                                </span>
+                              ) : rawNotaSaida.status === 'RASCUNHO' ? (
+                                <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 dark:border-amber-700 uppercase tracking-wide whitespace-nowrap">
+                                  RASCUNHO
+                                </span>
+                              ) : rawNotaSaida.status === 'CANCELADA' ? (
+                                <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-400 uppercase tracking-wide whitespace-nowrap">
+                                  CANCELADA
+                                </span>
+                              ) : (
+                                <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 uppercase tracking-wide whitespace-nowrap">
+                                  {entry.status || 'EMITIDA'}
+                                </span>
+                              )}
                               {rawNotaSaida.lancarContasReceber && (
                                 <span
-                                  className={`h-6 inline-flex items-center text-[9px] font-black px-1.5 py-0.5 rounded-md border uppercase tracking-wider shrink-0 leading-none whitespace-nowrap ${
+                                  className={`h-6 inline-flex items-center text-[9px] font-black px-1 py-0.5 rounded border uppercase shrink-0 leading-none ${
                                     rawNotaSaida.receberStatus === 'pago'
                                       ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                                       : 'bg-amber-100 text-amber-800 border-amber-300'
                                   }`}
-                                  title="Integrada ao Contas a Receber"
+                                  title={rawNotaSaida.receberStatus === 'pago' ? 'Contas a Receber: Recebida' : 'Contas a Receber: A Receber'}
                                 >
-                                  {rawNotaSaida.receberStatus === 'pago' ? 'RECEBIDA' : 'A RECEBER'}
+                                  {rawNotaSaida.receberStatus === 'pago' ? 'PAGO' : 'A REC.'}
                                 </span>
                               )}
-                              <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
-                                {(entry.documentType || 'SAÍDA').toUpperCase()}
-                              </span>
-                            </>
+                            </div>
                           ) : isXml && entry.rawExpense ? (
-                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wide whitespace-nowrap">
                               XML / NF-E
                             </span>
                           ) : entry.sourceType === 'mdfe' ? (
-                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
-                              MDF-E / {entry.status}
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 uppercase tracking-wide whitespace-nowrap">
+                              MDF-E
                             </span>
                           ) : entry.rawLegacyFiscalDoc ? (
-                            <span className="h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
-                              {(entry.documentType || 'FISCAL').toUpperCase()} / {entry.status}
+                            <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wide whitespace-nowrap">
+                              {entry.status || 'FISCAL'}
                             </span>
                           ) : (
-                            <span className={`h-6 inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider shrink-0 leading-none whitespace-nowrap ${
+                            <span className={`h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md border uppercase tracking-wide whitespace-nowrap ${
                               entry.rawManualDoc?.status === 'Rascunho'
                                 ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
                                 : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                             }`}>
-                              {(entry.documentType || 'MANUAL').toUpperCase()} / {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
+                              {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
                             </span>
                           )}
-
-                          {/* 1B. Badge Clicável Rápido de Envio ao Contador */}
-                          {(() => {
-                            const compCnpj = (companyProfile || getStoredCompanyProfile())?.cnpjCpf;
-                            const isVaiContador = rawNotaSaida
-                              ? classifySaidaEnviarContador({
-                                  tipoDocumento: rawNotaSaida.tipoDocumento,
-                                  explicitFlag: rawNotaSaida.enviarContador,
-                                }).enviarContador
-                              : entry.rawExpense
-                                ? classifyEntryEnviarContador({
-                                    documentType: 'NF-e',
-                                    recipientCnpj: entry.rawExpense.recipientCnpj || entry.rawExpense.destinatarioCnpj,
-                                    companyCnpj: compCnpj,
-                                    isXml: true,
-                                    explicitFlag: entry.rawExpense.enviarContador,
-                                  }).enviarContador
-                                : entry.rawManualDoc
-                                  ? classifyEntryEnviarContador({
-                                      documentType: entry.rawManualDoc.tipo_documento,
-                                      recipientCnpj: entry.rawManualDoc.destinatario_cnpj,
-                                      companyCnpj: compCnpj,
-                                      isXml: false,
-                                      explicitFlag: entry.rawManualDoc.enviarContador,
-                                    }).enviarContador
-                                  : entry.rawLegacyFiscalDoc
-                                    ? classifyEntryEnviarContador({
-                                        documentType: entry.rawLegacyFiscalDoc.documentTypeLabel || entry.rawLegacyFiscalDoc.category,
-                                        companyCnpj: compCnpj,
-                                        isXml: false,
-                                        explicitFlag: entry.rawLegacyFiscalDoc.enviarContador,
-                                      }).enviarContador
-                                    : classifySaidaEnviarContador({
-                                        tipoDocumento: 'MDF-e',
-                                        explicitFlag: (entry.rawMdfeDoc as any)?.enviarContador,
-                                      }).enviarContador;
-
-                            return (
+                        </td>
+                        <td
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className="py-2 px-2 text-center whitespace-nowrap text-xs"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEnviarContador({
+                                id: entry.id,
+                                sourceType: entry.sourceType,
+                                rawExpense: entry.rawExpense,
+                                rawManualDoc: entry.rawManualDoc,
+                                rawLegacyFiscalDoc: entry.rawLegacyFiscalDoc,
+                                rawMdfeDoc: entry.rawMdfeDoc,
+                                rawNotaSaida,
+                                nextValue: !isVaiContador,
+                              });
+                            }}
+                            className={`h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-wide cursor-pointer transition whitespace-nowrap ${
+                              isVaiContador
+                                ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-400'
+                                : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400'
+                            }`}
+                            title={
+                              isVaiContador
+                                ? 'Documento incluído no pacote do Contador. Clique para alterar para Controle Interno.'
+                                : 'Documento apenas de Controle Interno / Não Fiscal. Clique para incluir no pacote do Contador.'
+                            }
+                          >
+                            <span>{isVaiContador ? '📤 Contador' : '🔒 Interno'}</span>
+                          </button>
+                        </td>
+                        <td 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className="py-2 px-2 text-right whitespace-nowrap text-xs"
+                        >
+                          <div 
+                            className="flex flex-row items-center justify-end gap-1 flex-nowrap whitespace-nowrap"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            {rawNotaSaida ? (
+                              <>
+                                {rawNotaSaida.status !== 'AUTORIZADA' && rawNotaSaida.status !== 'CANCELADA' && (
+                                  <button
+                                    type="button"
+                                    id={`btn-enviar-sefaz-${entry.id}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      initiateSefazTransmission(rawNotaSaida);
+                                    }}
+                                    className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap"
+                                    title={`Transmitir ${entry.documentNumber} para SEFAZ`}
+                                  >
+                                    <Send className="w-3 h-3 shrink-0" />
+                                    <span>SEFAZ</span>
+                                  </button>
+                                )}
+                                {rawNotaSaida.status !== 'AUTORIZADA' && (
+                                  <button
+                                    type="button"
+                                    id={`btn-edit-nota-saida-${entry.id}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditNotaSaida(rawNotaSaida);
+                                    }}
+                                    className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                    title={`Editar nota de saída ${entry.documentNumber}`}
+                                  >
+                                    <Pencil className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" />
+                                    <span>EDITAR</span>
+                                  </button>
+                                )}
+                              </>
+                            ) : entry.rawExpense ? (
                               <button
                                 type="button"
+                                id={`btn-edit-nfe-${entry.id}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleToggleEnviarContador({
-                                    id: entry.id,
-                                    sourceType: entry.sourceType,
-                                    rawExpense: entry.rawExpense,
-                                    rawManualDoc: entry.rawManualDoc,
-                                    rawLegacyFiscalDoc: entry.rawLegacyFiscalDoc,
-                                    rawMdfeDoc: entry.rawMdfeDoc,
-                                    rawNotaSaida,
-                                    nextValue: !isVaiContador,
-                                  });
+                                  handleEditNota(entry.rawExpense!);
                                 }}
-                                className={`h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9.5px] font-black uppercase tracking-wide shrink-0 cursor-pointer transition whitespace-nowrap ${
-                                  isVaiContador
-                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-400'
-                                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400'
-                                }`}
-                                title={
-                                  isVaiContador
-                                    ? 'Documento incluído no pacote do Contador. Clique para alterar para Controle Interno.'
-                                    : 'Documento apenas de Controle Interno / Não Fiscal. Clique para incluir no pacote do Contador.'
-                                }
+                                className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                title={`Editar detalhes da nota ${entry.documentNumber}`}
                               >
-                                <span>{isVaiContador ? '📤 Contador' : '🔒 Interno / Não Fiscal'}</span>
+                                <Pencil className="w-3 h-3 shrink-0 text-sky-600 dark:text-sky-400" />
+                                <span>EDITAR</span>
                               </button>
-                            );
-                          })()}
-
-                          {/* 2. Ações de Transmissão / Edição conforme Status SEFAZ */}
-                          {rawNotaSaida ? (
-                            <>
-                              {rawNotaSaida.status !== 'AUTORIZADA' && rawNotaSaida.status !== 'CANCELADA' && (
-                                <button
-                                  type="button"
-                                  id={`btn-enviar-sefaz-${entry.id}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    initiateSefazTransmission(rawNotaSaida);
-                                  }}
-                                  className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap"
-                                  title={`Transmitir ${entry.documentNumber} para SEFAZ`}
-                                >
-                                  <Send className="w-3 h-3 shrink-0" />
-                                  <span>📤 Enviar SEFAZ</span>
-                                </button>
-                              )}
-                              {rawNotaSaida.status !== 'AUTORIZADA' && (
-                                <button
-                                  type="button"
-                                  id={`btn-edit-nota-saida-${entry.id}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenEditNotaSaida(rawNotaSaida);
-                                  }}
-                                  className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                                  title={`Editar nota de saída ${entry.documentNumber}`}
-                                >
-                                  <Pencil className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" />
-                                  <span>EDITAR</span>
-                                </button>
-                              )}
-                            </>
-                          ) : entry.rawExpense ? (
-                            <button
-                              type="button"
-                              id={`btn-edit-nfe-${entry.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditNota(entry.rawExpense!);
-                              }}
-                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                              title={`Editar detalhes da nota ${entry.documentNumber}`}
-                            >
-                              <Pencil className="w-3 h-3 shrink-0 text-sky-600 dark:text-sky-400" />
-                              <span>EDITAR</span>
-                            </button>
-                          ) : entry.rawManualDoc ? (
-                            <button
-                              type="button"
-                              id={`btn-edit-manual-doc-${entry.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (entry.rawManualDoc) handleOpenEditManualDoc(entry.rawManualDoc);
-                              }}
-                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                              title={entry.rawManualDoc?.status === 'Rascunho' ? `Continuar lançamento do rascunho: ${entry.documentNumber}` : `Editar dados e produtos de ${entry.documentNumber}`}
-                            >
-                              <Pencil className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
-                              <span>{entry.rawManualDoc?.status === 'Rascunho' ? 'CONTINUAR' : 'EDITAR'}</span>
-                            </button>
-                          ) : null}
-
-                          {/* 3. Botão Ver e Imprimir (Nota de Saída) */}
-                          {rawNotaSaida ? (
-                            <>
+                            ) : entry.rawManualDoc ? (
                               <button
                                 type="button"
-                                id={`btn-view-nota-saida-${entry.id}`}
+                                id={`btn-edit-manual-doc-${entry.id}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setViewingNotaSaida(rawNotaSaida);
+                                  if (entry.rawManualDoc) handleOpenEditManualDoc(entry.rawManualDoc);
                                 }}
-                                className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                                title={`Visualizar espelho da nota ${entry.documentNumber}`}
+                                className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                title={entry.rawManualDoc?.status === 'Rascunho' ? `Continuar lançamento do rascunho: ${entry.documentNumber}` : `Editar dados e produtos de ${entry.documentNumber}`}
+                              >
+                                <Pencil className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                                <span>{entry.rawManualDoc?.status === 'Rascunho' ? 'CONT.' : 'EDITAR'}</span>
+                              </button>
+                            ) : null}
+
+                            {rawNotaSaida ? (
+                              <>
+                                <button
+                                  type="button"
+                                  id={`btn-view-nota-saida-${entry.id}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingNotaSaida(rawNotaSaida);
+                                  }}
+                                  className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                  title={`Visualizar espelho da nota ${entry.documentNumber}`}
+                                >
+                                  <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                  <span>VER</span>
+                                </button>
+                                {rawNotaSaida.status !== 'RASCUNHO' && (
+                                  <button
+                                    type="button"
+                                    id={`btn-print-nota-saida-${entry.id}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePrintNotaSaida(rawNotaSaida);
+                                    }}
+                                    className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-slate-800 hover:bg-slate-900 text-white border border-slate-900 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                    title={`Imprimir DANFE / Documento auxiliar ${entry.documentNumber}`}
+                                  >
+                                    <Printer className="w-3 h-3 shrink-0" />
+                                    <span className="hidden 2xl:inline">IMPRIMIR</span>
+                                  </button>
+                                )}
+                              </>
+                            ) : entry.rawExpense ? (
+                              <button
+                                type="button"
+                                id={`btn-view-nfe-${entry.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditNota(entry.rawExpense!);
+                                }}
+                                className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                title={`Visualizar detalhes da nota ${entry.documentNumber}`}
                               >
                                 <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span>VER</span>
                               </button>
-                              {rawNotaSaida.status !== 'RASCUNHO' && (
-                                <button
-                                  type="button"
-                                  id={`btn-print-nota-saida-${entry.id}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handlePrintNotaSaida(rawNotaSaida);
-                                  }}
-                                  className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-900 text-white border border-slate-900 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                                  title={`Imprimir DANFE / Documento auxiliar ${entry.documentNumber}`}
-                                >
-                                  <Printer className="w-3 h-3 shrink-0" />
-                                  <span>IMPRIMIR</span>
-                                </button>
-                              )}
-                            </>
-                          ) : entry.rawExpense ? (
+                            ) : (
+                              <button
+                                type="button"
+                                id={`btn-view-doc-${entry.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (entry.rawManualDoc) {
+                                    setViewingManualDoc(entry.rawManualDoc);
+                                  } else if (entry.rawLegacyFiscalDoc) {
+                                    setViewingLegacyDoc(entry.rawLegacyFiscalDoc);
+                                  } else if (entry.rawMdfeDoc) {
+                                    setViewingMdfeDoc(entry.rawMdfeDoc);
+                                  }
+                                }}
+                                className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                                title={`Visualizar detalhes do documento ${entry.documentNumber}`}
+                              >
+                                <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <span>VER</span>
+                              </button>
+                            )}
+
                             <button
                               type="button"
-                              id={`btn-view-nfe-${entry.id}`}
+                              id={`btn-delete-doc-${entry.id}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEditNota(entry.rawExpense!);
-                              }}
-                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                              title={`Visualizar detalhes da nota ${entry.documentNumber}`}
-                            >
-                              <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                              <span>VER</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              id={`btn-view-doc-${entry.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (entry.rawManualDoc) {
-                                  setViewingManualDoc(entry.rawManualDoc);
+                                if (rawNotaSaida) {
+                                  setNotaSaidaToDelete(rawNotaSaida);
+                                } else if (isXml && entry.rawExpense) {
+                                  setNotaParaExcluir(entry.id);
                                 } else if (entry.rawLegacyFiscalDoc) {
-                                  setViewingLegacyDoc(entry.rawLegacyFiscalDoc);
+                                  setLegacyDocToDelete(entry.rawLegacyFiscalDoc);
                                 } else if (entry.rawMdfeDoc) {
-                                  setViewingMdfeDoc(entry.rawMdfeDoc);
+                                  setMdfeDocToDelete(entry.rawMdfeDoc);
+                                } else {
+                                  setManualDocToDelete(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio' } as DocumentoEntradaRecord));
                                 }
                               }}
-                              className="h-6 inline-flex items-center justify-center space-x-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                              title={`Visualizar detalhes do documento ${entry.documentNumber}`}
+                              className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
+                              title={`Excluir documento ${entry.documentNumber}`}
+                              aria-label={`Excluir ${entry.documentNumber}`}
                             >
-                              <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                              <span>VER</span>
+                              <Trash2 className="w-3 h-3 pointer-events-none" />
                             </button>
-                          )}
-
-                          {/* 4. Botão Excluir (Lixeira) */}
-                          <button
-                            type="button"
-                            id={`btn-delete-doc-${entry.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (rawNotaSaida) {
-                                setNotaSaidaToDelete(rawNotaSaida);
-                              } else if (isXml && entry.rawExpense) {
-                                setNotaParaExcluir(entry.id);
-                              } else if (entry.rawLegacyFiscalDoc) {
-                                setLegacyDocToDelete(entry.rawLegacyFiscalDoc);
-                              } else if (entry.rawMdfeDoc) {
-                                setMdfeDocToDelete(entry.rawMdfeDoc);
-                              } else {
-                                setManualDocToDelete(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio' } as DocumentoEntradaRecord));
-                              }
-                            }}
-                            className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
-                            title={`Excluir documento ${entry.documentNumber}`}
-                            aria-label={`Excluir ${entry.documentNumber}`}
-                          >
-                            <Trash2 className="w-3 h-3 pointer-events-none" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
