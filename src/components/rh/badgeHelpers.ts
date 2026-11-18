@@ -1,4 +1,4 @@
-import { Employee } from '../../types';
+import { CompanyProfile, Employee } from '../../types';
 
 /**
  * Tabela oficial ISO/IEC 15417 de padrões de barras/espaços Code 128 (valores 0 a 106).
@@ -174,3 +174,69 @@ export function backfillEmployeesBadgeNumbers(employees: Employee[]): {
 
   return { updated, changed };
 }
+
+export interface BadgeCompanyBackInfo {
+  corporateName: string;
+  cnpj: string;
+  stateRegistration: string;
+  fullAddress: string;
+  phone: string;
+}
+
+export function resolveBadgeCompanyBackInfo(
+  companyProfile: CompanyProfile | undefined,
+  fallbackCompanyName: string
+): BadgeCompanyBackInfo {
+  const corporateName = String(
+    companyProfile?.corporateName ||
+      companyProfile?.companyName ||
+      companyProfile?.tradeName ||
+      companyProfile?.name ||
+      fallbackCompanyName ||
+      ''
+  ).trim();
+
+  const cnpj = String(companyProfile?.cnpj || companyProfile?.cnpjCpf || '').trim();
+  const stateRegistration = String(companyProfile?.stateRegistration || '').trim();
+  const phone = String(companyProfile?.phone || '').trim();
+
+  const streetPart = [
+    String(companyProfile?.address || '').trim(),
+    String(companyProfile?.number || '').trim(),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const neighborhood = String(companyProfile?.neighborhood || '').trim();
+  const city = String(companyProfile?.city || '').trim();
+  const state = String(companyProfile?.state || '').trim().toUpperCase();
+  const cityUf = city && state ? `${city}/${state}` : city || state;
+  const zip = String(companyProfile?.zipCode || companyProfile?.cep || '').trim();
+  const zipFormatted = zip ? `CEP ${zip}` : '';
+
+  const fullAddress = [streetPart, neighborhood, cityUf, zipFormatted]
+    .filter(Boolean)
+    .join(' • ');
+
+  return {
+    corporateName,
+    cnpj,
+    stateRegistration,
+    fullAddress,
+    phone,
+  };
+}
+
+export function resolveEmployeeEmergencyContact(
+  employee: Partial<Employee> | null | undefined
+): string {
+  if (!employee) return '';
+  const empAny = employee as Record<string, unknown>;
+  return String(
+    employee.emergencyContact ||
+      employee.contato_emergencia ||
+      empAny.emergency_contact ||
+      ''
+  ).trim();
+}
+

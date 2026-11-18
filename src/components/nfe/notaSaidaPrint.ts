@@ -1364,7 +1364,7 @@ export function buildNotaSaidaHtml(
       nota.nfseObservacoesFiscais ? nota.nfseObservacoesFiscais : '',
     ]
       .filter(Boolean)
-      .join(' | ');
+      .join('\n');
 
     const servicosExtraLines = [
       nota.descricao || '-',

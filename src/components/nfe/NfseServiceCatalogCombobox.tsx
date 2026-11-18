@@ -45,6 +45,9 @@ export interface NfseServiceCatalogComboboxProps {
   onSelectService: (item: InventoryItem | null) => void;
   placeholder?: string;
   compact?: boolean;
+  allowCustomText?: boolean;
+  customText?: string;
+  onCustomTextChange?: (value: string) => void;
 }
 
 export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProps> = ({
@@ -54,6 +57,9 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
   onSelectService,
   placeholder = 'DIGITE OU SELECIONE UM SERVIÇO CADASTRADO NO ESTOQUE / CATÁLOGO...',
   compact = false,
+  allowCustomText = false,
+  customText = '',
+  onCustomTextChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -195,7 +201,7 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
   }, [searchQuery, isOpen]);
 
   const handleOpen = () => {
-    setSearchQuery('');
+    setSearchQuery(allowCustomText && !selectedId ? customText : '');
     setIsOpen(true);
     updateDropdownPosition();
   };
@@ -210,6 +216,7 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSearchQuery('');
+    onCustomTextChange?.('');
     onSelectService(null);
     if (isOpen) {
       inputRef.current?.focus();
@@ -244,13 +251,16 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
       const chosen = flatOptions[highlightedIndex];
       if (chosen) {
         handlePickEntry(chosen);
+      } else if (allowCustomText) {
+        setIsOpen(false);
       }
     }
   };
 
-  const inputDisplayValue = isOpen ? searchQuery : selectedLabel;
+  const closedDisplayValue = selectedLabel || (allowCustomText ? customText : '');
+  const inputDisplayValue = isOpen ? searchQuery : closedDisplayValue;
   const inputPlaceholder = isOpen
-    ? selectedLabel || placeholder
+    ? closedDisplayValue || placeholder
     : placeholder;
 
   return (
@@ -273,13 +283,17 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
             if (!isOpen) handleOpen();
           }}
           onChange={(e) => {
+            const val = e.target.value;
             if (!isOpen) setIsOpen(true);
-            setSearchQuery(e.target.value);
+            setSearchQuery(val);
+            if (allowCustomText) {
+              onCustomTextChange?.(val);
+            }
           }}
           onKeyDown={handleKeyDown}
           placeholder={inputPlaceholder}
           autoComplete="off"
-          title={selectedLabel || inputPlaceholder}
+          title={closedDisplayValue || inputPlaceholder}
           className={
             compact
               ? 'w-full pl-5 pr-9 py-1 bg-slate-50 dark:bg-stone-800 focus:bg-white dark:focus:bg-stone-900 border border-slate-300 dark:border-stone-600 focus:border-[#6d28d9] rounded text-[11px] font-bold uppercase text-black dark:text-stone-100 placeholder:text-slate-400 focus:outline-none truncate'
@@ -289,7 +303,7 @@ export const NfseServiceCatalogCombobox: React.FC<NfseServiceCatalogComboboxProp
         <div
           className={`absolute ${compact ? 'right-1' : 'right-1.5'} top-1/2 -translate-y-1/2 flex items-center gap-0.5`}
         >
-          {(selectedId || (isOpen && searchQuery)) && (
+          {(selectedId || (allowCustomText && customText) || (isOpen && searchQuery)) && (
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}

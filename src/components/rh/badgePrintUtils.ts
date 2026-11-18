@@ -1,13 +1,22 @@
-import { Employee } from '../../types';
+import { CompanyProfile, Employee } from '../../types';
 import { formatDateBR } from '../../lib/storage';
 import { getCachedMediaUrl } from '../../lib/imageStorage';
 import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
-import { encodeCode128B } from './badgeHelpers';
 import {
+  encodeCode128B,
+  resolveBadgeCompanyBackInfo,
+  resolveEmployeeEmergencyContact,
+} from './badgeHelpers';
+import {
+  BADGE_PAPER_OPTIONS,
+  BADGE_PAPER_ORDER,
+  BADGE_PAPER_STORAGE_KEY,
+  BadgePaperSize,
   BadgeThemeConfig,
   DEFAULT_BADGE_THEME,
   getBadgeDimensions,
   isLightHexColor,
+  isValidBadgePaperSize,
 } from './badgeTheme';
 
 export interface BadgePrintEntry {
@@ -343,35 +352,358 @@ function buildSingleBadgeHtml(
   `;
 }
 
+function buildSingleBadgeBackHtml(
+  entry: BadgePrintEntry,
+  companyName: string,
+  theme: BadgeThemeConfig,
+  companyProfile?: CompanyProfile
+): string {
+  const { employee } = entry;
+  const dims = getBadgeDimensions(theme.size);
+  const s = dims.scaleFactor;
+  const px = (base: number) => `${(base * s).toFixed(1)}px`;
+
+  const headerIsLight = isLightHexColor(theme.headerColor);
+  const headerTextColor = headerIsLight ? '#0f172a' : '#ffffff';
+  const headerSubColor = headerIsLight ? '#334155' : 'rgba(255,255,255,0.84)';
+
+  const bodyIsLight = isLightHexColor(theme.bodyBgColor);
+  const noticeBg = bodyIsLight ? 'rgba(15, 23, 42, 0.035)' : 'rgba(255, 255, 255, 0.09)';
+  const noticeBorder = bodyIsLight ? 'rgba(15, 23, 42, 0.14)' : 'rgba(255, 255, 255, 0.22)';
+  const footerBg = bodyIsLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.1)';
+  const footerBorder = bodyIsLight ? 'rgba(15, 23, 42, 0.18)' : 'rgba(255, 255, 255, 0.2)';
+
+  const companyInfo = resolveBadgeCompanyBackInfo(companyProfile, companyName);
+  const emergencyContact = resolveEmployeeEmergencyContact(employee);
+  const noticeText = (theme.backNoticeText ?? DEFAULT_BADGE_THEME.backNoticeText).trim();
+
+  const companyRows: { label: string; value: string }[] = [];
+  if (theme.showBackCorporateName && companyInfo.corporateName) {
+    companyRows.push({ label: 'RAZÃO SOCIAL', value: companyInfo.corporateName });
+  }
+  if (theme.showBackCnpj && companyInfo.cnpj) {
+    companyRows.push({ label: 'CNPJ', value: companyInfo.cnpj });
+  }
+  if (theme.showBackIe && companyInfo.stateRegistration) {
+    companyRows.push({ label: 'INSC. ESTADUAL', value: companyInfo.stateRegistration });
+  }
+  if (theme.showBackAddress && companyInfo.fullAddress) {
+    companyRows.push({ label: 'ENDEREÇO', value: companyInfo.fullAddress });
+  }
+  if (theme.showBackPhone && companyInfo.phone) {
+    companyRows.push({ label: 'TELEFONE / WHATSAPP', value: companyInfo.phone });
+  }
+
+  const noticeHtml = noticeText
+    ? `
+      <div style="border-radius:4px;background:${noticeBg};border:1px solid ${noticeBorder};padding:${px(3.5)} ${px(5)};">
+        <div style="font-size:${px(7)};font-weight:900;text-transform:uppercase;letter-spacing:0.06em;color:${theme.accentColor};margin-bottom:${px(1.5)};">
+          Aviso / Termo de Responsabilidade
+        </div>
+        <p style="margin:0;font-size:${px(9.5)};font-weight:500;line-height:1.22;text-align:justify;color:${theme.textColor};word-break:break-word;">
+          ${escapeHtml(noticeText)}
+        </p>
+      </div>
+    `
+    : '';
+
+  const companyRowsHtml =
+    companyRows.length > 0
+      ? `
+      <div style="display:flex;flex-direction:column;gap:${px(4)};min-height:0;">
+        ${companyRows
+          .map(
+            (row) => `
+          <div style="font-size:${px(9.8)};line-height:1.22;word-break:break-word;margin:0;">
+            <span style="font-size:${px(8)};font-weight:900;text-transform:uppercase;color:${theme.accentColor};">${escapeHtml(row.label)}: </span>
+            <span style="font-weight:700;color:${theme.textColor};">${escapeHtml(row.value)}</span>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    `
+      : '';
+
+  const emergencyHtml =
+    theme.showBackEmergencyContact && emergencyContact
+      ? `
+      <div style="border-left:2.5px solid ${theme.accentColor};background:${noticeBg};padding:${px(3)} ${px(5)};border-radius:2px;flex-shrink:0;">
+        <div style="font-size:${px(7.2)};font-weight:900;text-transform:uppercase;letter-spacing:0.04em;color:${theme.accentColor};">
+          Contato de Emergência
+        </div>
+        <div style="font-size:${px(10)};font-weight:800;line-height:1.2;color:${theme.textColor};word-break:break-word;">
+          ${escapeHtml(emergencyContact)}
+        </div>
+      </div>
+    `
+      : '';
+
+  const signatureFooterHtml = theme.showBackSignatureLine
+    ? `
+      <footer class="badge-footer" style="width:100%;box-sizing:border-box;background:${footerBg};border-top:1px solid ${footerBorder};padding:${px(10.5)} ${px(10)} ${px(3)} ${px(10)};flex-shrink:0;">
+        <div style="border-top:1px solid ${theme.textColor};opacity:0.72;margin-bottom:${px(1.5)};"></div>
+        <div style="text-align:center;font-size:${px(6.8)};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${theme.textColor};">
+          Assinatura do Portador
+        </div>
+      </footer>
+    `
+    : `<div style="height:${px(4)};width:100%;background:${theme.accentColor};flex-shrink:0;"></div>`;
+
+  return `
+    <div class="badge-card badge-cut-card badge-back-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
+      <div style="background:${theme.headerColor};border-bottom:2px solid ${theme.accentColor};padding:${px(4)} ${px(8)} ${px(4.5)} ${px(8)};flex-shrink:0;">
+        <div style="width:${px(28)};height:${px(3)};border-radius:9999px;background:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.2);margin:0 auto ${px(2.5)} auto;"></div>
+        <div style="text-align:center;min-width:0;">
+          <div style="font-size:${px(8.5)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${headerTextColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${escapeHtml(companyName)}
+          </div>
+          <div style="font-size:${px(6)};font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1.2;margin-top:${px(1)};color:${headerSubColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            Verso • Identificação Funcional
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;padding:${px(5)} ${px(7.5)} ${px(4.5)} ${px(7.5)};display:flex;flex-direction:column;justify-content:space-evenly;gap:${px(5)};min-height:0;overflow:hidden;">
+        ${noticeHtml}
+        ${companyRowsHtml}
+        ${emergencyHtml}
+      </div>
+
+      ${signatureFooterHtml}
+    </div>
+  `;
+}
+
+function buildDynamicPageCss(
+  paperSize: BadgePaperSize,
+  widthMm: number,
+  heightMm: number,
+  badgeId: string
+): string {
+  if (paperSize === 'pvc_card') {
+    return `
+      @page {
+        size: ${widthMm}mm ${heightMm}mm;
+        margin: 0;
+      }
+
+      .badges-pvc-pages {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6mm;
+        width: 100%;
+        padding: 4mm 0;
+      }
+
+      .pvc-page-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5mm;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        page-break-after: always;
+        break-after: page;
+      }
+
+      .pvc-page-wrapper:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+
+      .pvc-page-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #475569;
+      }
+
+      .pvc-page-card-slot {
+        width: ${widthMm}mm;
+        height: ${heightMm}mm;
+        overflow: hidden;
+      }
+
+      @media print {
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        .badges-pvc-pages {
+          display: block !important;
+          padding: 0 !important;
+          gap: 0 !important;
+        }
+
+        .pvc-page-wrapper {
+          width: ${widthMm}mm !important;
+          height: ${heightMm}mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          gap: 0 !important;
+          display: block !important;
+        }
+
+        .pvc-page-card-slot .badge-card,
+        .pvc-page-card-slot .badge-cut-card {
+          border: none !important;
+          border-radius: 0 !important;
+        }
+      }
+    `;
+  }
+
+  if (paperSize === 'a4_landscape') {
+    return `
+      @page {
+        size: A4 landscape;
+        margin: 6mm;
+      }
+
+      .badges-print-grid {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 4mm 8mm;
+        width: 100%;
+        padding: 2mm 0;
+      }
+    `;
+  }
+
+  if (paperSize === 'a5_portrait') {
+    return `
+      @page {
+        size: A5 portrait;
+        margin: 6mm;
+      }
+
+      .badges-print-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4mm;
+        width: 100%;
+        padding: 2mm 0;
+      }
+    `;
+  }
+
+  // Padrão: A4 Retrato (210 x 297 mm) — Máximo Aproveitamento (3 pares 54x86mm por folha)
+  const rowGapMm = badgeId === 'pvc_54x86' ? 3.5 : 5;
+  return `
+    @page {
+      size: A4 portrait;
+      margin: 6mm;
+    }
+
+    .badges-print-grid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: ${rowGapMm}mm;
+      width: 100%;
+      padding: 2mm 0;
+    }
+  `;
+}
+
 /**
- * Gera o documento HTML autônomo pronto para impressão A4 em grade dinâmica
- * (3 colunas para 54×86mm ou 2 colunas para 70×100mm / 85×120mm)
- * com disparo automático de window.focus() e window.print() após o carregamento das imagens.
+ * Gera o documento HTML autônomo pronto para impressão (A4 Retrato, A4 Paisagem,
+ * A5 ou Cartão PVC / Etiqueta Térmica 1 face por página) com disparo automático
+ * de window.focus() e window.print() após o carregamento das imagens.
  */
 export function generateBadgesPrintHtml(
   entries: BadgePrintEntry[],
   companyName: string,
   companyLogoUrl?: string,
-  theme: BadgeThemeConfig = DEFAULT_BADGE_THEME
+  theme: BadgeThemeConfig = DEFAULT_BADGE_THEME,
+  companyProfile?: CompanyProfile,
+  initialPaperSize: BadgePaperSize = 'a4_portrait'
 ): string {
   const dims = getBadgeDimensions(theme.size);
+  const paperSize: BadgePaperSize = isValidBadgePaperSize(initialPaperSize)
+    ? initialPaperSize
+    : 'a4_portrait';
   const validEntries = entries.filter((entry) => Boolean(entry && entry.employee));
-  const effectiveCols = Math.max(1, Math.min(validEntries.length || 1, dims.columnsPerA4Row));
-  const cardsHtml = validEntries
-    .map((entry) => buildSingleBadgeHtml(entry, companyName, companyLogoUrl, theme))
+  const centerGapMm = 8;
+
+  const builtCards = validEntries.map((entry, idx) => ({
+    index: idx,
+    name: entry.employee.name || `Colaborador ${idx + 1}`,
+    frontHtml: buildSingleBadgeHtml(entry, companyName, companyLogoUrl, theme),
+    backHtml: buildSingleBadgeBackHtml(entry, companyName, theme, companyProfile),
+  }));
+
+  const pairsHtml = builtCards
+    .map(
+      ({ frontHtml, backHtml }) => `
+        <div class="badge-pair-wrapper">
+          <div class="badge-pair-label">
+            <span>FRENTE</span>
+            <span>RECORTE</span>
+            <span>VERSO</span>
+          </div>
+          <div class="badge-pair">
+            ${frontHtml}
+            <div class="badge-cut-spacer" title="Espaço de recorte (${centerGapMm}mm) entre Frente e Verso">
+              <div class="badge-cut-center-line"></div>
+              <span class="badge-cut-scissors" aria-hidden="true">✂️</span>
+            </div>
+            ${backHtml}
+          </div>
+        </div>
+      `
+    )
     .join('\n');
+
+  const pvcPagesHtml = builtCards
+    .map(
+      ({ name, frontHtml, backHtml }) => `
+        <div class="pvc-page-wrapper">
+          <div class="pvc-page-label no-print">${escapeHtml(name)} • Página 1 (Frente)</div>
+          <div class="pvc-page-card-slot">${frontHtml}</div>
+        </div>
+        <div class="pvc-page-wrapper">
+          <div class="pvc-page-label no-print">${escapeHtml(name)} • Página 2 (Verso)</div>
+          <div class="pvc-page-card-slot">${backHtml}</div>
+        </div>
+      `
+    )
+    .join('\n');
+
+  const cssByPaperSize: Record<BadgePaperSize, string> = {
+    a4_portrait: buildDynamicPageCss('a4_portrait', dims.widthMm, dims.heightMm, dims.id),
+    a4_landscape: buildDynamicPageCss('a4_landscape', dims.widthMm, dims.heightMm, dims.id),
+    a5_portrait: buildDynamicPageCss('a5_portrait', dims.widthMm, dims.heightMm, dims.id),
+    pvc_card: buildDynamicPageCss('pvc_card', dims.widthMm, dims.heightMm, dims.id),
+  };
+
+  const paperSelectOptionsHtml = BADGE_PAPER_ORDER.map((id) => {
+    const opt = BADGE_PAPER_OPTIONS[id];
+    const selectedAttr = id === paperSize ? ' selected' : '';
+    return `<option value="${id}"${selectedAttr}>${escapeHtml(opt.label)}</option>`;
+  }).join('');
+
+  const initialBodyContent =
+    paperSize === 'pvc_card'
+      ? `<div class="badges-pvc-pages">${pvcPagesHtml}</div>`
+      : `<div class="badges-print-grid">${pairsHtml}</div>`;
+
+  const serializedCssMap = JSON.stringify(cssByPaperSize).replace(/</g, '\\u003c');
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Impressão de Crachás - ${escapeHtml(companyName)}</title>
-  <style>
-    @page {
-      size: A4 portrait;
-      margin: 10mm;
-    }
-
+  <title>Impressão de Crachás (Frente & Verso) - ${escapeHtml(companyName)}</title>
+  <style id="base-print-style">
     *, *::before, *::after {
       box-sizing: border-box;
       -webkit-print-color-adjust: exact !important;
@@ -388,20 +720,47 @@ export function generateBadgesPrintHtml(
 
     .print-toolbar {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px 14px;
       padding: 10px 16px;
       background: #cad4e6;
       border-bottom: 1px solid #000000;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .print-toolbar-title {
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 800;
       color: #0f172a;
       text-transform: uppercase;
+    }
+
+    .print-toolbar-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .print-toolbar-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #1e293b;
+      text-transform: uppercase;
+    }
+
+    .print-toolbar-select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #64748b;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      max-width: 340px;
     }
 
     .print-toolbar-btn {
@@ -415,14 +774,66 @@ export function generateBadgesPrintHtml(
       cursor: pointer;
     }
 
-    .badges-print-grid {
-      display: grid;
-      grid-template-columns: repeat(${effectiveCols}, ${dims.widthMm}mm);
-      gap: ${dims.gapMm}mm;
-      justify-content: center;
-      align-content: start;
+    .badge-pair-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .badge-pair-label {
       width: 100%;
-      padding: 2mm 0;
+      display: grid;
+      grid-template-columns: ${dims.widthMm}mm ${centerGapMm}mm ${dims.widthMm}mm;
+      align-items: center;
+      text-align: center;
+      font-size: 6.5px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      text-transform: uppercase;
+      padding-bottom: 0.6mm;
+    }
+
+    .badge-pair {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: stretch;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .badge-cut-spacer {
+      position: relative;
+      width: ${centerGapMm}mm;
+      min-width: ${centerGapMm}mm;
+      height: ${dims.heightMm}mm;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .badge-cut-center-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      transform: translateX(-50%);
+      border-left: 1.2px dashed #64748b;
+    }
+
+    .badge-cut-scissors {
+      position: relative;
+      z-index: 1;
+      background: #ffffff;
+      padding: 2px 0;
+      font-size: 11px;
+      line-height: 1;
+      color: #475569;
     }
 
     .badge-card,
@@ -435,7 +846,7 @@ export function generateBadgesPrintHtml(
       max-height: ${dims.heightMm}mm;
       box-sizing: border-box;
       position: relative;
-      border: 1px dashed #999999;
+      border: 1px dashed #64748b;
       border-radius: 3.5mm;
       overflow: hidden;
       display: flex;
@@ -446,6 +857,7 @@ export function generateBadgesPrintHtml(
     }
 
     @media print {
+      .no-print,
       .print-toolbar {
         display: none !important;
       }
@@ -459,19 +871,75 @@ export function generateBadgesPrintHtml(
       }
     }
   </style>
+  <style id="dynamic-page-style">
+    ${cssByPaperSize[paperSize]}
+  </style>
 </head>
 <body>
-  <div class="print-toolbar">
-    <span class="print-toolbar-title">Crachás Selecionados (${validEntries.length}) • ${escapeHtml(dims.label)} (A4)</span>
-    <button type="button" class="print-toolbar-btn" onclick="window.focus(); window.print();">Imprimir Agora</button>
+  <div class="print-toolbar no-print">
+    <span class="print-toolbar-title">Crachás Selecionados (${validEntries.length}) • ${escapeHtml(dims.label)}</span>
+    <div class="print-toolbar-controls">
+      <label for="paper-size-select" class="print-toolbar-label">Formato do Papel / Impressora:</label>
+      <select id="paper-size-select" class="print-toolbar-select">
+        ${paperSelectOptionsHtml}
+      </select>
+      <button type="button" class="print-toolbar-btn" onclick="window.focus(); window.print();">Imprimir Agora</button>
+    </div>
   </div>
 
-  <div class="badges-print-grid">
-    ${cardsHtml}
+  <div id="badges-print-root">
+    ${initialBodyContent}
   </div>
+
+  <template id="tpl-pair-mode">
+    <div class="badges-print-grid">${pairsHtml}</div>
+  </template>
+
+  <template id="tpl-pvc-mode">
+    <div class="badges-pvc-pages">${pvcPagesHtml}</div>
+  </template>
 
   <script>
     (function () {
+      var cssByPaperSize = ${serializedCssMap};
+      var currentMode = ${JSON.stringify(paperSize === 'pvc_card' ? 'pvc' : 'pair')};
+      var storageKey = ${JSON.stringify(BADGE_PAPER_STORAGE_KEY)};
+
+      var selectEl = document.getElementById('paper-size-select');
+      var styleEl = document.getElementById('dynamic-page-style');
+      var rootEl = document.getElementById('badges-print-root');
+      var tplPair = document.getElementById('tpl-pair-mode');
+      var tplPvc = document.getElementById('tpl-pvc-mode');
+
+      function applyPaperSize(nextSize) {
+        if (!cssByPaperSize[nextSize]) return;
+        if (styleEl) {
+          styleEl.textContent = cssByPaperSize[nextSize];
+        }
+        var nextMode = nextSize === 'pvc_card' ? 'pvc' : 'pair';
+        if (nextMode !== currentMode && rootEl) {
+          var sourceTpl = nextMode === 'pvc' ? tplPvc : tplPair;
+          if (sourceTpl) {
+            rootEl.innerHTML = sourceTpl.innerHTML;
+          }
+          currentMode = nextMode;
+        }
+        try {
+          localStorage.setItem(storageKey, nextSize);
+        } catch (e) {}
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({ type: 'agrocontrol_badge_paper_size', paperSize: nextSize }, '*');
+          }
+        } catch (e) {}
+      }
+
+      if (selectEl) {
+        selectEl.addEventListener('change', function (evt) {
+          applyPaperSize(evt.target.value);
+        });
+      }
+
       var printed = false;
       function triggerPrint() {
         if (printed) return;

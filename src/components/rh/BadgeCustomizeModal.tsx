@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Maximize2, Minus, Palette, Plus, RotateCcw, Save, Type, X } from 'lucide-react';
-import { Employee } from '../../types';
+import { IdCard, Maximize2, Minus, Palette, Plus, RotateCcw, Save, Type, X } from 'lucide-react';
+import { CompanyProfile, Employee } from '../../types';
 import { EmployeeBadgeCard } from './EmployeeBadgeCard';
+import { EmployeeBadgeBackCard } from './EmployeeBadgeBackCard';
 import {
   BADGE_SIZE_PRESETS,
   BadgeSizePreset,
@@ -9,6 +10,7 @@ import {
   BadgeThemeConfig,
   COMPANY_FONT_MAX,
   COMPANY_FONT_MIN,
+  DEFAULT_BADGE_BACK_NOTICE,
   DEFAULT_BADGE_THEME,
   EMPLOYEE_FONT_MAX,
   EMPLOYEE_FONT_MIN,
@@ -25,6 +27,7 @@ interface BadgeCustomizeModalProps {
   previewRegistrationNumber: string;
   companyName: string;
   companyLogoUrl?: string;
+  companyProfile?: CompanyProfile;
 }
 
 const STYLE_OPTIONS: {
@@ -57,6 +60,7 @@ const FALLBACK_PREVIEW_EMPLOYEE: Partial<Employee> & { name: string } = {
   role: 'Operador de Forrageira',
   cpf: '091.452.789-00',
   admissionDate: '2026-01-15',
+  emergencyContact: 'Maria Silva • (46) 99911-2233',
   phone: '',
   status: 'ativo',
 };
@@ -70,6 +74,7 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
   previewRegistrationNumber,
   companyName,
   companyLogoUrl,
+  companyProfile,
 }) => {
   const [draftTheme, setDraftTheme] = useState<BadgeThemeConfig>({
     ...DEFAULT_BADGE_THEME,
@@ -113,6 +118,7 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
         ? draftTheme.accentColor.toLowerCase()
         : DEFAULT_BADGE_THEME.accentColor,
       headerSubtitle: (draftTheme.headerSubtitle || '').trim(),
+      backNoticeText: (draftTheme.backNoticeText ?? DEFAULT_BADGE_BACK_NOTICE).trim(),
       companyNameFontSize: clampFontSize(
         draftTheme.companyNameFontSize,
         COMPANY_FONT_MIN,
@@ -148,7 +154,36 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
     { key: 'accentColor', label: 'Cor da Tarja / Badge do Cargo e Registro' },
   ];
 
-  const previewScale = draftTheme.size === 'large_85x120' ? 1.05 : 1.15;
+  const backToggleOptions: {
+    key:
+      | 'showBackCorporateName'
+      | 'showBackCnpj'
+      | 'showBackIe'
+      | 'showBackAddress'
+      | 'showBackPhone'
+      | 'showBackEmergencyContact'
+      | 'showBackSignatureLine';
+    label: string;
+  }[] = [
+    { key: 'showBackCorporateName', label: 'Exibir Razão Social da Empresa' },
+    { key: 'showBackCnpj', label: 'Exibir CNPJ' },
+    { key: 'showBackIe', label: 'Exibir Inscrição Estadual' },
+    { key: 'showBackAddress', label: 'Exibir Endereço Completo' },
+    { key: 'showBackPhone', label: 'Exibir Telefone / WhatsApp da Empresa' },
+    { key: 'showBackEmergencyContact', label: 'Exibir Contato de Emergência do Colaborador' },
+    { key: 'showBackSignatureLine', label: 'Exibir Linha para Assinatura do Portador' },
+  ];
+
+  const previewScale =
+    draftTheme.size === 'large_85x120'
+      ? 0.64
+      : draftTheme.size === 'medium_70x100'
+        ? 0.76
+        : 0.94;
+  const pairGapPx = 12;
+  const mmToPx = 3.7795275591;
+  const rawPairWidthPx = activeDims.widthMm * 2 * mmToPx + pairGapPx;
+  const rawPairHeightPx = activeDims.heightMm * mmToPx + 20;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-3 no-print overflow-hidden">
@@ -164,7 +199,7 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
                 Personalizar Layout &amp; Cores do Crachá
               </h3>
               <p className="text-[11px] text-stone-700 dark:text-stone-400 font-medium leading-tight">
-                Ajuste o modelo visual, dimensões físicas, paleta de cores, fontes e subtítulo em tempo real
+                Ajuste o modelo visual, dimensões físicas, paleta de cores, fontes, subtítulo e verso em tempo real
               </p>
             </div>
           </div>
@@ -177,15 +212,15 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
           </button>
         </div>
 
-        {/* Corpo Expandido em 1 Tela (65% Esquerda / 35% Direita) */}
+        {/* Corpo Expandido (58% Esquerda rolável / 42% Direita Pré-visualização Frente & Verso) */}
         <form
           id="badge-customize-form"
           onSubmit={handleSave}
           className="p-2.5 sm:p-3 overflow-y-auto lg:overflow-hidden flex-1 bg-[#cad4e6] dark:bg-stone-900 min-h-0"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-[65fr_35fr] gap-3 h-full items-stretch">
-            {/* PAINEL ESQUERDO (~65%): GRID DE 2 SUB-COLUNAS COMPACTAS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 content-start min-w-0">
+          <div className="grid grid-cols-1 lg:grid-cols-[57fr_43fr] gap-3 h-full items-stretch min-h-0">
+            {/* PAINEL ESQUERDO (~57%): GRID DE 2 SUB-COLUNAS COMPACTAS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 content-start min-w-0 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
               {/* TOPO (2 Colunas): Card 1 - Estilo / Modelo */}
               <div className="md:col-span-2 bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-2.5 space-y-1.5">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 pb-1 border-b border-black/15">
@@ -227,7 +262,7 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
                     <span>Dimensão / Tamanho do Crachá</span>
                   </span>
                   <span className="text-[10px] font-semibold text-slate-700 dark:text-stone-300">
-                    {activeDims.columnsPerA4Row} crachás por linha no A4
+                    Frente + Verso lado a lado na folha A4
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -398,7 +433,7 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
                 </div>
               </div>
 
-              {/* BASE (2 Colunas): Card 5 - Tamanho das Fontes + Botão Restaurar Padrão Original na mesma linha */}
+              {/* Card 5 - Tamanho das Fontes + Botão Restaurar Padrão Original na mesma linha */}
               <div className="md:col-span-2 bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-2.5 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200 pb-1 border-b border-black/15">
                   <Type className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
@@ -561,33 +596,119 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Card 6 - Verso do Crachá */}
+              <div className="md:col-span-2 bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2 pb-1 border-b border-black/15">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200">
+                    <IdCard className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                    <span>6. Verso do Crachá</span>
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-stone-300">
+                    Dados da Empresa + Cadastro do Colaborador
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {backToggleOptions.map(({ key, label }) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2 px-2 py-1 bg-white border border-gray-400 rounded-lg cursor-pointer hover:bg-slate-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draftTheme[key])}
+                        onChange={(e) =>
+                          setDraftTheme((prev) => ({
+                            ...prev,
+                            [key]: e.target.checked,
+                          }))
+                        }
+                        className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer shrink-0"
+                      />
+                      <span className="text-[11px] font-bold text-black leading-tight">
+                        {label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="badge-back-notice-textarea"
+                    className="block text-[10px] font-bold uppercase text-black dark:text-stone-200 mb-1"
+                  >
+                    Aviso / Termo de Responsabilidade no Verso
+                  </label>
+                  <textarea
+                    id="badge-back-notice-textarea"
+                    rows={3}
+                    value={draftTheme.backNoticeText ?? DEFAULT_BADGE_BACK_NOTICE}
+                    onChange={(e) =>
+                      setDraftTheme((prev) => ({
+                        ...prev,
+                        backNoticeText: e.target.value,
+                      }))
+                    }
+                    placeholder="Texto do aviso / termo de responsabilidade exibido no verso do crachá..."
+                    className="w-full px-2.5 py-1.5 bg-white border border-gray-400 rounded-lg text-[11px] font-medium text-black leading-snug placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 resize-y"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* PAINEL DIREITO (~35%): PRÉ-VISUALIZAÇÃO EM TEMPO REAL FIXA E AMPLIADA */}
+            {/* PAINEL DIREITO (~43%): PRÉ-VISUALIZAÇÃO EM TEMPO REAL (FRENTE + VERSO LADO A LADO) */}
             <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-2.5 flex flex-col items-center justify-between h-full min-h-[380px] overflow-hidden">
               <div className="w-full text-center pb-1.5 border-b border-black/15 shrink-0">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-black dark:text-stone-200">
-                  Pré-visualização em Tempo Real
+                  Pré-visualização em Tempo Real (Frente &amp; Verso)
                 </div>
                 <div className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 mt-0.5">
-                  Dimensão real: {activeDims.widthMm}mm × {activeDims.heightMm}mm
+                  Dimensão real: {activeDims.widthMm}mm × {activeDims.heightMm}mm cada lado
                 </div>
               </div>
 
-              <div className="w-full flex-1 flex items-center justify-center py-4 overflow-hidden">
+              <div className="w-full flex-1 flex items-center justify-center py-3 overflow-hidden">
                 <div
+                  className="relative shrink-0"
                   style={{
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: 'center center',
+                    width: `${Math.round(rawPairWidthPx * previewScale)}px`,
+                    height: `${Math.round(rawPairHeightPx * previewScale)}px`,
                   }}
                 >
-                  <EmployeeBadgeCard
-                    employee={sampleEmployee}
-                    registrationNumber={sampleReg}
-                    companyName={companyName}
-                    companyLogoUrl={companyLogoUrl}
-                    theme={draftTheme}
-                  />
+                  <div
+                    className="flex items-start"
+                    style={{
+                      gap: `${pairGapPx}px`,
+                      width: `${Math.round(rawPairWidthPx)}px`,
+                      transform: `scale(${previewScale})`,
+                      transformOrigin: 'top left',
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-1 shrink-0">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-stone-300">
+                        Frente
+                      </span>
+                      <EmployeeBadgeCard
+                        employee={sampleEmployee}
+                        registrationNumber={sampleReg}
+                        companyName={companyName}
+                        companyLogoUrl={companyLogoUrl}
+                        theme={draftTheme}
+                      />
+                    </div>
+                    <div className="flex flex-col items-center gap-1 shrink-0">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-stone-300">
+                        Verso
+                      </span>
+                      <EmployeeBadgeBackCard
+                        employee={sampleEmployee}
+                        companyName={companyName}
+                        companyProfile={companyProfile}
+                        theme={draftTheme}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

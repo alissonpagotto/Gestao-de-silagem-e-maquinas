@@ -13,11 +13,19 @@ import { CompanyProfile, Employee } from '../../types';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
 import { getEmployeeBadgeNumber } from './badgeHelpers';
 import { EmployeeBadgeCard } from './EmployeeBadgeCard';
+import { EmployeeBadgeBackCard } from './EmployeeBadgeBackCard';
 import { BadgeCustomizeModal } from './BadgeCustomizeModal';
 import {
+  BADGE_PAPER_OPTIONS,
+  BADGE_PAPER_ORDER,
+  BADGE_PAPER_STORAGE_KEY,
+  BadgePaperSize,
   BadgeThemeConfig,
   getBadgeDimensions,
+  getStoredBadgePaperSize,
   getStoredBadgeTheme,
+  isValidBadgePaperSize,
+  saveStoredBadgePaperSize,
   saveStoredBadgeTheme,
 } from './badgeTheme';
 import { generateBadgesPrintHtml } from './badgePrintUtils';
@@ -39,10 +47,38 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
   const [badgeTheme, setBadgeTheme] = useState<BadgeThemeConfig>(() =>
     getStoredBadgeTheme()
   );
+  const [paperSize, setPaperSize] = useState<BadgePaperSize>(() =>
+    getStoredBadgePaperSize()
+  );
   const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
   const [selectionWarning, setSelectionWarning] = useState<string>('');
 
   const hasInitializedSelectionRef = useRef(employees.length > 0);
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === BADGE_PAPER_STORAGE_KEY && isValidBadgePaperSize(e.newValue)) {
+        setPaperSize(e.newValue);
+      }
+    };
+    const handleMessage = (e: MessageEvent) => {
+      if (
+        e.data &&
+        typeof e.data === 'object' &&
+        e.data.type === 'agrocontrol_badge_paper_size' &&
+        isValidBadgePaperSize(e.data.paperSize)
+      ) {
+        setPaperSize(e.data.paperSize);
+        saveStoredBadgePaperSize(e.data.paperSize);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
 
   // Mantém apenas IDs válidos caso a lista mude e auto-seleciona o primeiro apenas na carga inicial
   useEffect(() => {
@@ -117,6 +153,11 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
     saveStoredBadgeTheme(nextTheme);
   };
 
+  const handleChangePaperSize = (nextSize: BadgePaperSize) => {
+    setPaperSize(nextSize);
+    saveStoredBadgePaperSize(nextSize);
+  };
+
   const handlePrintSelected = async () => {
     if (selectedEntries.length === 0) {
       setSelectionWarning('Selecione pelo menos um funcionário na lista à esquerda para imprimir.');
@@ -169,7 +210,9 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
       resolvedEntries,
       companyDisplayName,
       resolvedLogoUrl,
-      badgeTheme
+      badgeTheme,
+      companyProfile,
+      paperSize
     );
 
     // Abordagem 1: Janela dedicada via window.open('', '_blank') (funciona em iframes e qualquer navegador)
@@ -225,11 +268,12 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
 
   const previewTarget = selectedEntries[0] || employeesWithCodes[0];
   const activeBadgeDims = getBadgeDimensions(badgeTheme.size);
+  const activePaperOption = BADGE_PAPER_OPTIONS[paperSize];
 
   return (
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* Barra Superior de Título e Botões de Ação */}
-      <div className="no-print shrink-0 bg-[#e0e6f1] dark:bg-stone-800 border border-black/20 dark:border-stone-700 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="no-print shrink-0 bg-[#e0e6f1] dark:bg-stone-800 border border-black/20 dark:border-stone-700 rounded-xl px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 flex items-center justify-center shrink-0">
             <IdCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -244,7 +288,34 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start xl:self-auto">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-600 rounded-lg px-2.5 py-1 shadow-2xs">
+            <label
+              htmlFor="cracha-paper-size-select"
+              className="text-[10px] font-black uppercase tracking-wide text-slate-700 dark:text-stone-300 whitespace-nowrap"
+            >
+              Formato do Papel / Impressora:
+            </label>
+            <select
+              id="cracha-paper-size-select"
+              value={paperSize}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (isValidBadgePaperSize(val)) {
+                  handleChangePaperSize(val);
+                }
+              }}
+              className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer max-w-[260px] sm:max-w-[320px] truncate py-0.5"
+              title={activePaperOption.description}
+            >
+              {BADGE_PAPER_ORDER.map((id) => (
+                <option key={id} value={id} className="text-slate-900 bg-white">
+                  {BADGE_PAPER_OPTIONS[id].label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={() => setIsCustomizeModalOpen(true)}
@@ -387,10 +458,12 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
         <div className="lg:col-span-8 h-full min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-800 border border-black/25 dark:border-stone-700 rounded-xl p-4 gap-3 overflow-hidden">
           <div className="shrink-0 flex items-center justify-between gap-2 pb-2 border-b border-black/15 dark:border-stone-700">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-              Pré-visualização do Crachá ({activeBadgeDims.shortLabel})
+              Pré-visualização do Crachá ({activeBadgeDims.shortLabel} • Frente &amp; Verso)
             </span>
             <span className="text-[11px] font-semibold text-slate-700 dark:text-stone-300">
-              Grade A4 otimizada para corte ({activeBadgeDims.columnsPerA4Row} por linha no A4)
+              {paperSize === 'pvc_card'
+                ? `${activePaperOption.shortLabel} • 1 face por página (Pág. 1 Frente / Pág. 2 Verso)`
+                : `${activePaperOption.shortLabel} • Frente & verso com espaço de recorte (8mm)`}
             </span>
           </div>
 
@@ -406,18 +479,39 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="flex flex-wrap items-start justify-center sm:justify-start gap-5 p-2">
+              <div className="flex flex-col items-center sm:items-start gap-6 p-2">
                 {selectedEntries.map(({ employee, regNumber }) => (
-                  <div key={`preview_${employee.id}`} className="flex flex-col items-center gap-1.5">
-                    <EmployeeBadgeCard
-                      employee={employee}
-                      registrationNumber={regNumber}
-                      companyName={companyDisplayName}
-                      companyLogoUrl={companyProfile?.logoUrl}
-                      theme={badgeTheme}
-                    />
-                    <span className="text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide">
-                      REG {regNumber} • {activeBadgeDims.shortLabel}
+                  <div
+                    key={`preview_${employee.id}`}
+                    className="flex flex-col items-center gap-1.5 bg-white/60 dark:bg-stone-900/50 border border-black/15 dark:border-stone-700 rounded-xl p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-center gap-3">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-300">
+                          Frente
+                        </span>
+                        <EmployeeBadgeCard
+                          employee={employee}
+                          registrationNumber={regNumber}
+                          companyName={companyDisplayName}
+                          companyLogoUrl={companyProfile?.logoUrl}
+                          theme={badgeTheme}
+                        />
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-stone-300">
+                          Verso
+                        </span>
+                        <EmployeeBadgeBackCard
+                          employee={employee}
+                          companyName={companyDisplayName}
+                          companyProfile={companyProfile}
+                          theme={badgeTheme}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-stone-300 uppercase tracking-wide mt-0.5">
+                      REG {regNumber} • {activeBadgeDims.shortLabel} (Frente &amp; Verso)
                     </span>
                   </div>
                 ))}
@@ -436,6 +530,7 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
         previewRegistrationNumber={previewTarget?.regNumber || '09101'}
         companyName={companyDisplayName}
         companyLogoUrl={companyProfile?.logoUrl}
+        companyProfile={companyProfile}
       />
     </div>
   );
