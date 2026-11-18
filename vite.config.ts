@@ -43,6 +43,7 @@ export default defineConfig(() => {
               req.headers['accept']?.includes('text/javascript');
             if (isScript) {
               res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+              res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
             } else if (cleanUrl.endsWith('.wasm')) {
               res.setHeader('Content-Type', 'application/wasm');
             }

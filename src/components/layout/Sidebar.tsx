@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Sprout,
-  Bell,
   Sun,
   Moon,
   Lock,
@@ -651,19 +650,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Navigation Section Header: Título MENU PRINCIPAL com botão interativo Home */}
           {isCollapsed ? (
             <div className="py-1 px-1 flex flex-col items-center justify-center gap-1 border-b border-slate-300/60 dark:border-stone-700/60">
-              {/* Notificações / Sininho */}
-              {isModuleEnabledForSubscriber('rh', subscriberModulesConfig) && (
-                <button
-                  type="button"
-                  onClick={() => handleSelect('funcionarios')}
-                  title="NOTIFICAÇÕES E AVISOS DE CNH"
-                  className="relative p-1 rounded-md text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
-                >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                </button>
-              )}
-
               {/* Alternar Tema Claro / Escuro */}
               {setIsDarkMode && (
                 <button
@@ -695,19 +681,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
 
               <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
-                {/* Notificações / Sininho */}
-                {isModuleEnabledForSubscriber('rh', subscriberModulesConfig) && (
-                  <button
-                    type="button"
-                    onClick={() => handleSelect('funcionarios')}
-                    title="NOTIFICAÇÕES E AVISOS DE CNH"
-                    className="relative p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
-                  >
-                    <Bell className="w-4 h-4" />
-                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                  </button>
-                )}
-
                 {/* Alternar Tema Claro / Escuro */}
                 {setIsDarkMode && (
                   <button
