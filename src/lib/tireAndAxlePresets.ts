@@ -560,7 +560,7 @@ export function generateDefaultTiresForAxleConfig(
       const initialTread = isFront ? 14.5 : 13.0;
 
       tires.push({
-        id: `tire_${plateOrName.replace(/\W/g, '').toLowerCase()}_${pos}_${Date.now()}_${index}`,
+        id: `tire_${String(plateOrName.replace(/\W/g, '') ?? '').toLowerCase()}_${pos}_${Date.now()}_${index}`,
         position: pos,
         positionName: getPositionReadableLabel(pos),
         fireNumber: `${plateOrName.slice(0, 3).toUpperCase() || 'P'}-${100 + index}`,

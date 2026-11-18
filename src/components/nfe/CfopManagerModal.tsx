@@ -76,7 +76,7 @@ export const CfopManagerModal: React.FC<CfopManagerModalProps> = ({
   }, [isOpen, initialScopeFilter, initialTipoFilter]);
 
   const filteredCatalog = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     return catalog.filter((item) => {
       if (scopeFilter === 'estadual' && !item.codigo.startsWith('1') && !item.codigo.startsWith('5')) {
         return false;
@@ -93,9 +93,9 @@ export const CfopManagerModal: React.FC<CfopManagerModalProps> = ({
       if (tipoFilter !== 'all' && item.tipo !== tipoFilter) return false;
       if (!q) return true;
       return (
-        item.codigo.toLowerCase().includes(q) ||
-        item.descricao.toLowerCase().includes(q) ||
-        CFOP_TIPO_LABELS[item.tipo].toLowerCase().includes(q)
+        String(item.codigo ?? '').toLowerCase().includes(q) ||
+        String(item.descricao ?? '').toLowerCase().includes(q) ||
+        String(CFOP_TIPO_LABELS[item.tipo] ?? '').toLowerCase().includes(q)
       );
     });
   }, [catalog, scopeFilter, tipoFilter, searchTerm]);

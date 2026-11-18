@@ -45,7 +45,7 @@ export function emv(id: string, value: string): string {
  */
 export function findEmployeeFromStorage(idOrNameOrCpf?: string): Employee | null {
   if (!idOrNameOrCpf) return null;
-  const search = idOrNameOrCpf.trim().toLowerCase();
+  const search = String(idOrNameOrCpf ?? '').trim().toLowerCase();
   const searchDigits = idOrNameOrCpf.replace(/\D/g, '');
 
   const searchInList = (list: any[]): Employee | null => {
@@ -54,7 +54,7 @@ export function findEmployeeFromStorage(idOrNameOrCpf?: string): Employee | null
       list.find(
         e =>
           (e.id && String(e.id) === idOrNameOrCpf) ||
-          (e.name && e.name.toLowerCase() === search) ||
+          (e.name && String(e.name ?? '').toLowerCase() === search) ||
           (searchDigits.length >= 10 && e.cpf && e.cpf.replace(/\D/g, '') === searchDigits)
       ) || null
     );
@@ -100,7 +100,7 @@ export function normalizePixKeyForBacen(key: string, keyType?: string): string {
 
   // Se for email
   if (raw.includes('@') || keyType?.toUpperCase().includes('MAIL')) {
-    return raw.trim().toLowerCase();
+    return String(raw ?? '').trim().toLowerCase();
   }
 
   // Se for chave aleatória UUID
@@ -208,13 +208,13 @@ export function getEmployeePixKey(emp?: Partial<Employee> | null): string {
     'safra', 'banco safra', 'btg', 'original', 'pagbank', 'mercado pago'
   ];
 
-  if (bankPixKey && !knownBanks.includes(bankPixKey.toLowerCase())) {
+  if (bankPixKey && !knownBanks.includes(String(bankPixKey ?? '').toLowerCase())) {
     return bankPixKey.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
   }
 
   // 4. Se Forma de Recebimento ou Local de Recebimento contiver "PIX", fallback para o CPF ou Celular do colaborador
-  const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').toLowerCase();
-  if (paymentLoc.includes('pix') || bankPixKey.toLowerCase().includes('pix')) {
+  const paymentLoc = String((emp.paymentLocation || (emp as any).local_recebimento) ?? '').toLowerCase();
+  if (paymentLoc.includes('pix') || String(bankPixKey ?? '').toLowerCase().includes('pix')) {
     if (emp.cpf) {
       const cleanCpf = emp.cpf.replace(/\D/g, '');
       if (cleanCpf.length === 11) return cleanCpf;

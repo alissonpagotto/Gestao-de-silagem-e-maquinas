@@ -62,8 +62,8 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
 
   const filteredCategories = [...categories]
     .filter(cat => 
-      cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (cat.description && cat.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      String(cat.name ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+      (cat.description && String(cat.description ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()))
     )
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
 
@@ -102,7 +102,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
 
     // Check for duplicated name
     const exists = categories.some(
-      c => c.name.trim().toLowerCase() === name.trim().toLowerCase() && c.id !== editingId
+      c => String(c.name ?? '').trim().toLowerCase() === String(name ?? '').trim().toLowerCase() && c.id !== editingId
     );
     if (exists) {
       setFormError('Já existe um subgrupo cadastrado com este nome.');

@@ -168,12 +168,12 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
     return machineries.find(m => {
       // Check direct single or comma-separated operatorOrDriver string
       if (m.operatorOrDriver) {
-        const parts = m.operatorOrDriver.split(',').map(s => s.trim().toLowerCase());
+        const parts = m.operatorOrDriver.split(',').map(s => String(s ?? '').trim().toLowerCase());
         if (parts.includes(driverNameLower)) return true;
       }
       // Check structured assignedDrivers array if available
       if (m.assignedDrivers && Array.isArray(m.assignedDrivers)) {
-        if (m.assignedDrivers.some((d: any) => (typeof d === 'object' ? d?.id === driver.id || String(d?.name || '').trim().toLowerCase() === driverNameLower : String(d).trim().toLowerCase() === driverNameLower))) {
+        if (m.assignedDrivers.some((d: any) => (typeof d === 'object' ? d?.id === driver.id || String(d?.name || '').trim().toLowerCase() === driverNameLower : String(d ?? '').trim().toLowerCase() === driverNameLower))) {
           return true;
         }
       }
@@ -190,7 +190,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
     machineries.forEach(m => {
       if (m.operatorOrDriver) {
         m.operatorOrDriver.split(',').forEach(namePart => {
-          const trimmed = namePart.trim().toLowerCase();
+          const trimmed = String(namePart ?? '').trim().toLowerCase();
           if (trimmed) linkedEmployeeNames.add(trimmed);
         });
       }
@@ -198,19 +198,19 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         m.assignedDrivers.forEach((d: any) => {
           if (typeof d === 'object' && d !== null) {
             if (d.id) linkedEmployeeIds.add(d.id);
-            if (d.name) linkedEmployeeNames.add(d.name.trim().toLowerCase());
+            if (d.name) linkedEmployeeNames.add(String(d.name ?? '').trim().toLowerCase());
           } else if (typeof d === 'string') {
-            linkedEmployeeNames.add(d.trim().toLowerCase());
+            linkedEmployeeNames.add(String(d ?? '').trim().toLowerCase());
           }
         });
       }
     });
 
     return allDriversMerged.filter(e => {
-      const roleLower = (e.role || '').toLowerCase();
+      const roleLower = String(e.role ?? '').toLowerCase();
       const isLinkedToVehicle = 
         linkedEmployeeIds.has(e.id) || 
-        linkedEmployeeNames.has(e.name.trim().toLowerCase());
+        linkedEmployeeNames.has(String(e.name ?? '').trim().toLowerCase());
 
       const isDriverOrOperatorRole = 
         roleLower.includes('motorista') || 
@@ -227,8 +227,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       const isConductorOrOperator = isDriverOrOperatorRole || isLinkedToVehicle;
 
       const matchSearch =
-        String(e.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (e.role && String(e.role).toLowerCase().includes(searchTerm.toLowerCase())) ||
+        String(e.name || '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        (e.role && String(e.role ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
         (e.cnhNumber && String(e.cnhNumber).includes(searchTerm)) ||
         String(e.phone || '').includes(searchTerm);
 
@@ -268,7 +268,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
     setCnhExpiration(driver.cnhExpiration || '');
     // Find assigned vehicle
     const driverNameLower = String(driver.name || '').trim().toLowerCase();
-    const vehicle = machineries.find(m => (m.operatorOrDriver || '').trim().toLowerCase() === driverNameLower);
+    const vehicle = machineries.find(m => String(m.operatorOrDriver ?? '').trim().toLowerCase() === driverNameLower);
     setAssignedVehicle(vehicle?.id || '');
     setStatus(driver.status);
     setIsModalOpen(true);
@@ -662,7 +662,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                     const isExpired = cnhReport.expired.some(e => e.id === driver.id);
                     const isExpiring = cnhReport.expiringSoon.some(e => e.id === driver.id);
                     const dName = String(driver.name || '').trim().toLowerCase();
-                    const assignedTruck = machineries.find(m => (m.operatorOrDriver || '').trim().toLowerCase() === dName);
+                    const assignedTruck = machineries.find(m => String(m.operatorOrDriver ?? '').trim().toLowerCase() === dName);
 
                     return (
                       <tr
@@ -800,7 +800,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           const isExpired = cnhReport.expired.some(e => e.id === driver.id);
           const isExpiring = cnhReport.expiringSoon.some(e => e.id === driver.id);
           const dNameCard = String(driver.name || '').trim().toLowerCase();
-          const assignedTruck = machineries.find(m => (m.operatorOrDriver || '').trim().toLowerCase() === dNameCard);
+          const assignedTruck = machineries.find(m => String(m.operatorOrDriver ?? '').trim().toLowerCase() === dNameCard);
 
           return (
             <div

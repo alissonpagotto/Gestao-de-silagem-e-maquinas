@@ -69,13 +69,13 @@ export const PlacasTerceirosManagerModal: React.FC<PlacasTerceirosManagerModalPr
 
   const filteredItems = items.filter((it) => {
     if (!searchTerm.trim()) return true;
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     return (
-      it.placa.toLowerCase().includes(q) ||
-      (it.uf || '').toLowerCase().includes(q) ||
-      (it.transportadoraNome || '').toLowerCase().includes(q) ||
-      (it.modeloVeiculo || '').toLowerCase().includes(q) ||
-      (it.motoristaNome || '').toLowerCase().includes(q)
+      String(it.placa ?? '').toLowerCase().includes(q) ||
+      String(it.uf ?? '').toLowerCase().includes(q) ||
+      String(it.transportadoraNome ?? '').toLowerCase().includes(q) ||
+      String(it.modeloVeiculo ?? '').toLowerCase().includes(q) ||
+      String(it.motoristaNome ?? '').toLowerCase().includes(q)
     );
   });
 

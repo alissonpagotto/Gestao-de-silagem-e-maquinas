@@ -8,7 +8,7 @@ import { useResolvedMediaUrl } from '../../lib/imageStorage';
  */
 export function isBrokenAvatarUrl(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return true;
-  const trimmed = url.trim().toLowerCase();
+  const trimmed = String(url ?? '').trim().toLowerCase();
   if (
     !trimmed ||
     trimmed === 'null' ||

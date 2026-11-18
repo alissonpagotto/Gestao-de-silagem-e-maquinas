@@ -331,7 +331,7 @@ class OfflineQueryBuilder {
       if (column === 'company_id' || column === 'companyId' || column === 'user_id' || column === 'userId') {
         const val = row[column] ?? row['company_id'] ?? row['companyId'] ?? row['user_id'] ?? row['userId'];
         if (val === undefined || val === null || val === '') return true;
-        return String(val).toLowerCase() === String(value ?? '').toLowerCase();
+        return String(val ?? '').toLowerCase() === String(value ?? '').toLowerCase();
       }
       const val = row[column];
       return String(val ?? '').toLowerCase() === String(value ?? '').toLowerCase();
@@ -410,7 +410,7 @@ class OfflineQueryBuilder {
   }
 
   in(column: string, values: any[]) {
-    const set = new Set((values || []).map(v => String(v).toLowerCase()));
+    const set = new Set((values || []).map(v => String(v ?? '').toLowerCase()));
     this.filters.push((row) => set.has(String(row[column] ?? '').toLowerCase()));
     return this;
   }

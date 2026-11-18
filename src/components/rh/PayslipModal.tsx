@@ -337,9 +337,9 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   const thirteenth1stFromItems = allDeductions.filter(d =>
     d.verbaCode === '505' ||
     d.type?.includes('13') ||
-    d.description?.toLowerCase().includes('1ª parcela') ||
-    d.description?.toLowerCase().includes('13°') ||
-    d.description?.toLowerCase().includes('13º')
+    String(d.description ?? '').toLowerCase().includes('1ª parcela') ||
+    String(d.description ?? '').toLowerCase().includes('13°') ||
+    String(d.description ?? '').toLowerCase().includes('13º')
   );
   const thirteenth1stItemsAmount = thirteenth1stFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
   const totalThirteenth1stAmount = thirteenth1stItemsAmount > 0
@@ -349,7 +349,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   // Faltas (Rubrica 501 - FALTAS INTEGRADAS (DIAS))
   const faltasFromItems = allDeductions.filter(d => 
     !thirteenth1stFromItems.includes(d) &&
-    (d.verbaCode === '501' || d.type === 'Falta / Atraso' || d.description?.toLowerCase().includes('falta') || d.description?.toLowerCase().includes('dias anteriores'))
+    (d.verbaCode === '501' || d.type === 'Falta / Atraso' || String(d.description ?? '').toLowerCase().includes('falta') || String(d.description ?? '').toLowerCase().includes('dias anteriores'))
   );
   const faltasItemsAmount = faltasFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
   const faltasAbsencesAmount = resolvedPayrollType === 'monthly'
@@ -382,7 +382,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   const valesFromItems = allDeductions.filter(d => 
     !thirteenth1stFromItems.includes(d) &&
     !faltasFromItems.includes(d) &&
-    (d.verbaCode === '502' || d.verbaCode === '110' || d.type === 'Vale / Adiantamento' || d.description?.toLowerCase().includes('vale') || d.description?.toLowerCase().includes('adiantamento'))
+    (d.verbaCode === '502' || d.verbaCode === '110' || d.type === 'Vale / Adiantamento' || String(d.description ?? '').toLowerCase().includes('vale') || String(d.description ?? '').toLowerCase().includes('adiantamento'))
   );
   const valesItemsAmount = valesFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
   const totalValesAmount = valesItemsAmount > 0 ? valesItemsAmount : (payroll.advancesDiscount || (resolvedPayrollType === 'monthly' ? resolvedAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0) : 0));
@@ -392,7 +392,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
     !thirteenth1stFromItems.includes(d) &&
     !faltasFromItems.includes(d) &&
     !valesFromItems.includes(d) &&
-    (d.verbaCode === '503' || d.type === 'Peças / Oficina' || d.type?.toLowerCase().includes('avaria') || d.type?.toLowerCase().includes('equipamento') || d.description?.toLowerCase().includes('peça') || d.description?.toLowerCase().includes('peca') || d.description?.toLowerCase().includes('avaria') || d.description?.toLowerCase().includes('equipamento'))
+    (d.verbaCode === '503' || d.type === 'Peças / Oficina' || String(d.type ?? '').toLowerCase().includes('avaria') || String(d.type ?? '').toLowerCase().includes('equipamento') || String(d.description ?? '').toLowerCase().includes('peça') || String(d.description ?? '').toLowerCase().includes('peca') || String(d.description ?? '').toLowerCase().includes('avaria') || String(d.description ?? '').toLowerCase().includes('equipamento'))
   );
   const totalAvariasAmount = avariasFromItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 

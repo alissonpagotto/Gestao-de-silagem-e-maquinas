@@ -198,9 +198,9 @@ export const WorkSchedulesManager: React.FC<WorkSchedulesManagerProps> = ({
     if (!confirmed) return;
 
     const existingIds = new Set(schedules.map((s) => s.id));
-    const existingNames = new Set(schedules.map((s) => s.name.trim().toLowerCase()));
+    const existingNames = new Set(schedules.map((s) => String(s.name ?? '').trim().toLowerCase()));
     const missingDefaults = DEFAULT_WORK_SCHEDULES.filter(
-      (def) => !existingIds.has(def.id) && !existingNames.has(def.name.trim().toLowerCase())
+      (def) => !existingIds.has(def.id) && !existingNames.has(String(def.name ?? '').trim().toLowerCase())
     );
     const merged = [...schedules, ...missingDefaults];
     saveStoredWorkSchedules(merged);

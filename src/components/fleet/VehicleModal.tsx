@@ -156,14 +156,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [trailerAxlesCount, setTrailerAxlesCount] = useState('');
 
   const isReboqueCategory = useMemo(() => {
-    const norm = (categoryType || '').trim().toLowerCase();
+    const norm = String(categoryType ?? '').trim().toLowerCase();
     return norm === 'reboque' || norm.includes('reboque') || norm.includes('carreta');
   }, [categoryType]);
 
   // Validação Estrita de Número de Frota (Proibido Repetir):
   // O sistema verifica se o número digitado já existe no banco de dados para outro veículo ativo.
   const isFleetNumberDuplicate = useMemo(() => {
-    const trimmed = fleetNumber.trim().toLowerCase();
+    const trimmed = String(fleetNumber ?? '').trim().toLowerCase();
     if (!trimmed) return false;
     const allVehicles = machineries && machineries.length > 0 ? machineries : getStoredMachineries();
     return allVehicles.some((m) => {
@@ -171,7 +171,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       if (editingVehicle && m.id === editingVehicle.id) return false;
       // Ignora veículos com status inativo
       if ((m as any).status === 'inativo') return false;
-      const otherFleet = (m.fleetNumber || '').trim().toLowerCase();
+      const otherFleet = String(m.fleetNumber ?? '').trim().toLowerCase();
       return otherFleet === trimmed;
     });
   }, [fleetNumber, machineries, editingVehicle]);
@@ -201,7 +201,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         .filter((v, i, a) => a.indexOf(v) === i)
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
       setCategoriesList(sortedCats);
-      if (!editingVehicle && sortedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType.toLowerCase().includes('ensiladeira') || categoryType.toLowerCase() === 'veiculo')) {
+      if (!editingVehicle && sortedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || String(categoryType ?? '').toLowerCase().includes('ensiladeira') || String(categoryType ?? '').toLowerCase() === 'veiculo')) {
         const defaultMatch = sortedCats.find(c => c.includes('ENSILADEIRA')) || sortedCats[0];
         setCategoryType(defaultMatch);
       }
@@ -721,7 +721,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const numInstallmentVal = desformatarMoeda(installmentValue);
 
     const rawCat = (categoryType || editingVehicle?.categoryType || editingVehicle?.tipo || '').trim();
-    const finalCategoryType = (rawCat && rawCat.toLowerCase() !== 'veiculo') ? rawCat : (categoriesList[0] || 'Caminhão (Basculante / Graneleiro)');
+    const finalCategoryType = (rawCat && String(rawCat ?? '').toLowerCase() !== 'veiculo') ? rawCat : (categoriesList[0] || 'Caminhão (Basculante / Graneleiro)');
     const computedNome = (formattedModel || finalCategoryType || formattedName || 'Veículo').trim();
     const computedTipoModelo = `${finalCategoryType} - ${formattedModel}`;
     const activeCompanyId = getActiveCompanyId();
@@ -920,8 +920,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         (editingVehicle as any).type ||
         ''
       ).trim();
-      const mappedEditCat = (categoryMap[rawEditCat.toLowerCase()] || rawEditCat).toUpperCase();
-      const safeEditCat = mappedEditCat && mappedEditCat.toLowerCase() !== 'veiculo' ? mappedEditCat : (categoriesList[0] || 'ENSILADEIRA AUTOPROPELIDA');
+      const mappedEditCat = (categoryMap[String(rawEditCat ?? '').toLowerCase()] || rawEditCat).toUpperCase();
+      const safeEditCat = mappedEditCat && String(mappedEditCat ?? '').toLowerCase() !== 'veiculo' ? mappedEditCat : (categoriesList[0] || 'ENSILADEIRA AUTOPROPELIDA');
       setCategoryType(safeEditCat);
       setStatus(editingVehicle.status || 'disponivel');
       const ownershipMap: Record<string, string> = {
@@ -980,7 +980,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setTrailerAxlesCount(editingVehicle.trailerAxlesCount !== undefined ? String(editingVehicle.trailerAxlesCount) : '');
 
       // Se for da categoria Reboque, desativa vínculo de reboque acoplado
-      const isReboqueEdit = (editingVehicle.categoryType || '').trim().toLowerCase() === 'reboque' || (editingVehicle.categoryType || '').trim().toLowerCase() === 'transbordo / reboque / carreta';
+      const isReboqueEdit = String(editingVehicle.categoryType ?? '').trim().toLowerCase() === 'reboque' || String(editingVehicle.categoryType ?? '').trim().toLowerCase() === 'transbordo / reboque / carreta';
       if (isReboqueEdit) {
         setHasCoupledTrailer(false);
         setReboquesVinculados([]);
@@ -1615,7 +1615,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
     const activeCompanyId = getActiveCompanyId();
     const rawCat = (categoryType || editingVehicle?.categoryType || editingVehicle?.tipo || '').trim();
-    const finalCategoryType = (rawCat && rawCat.toLowerCase() !== 'veiculo') ? rawCat : (categoriesList[0] || 'Caminhão (Basculante / Graneleiro)');
+    const finalCategoryType = (rawCat && String(rawCat ?? '').toLowerCase() !== 'veiculo') ? rawCat : (categoriesList[0] || 'Caminhão (Basculante / Graneleiro)');
     const computedTipoModelo = `${finalCategoryType} - ${formattedModel}`;
 
     const vehicleData: Machinery = {
@@ -2118,7 +2118,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         } else {
                           const val = e.target.value.toUpperCase();
                           setCategoryType(val);
-                          const isNowReboque = val.trim().toLowerCase() === 'reboque' || val.trim().toLowerCase().includes('reboque') || val.trim().toLowerCase().includes('carreta');
+                          const isNowReboque = String(val ?? '').trim().toLowerCase() === 'reboque' || String(val ?? '').trim().toLowerCase().includes('reboque') || String(val ?? '').trim().toLowerCase().includes('carreta');
                           if (isNowReboque) {
                             setHasCoupledTrailer(false);
                             setCompositionType('reboque');
@@ -2308,7 +2308,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         <div className="flex items-center flex-wrap gap-1 pt-0.5">
                           <span className="text-[10px] font-semibold text-black/65 mr-0.5">Sugestões:</span>
                           {['Prancha', 'Baú', 'Graneleiro', 'Basculante', 'Sider'].map((tipo) => {
-                            const isSelected = trailerType.trim().toLowerCase() === tipo.toLowerCase();
+                            const isSelected = String(trailerType ?? '').trim().toLowerCase() === String(tipo ?? '').toLowerCase();
                             return (
                               <button
                                 key={tipo}

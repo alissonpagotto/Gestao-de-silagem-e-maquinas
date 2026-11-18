@@ -16,10 +16,9 @@ const BRAZILIAN_STATES = [
 const NO_BAIRRO_KEY = '__SEM_BAIRRO__';
 
 function normalizeSearchText(text: string): string {
-  return (text || '')
+  return String((text || '')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, '') ?? '').toLowerCase()
     .trim();
 }
 

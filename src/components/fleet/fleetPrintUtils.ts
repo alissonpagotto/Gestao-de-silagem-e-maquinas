@@ -36,8 +36,8 @@ export function generateFleetListHtml(
 
   // Summary Metrics
   const totalVehicles = machineries.length;
-  const propriosCount = machineries.filter(m => !m.ownership || m.ownership === 'proprio' || m.ownership.toLowerCase().includes('próprio') || m.ownership.toLowerCase().includes('proprio')).length;
-  const terceirosCount = machineries.filter(m => m.ownership && (m.ownership === 'terceirizado' || m.ownership.toLowerCase().includes('terceir'))).length;
+  const propriosCount = machineries.filter(m => !m.ownership || m.ownership === 'proprio' || String(m.ownership ?? '').toLowerCase().includes('próprio') || String(m.ownership ?? '').toLowerCase().includes('proprio')).length;
+  const terceirosCount = machineries.filter(m => m.ownership && (m.ownership === 'terceirizado' || String(m.ownership ?? '').toLowerCase().includes('terceir'))).length;
   const operacionaisCount = machineries.filter(m => m.status === 'operacional').length;
   const emManutencaoCount = machineries.filter(m => m.status === 'em_manutencao').length;
   const cavalosCount = machineries.filter(m => m.compositionType === 'cavalo').length;

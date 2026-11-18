@@ -187,11 +187,11 @@ export const MdfeView: React.FC<MdfeViewProps> = ({
     return competenceManifestos.filter(m => {
       const matchSearch = 
         m.numero.includes(searchTerm) ||
-        m.chaveAcesso.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.veiculoPlaca.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.motoristaNome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.municipiosCarregamento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.municipiosDescarregamento.toLowerCase().includes(searchTerm.toLowerCase());
+        String(m.chaveAcesso ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(m.veiculoPlaca ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(m.motoristaNome ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(m.municipiosCarregamento ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(m.municipiosDescarregamento ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase());
       
       const matchStatus = statusFilter === 'TODOS' || m.status === statusFilter;
       return matchSearch && matchStatus;

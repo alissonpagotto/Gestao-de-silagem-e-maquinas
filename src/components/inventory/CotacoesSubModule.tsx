@@ -472,7 +472,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
   // Filtro preditivo para o autocomplete
   const filteredProducts = useMemo(() => {
-    const term = searchProductText.trim().toLowerCase();
+    const term = String(searchProductText ?? '').trim().toLowerCase();
     if (!term) return [];
     return availableProducts.filter(p => {
       const name = String(p.nome_comercial || p.name || '').toLowerCase();
@@ -620,7 +620,7 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
   // Filtragem dos itens cotados por termo de busca no cabeçalho
   const displayedItems = useMemo(() => {
-    const s = searchTerm.toLowerCase().trim();
+    const s = String(searchTerm ?? '').toLowerCase().trim();
     if (!s) return quotedItems;
     return quotedItems.filter(item => {
       const name = String(item.name || '').toLowerCase();
@@ -846,12 +846,12 @@ export const CotacoesSubModule: React.FC<CotacoesSubModuleProps> = ({
 
   // Filtro de cotações dentro do modal de histórico
   const filteredHistory = useMemo(() => {
-    const s = historySearchTerm.trim().toLowerCase();
+    const s = String(historySearchTerm ?? '').trim().toLowerCase();
     if (!s) return historicoCotacoes;
     return historicoCotacoes.filter(c => {
       const n = String(c.nome || '').toLowerCase();
       const d = String(c.data || '').toLowerCase();
-      const f = c.fornecedores.join(' ').toLowerCase();
+      const f = String(c.fornecedores.join(' ') ?? '').toLowerCase();
       return n.includes(s) || d.includes(s) || f.includes(s);
     });
   }, [historicoCotacoes, historySearchTerm]);

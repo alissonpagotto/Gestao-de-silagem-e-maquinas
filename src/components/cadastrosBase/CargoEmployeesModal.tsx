@@ -33,7 +33,7 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
   const linkedEmployees = useMemo(() => {
     if (!cargo) return [];
 
-    const cargoNomeLower = cargo.nome.trim().toLowerCase();
+    const cargoNomeLower = String(cargo.nome ?? '').trim().toLowerCase();
     const cargoId = cargo.id;
 
     return employees.filter(emp => {
@@ -41,16 +41,16 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
       if (emp.cargoId && emp.cargoId === cargoId) return true;
 
       // 2. Vínculo por nome do cargo principal
-      const primaryRole = (emp.role || '').trim().toLowerCase();
+      const primaryRole = String(emp.role ?? '').trim().toLowerCase();
       if (primaryRole === cargoNomeLower) return true;
 
       // 3. Vínculo em roles array (multi-cargo)
-      if (Array.isArray(emp.roles) && emp.roles.some(r => r.trim().toLowerCase() === cargoNomeLower)) {
+      if (Array.isArray(emp.roles) && emp.roles.some(r => String(r ?? '').trim().toLowerCase() === cargoNomeLower)) {
         return true;
       }
 
       // 4. Vínculo por cargo secundário
-      const secRole = ((emp as any).secondaryRole || (emp as any).cargoSecundario || (emp as any).role2 || '').trim().toLowerCase();
+      const secRole = String(((emp as any).secondaryRole || (emp as any).cargoSecundario || (emp as any).role2) ?? '').trim().toLowerCase();
       if (secRole === cargoNomeLower) return true;
 
       return false;
@@ -59,13 +59,13 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
 
   // Filtro por nome ou matrícula/CPF
   const filteredList = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     if (!term) return linkedEmployees;
 
     return linkedEmployees.filter(emp => 
-      emp.name.toLowerCase().includes(term) ||
+      String(emp.name ?? '').toLowerCase().includes(term) ||
       (emp.cpf && emp.cpf.includes(term)) ||
-      (emp.registrationType && emp.registrationType.toLowerCase().includes(term))
+      (emp.registrationType && String(emp.registrationType ?? '').toLowerCase().includes(term))
     );
   }, [linkedEmployees, searchTerm]);
 
@@ -142,7 +142,7 @@ export const CargoEmployeesModal: React.FC<CargoEmployeesModalProps> = ({
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2.5 bg-[#cad4e6]">
           {filteredList.length > 0 ? (
             filteredList.map((emp) => {
-              const isPrimary = (emp.role || '').trim().toLowerCase() === cargo.nome.trim().toLowerCase();
+              const isPrimary = String(emp.role ?? '').trim().toLowerCase() === String(cargo.nome ?? '').trim().toLowerCase();
               const photo = emp.photoUrl || (emp as any).foto_url;
               const initials = emp.name
                 .split(' ')

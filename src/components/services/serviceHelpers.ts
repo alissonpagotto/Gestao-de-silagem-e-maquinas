@@ -135,7 +135,7 @@ export const findLinkedOperator = (m: Machinery | undefined | null, employees: E
     for (const dName of m.assignedDrivers) {
       if (dName && typeof dName === 'string' && dName.trim()) {
         const cleanName = String(dName ?? '').trim();
-        const emp = employees.find((e) => String(e?.name ?? '').toLowerCase() === cleanName.toLowerCase());
+        const emp = employees.find((e) => String(e?.name ?? '').toLowerCase() === String(cleanName ?? '').toLowerCase());
         if (emp) return { id: emp.id, name: emp.name };
         return { id: '', name: cleanName };
       }

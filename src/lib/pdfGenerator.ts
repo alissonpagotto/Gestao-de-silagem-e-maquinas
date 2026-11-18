@@ -15,8 +15,7 @@ export async function generatePdfFromElement(
   element: HTMLElement,
   options?: GeneratePdfOptions
 ): Promise<{ blob: Blob; file: File; dataUrl: string; filename: string }> {
-  const filename = (options?.filename || options?.title || 'documento_silagem_facil')
-    .toLowerCase()
+  const filename = String((options?.filename || options?.title || 'documento_silagem_facil') ?? '').toLowerCase()
     .replace(/[^a-z0-9]/gi, '_')
     .replace(/_+/g, '_') + '.pdf';
 

@@ -250,9 +250,9 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       vehicle.assignedDriverIds.forEach((id) => idSet.add(id));
     }
     if (vehicle.operatorOrDriver) {
-      const names = vehicle.operatorOrDriver.split(',').map((s) => s.trim().toLowerCase());
+      const names = vehicle.operatorOrDriver.split(',').map((s) => String(s ?? '').trim().toLowerCase());
       employees
-        .filter((emp) => names.includes(emp.name.toLowerCase()))
+        .filter((emp) => names.includes(String(emp.name ?? '').toLowerCase()))
         .forEach((emp) => idSet.add(emp.id));
     }
     employees
@@ -329,8 +329,8 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
   // --- 4. Driver Expenses Breakdown (Alimentação, Salários, Rescisão, Diárias, etc.) ---
   const vehicleDriverExpenses = useMemo(() => {
-    const plateClean = (vehicle.licensePlateOrSerial || '').toLowerCase().trim();
-    const modelClean = (vehicle.model || vehicle.name || '').toLowerCase().trim();
+    const plateClean = String(vehicle.licensePlateOrSerial ?? '').toLowerCase().trim();
+    const modelClean = String((vehicle.model || vehicle.name) ?? '').toLowerCase().trim();
 
     return localExpenses.filter((exp) => {
       // Rateio proporcional ou individual explícito por funcionários
@@ -343,8 +343,8 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
 
       // Direct machineryId match
       if (exp.machineryId === vehicle.id) {
-        const cat = (exp.categoryName || exp.categoryId || '').toLowerCase();
-        const desc = (exp.description || '').toLowerCase();
+        const cat = String((exp.categoryName || exp.categoryId) ?? '').toLowerCase();
+        const desc = String(exp.description ?? '').toLowerCase();
         const isDriverRelated = 
           Boolean(exp.isVacationExpense) ||
           Boolean(exp.dreGrossAmount) ||
@@ -383,9 +383,9 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       }
 
       // If description contains vehicle identification AND driver name
-      const desc = (exp.description || '').toLowerCase();
+      const desc = String(exp.description ?? '').toLowerCase();
       const hasVehicleTag = (plateClean && desc.includes(plateClean)) || (modelClean && desc.includes(modelClean));
-      const hasDriverTag = assignedDriverNames.some((n) => n.length > 2 && desc.includes(n.toLowerCase()));
+      const hasDriverTag = assignedDriverNames.some((n) => n.length > 2 && desc.includes(String(n ?? '').toLowerCase()));
 
       return hasVehicleTag && hasDriverTag;
     }).sort((a, b) => new Date(b.dueDate || b.paymentDate || b.createdAt).getTime() - new Date(a.dueDate || a.paymentDate || a.createdAt).getTime());
@@ -406,7 +406,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     let outros = 0;
 
     vehicleDriverExpenses.forEach((exp) => {
-      const text = `${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`.toLowerCase();
+      const text = String(`${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`).toLowerCase();
       const effectiveAmount = getApportionedAmountForVehicle(exp);
       if (
         exp.isVacationExpense ||
@@ -455,8 +455,8 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
   const vehicleServices = useMemo(() => {
     return services.filter((srv) => {
       if (srv.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && srv.machineryAssigned?.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.model && srv.machineryAssigned?.toLowerCase().includes(vehicle.model.toLowerCase())) return true;
+      if (vehicle.licensePlateOrSerial && String(srv.machineryAssigned ?? '').toLowerCase().includes(String(vehicle.licensePlateOrSerial ?? '').toLowerCase())) return true;
+      if (vehicle.model && String(srv.machineryAssigned ?? '').toLowerCase().includes(String(vehicle.model ?? '').toLowerCase())) return true;
       return false;
     });
   }, [services, vehicle]);
@@ -464,9 +464,9 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
   const vehicleSilageOrders = useMemo(() => {
     return orders.filter((ord) => {
       if (ord.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && ord.machineryPlateOrName?.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.model && ord.machineryPlateOrName?.toLowerCase().includes(vehicle.model.toLowerCase())) return true;
-      if (assignedDriverNames.some((n) => n.length > 2 && ord.driverName?.toLowerCase().includes(n.toLowerCase()))) return true;
+      if (vehicle.licensePlateOrSerial && String(ord.machineryPlateOrName ?? '').toLowerCase().includes(String(vehicle.licensePlateOrSerial ?? '').toLowerCase())) return true;
+      if (vehicle.model && String(ord.machineryPlateOrName ?? '').toLowerCase().includes(String(vehicle.model ?? '').toLowerCase())) return true;
+      if (assignedDriverNames.some((n) => n.length > 2 && String(ord.driverName ?? '').toLowerCase().includes(String(n ?? '').toLowerCase()))) return true;
       return false;
     });
   }, [orders, vehicle, assignedDriverNames]);
@@ -505,8 +505,8 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       .filter((exp) => {
         if (exp.machineryId !== vehicle.id) return false;
         if (driverExpIds.has(exp.id) || (exp.employeeApportionment && exp.employeeApportionment.trim()) || (Array.isArray(exp.employeeApportionmentDetails) && exp.employeeApportionmentDetails.length > 0)) return false;
-        const cat = (exp.categoryName || exp.categoryId || '').toLowerCase();
-        const desc = (exp.description || '').toLowerCase();
+        const cat = String((exp.categoryName || exp.categoryId) ?? '').toLowerCase();
+        const desc = String(exp.description ?? '').toLowerCase();
         // Exclude fuel, maintenance and driver
         const isFuel = cat.includes('combust') || desc.includes('combust') || desc.includes('diesel');
         const isMaint = cat.includes('manut') || desc.includes('manut') || desc.includes('oficina') || desc.includes('peça');

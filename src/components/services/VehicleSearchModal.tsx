@@ -40,7 +40,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
 
   // Filtragem por busca e categoria
   const filteredVehicles = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     return allAvailableVehicles.filter(v => {
       // Categoria
       if (selectedCategory === 'forrageira' && !isForrageira(v)) return false;
@@ -49,11 +49,11 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
 
       if (!term) return true;
 
-      const name = (v.name || '').toLowerCase();
-      const prefix = (v.fleetNumber || '').toLowerCase();
-      const plate = (v.licensePlateOrSerial || v.serialNumber || '').toLowerCase();
-      const model = (v.model || '').toLowerCase();
-      const brand = (v.brand || '').toLowerCase();
+      const name = String(v.name ?? '').toLowerCase();
+      const prefix = String(v.fleetNumber ?? '').toLowerCase();
+      const plate = String((v.licensePlateOrSerial || v.serialNumber) ?? '').toLowerCase();
+      const model = String(v.model ?? '').toLowerCase();
+      const brand = String(v.brand ?? '').toLowerCase();
 
       return name.includes(term) || prefix.includes(term) || plate.includes(term) || model.includes(term) || brand.includes(term);
     });

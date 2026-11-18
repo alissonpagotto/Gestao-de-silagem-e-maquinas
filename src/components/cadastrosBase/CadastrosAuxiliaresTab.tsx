@@ -1148,15 +1148,15 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
   }, [globalPaymentMethods, onNavigateTab, snapshot]);
 
   const filteredCards = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     return cards.filter((card) => {
       if (selectedModule !== 'all' && card.module !== selectedModule) return false;
       if (!q) return true;
       return (
-        card.title.toLowerCase().includes(q) ||
-        card.description.toLowerCase().includes(q) ||
-        card.storageKey.toLowerCase().includes(q) ||
-        card.preview.some((p) => p.toLowerCase().includes(q))
+        String(card.title ?? '').toLowerCase().includes(q) ||
+        String(card.description ?? '').toLowerCase().includes(q) ||
+        String(card.storageKey ?? '').toLowerCase().includes(q) ||
+        card.preview.some((p) => String(p ?? '').toLowerCase().includes(q))
       );
     });
   }, [cards, searchTerm, selectedModule]);
@@ -1176,7 +1176,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
     e.preventDefault();
     const clean = newSubgroupName.trim();
     if (!clean) return;
-    if (activeSubgroupsList.some((s) => s.toLowerCase() === clean.toLowerCase())) return;
+    if (activeSubgroupsList.some((s) => String(s ?? '').toLowerCase() === String(clean ?? '').toLowerCase())) return;
     saveProductSubgroupsList(selectedSubgroupGroup, [...activeSubgroupsList, clean]);
     setNewSubgroupName('');
   };
@@ -1195,13 +1195,12 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
     const label = newKeyLabelText.trim();
     if (!label) return;
     const id =
-      label
-        .toLowerCase()
+      String(label ?? '').toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '') || `item_${Date.now()}`;
-    if (keyLabelModal.items.some((i) => i.id === id || i.label.toLowerCase() === label.toLowerCase())) {
+    if (keyLabelModal.items.some((i) => i.id === id || String(i.label ?? '').toLowerCase() === String(label ?? '').toLowerCase())) {
       return;
     }
     const updated = [...keyLabelModal.items, { id, label }];

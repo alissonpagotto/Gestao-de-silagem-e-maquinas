@@ -135,7 +135,7 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
     // URL base do formulário de campo preservando estritamente a rota, o cargo e o agendamento
     const baseUrl = getBaseAppUrl();
     let cargoParam = 'forrageira';
-    const rLower = (staffMember.role || '').toLowerCase();
+    const rLower = String(staffMember.role ?? '').toLowerCase();
     if (rLower.includes('trator') || rLower.includes('compacta')) {
       cargoParam = 'trator';
     } else if (rLower.includes('caminh') || rLower.includes('motorista') || rLower.includes('transporte')) {

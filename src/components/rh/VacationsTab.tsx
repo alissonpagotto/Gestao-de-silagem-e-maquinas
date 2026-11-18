@@ -363,7 +363,7 @@ function findEmployeeLinkedMachinery(emp: Employee | null | undefined, machineri
   const empNameLower = String(emp.name || '').trim().toLowerCase();
   const empFirstName = empNameLower.split(/\s+/)[0] || '';
   // Normaliza variações de grafia (ex: "casssiano" -> "cassiano")
-  const normalizeNameToken = (s: string) => s.toLowerCase().replace(/s{2,}/g, 's').trim();
+  const normalizeNameToken = (s: string) => String(s ?? '').toLowerCase().replace(/s{2,}/g, 's').trim();
   const empFirstNorm = normalizeNameToken(empFirstName);
 
   // 1. Vínculo explícito gravado no cadastro do funcionário
@@ -379,9 +379,9 @@ function findEmployeeLinkedMachinery(emp: Employee | null | undefined, machineri
   if (explicitMachName) {
     const byName = machineries.find(
       (m) =>
-        (m.name && m.name.toLowerCase().includes(explicitMachName)) ||
-        (m.model && m.model.toLowerCase().includes(explicitMachName)) ||
-        (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(explicitMachName))
+        (m.name && String(m.name ?? '').toLowerCase().includes(explicitMachName)) ||
+        (m.model && String(m.model ?? '').toLowerCase().includes(explicitMachName)) ||
+        (m.licensePlateOrSerial && String(m.licensePlateOrSerial ?? '').toLowerCase().includes(explicitMachName))
     );
     if (byName) return byName;
   }
@@ -395,7 +395,7 @@ function findEmployeeLinkedMachinery(emp: Employee | null | undefined, machineri
       return true;
     }
     if (m.operatorOrDriver) {
-      const parts = m.operatorOrDriver.split(',').map((s) => s.trim().toLowerCase());
+      const parts = m.operatorOrDriver.split(',').map((s) => String(s ?? '').trim().toLowerCase());
       if (
         parts.includes(empNameLower) ||
         (empFirstNorm.length >= 3 && parts.some((p) => normalizeNameToken(p.split(/\s+/)[0]) === empFirstNorm))
@@ -427,9 +427,8 @@ function findEmployeeLinkedMachinery(emp: Employee | null | undefined, machineri
   if (byDirectAssignment) return byDirectAssignment;
 
   // 3. Vínculo operacional pelo cargo do colaborador (ex: Casssiano - Operador de Trator | Bruno - Motorista)
-  const rolesStr = [emp.role || '', ...(Array.isArray(emp.roles) ? emp.roles : [])]
-    .join(' ')
-    .toLowerCase();
+  const rolesStr = String([emp.role || '', ...(Array.isArray(emp.roles) ? emp.roles : [])]
+    .join(' ') ?? '').toLowerCase();
 
   const activeMachines = machineries.filter((m) => (m.status as string) !== 'inativo');
   const pool = activeMachines.length > 0 ? activeMachines : machineries;
@@ -1531,8 +1530,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const filteredRows = useMemo(() => {
     return periodRows.filter((row) => {
       const matchesSearch =
-        row.employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.roleLabel.toLowerCase().includes(searchTerm.toLowerCase());
+        String(row.employee.name ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(row.roleLabel ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase());
       if (!matchesSearch) return false;
       if (statusFilter === 'vencido') {
         return !row.isEmGozo && !row.isQuitadoRegular && (row.periodStatus === 'vencido' || row.expiredDays > 0);
@@ -2577,8 +2576,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     if (!emp) return;
 
     // Captura o valor exato selecionado no dropdown "Situação" no momento do clique em "Salvar Férias"
-    const rawDropdownVal = String(statusSelectRef.current?.value || status || 'agendado')
-      .toLowerCase()
+    const rawDropdownVal = String((statusSelectRef.current?.value || status || 'agendado') ?? '').toLowerCase()
       .trim();
 
     let finalStatus: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' = 'agendado';

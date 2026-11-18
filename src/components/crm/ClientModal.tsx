@@ -80,8 +80,7 @@ import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 export const ATIVIDADES_PADRAO = DEFAULT_ATIVIDADES;
 
 const normalizeSearchText = (text: string): string =>
-  (text || '')
-    .toLowerCase()
+  String(text ?? '').toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
@@ -140,12 +139,12 @@ const SearchableClientCombobox: React.FC<SearchableClientComboboxProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedOption = useMemo(() => {
-    const valNorm = (value || '').trim().toLowerCase();
+    const valNorm = String(value ?? '').trim().toLowerCase();
     if (!valNorm) return undefined;
     return options.find(
       (opt) =>
-        (matchBy === 'id' ? opt.id.toLowerCase() === valNorm : opt.label.toLowerCase() === valNorm) ||
-        opt.label.toLowerCase() === valNorm
+        (matchBy === 'id' ? String(opt.id ?? '').toLowerCase() === valNorm : String(opt.label ?? '').toLowerCase() === valNorm) ||
+        String(opt.label ?? '').toLowerCase() === valNorm
     );
   }, [options, value, matchBy]);
 
@@ -298,7 +297,7 @@ const SearchableClientCombobox: React.FC<SearchableClientComboboxProps> = ({
 
 export const mapCattleTypeToAtividade = (type?: string): string => {
   if (!type) return 'Gado de Leite';
-  const lower = type.toLowerCase();
+  const lower = String(type ?? '').toLowerCase();
   if (lower === 'leite') return 'Gado de Leite';
   if (lower === 'confinamento') return 'Pecuária de Corte / Confinamento';
   if (lower === 'misto') return 'Gado Misto';
@@ -740,7 +739,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     if (!trimmed) return '';
     const catalog = getStoredAtividadesCatalog();
     const match = catalog.find(
-      (item) => item.label.toLowerCase() === trimmed.toLowerCase() || item.id.toLowerCase() === trimmed.toLowerCase()
+      (item) => String(item.label ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase() || String(item.id ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
     return match ? match.label : trimmed;
   };
@@ -1075,16 +1074,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       } catch {}
 
       const cleanClientCpf = cleanDigits(activeClient.cpfCnpj || (activeClient as any).document || '');
-      const clientNameNorm = (activeClient.nome || activeClient.name || '').trim().toLowerCase();
-      const clientFarmNorm = (activeClient.fazenda || activeClient.farmName || '').trim().toLowerCase();
+      const clientNameNorm = String((activeClient.nome || activeClient.name) ?? '').trim().toLowerCase();
+      const clientFarmNorm = String((activeClient.fazenda || activeClient.farmName) ?? '').trim().toLowerCase();
       const clientId = activeClient.id;
 
       // Filtrar vendas de 'agrocontrol_vendas'
       const matchedSales = allSales.filter((s: any) => {
         const saleClientId = s.clientId;
         const saleClientCpf = cleanDigits(s.clienteCpfCnpj || s.cpfCnpj || '');
-        const saleClientName = (s.cliente || s.clientName || s.client || '').trim().toLowerCase();
-        const saleFarmName = (s.fazenda || s.farmName || '').trim().toLowerCase();
+        const saleClientName = String((s.cliente || s.clientName || s.client) ?? '').trim().toLowerCase();
+        const saleFarmName = String((s.fazenda || s.farmName) ?? '').trim().toLowerCase();
 
         return (clientId && saleClientId === clientId) ||
                (cleanClientCpf && saleClientCpf && cleanClientCpf === saleClientCpf) ||
@@ -1113,8 +1112,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
         }
 
         const srvClientId = srv.clientId;
-        const srvClientName = (srv.clientName || srv.cliente || '').trim().toLowerCase();
-        const srvFarmName = (srv.farmName || srv.fazenda || '').trim().toLowerCase();
+        const srvClientName = String((srv.clientName || srv.cliente) ?? '').trim().toLowerCase();
+        const srvFarmName = String((srv.farmName || srv.fazenda) ?? '').trim().toLowerCase();
 
         return (clientId && srvClientId === clientId) ||
                (cleanClientCpf && cleanDigits(srv.clientCpfCnpj || srv.cpfCnpj || '') === cleanClientCpf) ||
@@ -1174,7 +1173,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   // Filtro de busca textual no histórico com trava anti-duplicação mandatória
   const filteredPurchases = useMemo(() => {
     const list = !historicoSearch.trim() ? clientPurchases : (() => {
-      const q = historicoSearch.toLowerCase().trim();
+      const q = String(historicoSearch ?? '').toLowerCase().trim();
       return clientPurchases.filter(p => {
         const order = String(p.orderNumber || p.numeroPedido || p.id || '').toLowerCase();
         const forma = String(p.forma || p.formaPagamento || '').toLowerCase();
@@ -2908,7 +2907,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
             setCattleType(mapAtividadeToCattleType(nextLabel));
           } else if (
             atividade &&
-            !nextActive.some((i) => i.label.toLowerCase() === atividade.trim().toLowerCase())
+            !nextActive.some((i) => String(i.label ?? '').toLowerCase() === String(atividade ?? '').trim().toLowerCase())
           ) {
             const fallback = nextActive[0]?.label || '';
             setAtividade(fallback);
@@ -2937,8 +2936,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
             status &&
             !nextActive.some(
               (i) =>
-                i.id.toLowerCase() === status.trim().toLowerCase() ||
-                i.label.toLowerCase() === status.trim().toLowerCase()
+                String(i.id ?? '').toLowerCase() === String(status ?? '').trim().toLowerCase() ||
+                String(i.label ?? '').toLowerCase() === String(status ?? '').trim().toLowerCase()
             )
           ) {
             setStatus(nextActive[0]?.id || '');

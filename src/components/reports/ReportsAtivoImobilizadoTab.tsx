@@ -44,12 +44,12 @@ export const ReportsAtivoImobilizadoTab: React.FC<ReportsAtivoImobilizadoTabProp
     return machineries.filter((v) => {
       const matchesSearch = 
         !searchTerm.trim() ||
-        (v.name && v.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (v.model && v.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (v.brand && v.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (v.licensePlateOrSerial && v.licensePlateOrSerial.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (v.fleetNumber && v.fleetNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (v.renavam && v.renavam.toLowerCase().includes(searchTerm.toLowerCase()));
+        (v.name && String(v.name ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+        (v.model && String(v.model ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+        (v.brand && String(v.brand ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+        (v.licensePlateOrSerial && String(v.licensePlateOrSerial ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+        (v.fleetNumber && String(v.fleetNumber ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+        (v.renavam && String(v.renavam ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()));
 
       const matchesCat = filterCategory === 'todos' || v.categoryType === filterCategory;
       const matchesOwnership = filterOwnership === 'todos' || v.ownership === filterOwnership;

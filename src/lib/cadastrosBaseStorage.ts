@@ -458,7 +458,7 @@ export const INITIAL_PLANO_CONTAS_E_FORMAS: PlanoContasEFormasData = {
  * 5. Garante unicidade estrita de IDs e nomes.
  */
 export function consolidateCargosList(existingList: CargoPermissao[]): CargoPermissao[] {
-  const norm = (s: string) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const norm = (s: string) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   const result: CargoPermissao[] = [];
   const seenKeys = new Set<string>();
@@ -1027,13 +1027,13 @@ export function attachCargoPermissionsToEmployee(
   cargosList?: CargoPermissao[]
 ): { cargoId?: string; permissions: RolePermissions; setor?: string } {
   const cargos = cargosList || getStoredCargosPermissoes();
-  const cleanRole = (employeeRole || '').trim().toLowerCase();
+  const cleanRole = String(employeeRole ?? '').trim().toLowerCase();
   const primaryRole = cleanRole.split(',')[0].trim();
 
   // 1. Prioriza correspondência EXATA por nome ou ID
   let found = cargos.find(c => {
-    const cNome = c.nome.trim().toLowerCase();
-    const cId = c.id.toLowerCase();
+    const cNome = String(c.nome ?? '').trim().toLowerCase();
+    const cId = String(c.id ?? '').toLowerCase();
     return cNome === cleanRole || cId === cleanRole || cNome === primaryRole || cId === primaryRole;
   });
 
@@ -1041,12 +1041,12 @@ export function attachCargoPermissionsToEmployee(
   if (!found) {
     const sortedByLen = [...cargos].sort((a, b) => b.nome.length - a.nome.length);
     found = sortedByLen.find(c => {
-      const cNome = c.nome.trim().toLowerCase();
+      const cNome = String(c.nome ?? '').trim().toLowerCase();
       return cleanRole === cNome || cleanRole.includes(cNome) || cNome.includes(cleanRole);
     });
   }
 
-  const isAdminRole = cleanRole.includes('admin') || cleanRole.includes('diretor') || (found && found.nome.toLowerCase().includes('admin'));
+  const isAdminRole = cleanRole.includes('admin') || cleanRole.includes('diretor') || (found && String(found.nome ?? '').toLowerCase().includes('admin'));
 
   if (found) {
     const resolvedContador =

@@ -274,20 +274,20 @@ export function generateVehicleHistoryPrintHtml(
   const totalMaintenanceCost = vehicleMaintenance.reduce((sum, m) => sum + (m.totalCost || 0), 0);
 
   // Revenue from services and silage deliveries
-  const plateClean = (vehicle.licensePlateOrSerial || '').toLowerCase().trim();
-  const modelClean = (vehicle.model || vehicle.name || '').toLowerCase().trim();
+  const plateClean = String(vehicle.licensePlateOrSerial ?? '').toLowerCase().trim();
+  const modelClean = String((vehicle.model || vehicle.name) ?? '').toLowerCase().trim();
 
   const vehicleServices = services.filter(srv => {
     if (srv.machineryId === vehicle.id) return true;
-    if (plateClean && srv.machineryAssigned?.toLowerCase().includes(plateClean)) return true;
-    if (modelClean && srv.machineryAssigned?.toLowerCase().includes(modelClean)) return true;
+    if (plateClean && String(srv.machineryAssigned ?? '').toLowerCase().includes(plateClean)) return true;
+    if (modelClean && String(srv.machineryAssigned ?? '').toLowerCase().includes(modelClean)) return true;
     return false;
   });
 
   const vehicleSilageOrders = orders.filter(ord => {
     if (ord.machineryId === vehicle.id) return true;
-    if (plateClean && ord.machineryPlateOrName?.toLowerCase().includes(plateClean)) return true;
-    if (modelClean && ord.machineryPlateOrName?.toLowerCase().includes(modelClean)) return true;
+    if (plateClean && String(ord.machineryPlateOrName ?? '').toLowerCase().includes(plateClean)) return true;
+    if (modelClean && String(ord.machineryPlateOrName ?? '').toLowerCase().includes(modelClean)) return true;
     return false;
   });
 

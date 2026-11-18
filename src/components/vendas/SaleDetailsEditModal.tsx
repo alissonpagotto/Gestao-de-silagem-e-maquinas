@@ -653,7 +653,7 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                         CONSUMIDOR FINAL / BALCÃO
                       </div>
                       {availableClients
-                        .filter(c => (c.name || c.nome || '').toLowerCase().includes(clienteNome.toLowerCase()))
+                        .filter(c => String((c.name || c.nome) ?? '').toLowerCase().includes(String(clienteNome ?? '').toLowerCase()))
                         .map(c => (
                           <div
                             key={c.id}

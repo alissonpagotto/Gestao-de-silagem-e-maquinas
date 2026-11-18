@@ -245,11 +245,11 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       supCode.includes(q) ||
       String(sup.name || '').toLowerCase().includes(q) ||
       String(sup.category || '').toLowerCase().includes(q) ||
-      (sup.tradeName && String(sup.tradeName).toLowerCase().includes(q)) ||
-      (sup.city && String(sup.city).toLowerCase().includes(q)) ||
-      (sup.cnpjOrCpf && String(sup.cnpjOrCpf).toLowerCase().includes(q)) ||
-      (sup.stateRegistration && String(sup.stateRegistration).toLowerCase().includes(q)) ||
-      (sup.municipalRegistration && String(sup.municipalRegistration).toLowerCase().includes(q))
+      (sup.tradeName && String(sup.tradeName ?? '').toLowerCase().includes(q)) ||
+      (sup.city && String(sup.city ?? '').toLowerCase().includes(q)) ||
+      (sup.cnpjOrCpf && String(sup.cnpjOrCpf ?? '').toLowerCase().includes(q)) ||
+      (sup.stateRegistration && String(sup.stateRegistration ?? '').toLowerCase().includes(q)) ||
+      (sup.municipalRegistration && String(sup.municipalRegistration ?? '').toLowerCase().includes(q))
     ) {
       return true;
     }

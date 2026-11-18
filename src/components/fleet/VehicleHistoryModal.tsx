@@ -434,7 +434,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
     let outros = 0;
 
     driverExpenses.forEach(exp => {
-      const text = `${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`.toLowerCase();
+      const text = String(`${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`).toLowerCase();
       const effectiveAmount = getApportionedAmountForVehicle(exp);
       if (
         exp.isVacationExpense ||

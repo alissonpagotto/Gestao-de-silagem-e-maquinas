@@ -97,7 +97,7 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
     // Ordena priorizando clínicas / laboratórios / saúde médica no topo da lista
     const sortedSuppliers = [...(Array.isArray(loadedSuppliers) ? loadedSuppliers : [])].sort((a, b) => {
       const score = (s: Supplier) => {
-        const hay = `${s.category || ''} ${s.name || ''} ${s.tradeName || ''}`.toLowerCase();
+        const hay = String(`${s.category || ''} ${s.name || ''} ${s.tradeName || ''}`).toLowerCase();
         return /clin|clín|lab|medic|médic|saude|saúde|aso|ocupacional|odonto/.test(hay) ? 0 : 1;
       };
       const diff = score(a) - score(b);
@@ -114,7 +114,7 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
     setPurpose(latestPurposes[0] || 'Admissional (Contratação)');
 
     const firstClinic = sortedSuppliers.find((s) => {
-      const hay = `${s.category || ''} ${s.name || ''} ${s.tradeName || ''}`.toLowerCase();
+      const hay = String(`${s.category || ''} ${s.name || ''} ${s.tradeName || ''}`).toLowerCase();
       return /clin|clín|lab|medic|médic|saude|saúde|aso|ocupacional/.test(hay);
     });
     if (firstClinic) {
@@ -138,10 +138,10 @@ export const AsoAuthorizationModal: React.FC<AsoAuthorizationModalProps> = ({
   }, [isOpen, employee, companyId]);
 
   const filteredSuppliers = useMemo(() => {
-    const q = supplierSearch.trim().toLowerCase();
+    const q = String(supplierSearch ?? '').trim().toLowerCase();
     if (!q) return suppliers;
     return suppliers.filter((s) => {
-      const text = `${s.name || ''} ${s.tradeName || ''} ${s.category || ''} ${s.cnpjOrCpf || ''} ${s.city || ''}`.toLowerCase();
+      const text = String(`${s.name || ''} ${s.tradeName || ''} ${s.category || ''} ${s.cnpjOrCpf || ''} ${s.city || ''}`).toLowerCase();
       return text.includes(q);
     });
   }, [suppliers, supplierSearch]);

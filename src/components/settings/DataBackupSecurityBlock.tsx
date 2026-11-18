@@ -88,7 +88,7 @@ const TEMPORARY_SESSION_EXACT_KEYS = new Set<string>([
  */
 export function isTemporarySessionKey(key: string): boolean {
   if (!key) return true;
-  const lower = key.toLowerCase();
+  const lower = String(key ?? '').toLowerCase();
   if (TEMPORARY_SESSION_EXACT_KEYS.has(key) || TEMPORARY_SESSION_EXACT_KEYS.has(lower)) {
     return true;
   }

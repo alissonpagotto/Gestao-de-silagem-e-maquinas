@@ -53,7 +53,7 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
   const resolvedAxles = useMemo(() => {
     const e = parseInt(String(numeroEixos || ''), 10);
     if (!isNaN(e) && e > 0) return e;
-    const tLower = (vehicleType || '').toLowerCase();
+    const tLower = String(vehicleType ?? '').toLowerCase();
     if (tLower.includes('reboque') || tLower.includes('prancha') || tLower.includes('carreta')) return 3;
     if (tLower.includes('toco')) return 2;
     if (tLower.includes('caminh') || tLower.includes('truck')) return 3;
@@ -63,7 +63,7 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
   const resolvedTires = useMemo(() => {
     const p = parseInt(String(quantidadePneus || ''), 10);
     if (!isNaN(p) && p > 0) return p;
-    const tLower = (vehicleType || '').toLowerCase();
+    const tLower = String(vehicleType ?? '').toLowerCase();
     if (tLower.includes('reboque') || tLower.includes('prancha')) return 12;
     if (tLower.includes('toco')) return 6;
     if (tLower.includes('caminh') || tLower.includes('truck')) return 10;
@@ -166,13 +166,13 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
     if (e) e.preventDefault();
     const clean = newBrandInput.trim();
     if (!clean) return;
-    if (!tireBrandOptions.some((b) => b.toLowerCase() === clean.toLowerCase())) {
+    if (!tireBrandOptions.some((b) => String(b ?? '').toLowerCase() === String(clean ?? '').toLowerCase())) {
       const updated = [...tireBrandOptions, clean];
       setTireBrandOptions(updated);
       saveBrandsToStorage(updated);
       setBrand(clean);
     } else {
-      const existing = tireBrandOptions.find((b) => b.toLowerCase() === clean.toLowerCase()) || clean;
+      const existing = tireBrandOptions.find((b) => String(b ?? '').toLowerCase() === String(clean ?? '').toLowerCase()) || clean;
       setBrand(existing);
     }
     setNewBrandInput('');

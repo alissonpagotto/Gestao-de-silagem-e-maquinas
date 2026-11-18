@@ -393,7 +393,7 @@ export function collectAccountingDocumentsForCompetence(params: {
     }
 
     const digitsNum = cleanCnpjDigits(item.numero);
-    const partyNorm = item.parteNome.trim().toLowerCase();
+    const partyNorm = String(item.parteNome ?? '').trim().toLowerCase();
     if (digitsNum.length >= 2 && partyNorm) {
       const sig = `${item.direction}_${digitsNum}_${partyNorm}_${item.valorTotal.toFixed(2)}`;
       if (seenDocSignatures.has(sig)) return;

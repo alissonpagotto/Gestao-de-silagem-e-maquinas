@@ -146,7 +146,7 @@ function resolveChaveAcesso44(
       ? `${em[0].slice(2, 4)}${em[1].padStart(2, '0')}`
       : `${new Date().getFullYear().toString().slice(2)}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const cnpj = cleanDigits(companyProfile?.cnpj || companyProfile?.cnpjCpf || '').padStart(14, '0').slice(0, 14);
-  const docLower = (nota.tipoDocumento || '').toLowerCase();
+  const docLower = String(nota.tipoDocumento ?? '').toLowerCase();
   const modelo = docLower.includes('ct-e') || docLower.includes('cte')
     ? '57'
     : docLower.includes('mdf-e') || docLower.includes('mdfe')
@@ -191,7 +191,7 @@ interface SefazDocMeta {
 }
 
 function getSefazDocMeta(tipoDocumento: string): SefazDocMeta {
-  const t = (tipoDocumento || '').toLowerCase();
+  const t = String(tipoDocumento ?? '').toLowerCase();
   if (t.includes('ct-e') || t.includes('cte')) {
     return {
       sigla: 'CT-e',
@@ -377,7 +377,7 @@ function buildDacteHtml(
   const terminoPrestacao = nota.cteMunicipioTermino || nota.destinatarioCidadeUf || '-';
 
   // Tomador do Serviço
-  const tomadorTipoRaw = (nota.cteTomador || 'Remetente').toLowerCase();
+  const tomadorTipoRaw = String((nota.cteTomador || 'Remetente') ?? '').toLowerCase();
   const isTomadorOutros = tomadorTipoRaw.includes('outro') || tomadorTipoRaw.includes('terceiro');
   const isTomadorDest = tomadorTipoRaw.includes('destinat');
   const tomadorTipoLabel = isTomadorOutros
@@ -429,7 +429,7 @@ function buildDacteHtml(
   const tomFone = !isTomadorOutros && !isTomadorDest && isRemPropria ? companyPhone : '-';
 
   // Impostos (Simples Nacional ou Regime Normal)
-  const isSimples = (companyProfile?.regimeTributario || 'Simples Nacional').toLowerCase().includes('simples');
+  const isSimples = String((companyProfile?.regimeTributario || 'Simples Nacional') ?? '').toLowerCase().includes('simples');
   const classTrib = isSimples
     ? 'SN - OPTANTE PELO SIMPLES NACIONAL (CSOSN 102 / ICMS ISENTO OU NÃO TRIBUTADO)'
     : '00 - TRIBUTAÇÃO NORMAL DO ICMS';
@@ -1104,7 +1104,7 @@ export function buildNotaSaidaHtml(
   companyProfile?: CompanyProfile,
   logoUrl?: string
 ): string {
-  const docTypeLowerCheck = (nota.tipoDocumento || '').toLowerCase();
+  const docTypeLowerCheck = String(nota.tipoDocumento ?? '').toLowerCase();
   if (docTypeLowerCheck.includes('ct-e') || docTypeLowerCheck.includes('cte')) {
     return buildDacteHtml(nota, companyProfile, logoUrl);
   }
@@ -1135,12 +1135,12 @@ export function buildNotaSaidaHtml(
     : '';
 
   const docMeta = getSefazDocMeta(nota.tipoDocumento);
-  const docTypeLower = (nota.tipoDocumento || '').toLowerCase();
+  const docTypeLower = String(nota.tipoDocumento ?? '').toLowerCase();
   const isNfse = docTypeLower.includes('nfs-e') || docTypeLower.includes('nfse');
   const isCte = docTypeLower.includes('ct-e') || docTypeLower.includes('cte');
   const isMdfe = docTypeLower.includes('mdf-e') || docTypeLower.includes('mdfe');
   const isNfeOrNfce = !isNfse && !isCte && !isMdfe;
-  const natLower = (nota.nfeNaturezaOperacao || '').toLowerCase();
+  const natLower = String(nota.nfeNaturezaOperacao ?? '').toLowerCase();
   const nfeCfopDigits = cleanDigits(nota.nfeCfop || '');
   const isEntradaCfop = nfeCfopDigits.startsWith('1') || nfeCfopDigits.startsWith('2');
   const isDanfeRetorno =
@@ -1252,7 +1252,7 @@ export function buildNotaSaidaHtml(
       (nota.cteRemetenteIsEmpresaPropria ? companyCityUf.toUpperCase() : '') ||
       '-';
 
-    const tomadorTipoRaw = (nota.cteTomador || 'Remetente').toLowerCase();
+    const tomadorTipoRaw = String((nota.cteTomador || 'Remetente') ?? '').toLowerCase();
     const isTomadorOutros = tomadorTipoRaw.includes('outro') || tomadorTipoRaw.includes('terceiro');
     const isTomadorDest = tomadorTipoRaw.includes('destinat');
 
@@ -1748,7 +1748,7 @@ export function buildNotaSaidaHtml(
           '-';
         const { cidade: remCidade, uf: remUf } = splitCityUf(remCidadeUf);
 
-        const tomadorTipoRaw = (nota.cteTomador || 'Remetente').toLowerCase();
+        const tomadorTipoRaw = String((nota.cteTomador || 'Remetente') ?? '').toLowerCase();
         const isTomadorOutros = tomadorTipoRaw.includes('outro') || tomadorTipoRaw.includes('terceiro');
         const isTomadorDest = tomadorTipoRaw.includes('destinat');
         const tomadorModLabel = isTomadorOutros

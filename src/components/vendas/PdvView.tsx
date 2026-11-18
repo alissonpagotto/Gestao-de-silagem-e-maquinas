@@ -863,7 +863,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
       'agrocontrol'
     ];
 
-    return defaultMasterPasswords.some(p => p.toLowerCase() === cleanPass.toLowerCase());
+    return defaultMasterPasswords.some(p => String(p ?? '').toLowerCase() === String(cleanPass ?? '').toLowerCase());
   };
 
   // Interceptação e Correção Automática no campo % DESC
@@ -1145,18 +1145,18 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
   // Filtragem dinâmica por digitação do operador (Autocomplete reativo por PLACA, MODELO, MARCA ou TIPO)
   const filteredVehicles = useMemo(() => {
-    const q = veiculoSearchText.trim().toLowerCase();
+    const q = String(veiculoSearchText ?? '').trim().toLowerCase();
     if (!q) {
       return availableVehicles.slice(0, 20);
     }
     const cleanQ = q.replace(/[^a-z0-9]/gi, '');
     return availableVehicles.filter((v: any) => {
-      const plate = (v.licensePlateOrSerial || v.plate || v.plateOrSerial || '').toLowerCase();
+      const plate = String((v.licensePlateOrSerial || v.plate || v.plateOrSerial) ?? '').toLowerCase();
       const cleanPlate = plate.replace(/[^a-z0-9]/gi, '');
-      const model = (v.model || v.name || '').toLowerCase();
-      const brand = (v.brand || '').toLowerCase();
-      const type = (v.categoryType || v.type || v.tipo || '').toLowerCase();
-      const fleet = (v.fleetNumber || v.numero_frota || '').toString().toLowerCase();
+      const model = String((v.model || v.name) ?? '').toLowerCase();
+      const brand = String(v.brand ?? '').toLowerCase();
+      const type = String((v.categoryType || v.type || v.tipo) ?? '').toLowerCase();
+      const fleet = String((v.fleetNumber || v.numero_frota || '').toString() ?? '').toLowerCase();
 
       return (
         plate.includes(q) ||
@@ -1286,7 +1286,7 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
   // Clientes e Produtores rurais filtrados para sugestão de autocomplete reativo
   const suggestedClients = useMemo(() => {
-    const q = clientSearch.trim().toLowerCase();
+    const q = String(clientSearch ?? '').trim().toLowerCase();
     const isDefault = !q || q === 'consumidor final / balcão' || q === 'consumidor final (pdv balcão)';
 
     if (isDefault) {
@@ -1295,12 +1295,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     const cleanQ = q.replace(/\D/g, '');
     return agroClientes.filter(c => {
-      const code = (c.code || c.codigo || '').toLowerCase();
-      const name = (c.nome || c.name || '').toLowerCase();
-      const farm = (c.fazenda || c.farmName || '').toLowerCase();
+      const code = String((c.code || c.codigo) ?? '').toLowerCase();
+      const name = String((c.nome || c.name) ?? '').toLowerCase();
+      const farm = String((c.fazenda || c.farmName) ?? '').toLowerCase();
       const doc = (c.cpfCnpj || '').replace(/\D/g, '');
       const phone = (c.telefone || c.phone || '').replace(/\D/g, '');
-      const city = (c.city || c.cidade || '').toLowerCase();
+      const city = String((c.city || c.cidade) ?? '').toLowerCase();
       return (
         code.includes(q) ||
         (cleanQ.length > 0 && code.includes(cleanQ)) ||
@@ -4118,7 +4118,7 @@ ${buildSystemPrintFooterText()}
                                   </span>
                                   <span className="truncate">
                                     {model.toUpperCase()}
-                                    {brand && !model.toLowerCase().includes(brand.toLowerCase()) ? ` - ${brand.toUpperCase()}` : ''}
+                                    {brand && !String(model ?? '').toLowerCase().includes(String(brand ?? '').toLowerCase()) ? ` - ${brand.toUpperCase()}` : ''}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0 ml-2">

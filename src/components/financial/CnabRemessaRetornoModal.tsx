@@ -170,17 +170,17 @@ export const CnabRemessaRetornoModal: React.FC<CnabRemessaRetornoModalProps> = (
   }, [boletos]);
 
   const filteredBoletos = useMemo(() => {
-    const q = remessaSearch.trim().toLowerCase();
+    const q = String(remessaSearch ?? '').trim().toLowerCase();
     return boletos.filter((b) => {
       const matchesStatus =
         remessaFilter === 'ALL' || b.statusRegistro === remessaFilter;
       if (!matchesStatus) return false;
       if (!q) return true;
       return (
-        (b.clienteNome || '').toLowerCase().includes(q) ||
-        (b.nossoNumero || '').toLowerCase().includes(q) ||
-        (b.numeroDocumento || '').toLowerCase().includes(q) ||
-        (b.parcela || '').toLowerCase().includes(q)
+        String(b.clienteNome ?? '').toLowerCase().includes(q) ||
+        String(b.nossoNumero ?? '').toLowerCase().includes(q) ||
+        String(b.numeroDocumento ?? '').toLowerCase().includes(q) ||
+        String(b.parcela ?? '').toLowerCase().includes(q)
       );
     });
   }, [boletos, remessaFilter, remessaSearch]);

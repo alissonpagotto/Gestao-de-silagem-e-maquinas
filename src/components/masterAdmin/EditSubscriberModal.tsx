@@ -190,8 +190,8 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       });
 
       // Resolução e pré-seleção reativa do plano atual do assinante
-      const subPlanKey = (subscriber.planId || subscriber.planName || '').toLowerCase();
-      const normalize = (v: string) => v.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+      const subPlanKey = String((subscriber.planId || subscriber.planName) ?? '').toLowerCase();
+      const normalize = (v: string) => String(v ?? '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
       const subNorm = normalize(subPlanKey);
 
       let matched = dynamicPlans.find((p) => {

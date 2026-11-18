@@ -500,9 +500,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
       const dieselTotal = activeExpenses
         .filter(e => e.dueDate?.startsWith(monthPrefix) && (
-          e.categoryName?.toLowerCase().includes('combust') || 
-          e.categoryName?.toLowerCase().includes('diesel') ||
-          e.description?.toLowerCase().includes('diesel')
+          String(e.categoryName ?? '').toLowerCase().includes('combust') || 
+          String(e.categoryName ?? '').toLowerCase().includes('diesel') ||
+          String(e.description ?? '').toLowerCase().includes('diesel')
         ))
         .reduce((sum, e) => sum + (e.amount || 0), 0);
 
@@ -528,8 +528,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
     machineries.forEach(m => {
       const name = m.name || m.plate || 'Equipamento';
-      const isEnsiladeira = (m.type?.toLowerCase().includes('ensiladeira') || m.type?.toLowerCase().includes('forrageira') || m.categoryType === 'ensiladeira');
-      const isTrator = (m.type?.toLowerCase().includes('trator') || m.categoryType === 'trator');
+      const isEnsiladeira = (String(m.type ?? '').toLowerCase().includes('ensiladeira') || String(m.type ?? '').toLowerCase().includes('forrageira') || m.categoryType === 'ensiladeira');
+      const isTrator = (String(m.type ?? '').toLowerCase().includes('trator') || m.categoryType === 'trator');
       const typeLabel = isEnsiladeira ? 'Ensiladeira' : isTrator ? 'Trator' : 'Frota/Caminhão';
       
       if (m.totalFuelExpenses && m.totalFuelExpenses > 0) {
@@ -597,11 +597,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     const totalTons = services.reduce((acc, s) => acc + (s.tonsEstimated || 0), 0) + orders.reduce((acc, o) => acc + (o.quantityTons || 0), 0);
     
     const dieselExpenses = activeExpenses
-      .filter(e => e.categoryName?.toLowerCase().includes('combust') || e.categoryName?.toLowerCase().includes('diesel'))
+      .filter(e => String(e.categoryName ?? '').toLowerCase().includes('combust') || String(e.categoryName ?? '').toLowerCase().includes('diesel'))
       .reduce((sum, e) => sum + e.amount, 0);
 
     const otherExpenses = activeExpenses
-      .filter(e => !e.categoryName?.toLowerCase().includes('combust') && !e.categoryName?.toLowerCase().includes('diesel'))
+      .filter(e => !String(e.categoryName ?? '').toLowerCase().includes('combust') && !String(e.categoryName ?? '').toLowerCase().includes('diesel'))
       .reduce((sum, e) => sum + e.amount, 0);
 
     return seasons.map(s => {

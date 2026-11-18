@@ -71,14 +71,14 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
 
   // Filtered Expenses
   const filteredExpenses = useMemo(() => {
-    const term = (searchTerm || '').toLowerCase().trim();
+    const term = String(searchTerm ?? '').toLowerCase().trim();
     return (expenses || []).filter(e => {
       const matchDate = e?.dueDate ? (e.dueDate >= startDate && e.dueDate <= endDate) : false;
       const matchSearch = !term ||
-        Boolean(e.description?.toLowerCase().includes(term)) ||
-        Boolean(e.supplier?.toLowerCase().includes(term)) ||
-        Boolean(e.costCenterName?.toLowerCase().includes(term)) ||
-        Boolean(e.machineryName?.toLowerCase().includes(term));
+        Boolean(String(e.description ?? '').toLowerCase().includes(term)) ||
+        Boolean(String(e.supplier ?? '').toLowerCase().includes(term)) ||
+        Boolean(String(e.costCenterName ?? '').toLowerCase().includes(term)) ||
+        Boolean(String(e.machineryName ?? '').toLowerCase().includes(term));
       const matchCategory = selectedCategory === 'todas' || e.categoryName === selectedCategory;
       const matchStatus = selectedStatus === 'todos' || e.status === selectedStatus;
       return matchDate && matchSearch && matchCategory && matchStatus;

@@ -427,7 +427,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   }, [records]);
 
   const filteredRecords = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     const list = records.filter((rec) => {
       const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
       if (statusFilter !== 'todas' && st !== statusFilter) return false;
@@ -438,10 +438,9 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       }
 
       if (!q) return true;
-      const itensText = (rec.itensDevolvidos || [])
+      const itensText = String((rec.itensDevolvidos || [])
         .map((i) => `${i.productCode || ''} ${i.productName}`)
-        .join(' ')
-        .toLowerCase();
+        .join(' ') ?? '').toLowerCase();
       return (
         String(rec.protocolo || '').toLowerCase().includes(q) ||
         String(rec.envolvidoNome || '').toLowerCase().includes(q) ||

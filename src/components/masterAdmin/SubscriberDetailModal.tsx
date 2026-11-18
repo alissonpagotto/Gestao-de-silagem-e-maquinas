@@ -64,7 +64,7 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
     const subPlanId = String(subscriber.planId || '').trim().toLowerCase();
     const subPlanName = String(subscriber.planName || '').trim().toLowerCase();
     const normalizeKey = (val: string) =>
-      val.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+      String(val ?? '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
 
     const normSubId = normalizeKey(subPlanId);
     const normSubName = normalizeKey(subPlanName);

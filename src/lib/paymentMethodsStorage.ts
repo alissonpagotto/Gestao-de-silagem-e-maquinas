@@ -136,13 +136,12 @@ const safeToString = (raw: unknown): string => {
 
 const normalizeText = (raw?: unknown): string => {
   try {
-    return safeToString(raw)
+    return String(safeToString(raw)
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
+      .replace(/[\u0300-\u036f]/g, '') ?? '').toLowerCase()
       .trim();
   } catch {
-    return safeToString(raw).toLowerCase().trim();
+    return String(safeToString(raw) ?? '').toLowerCase().trim();
   }
 };
 
@@ -219,7 +218,7 @@ const sanitizePaymentMethodItem = (item: any, fallbackOrder: number): FormaPagam
     const tipo = (validTipos.has(rawTipo) ? rawTipo : 'outro') as FormaPagamentoItem['tipo'];
 
     return {
-      id: safeToString(item.id) || `fp-${codigo.toLowerCase()}`,
+      id: safeToString(item.id) || `fp-${String(codigo ?? '').toLowerCase()}`,
       codigo,
       nome: nome.toUpperCase(),
       tipo,

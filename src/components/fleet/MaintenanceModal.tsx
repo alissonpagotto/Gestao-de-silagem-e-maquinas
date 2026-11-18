@@ -239,7 +239,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const sortedCategories = useMemo(() => {
     const list = [...categoriesList];
     const hasRevisaoEntressafra = list.some(
-      c => c.name?.toLowerCase().trim() === 'revisão (entressafra)' || c.name?.toLowerCase().trim() === 'revisao (entressafra)'
+      c => String(c.name ?? '').toLowerCase().trim() === 'revisão (entressafra)' || String(c.name ?? '').toLowerCase().trim() === 'revisao (entressafra)'
     );
     if (!hasRevisaoEntressafra) {
       list.push({
@@ -255,7 +255,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     const seen = new Set<string>();
     const deduplicated: MaintenanceCategoryDefinition[] = [];
     for (const item of list) {
-      const normalized = (item.name || '').trim().toLowerCase();
+      const normalized = String(item.name ?? '').trim().toLowerCase();
       if (!seen.has(normalized)) {
         seen.add(normalized);
         deduplicated.push(item);
@@ -377,8 +377,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         const stockItem = item.inventoryItemId 
           ? allInventoryList.find(inv => inv.id === item.inventoryItemId) 
           : allInventoryList.find(inv => 
-              (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
-              (inv.code !== undefined && inv.code !== null && item.description && String(inv.code).trim().toLowerCase() === String(item.description).trim().toLowerCase())
+              (inv.name && item.description && String(inv.name ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase()) ||
+              (inv.code !== undefined && inv.code !== null && item.description && String(inv.code ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase())
             );
         if (stockItem) {
           const newPrice = getPriceForProductByRule(stockItem, newType);
@@ -410,7 +410,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     );
 
     const normalize = (str?: string) => 
-      (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      String(str ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
     // 2. Filtra por Tipo de Cadastro ou Cargo/Função: "Mecanico Especialista", "Auxiliar" ou prestadores de serviço de manutenção
     const filtered = activeList.filter(emp => {
@@ -709,7 +709,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   }, [evaluatedPreventiveItems]);
 
   const isTrocaOleoCategory = useMemo(() => {
-    const cat = (serviceCategory || '').toLowerCase();
+    const cat = String(serviceCategory ?? '').toLowerCase();
     return cat.includes('óleo') || cat.includes('oleo') || cat.includes('filtro') || cat.includes('lubrific');
   }, [serviceCategory]);
 
@@ -1348,7 +1348,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   // --- LÓGICA PDV HORIZONTAL NA SEÇÃO DE PEÇAS DA OS (INTEGRADA A 'colaca_silagem_estoque_produtos') ---
   const osPartSearchResults = useMemo(() => {
     if (!osPartSearchQuery.trim()) return [];
-    const q = osPartSearchQuery.toLowerCase().trim();
+    const q = String(osPartSearchQuery ?? '').toLowerCase().trim();
     // Prioriza busca dinâmica integrada à tabela do estoque
     return allInventoryList.filter(item => {
       const anyItem = item as any;
@@ -1378,13 +1378,13 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     // Se o usuário digitou ou deu Enter direto, busca correspondência inteligente por código ou nome
     const resolvedProduct = osPartSelectedProduct || allInventoryList.find(inv => {
       const anyInv = inv as any;
-      const q = rawDesc.toLowerCase();
-      return (inv.code && String(inv.code).toLowerCase() === q) ||
-             (anyInv.codigo && String(anyInv.codigo).toLowerCase() === q) ||
-             (inv.barcode && String(inv.barcode).toLowerCase() === q) ||
-             (anyInv.codigo_barras && String(anyInv.codigo_barras).toLowerCase() === q) ||
-             (inv.name && String(inv.name).toLowerCase() === q) ||
-             (inv.nome_comercial && String(inv.nome_comercial).toLowerCase() === q);
+      const q = String(rawDesc ?? '').toLowerCase();
+      return (inv.code && String(inv.code ?? '').toLowerCase() === q) ||
+             (anyInv.codigo && String(anyInv.codigo ?? '').toLowerCase() === q) ||
+             (inv.barcode && String(inv.barcode ?? '').toLowerCase() === q) ||
+             (anyInv.codigo_barras && String(anyInv.codigo_barras ?? '').toLowerCase() === q) ||
+             (inv.name && String(inv.name ?? '').toLowerCase() === q) ||
+             (inv.nome_comercial && String(inv.nome_comercial ?? '').toLowerCase() === q);
     });
 
     const finalDescription = resolvedProduct
@@ -1422,8 +1422,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     const stockItem = item.inventoryItemId 
       ? allInventoryList.find(inv => inv.id === item.inventoryItemId) 
       : allInventoryList.find(inv => 
-          (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
-          (inv.code !== undefined && inv.code !== null && item.description && String(inv.code).trim().toLowerCase() === String(item.description).trim().toLowerCase())
+          (inv.name && item.description && String(inv.name ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase()) ||
+          (inv.code !== undefined && inv.code !== null && item.description && String(inv.code ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase())
         );
     return stockItem?.code || (stockItem as any)?.codigo || (item.inventoryItemId ? item.inventoryItemId.slice(0, 8).toUpperCase() : `#${String(index + 1).padStart(3, '0')}`);
   };
@@ -1432,8 +1432,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     const stockItem = item.inventoryItemId 
       ? allInventoryList.find(inv => inv.id === item.inventoryItemId) 
       : allInventoryList.find(inv => 
-          (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
-          (inv.code !== undefined && inv.code !== null && item.description && String(inv.code).trim().toLowerCase() === String(item.description).trim().toLowerCase())
+          (inv.name && item.description && String(inv.name ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase()) ||
+          (inv.code !== undefined && inv.code !== null && item.description && String(inv.code ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase())
         );
     if (stockItem) {
       return String(stockItem.categoria || stockItem.category || stockItem.tipo_item || 'ESTOQUE').toUpperCase();
@@ -1455,8 +1455,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           const updatedStock = [...baseStock];
           const targetIdx = updatedStock.findIndex(inv => 
             (itemToRemove.inventoryItemId && inv.id === itemToRemove.inventoryItemId) ||
-            (inv.code !== undefined && inv.code !== null && itemToRemove.description && String(inv.code).trim().toLowerCase() === String(itemToRemove.description).trim().toLowerCase()) ||
-            (inv.name && itemToRemove.description && String(inv.name).trim().toLowerCase() === String(itemToRemove.description).trim().toLowerCase())
+            (inv.code !== undefined && inv.code !== null && itemToRemove.description && String(inv.code ?? '').trim().toLowerCase() === String(itemToRemove.description ?? '').trim().toLowerCase()) ||
+            (inv.name && itemToRemove.description && String(inv.name ?? '').trim().toLowerCase() === String(itemToRemove.description ?? '').trim().toLowerCase())
           );
           if (targetIdx !== -1) {
             const restoredQty = Math.round(((Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) || 0) + qtyToRestore) * 100) / 100;
@@ -1662,8 +1662,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         if (isInternal && qty > 0 && updatedStock.length > 0) {
           const targetIdx = updatedStock.findIndex(inv => 
             (part.inventoryItemId && inv.id === part.inventoryItemId) ||
-            (inv.code !== undefined && inv.code !== null && part.description && String(inv.code).trim().toLowerCase() === String(part.description).trim().toLowerCase()) ||
-            (inv.name && part.description && String(inv.name).trim().toLowerCase() === String(part.description).trim().toLowerCase())
+            (inv.code !== undefined && inv.code !== null && part.description && String(inv.code ?? '').trim().toLowerCase() === String(part.description ?? '').trim().toLowerCase()) ||
+            (inv.name && part.description && String(inv.name ?? '').trim().toLowerCase() === String(part.description ?? '').trim().toLowerCase())
           );
 
           if (targetIdx !== -1) {

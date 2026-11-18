@@ -39,7 +39,7 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
     setError(null);
     setIsSubmitting(true);
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = String(email ?? '').trim().toLowerCase();
     const cleanPassword = password.trim();
 
     if (!cleanEmail) {
@@ -58,7 +58,7 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
     const settings = getStoredAdminSettings();
 
     // 1. Validação em segundo plano dos Super Admins autorizados
-    const authorizedEmails = (settings.superAdminEmails || []).map((adm) => adm.trim().toLowerCase());
+    const authorizedEmails = (settings.superAdminEmails || []).map((adm) => String(adm ?? '').trim().toLowerCase());
     const isAuthorized = authorizedEmails.includes(cleanEmail);
 
     if (!isAuthorized) {

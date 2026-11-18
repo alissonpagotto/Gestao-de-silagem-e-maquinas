@@ -84,7 +84,7 @@ function mapSupabasePlanRow(row: any): PlanDefinition {
 
   let isActive = true;
   if (row.status !== undefined && row.status !== null) {
-    const s = String(row.status).toLowerCase().trim();
+    const s = String(row.status ?? '').toLowerCase().trim();
     isActive = s === 'active' || s === 'ativo' || s === 'true' || s === '1';
   } else if (row.is_active !== undefined && row.is_active !== null) {
     isActive = Boolean(row.is_active);
@@ -99,11 +99,11 @@ function mapSupabasePlanRow(row: any): PlanDefinition {
   const name = String(row.name || row.nome || row.title || 'Plano');
 
   return {
-    id: String(row.id || name.toLowerCase().replace(/\s+/g, '-')),
+    id: String(row.id || String(name ?? '').toLowerCase().replace(/\s+/g, '-')),
     name,
     description: String(row.description || row.descricao || ''),
     price,
-    billingCycle: (String(row.billing_cycle || row.billingCycle || 'mensal').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
+    billingCycle: (String((row.billing_cycle || row.billingCycle || 'mensal') ?? '').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
     badge: row.badge ? String(row.badge) : undefined,
     isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
     isActive,
@@ -130,35 +130,35 @@ function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | nul
   }
 
   const raw = planParam.trim();
-  const lower = raw.toLowerCase();
+  const lower = String(raw ?? '').toLowerCase();
   // Remove prefixos como 'plano-', 'plano_', 'plan-'
   const clean = lower.replace(/^(plano|plan)[-_]+/g, '').trim();
 
   // 1. PRIORIDADE MÁXIMA: Match EXATO pelo ID (Ex: ?plan=plano-plano-intermediario ou ?plan=essencial)
-  const byExactId = plansList.find(p => p.id === raw || p.id.toLowerCase() === lower);
+  const byExactId = plansList.find(p => p.id === raw || String(p.id ?? '').toLowerCase() === lower);
   if (byExactId) return byExactId;
 
   // 2. Match pelo ID normalizado (sem prefixo plano- / plan-)
   const byCleanId = plansList.find(p => {
-    const pIdClean = p.id.toLowerCase().replace(/^(plano|plan)[-_]+/g, '').trim();
+    const pIdClean = String(p.id ?? '').toLowerCase().replace(/^(plano|plan)[-_]+/g, '').trim();
     return pIdClean === clean;
   });
   if (byCleanId) return byCleanId;
 
   // 3. Match por partes do slug do ID (tokens separados por traço ou underline)
   const byTokenId = plansList.find(p => {
-    const tokens = p.id.toLowerCase().split(/[-_\s]+/);
+    const tokens = String(p.id ?? '').toLowerCase().split(/[-_\s]+/);
     return tokens.includes(clean) || tokens.includes(lower);
   });
   if (byTokenId) return byTokenId;
 
   // 4. Match EXATO pelo Nome do Plano (case-insensitive)
-  const byExactName = plansList.find(p => p.name.toLowerCase().trim() === lower.trim());
+  const byExactName = plansList.find(p => String(p.name ?? '').toLowerCase().trim() === lower.trim());
   if (byExactName) return byExactName;
 
   // 5. Match por Nome normalizado (sem "Plano")
   const byCleanName = plansList.find(p => {
-    const cleanName = p.name.toLowerCase().replace(/^(plano|plan)[-\s_]+/g, '').trim();
+    const cleanName = String(p.name ?? '').toLowerCase().replace(/^(plano|plan)[-\s_]+/g, '').trim();
     return cleanName === clean;
   });
   if (byCleanName) return byCleanName;
@@ -175,8 +175,8 @@ function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | nul
 
   if (isProKeyword) {
     const proMatch = plansList.find(p => {
-      const idLower = p.id.toLowerCase();
-      const nameLower = p.name.toLowerCase();
+      const idLower = String(p.id ?? '').toLowerCase();
+      const nameLower = String(p.name ?? '').toLowerCase();
       return idLower.includes('intermediar') || 
              nameLower.includes('intermediar') ||
              /\bpro\b/i.test(idLower) ||
@@ -199,7 +199,7 @@ function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | nul
 
   if (isEnterpriseKeyword) {
     const enterpriseMatch = plansList.find(p => {
-      const text = (p.id + ' ' + p.name).toLowerCase();
+      const text = String(p.id + ' ' + p.name).toLowerCase();
       return text.includes('master') || text.includes('enterprise') || text.includes('business') || text.includes('avanc');
     });
     if (enterpriseMatch) return enterpriseMatch;
@@ -218,7 +218,7 @@ function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | nul
 
   if (isEssencialKeyword) {
     const essencialMatch = plansList.find(p => {
-      const text = (p.id + ' ' + p.name).toLowerCase();
+      const text = String(p.id + ' ' + p.name).toLowerCase();
       return text.includes('essen') || text.includes('starter') || text.includes('basic') || text.includes('iniciante');
     });
     if (essencialMatch) return essencialMatch;
@@ -559,7 +559,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const activePlan: PlanDefinition = (() => {
     if (selectedPlanId) {
       const found = plans.find(p => p.id === selectedPlanId) || 
-                    plans.find(p => p.id.toLowerCase() === selectedPlanId.toLowerCase());
+                    plans.find(p => String(p.id ?? '').toLowerCase() === String(selectedPlanId ?? '').toLowerCase());
       if (found) return found;
     }
     const matched = matchPlanFromList(plans, selectedPlanId);
@@ -665,7 +665,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     // Dados digitados com fallback seguro para testes imediatos
     const nameClean = (formData.name || 'Agropecuária Colaça Silagem').trim();
     const tradeNameClean = (formData.tradeName || nameClean).trim();
-    const emailClean = (formData.responsibleEmail || 'pcjulia@gmail.com').trim().toLowerCase();
+    const emailClean = String((formData.responsibleEmail || 'pcjulia@gmail.com') ?? '').trim().toLowerCase();
     const phoneClean = (formData.phone || '(44) 99988-7766').trim();
     const documentClean = (formData.cpfCnpj || '00.000.000/0001-99').trim();
     const passwordClean = formData.password || '123456';
@@ -806,7 +806,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
     setFormError(null);
 
-    const emailClean = (loginEmail || 'pcjulia@gmail.com').trim().toLowerCase();
+    const emailClean = String((loginEmail || 'pcjulia@gmail.com') ?? '').trim().toLowerCase();
     const assignedCompanyId = 'colaca_silagem';
 
     setIsLoading(true);

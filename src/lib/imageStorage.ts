@@ -26,7 +26,7 @@ export function isIndexedDbSupported(): boolean {
 }
 
 export function isIndexedDbRef(value?: string | null): boolean {
-  return typeof value === 'string' && value.trim().toLowerCase().startsWith(INDEXEDDB_PREFIX);
+  return typeof value === 'string' && String(value ?? '').trim().toLowerCase().startsWith(INDEXEDDB_PREFIX);
 }
 
 export function extractIndexedDbKey(ref: string): string {
@@ -468,7 +468,7 @@ export function migrateAndCleanLocalStorageMedia(force = false): {
     }
 
     for (const k of keysToScan) {
-      const lower = k.toLowerCase();
+      const lower = String(k ?? '').toLowerCase();
       const isGarbage =
         garbageExactOrPrefix.some((prefix) => lower.startsWith(prefix) || lower.includes(prefix)) ||
         lower.endsWith('_temp') ||

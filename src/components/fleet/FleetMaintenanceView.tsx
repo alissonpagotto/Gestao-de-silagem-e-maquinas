@@ -326,7 +326,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
   // Filtered maintenance logs
   const filteredLogs = useMemo(() => {
-    const term = (searchTerm || '').trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     return localLogs.filter((log) => {
       if (!log) return false;
       const plateOrName = String(log.machineryPlateOrName || '').toLowerCase();
@@ -356,9 +356,9 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
       /* CARD REFORMA & ENTRESSAFRA: FILTRAGEM AO CLICAR NO CARD */
       const isReformaOrEntressafra = 
-        (log.type && (log.type.toLowerCase().includes('reforma') || log.type.toLowerCase().includes('entressafra'))) ||
-        (log.serviceCategory && (log.serviceCategory.toLowerCase().includes('reforma') || log.serviceCategory.toLowerCase().includes('entressafra'))) ||
-        (log.description && (log.description.toLowerCase().includes('reforma') || log.description.toLowerCase().includes('entressafra')));
+        (log.type && (String(log.type ?? '').toLowerCase().includes('reforma') || String(log.type ?? '').toLowerCase().includes('entressafra'))) ||
+        (log.serviceCategory && (String(log.serviceCategory ?? '').toLowerCase().includes('reforma') || String(log.serviceCategory ?? '').toLowerCase().includes('entressafra'))) ||
+        (log.description && (String(log.description ?? '').toLowerCase().includes('reforma') || String(log.description ?? '').toLowerCase().includes('entressafra')));
 
       const matchReforma = !filterReformaOnly || isReformaOrEntressafra;
 
@@ -381,9 +381,9 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
       const matchStartDate = !startDate || (logDate ? logDate >= startDate : true);
       const matchEndDate = !endDate || (logDate ? logDate <= endDate : true);
       const isReforma = 
-        (log.type && (log.type.toLowerCase().includes('reforma') || log.type.toLowerCase().includes('entressafra'))) ||
-        (log.serviceCategory && (log.serviceCategory.toLowerCase().includes('reforma') || log.serviceCategory.toLowerCase().includes('entressafra'))) ||
-        (log.description && (log.description.toLowerCase().includes('reforma') || log.description.toLowerCase().includes('entressafra')));
+        (log.type && (String(log.type ?? '').toLowerCase().includes('reforma') || String(log.type ?? '').toLowerCase().includes('entressafra'))) ||
+        (log.serviceCategory && (String(log.serviceCategory ?? '').toLowerCase().includes('reforma') || String(log.serviceCategory ?? '').toLowerCase().includes('entressafra'))) ||
+        (log.description && (String(log.description ?? '').toLowerCase().includes('reforma') || String(log.description ?? '').toLowerCase().includes('entressafra')));
       return matchVehicle && matchLocation && matchStartDate && matchEndDate && isReforma;
     });
   }, [localLogs, selectedVehicle, selectedLocation, startDate, endDate]);

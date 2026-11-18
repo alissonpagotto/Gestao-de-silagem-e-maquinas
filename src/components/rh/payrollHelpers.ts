@@ -166,7 +166,7 @@ export const getEmployeeMonthCommissions = (
   }
 
   const breakdown: CommissionItemBreakdown[] = [];
-  const empName = (employee.name || '').trim().toLowerCase();
+  const empName = String(employee.name ?? '').trim().toLowerCase();
 
   services.forEach((service) => {
     // Validação da competência
@@ -181,7 +181,7 @@ export const getEmployeeMonthCommissions = (
     // A) OPERADOR PRINCIPAL FORRAGEIRA
     const isPrimaryForage = 
       service.forageOperatorId === employeeId || 
-      (Boolean(service.forageOperatorName) && service.forageOperatorName!.trim().toLowerCase() === empName);
+      (Boolean(service.forageOperatorName) && String(service.forageOperatorName! ?? '').trim().toLowerCase() === empName);
 
     if (isPrimaryForage) {
       let amount = 0;
@@ -234,7 +234,7 @@ export const getEmployeeMonthCommissions = (
     // B) SEGUNDO OPERADOR FORRAGEIRA
     const isSecondForage = 
       service.forageSecondOperatorId === employeeId || 
-      (Boolean(service.forageSecondOperatorName) && service.forageSecondOperatorName!.trim().toLowerCase() === empName);
+      (Boolean(service.forageSecondOperatorName) && String(service.forageSecondOperatorName! ?? '').trim().toLowerCase() === empName);
 
     if (isSecondForage) {
       let amount = 0;
@@ -288,7 +288,7 @@ export const getEmployeeMonthCommissions = (
     // C) OPERADOR PRINCIPAL TRATOR / COMPACTAÇÃO
     const isPrimaryTractor = 
       service.tractorOperatorId === employeeId || 
-      (Boolean(service.tractorOperatorName) && service.tractorOperatorName!.trim().toLowerCase() === empName);
+      (Boolean(service.tractorOperatorName) && String(service.tractorOperatorName! ?? '').trim().toLowerCase() === empName);
 
     if (isPrimaryTractor) {
       let amount = 0;
@@ -341,7 +341,7 @@ export const getEmployeeMonthCommissions = (
     // D) SEGUNDO OPERADOR TRATOR / COMPACTAÇÃO
     const isSecondTractor = 
       service.tractorSecondOperatorId === employeeId || 
-      (Boolean(service.tractorSecondOperatorName) && service.tractorSecondOperatorName!.trim().toLowerCase() === empName);
+      (Boolean(service.tractorSecondOperatorName) && String(service.tractorSecondOperatorName! ?? '').trim().toLowerCase() === empName);
 
     if (isSecondTractor) {
       let amount = 0;
@@ -398,12 +398,12 @@ export const getEmployeeMonthCommissions = (
         // Pular se for caminhão explicitamente de terceiro (já apurado no Financeiro)
         const isThirdPartyVehicle = 
           truck.ownership === 'terceirizado' || 
-          (truck.truckName || '').toLowerCase().includes('terceir');
+          String(truck.truckName ?? '').toLowerCase().includes('terceir');
         if (isThirdPartyVehicle) return;
 
         const isDriver = 
           truck.primaryDriverId === employeeId || 
-          (Boolean(truck.primaryDriverName) && truck.primaryDriverName!.trim().toLowerCase() === empName);
+          (Boolean(truck.primaryDriverName) && String(truck.primaryDriverName! ?? '').trim().toLowerCase() === empName);
 
         if (isDriver && typeof truck.driverCommission === 'number' && truck.driverCommission > 0) {
           const roundedAmount = Number(truck.driverCommission.toFixed(2));
@@ -455,7 +455,7 @@ export const getEmployeeMonthCommissions = (
     // F) OPERADOR GERAL PREVISTO (Se houver alocação direta)
     const isGenericOperator = 
       service.operatorId === employeeId || 
-      (Boolean(service.operatorAssigned) && service.operatorAssigned!.trim().toLowerCase() === empName);
+      (Boolean(service.operatorAssigned) && String(service.operatorAssigned! ?? '').trim().toLowerCase() === empName);
 
     if (isGenericOperator && !isPrimaryForage && !isPrimaryTractor) {
       if (typeof service.driverCostAllocated === 'number' && service.driverCostAllocated > 0) {
@@ -827,13 +827,13 @@ export const findEmployeeLinkedMachinery = (
   const empId = String(emp.id || '').trim();
   const empNameLower = String(emp.name || '').trim().toLowerCase();
   const empFirstName = empNameLower.split(/\s+/)[0] || '';
-  const normalizeToken = (s: string) => s.toLowerCase().replace(/s{2,}/g, 's').trim();
+  const normalizeToken = (s: string) => String(s ?? '').toLowerCase().replace(/s{2,}/g, 's').trim();
   const empFirstNorm = normalizeToken(empFirstName);
 
   // 1. Vínculo explícito gravado no cadastro do funcionário
   const explicitMachId = String(emp.machineryId || (emp as any).veiculo_id || '').trim();
   if (explicitMachId) {
-    const byId = machineries.find((m) => m.id === explicitMachId || String(m.id).toLowerCase() === explicitMachId.toLowerCase());
+    const byId = machineries.find((m) => m.id === explicitMachId || String(m.id ?? '').toLowerCase() === String(explicitMachId ?? '').toLowerCase());
     if (byId) return byId;
   }
 
@@ -841,9 +841,9 @@ export const findEmployeeLinkedMachinery = (
   if (explicitMachName) {
     const byName = machineries.find(
       (m) =>
-        (m.name && m.name.toLowerCase().includes(explicitMachName)) ||
-        (m.model && m.model.toLowerCase().includes(explicitMachName)) ||
-        (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(explicitMachName))
+        (m.name && String(m.name ?? '').toLowerCase().includes(explicitMachName)) ||
+        (m.model && String(m.model ?? '').toLowerCase().includes(explicitMachName)) ||
+        (m.licensePlateOrSerial && String(m.licensePlateOrSerial ?? '').toLowerCase().includes(explicitMachName))
     );
     if (byName) return byName;
   }
@@ -855,7 +855,7 @@ export const findEmployeeLinkedMachinery = (
     }
     if (m.driver_id && m.driver_id === empId) return true;
     if (m.operatorOrDriver) {
-      const parts = m.operatorOrDriver.split(',').map((s: string) => s.trim().toLowerCase());
+      const parts = m.operatorOrDriver.split(',').map((s: string) => String(s ?? '').trim().toLowerCase());
       if (
         parts.includes(empNameLower) ||
         (empFirstNorm.length >= 3 && parts.some((p: string) => normalizeToken(p.split(/\s+/)[0]) === empFirstNorm))
@@ -887,9 +887,8 @@ export const findEmployeeLinkedMachinery = (
   if (byDirectAssignment) return byDirectAssignment;
 
   // 3. Vínculo operacional pelo cargo do colaborador (ex: Operador de Trator -> Trator, Motorista -> Caminhão)
-  const rolesStr = [emp.role || '', ...(Array.isArray(emp.roles) ? emp.roles : [])]
-    .join(' ')
-    .toLowerCase();
+  const rolesStr = String([emp.role || '', ...(Array.isArray(emp.roles) ? emp.roles : [])]
+    .join(' ') ?? '').toLowerCase();
 
   const activeMachines = machineries.filter((m) => (m.status as string) !== 'inativo');
   const pool = activeMachines.length > 0 ? activeMachines : machineries;

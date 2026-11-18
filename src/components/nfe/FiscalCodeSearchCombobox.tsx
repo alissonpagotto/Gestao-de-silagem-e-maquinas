@@ -3,10 +3,9 @@ import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Check, Settings } from 'lucide-react';
 
 function normalizeSearchText(text: string): string {
-  return (text || '')
+  return String((text || '')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, '') ?? '').toLowerCase()
     .trim();
 }
 

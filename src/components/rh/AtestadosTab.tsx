@@ -147,11 +147,11 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
   // Filtered List
   const filtered = competenceCerts.filter(c => {
     const matchesSearch = 
-      c.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.cid && c.cid.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (c.doctorName && c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (c.clinic && c.clinic.toLowerCase().includes(searchTerm.toLowerCase()));
+      String(c.employeeName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+      String(c.type ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+      (c.cid && String(c.cid ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+      (c.doctorName && String(c.doctorName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+      (c.clinic && String(c.clinic ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()));
 
     const matchesType = typeFilter === 'todos' || c.type === typeFilter;
     const matchesStatus = statusFilter === 'todos' || c.status === statusFilter;

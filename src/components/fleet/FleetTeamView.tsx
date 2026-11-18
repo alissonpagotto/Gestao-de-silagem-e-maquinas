@@ -71,8 +71,8 @@ function mapDbFrenteToFleetTeam(row: FrenteTrabalhoRow, machineries: Machinery[]
   const hex = row.cor || '#eab308';
   const matchingPalette = TEAM_COLOR_PALETTES.find(p => p.headerBg === hex || p.border === hex) || TEAM_COLOR_PALETTES[0];
   const mach = machineries.find(m => 
-    m.name?.toLowerCase() === row.nome?.toLowerCase() || 
-    (m.fleetNumber && row.nome?.toLowerCase().includes(m.fleetNumber.toLowerCase()))
+    String(m.name ?? '').toLowerCase() === String(row.nome ?? '').toLowerCase() || 
+    (m.fleetNumber && String(row.nome ?? '').toLowerCase().includes(String(m.fleetNumber ?? '').toLowerCase()))
   );
 
   return {
@@ -321,8 +321,8 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       // Check search match
       const matchSearch =
         !searchTerm ||
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.role.toLowerCase().includes(searchTerm.toLowerCase());
+        String(emp.name ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(emp.role ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase());
 
       if (!matchSearch) return;
 

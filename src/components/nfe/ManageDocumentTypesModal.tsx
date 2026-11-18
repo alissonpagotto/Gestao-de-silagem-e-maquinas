@@ -38,7 +38,7 @@ export const ManageDocumentTypesModal: React.FC<ManageDocumentTypesModalProps> =
 
   const isDefaultType = (name: string): boolean => {
     return DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES.some(
-      def => def.trim().toLowerCase() === name.trim().toLowerCase()
+      def => String(def ?? '').trim().toLowerCase() === String(name ?? '').trim().toLowerCase()
     );
   };
 
@@ -52,12 +52,12 @@ export const ManageDocumentTypesModal: React.FC<ManageDocumentTypesModalProps> =
       return;
     }
 
-    if (trimmed.toLowerCase() === 'recibo') {
+    if (String(trimmed ?? '').toLowerCase() === 'recibo') {
       setErrorMessage("A opção 'Recibo' foi descontinuada. Use 'Nota avulsa', 'Cupom sem valor fiscal' ou outro nome específico.");
       return;
     }
 
-    if (documentTypes.some(t => t.trim().toLowerCase() === trimmed.toLowerCase())) {
+    if (documentTypes.some(t => String(t ?? '').trim().toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       setErrorMessage(`O tipo "${trimmed}" já está cadastrado.`);
       return;
     }
@@ -85,13 +85,13 @@ export const ManageDocumentTypesModal: React.FC<ManageDocumentTypesModalProps> =
       return;
     }
 
-    if (trimmed.toLowerCase() === 'recibo') {
+    if (String(trimmed ?? '').toLowerCase() === 'recibo') {
       setErrorMessage("A opção 'Recibo' não é permitida.");
       return;
     }
 
     const isDuplicate = documentTypes.some(
-      (t, idx) => idx !== index && t.trim().toLowerCase() === trimmed.toLowerCase()
+      (t, idx) => idx !== index && String(t ?? '').trim().toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
 
     if (isDuplicate) {

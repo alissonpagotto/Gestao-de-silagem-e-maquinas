@@ -50,7 +50,7 @@ export function isInventoryItemService(item: InventoryItem): boolean {
     return true;
   }
 
-  const catText = [
+  const catText = String([
     item.categoria,
     item.category,
     item.tipo_produto,
@@ -59,8 +59,7 @@ export function isInventoryItemService(item: InventoryItem): boolean {
     .filter(Boolean)
     .join(' ')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+    .replace(/[\u0300-\u036f]/g, '') ?? '').toLowerCase();
 
   return (
     catText.includes('servi') ||
@@ -147,8 +146,8 @@ export function resolveServiceMetricsForNfse(
   quantityDisplayText: string;
 } {
   const total = Number(overrideTotalAmount ?? os.totalAmount ?? 0);
-  const typeStr = (os.serviceType || '').toLowerCase();
-  const tabStr = (os.serviceTab || '').toLowerCase();
+  const typeStr = String(os.serviceType ?? '').toLowerCase();
+  const tabStr = String(os.serviceTab ?? '').toLowerCase();
   const isFreight =
     tabStr === 'frete' ||
     typeStr.includes('frete') ||

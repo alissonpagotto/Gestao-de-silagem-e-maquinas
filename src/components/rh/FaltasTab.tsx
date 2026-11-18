@@ -346,9 +346,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
   const filtered = activeAbsences.filter(a => {
     const matchesSearch = 
-      a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.reason && a.reason.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (a.notes && a.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+      String(a.employeeName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+      (a.reason && String(a.reason ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+      (a.notes && String(a.notes ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()));
 
     const matchesMonth = isMonthMatching(a, selectedMonth);
     const matchesType = typeFilter === 'todos' || a.type === typeFilter;

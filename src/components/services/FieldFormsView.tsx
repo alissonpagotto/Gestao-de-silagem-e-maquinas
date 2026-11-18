@@ -84,13 +84,13 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     if (typeof window === 'undefined') return null;
     try {
       const searchParams = new URLSearchParams(window.location.search);
-      let cargo = (searchParams.get('cargo') || searchParams.get('funcao') || searchParams.get('subform') || searchParams.get('form') || searchParams.get('subtab') || '').toLowerCase().trim();
+      let cargo = String((searchParams.get('cargo') || searchParams.get('funcao') || searchParams.get('subform') || searchParams.get('form') || searchParams.get('subtab')) ?? '').toLowerCase().trim();
       if (!cargo && window.location.hash.includes('cargo=')) {
         const hashPart = window.location.hash.includes('?') 
           ? window.location.hash.split('?')[1] 
           : window.location.hash.replace(/^#/, '');
         const hashParams = new URLSearchParams(hashPart);
-        cargo = (hashParams.get('cargo') || '').toLowerCase().trim();
+        cargo = String(hashParams.get('cargo') ?? '').toLowerCase().trim();
       }
       if (cargo === 'forrageira' || cargo === 'corte' || cargo === 'colheitadeira' || cargo === 'operador') return 'corte';
       if (cargo === 'trator' || cargo === 'compactacao' || cargo === 'compactador') return 'compactacao';
@@ -251,7 +251,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     // 2. Cliente e Dados Cadastrais
     const matchingClient = clients.find(c => 
       (appt.clientId && c.id === appt.clientId) || 
-      (c.name && c.name.toLowerCase().trim() === appt.clientName?.toLowerCase().trim())
+      (c.name && String(c.name ?? '').toLowerCase().trim() === String(appt.clientName ?? '').toLowerCase().trim())
     );
     const clientName = appt.clientName || matchingClient?.name || '';
 
@@ -279,24 +279,24 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     // 6. Máquina Principal (Forrageira ou Colheitadeira) e Operador
     const nomeMaquina = appt.primaryMachineryPrefix || appt.primaryMachineryModel || appt.primaryMachineryPlate || 'Forrageira 01';
     const forageOp = appt.assignedTeam?.find(t => 
-      t.role?.toLowerCase().includes('forrageira') || 
-      t.role?.toLowerCase().includes('principal') || 
-      t.role?.toLowerCase().includes('colheitadeira') ||
-      t.role?.toLowerCase().includes('maquina')
+      String(t.role ?? '').toLowerCase().includes('forrageira') || 
+      String(t.role ?? '').toLowerCase().includes('principal') || 
+      String(t.role ?? '').toLowerCase().includes('colheitadeira') ||
+      String(t.role ?? '').toLowerCase().includes('maquina')
     );
     const operadorMaquina = forageOp?.employeeName || (appt.assignedTeam && appt.assignedTeam.length > 0 ? appt.assignedTeam[0].employeeName : '');
 
     // 7. Trator de Compactação e seu Operador
     const tractorVehicle = (appt.assignedVehicles || []).find(v => 
       v.category === 'trator' || 
-      v.prefix?.toLowerCase().includes('trator') || 
-      v.prefix?.toLowerCase().includes('tr-') ||
-      v.model?.toLowerCase().includes('trator')
+      String(v.prefix ?? '').toLowerCase().includes('trator') || 
+      String(v.prefix ?? '').toLowerCase().includes('tr-') ||
+      String(v.model ?? '').toLowerCase().includes('trator')
     );
     const tratorNum = tractorVehicle?.prefix || tractorVehicle?.plateOrSerial || tractorVehicle?.model || '';
     const tractorOpTeam = appt.assignedTeam?.find(t => 
-      t.role?.toLowerCase().includes('trator') || 
-      t.role?.toLowerCase().includes('compactad') ||
+      String(t.role ?? '').toLowerCase().includes('trator') || 
+      String(t.role ?? '').toLowerCase().includes('compactad') ||
       (tractorVehicle && t.assignedVehiclePrefix && tractorVehicle.prefix.includes(t.assignedVehiclePrefix))
     );
     const operadorTrator = tractorVehicle?.driverOrOperatorName || tractorOpTeam?.employeeName || '';
@@ -304,7 +304,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     // 8. Lista de Caminhões / Frotas de apoio escalados
     const truckVehicles = (appt.assignedVehicles || []).filter(v => 
       v.category === 'caminhao' || 
-      (!v.category && !v.prefix?.toLowerCase().includes('trator'))
+      (!v.category && !String(v.prefix ?? '').toLowerCase().includes('trator'))
     );
 
     const preenchimentoCaminhoes = [1, 2, 3, 4, 5].map((id, index) => {
@@ -398,7 +398,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   const scheduledTrucks = useMemo(() => {
     if (!loadedAppointment?.assignedVehicles) return [];
     return loadedAppointment.assignedVehicles.filter(v => 
-      v.category === 'caminhao' || (!v.category && !v.prefix?.toLowerCase().includes('trator'))
+      v.category === 'caminhao' || (!v.category && !String(v.prefix ?? '').toLowerCase().includes('trator'))
     );
   }, [loadedAppointment]);
 

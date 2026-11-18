@@ -101,7 +101,7 @@ export function isMaintenanceOrPartsInvoice(
   doc: Partial<DocumentoEntradaRecord> | null | undefined,
   transactionType?: string
 ): boolean {
-  const haystack = [
+  const haystack = String([
     transactionType,
     doc?.natureza_operacao,
     doc?.tipo_documento,
@@ -109,8 +109,7 @@ export function isMaintenanceOrPartsInvoice(
     doc?.observacoes,
   ]
     .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+    .join(' ') ?? '').toLowerCase();
 
   return (
     haystack.includes('peça') ||
@@ -227,7 +226,7 @@ export function resolveDocumentoEntradaItems(
 
   // 3. Fallback via registros fiscais / despesas com nfeItems ou NFE_ITEMS_JSON embutido
   if (rawItems.length === 0) {
-    const docNum = getDocumentoEntradaNumber(doc).toLowerCase();
+    const docNum = String(getDocumentoEntradaNumber(doc) ?? '').toLowerCase();
     const fiscalRecords = getStoredFiscalRecords();
     const allExpenses = getStoredExpenses();
     const candidates: Expense[] = [...fiscalRecords, ...allExpenses];

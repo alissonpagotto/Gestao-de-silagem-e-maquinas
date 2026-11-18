@@ -57,8 +57,8 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
 
   // Drivers & Team stats
   const drivers = employees.filter(e => 
-    e.role.toLowerCase().includes('motorista') || 
-    e.role.toLowerCase().includes('transporte') ||
+    String(e.role ?? '').toLowerCase().includes('motorista') || 
+    String(e.role ?? '').toLowerCase().includes('transporte') ||
     Boolean(e.cnhNumber)
   );
   const teamMembers = employees.filter(e => !drivers.some(d => d.id === e.id));

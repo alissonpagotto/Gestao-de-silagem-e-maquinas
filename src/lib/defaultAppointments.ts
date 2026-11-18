@@ -8,7 +8,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [];
  */
 export function findAppointmentByIdOrNumber(idOrNumber: string, storedList?: ServiceAppointment[]): ServiceAppointment | undefined {
   if (!idOrNumber) return undefined;
-  const clean = idOrNumber.trim().toLowerCase();
+  const clean = String(idOrNumber ?? '').trim().toLowerCase();
 
   const listToSearch: ServiceAppointment[] = [];
   if (storedList && storedList.length > 0) {
@@ -42,23 +42,23 @@ export function findAppointmentByIdOrNumber(idOrNumber: string, storedList?: Ser
   });
 
   // 1. Match exato pelo número (ex: AG-2026-002)
-  let found = listToSearch.find(a => a.appointmentNumber?.toLowerCase().trim() === clean);
+  let found = listToSearch.find(a => String(a.appointmentNumber ?? '').toLowerCase().trim() === clean);
   if (found) return found;
 
   // 2. Match exato pelo ID (ex: appt-initial-02)
-  found = listToSearch.find(a => a.id?.toLowerCase().trim() === clean);
+  found = listToSearch.find(a => String(a.id ?? '').toLowerCase().trim() === clean);
   if (found) return found;
 
   // 3. Match parcial se conter o número ou dígitos
   found = listToSearch.find(a => 
-    a.appointmentNumber?.toLowerCase().replace(/[^a-z0-9]/g, '') === clean.replace(/[^a-z0-9]/g, '')
+    String(a.appointmentNumber ?? '').toLowerCase().replace(/[^a-z0-9]/g, '') === clean.replace(/[^a-z0-9]/g, '')
   );
   if (found) return found;
 
   // 4. Match por includes
   found = listToSearch.find(a => 
-    a.appointmentNumber?.toLowerCase().includes(clean) || 
-    clean.includes(a.appointmentNumber?.toLowerCase() || '____')
+    String(a.appointmentNumber ?? '').toLowerCase().includes(clean) || 
+    clean.includes(String(a.appointmentNumber ?? '').toLowerCase() || '____')
   );
 
   return found;

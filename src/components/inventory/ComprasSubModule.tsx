@@ -355,7 +355,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
   // Filtro preditivo para o autocomplete
   const filteredProducts = useMemo(() => {
-    const term = searchProductText.trim().toLowerCase();
+    const term = String(searchProductText ?? '').trim().toLowerCase();
     if (!term) return [];
     return availableProducts.filter(p => {
       const name = String(p.nome_comercial || p.name || '').toLowerCase();
@@ -678,7 +678,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
   // Filtragem de listas arquivadas dentro do modal
   const filteredHistory = useMemo(() => {
-    const term = historySearchTerm.trim().toLowerCase();
+    const term = String(historySearchTerm ?? '').trim().toLowerCase();
     if (!term) return historicoCompras;
     return historicoCompras.filter(l => {
       const nome = String(l.nome || '').toLowerCase();
@@ -702,7 +702,7 @@ export const ComprasSubModule: React.FC<ComprasSubModuleProps> = ({
 
   // Filtragem de itens críticos dentro do modal
   const filteredCriticalModalItems = useMemo(() => {
-    const term = criticalSearchTerm.trim().toLowerCase();
+    const term = String(criticalSearchTerm ?? '').trim().toLowerCase();
     if (!term) return belowStockItems;
     return belowStockItems.filter(item => {
       const name = String(item.nome_comercial || item.name || '').toLowerCase();

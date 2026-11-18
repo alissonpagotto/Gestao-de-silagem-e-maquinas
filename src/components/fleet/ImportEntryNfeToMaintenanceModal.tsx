@@ -156,12 +156,12 @@ export const ImportEntryNfeToMaintenanceModal: React.FC<ImportEntryNfeToMaintena
   }, [isOpen, selectedDoc, liveInventory]);
 
   const filteredDocs = useMemo(() => {
-    const q = docSearchQuery.trim().toLowerCase();
+    const q = String(docSearchQuery ?? '').trim().toLowerCase();
     if (!q || (selectedDoc && docSearchQuery === formatDocLabel(selectedDoc))) {
       return availableDocs;
     }
     return availableDocs.filter((doc) => {
-      const label = formatDocLabel(doc).toLowerCase();
+      const label = String(formatDocLabel(doc) ?? '').toLowerCase();
       const nat = String(doc.natureza_operacao || doc.tipo_documento || '').toLowerCase();
       return label.includes(q) || nat.includes(q);
     });
@@ -223,10 +223,10 @@ export const ImportEntryNfeToMaintenanceModal: React.FC<ImportEntryNfeToMaintena
             (part.inventoryItemId && inv.id === part.inventoryItemId) ||
             (inv.name &&
               part.description &&
-              inv.name.trim().toLowerCase() === part.description.trim().toLowerCase()) ||
+              String(inv.name ?? '').trim().toLowerCase() === String(part.description ?? '').trim().toLowerCase()) ||
             (inv.nome_comercial &&
               part.description &&
-              inv.nome_comercial.trim().toLowerCase() === part.description.trim().toLowerCase())
+              String(inv.nome_comercial ?? '').trim().toLowerCase() === String(part.description ?? '').trim().toLowerCase())
         );
 
         if (targetIdx !== -1) {

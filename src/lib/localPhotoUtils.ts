@@ -134,7 +134,7 @@ export function resolveEmployeePhoto(employee?: Partial<Employee> | null): strin
     employee.photoUrl;
   if (!raw || typeof raw !== 'string') return undefined;
   const trimmed = raw.trim();
-  const lower = trimmed.toLowerCase();
+  const lower = String(trimmed ?? '').toLowerCase();
   if (
     !trimmed ||
     lower === 'null' ||

@@ -128,7 +128,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     if (deltaH > 0 && deltaK <= 0) return 'l_h';
     if (deltaK > 0 && deltaH <= 0) return 'km_l';
     
-    const cat = (machinery?.categoryType || machinery?.tipo || '').toLowerCase();
+    const cat = String((machinery?.categoryType || machinery?.tipo) ?? '').toLowerCase();
     if (cat.includes('caminhao') || cat.includes('caminhão') || cat.includes('onibus') || cat.includes('ônibus') || cat.includes('utilitario') || cat.includes('utilitário')) {
       return 'km_l';
     }

@@ -131,7 +131,7 @@ export function resolveSubscriberPlan(
 
   // Função para normalizar chaves: remove prefixos, traços e caracteres especiais
   const normalizeKey = (val: string) =>
-    val.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+    String(val ?? '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
 
   const normSubId = normalizeKey(subPlanId);
   const normSubName = normalizeKey(subPlanName);
@@ -211,7 +211,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     if (!s) return null;
     const currentSettings = getStoredAdminSettings();
     const isSuperAdmin = (currentSettings.superAdminEmails || []).some(
-      (email) => email.trim().toLowerCase() === s.email.trim().toLowerCase()
+      (email) => String(email ?? '').trim().toLowerCase() === String(s.email ?? '').trim().toLowerCase()
     );
     return isSuperAdmin ? s : null;
   });
@@ -398,13 +398,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             if (p && typeof p === 'object') {
               const cleanRowId = String(setRow.id || '').replace(/^(company_profile_|cloud_company_|cloud_company_company_)/, '').toLowerCase();
               if (cleanRowId) profileMap.set(cleanRowId, p);
-              if (p.id) profileMap.set(String(p.id).toLowerCase(), p);
+              if (p.id) profileMap.set(String(p.id ?? '').toLowerCase(), p);
               if (p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document) {
                 const docClean = String(p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document).replace(/\D/g, '');
                 if (docClean) profileMap.set(docClean, p);
               }
               if (p.email || p.loginEmail) {
-                const emClean = String(p.email || p.loginEmail).trim().toLowerCase();
+                const emClean = String((p.email || p.loginEmail) ?? '').trim().toLowerCase();
                 if (emClean) profileMap.set(emClean, p);
               }
             }
@@ -415,12 +415,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       const data = assinantesResult.value.data;
       if (Array.isArray(data) && isMountedRef.current) {
         const cloudSubs: Subscriber[] = data.map((row: any) => {
-          const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
+          const emailKey = String((row.email || row.responsible_email) ?? '').trim().toLowerCase();
           const idKey = String(row.id || emailKey);
           const docKey = String(row.cpf_cnpj || row.document || '').replace(/\D/g, '');
           
           // Localiza dados de endereço e perfil correspondentes
-          const prof = profileMap.get(idKey.toLowerCase()) ||
+          const prof = profileMap.get(String(idKey ?? '').toLowerCase()) ||
                        (docKey ? profileMap.get(docKey) : null) ||
                        profileMap.get(emailKey) ||
                        null;
@@ -567,7 +567,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       const newRow = payload.new;
       if (!newRow || !newRow.id) return;
       const subId = String(newRow.id);
-      const cleanEmail = (newRow.email || '').trim().toLowerCase();
+      const cleanEmail = String(newRow.email ?? '').trim().toLowerCase();
 
       // REGRA 1: Bloqueio de updates circulares e eco de gatilho manual interno recente (janela de 5s)
       const recentAction = recentManualActionsRef.current.get(subId);
@@ -578,7 +578,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
       // Localiza o assinante atual em memória via ref sem disparar re-render
       const currentSub = subscribersRef.current.find(
-        s => s.id === subId || s.responsibleEmail.trim().toLowerCase() === cleanEmail
+        s => s.id === subId || String(s.responsibleEmail ?? '').trim().toLowerCase() === cleanEmail
       );
 
       if (currentSub) {
@@ -604,7 +604,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         const incomingCpfCnpj = (newRow.cpf_cnpj || newRow.document || '').trim();
 
         // Deduplicação estrita: se os dados reativos recebidos forem idênticos ao estado atual, aborta imediatamente!
-        const isSamePlan = currentSub.planName.trim().toLowerCase() === resolved.planName.trim().toLowerCase();
+        const isSamePlan = String(currentSub.planName ?? '').trim().toLowerCase() === String(resolved.planName ?? '').trim().toLowerCase();
         const isSameValue = Math.abs((Number(currentSub.monthlyValue) || 0) - resolved.monthlyValue) < 0.01;
         const isSameStatus = currentSub.status === incomingStatus;
         const isSameName = currentSub.name.trim() === incomingName;
@@ -632,7 +632,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         };
 
         setSubscribers(prev => {
-          const next = prev.map(s => (s.id === subId || s.responsibleEmail.trim().toLowerCase() === cleanEmail) ? updatedSubscriber : s);
+          const next = prev.map(s => (s.id === subId || String(s.responsibleEmail ?? '').trim().toLowerCase() === cleanEmail) ? updatedSubscriber : s);
           subscribersRef.current = next;
           try {
             localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(next));
@@ -757,7 +757,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     const baseMetrics = computeMasterMetrics(list);
     // Calcula o MRR usando o valor dinâmico de cada plano ativo
     const dynamicMrr = list
-      .filter(s => (s?.status || '').toLowerCase() === 'ativa')
+      .filter(s => String(s?.status ?? '').toLowerCase() === 'ativa')
       .reduce((sum, s) => {
         const resolved = resolveSubscriberPlan(s, plans);
         return sum + resolved.monthlyValue;
@@ -774,18 +774,18 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     if (!Array.isArray(subscribers)) return [];
     return subscribers.filter(sub => {
       if (!sub) return false;
-      const subStatus = (sub?.status || 'trial').toLowerCase();
-      if (statusFilter !== 'todas' && subStatus !== statusFilter.toLowerCase()) {
+      const subStatus = String((sub?.status || 'trial') ?? '').toLowerCase();
+      if (statusFilter !== 'todas' && subStatus !== String(statusFilter ?? '').toLowerCase()) {
         return false;
       }
       if (searchQuery && searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+        const q = String(searchQuery ?? '').toLowerCase().trim();
         const resolved = resolveSubscriberPlan(sub, plans);
-        const matchesName = (sub?.name || '').toLowerCase().includes(q);
-        const matchesEmail = (sub?.responsibleEmail || '').toLowerCase().includes(q);
-        const matchesDoc = (sub?.cpfCnpj || '').toLowerCase().includes(q);
-        const matchesCity = (sub?.city || '').toLowerCase().includes(q);
-        const matchesPlan = (sub?.planName || '').toLowerCase().includes(q) || (resolved.planName || '').toLowerCase().includes(q);
+        const matchesName = String(sub?.name ?? '').toLowerCase().includes(q);
+        const matchesEmail = String(sub?.responsibleEmail ?? '').toLowerCase().includes(q);
+        const matchesDoc = String(sub?.cpfCnpj ?? '').toLowerCase().includes(q);
+        const matchesCity = String(sub?.city ?? '').toLowerCase().includes(q);
+        const matchesPlan = String(sub?.planName ?? '').toLowerCase().includes(q) || String(resolved.planName ?? '').toLowerCase().includes(q);
         return matchesName || matchesEmail || matchesDoc || matchesCity || matchesPlan;
       }
       return true;
@@ -929,8 +929,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         cnpjCpf: saved.cpfCnpj || '',
         stateRegistration: saved.stateRegistration || '',
         phone: saved.phone || '',
-        email: saved.responsibleEmail.trim().toLowerCase(),
-        loginEmail: saved.responsibleEmail.trim().toLowerCase(),
+        email: String(saved.responsibleEmail ?? '').trim().toLowerCase(),
+        loginEmail: String(saved.responsibleEmail ?? '').trim().toLowerCase(),
         zipCode: saved.cep || '',
         address: saved.street || '',
         number: saved.number || '',
@@ -946,12 +946,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       try {
         if (typeof localStorage !== 'undefined') {
           const activeSubId = localStorage.getItem('silagem_active_subscriber_id');
-          const activeSubEmail = (
-            localStorage.getItem('silagem_active_subscriber_email') ||
-            localStorage.getItem('silagem_active_user_email') ||
-            ''
-          ).trim().toLowerCase();
-          const savedEmail = (saved.responsibleEmail || '').trim().toLowerCase();
+          const activeSubEmail = String((localStorage.getItem('silagem_active_subscriber_email') ||
+            localStorage.getItem('silagem_active_user_email')) ?? '').trim().toLowerCase();
+          const savedEmail = String(saved.responsibleEmail ?? '').trim().toLowerCase();
           if (
             (activeSubId && activeSubId === saved.id) ||
             (activeSubEmail && savedEmail && activeSubEmail === savedEmail)
@@ -976,7 +973,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       return;
     }
 
-    const cleanEmail = email && email.trim() !== '-' ? email.trim().toLowerCase() : undefined;
+    const cleanEmail = email && email.trim() !== '-' ? String(email ?? '').trim().toLowerCase() : undefined;
     const derivedUuid = toValidUUID(idDoAssinante);
 
     try {
@@ -1080,7 +1077,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           activeSubId === idDoAssinante ||
           impersonatedSubId === idDoAssinante ||
           currentCompanyId === idDoAssinante ||
-          (cleanEmail && activeUserEmail && activeUserEmail.toLowerCase() === cleanEmail);
+          (cleanEmail && activeUserEmail && String(activeUserEmail ?? '').toLowerCase() === cleanEmail);
 
         if (isSameAccount) {
           localStorage.removeItem('silagem_client_session');
@@ -1096,7 +1093,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
         try {
           const comp = getStoredCompanyProfile();
-          const compEmail = (comp.loginEmail || comp.email || '').toLowerCase();
+          const compEmail = String((comp.loginEmail || comp.email) ?? '').toLowerCase();
           if (comp.id === idDoAssinante || (cleanEmail && compEmail === cleanEmail)) {
             saveStoredCompanyProfile({
               ...comp,
@@ -1114,7 +1111,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         const nextList = (prev || []).filter(sub => {
           if (!sub) return false;
           const matchId = sub.id === idDoAssinante || String(sub.id) === String(idDoAssinante);
-          const matchEmail = cleanEmail && sub.responsibleEmail && sub.responsibleEmail.toLowerCase() === cleanEmail;
+          const matchEmail = cleanEmail && sub.responsibleEmail && String(sub.responsibleEmail ?? '').toLowerCase() === cleanEmail;
           return !matchId && !matchEmail;
         });
         saveStoredSubscribers(nextList);
@@ -1447,7 +1444,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // Adicionar Super Admin Email
   const handleAddSuperAdminEmail = () => {
-    const email = newSuperAdminEmail.trim().toLowerCase();
+    const email = String(newSuperAdminEmail ?? '').trim().toLowerCase();
     if (!email) return;
     if (settingsForm.superAdminEmails.includes(email)) return;
     const updated = {
@@ -1933,7 +1930,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>Ativa ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'ativa').length})</span>
+                  <span>Ativa ({(subscribers || []).filter(s => String(s?.status ?? '').toLowerCase() === 'ativa').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1945,7 +1942,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span>Trial ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'trial').length})</span>
+                  <span>Trial ({(subscribers || []).filter(s => String(s?.status ?? '').toLowerCase() === 'trial').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1957,7 +1954,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                  <span>Inadimplente ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'inadimplente').length})</span>
+                  <span>Inadimplente ({(subscribers || []).filter(s => String(s?.status ?? '').toLowerCase() === 'inadimplente').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1969,7 +1966,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>Cancelada ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'cancelada').length})</span>
+                  <span>Cancelada ({(subscribers || []).filter(s => String(s?.status ?? '').toLowerCase() === 'cancelada').length})</span>
                 </button>
               </div>
 
@@ -2057,7 +2054,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         const resolvedPlan = resolveSubscriberPlan(sub, plans);
                         const subPlan = resolvedPlan.planName;
                         const subValue = resolvedPlan.monthlyValue;
-                        const subStatus = ((sub?.status || 'trial') as string).toLowerCase() as SubscriberStatus;
+                        const subStatus = String((sub?.status || 'trial') as string ?? '').toLowerCase() as SubscriberStatus;
                         
                         let trialDateFormatted = '-';
                         if (sub?.trialUntil) {

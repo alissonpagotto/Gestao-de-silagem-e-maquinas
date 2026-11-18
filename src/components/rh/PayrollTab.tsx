@@ -95,10 +95,10 @@ export const calculateTotalFaltasFromDeductions = (items: PayrollDeductionItem[]
       it.type === 'Falta / Atraso' || 
       it.verbaCode === '501' || 
       it.verbaCode === '202' ||
-      (it.verbaCode === '101' && it.description?.toLowerCase().includes('falta')) ||
-      it.description?.toLowerCase().includes('falta') ||
-      it.description?.toLowerCase().includes('atraso') ||
-      it.description?.toLowerCase().includes('dias anteriores')
+      (it.verbaCode === '101' && String(it.description ?? '').toLowerCase().includes('falta')) ||
+      String(it.description ?? '').toLowerCase().includes('falta') ||
+      String(it.description ?? '').toLowerCase().includes('atraso') ||
+      String(it.description ?? '').toLowerCase().includes('dias anteriores')
     )
     .reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
 };
@@ -207,9 +207,9 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
 // (Regra: Terceirizados são geridos exclusivamente pelo módulo Financeiro - Acerto de Terceiros)
 export const isThirdPartyDriver = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
-  const contract = (emp.contractType || '').toLowerCase().trim();
-  const regType = (emp.registrationType || '').toLowerCase().trim();
-  const role = (emp.role || '').toLowerCase().trim();
+  const contract = String(emp.contractType ?? '').toLowerCase().trim();
+  const regType = String(emp.registrationType ?? '').toLowerCase().trim();
+  const role = String(emp.role ?? '').toLowerCase().trim();
 
   // Vínculo explicitamente terceirizado
   const isTerceirizado = 
@@ -237,8 +237,8 @@ export const isThirdPartyDriver = (emp?: Partial<Employee>): boolean => {
 // 1.2 Identificação de Agenciador (Comissões e repasses geridos exclusivamente pelo Financeiro)
 export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
-  const roleStr = (emp.role || '').toLowerCase();
-  const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => r.toLowerCase()) : [];
+  const roleStr = String(emp.role ?? '').toLowerCase();
+  const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => String(r ?? '').toLowerCase()) : [];
   return roleStr.includes('agenciador') || rolesList.some(r => r.includes('agenciador'));
 };
 
@@ -246,8 +246,8 @@ export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
 // (Regra: Desconto automático de INSS aplicado unicamente para quem tem registro CLT)
 export const isCltContract = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
-  const contract = (emp.contractType || '').toLowerCase().trim();
-  const regType = (emp.registrationType || '').toLowerCase().trim();
+  const contract = String(emp.contractType ?? '').toLowerCase().trim();
+  const regType = String(emp.registrationType ?? '').toLowerCase().trim();
 
   // Regimes sem CLT: Prestador PJ, Diarista, Temporário, Terceirizado, Autônomo
   if (
@@ -655,7 +655,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       employees.find(
         (e) =>
           e.id === item.employeeId ||
-          (item.employeeName && e.name.trim().toLowerCase() === item.employeeName.trim().toLowerCase())
+          (item.employeeName && String(e.name ?? '').trim().toLowerCase() === String(item.employeeName ?? '').trim().toLowerCase())
       );
     const empName = item.employeeName || emp?.name || 'Colaborador';
     const machineriesList = getStoredMachineries();
@@ -736,7 +736,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const activeTenantId = effectiveCompanyId || getActiveCompanyId() || 'default';
     const generatedExpenses = validRecords.map(rec => {
       const emp = employees.find(
-        e => e.id === rec.employeeId || (rec.employeeName && e.name.trim().toLowerCase() === rec.employeeName.trim().toLowerCase())
+        e => e.id === rec.employeeId || (rec.employeeName && String(e.name ?? '').trim().toLowerCase() === String(rec.employeeName ?? '').trim().toLowerCase())
       );
       return buildPayrollPayableExpense(rec, emp, explicitDueDate, activeTenantId);
     });
@@ -1106,13 +1106,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     if (getRecordPayrollType(p) !== payrollType) return false;
     const emp = employees.find(e => e.id === p.employeeId);
     if (emp && isThirdPartyDriver(emp)) return false;
-    if ((p.employeeRole || '').toLowerCase().includes('terceiriz')) return false;
+    if (String(p.employeeRole ?? '').toLowerCase().includes('terceiriz')) return false;
     return true;
   });
 
   const filtered = monthPayrolls.filter(p => 
-    (p.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.employeeRole || '').toLowerCase().includes(searchTerm.toLowerCase())
+    String(p.employeeName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+    String(p.employeeRole ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())
   );
 
   // Alertas Inteligentes & Auditoria de Fechamento (Sazonal 13º + Folhas Pendentes)
@@ -1169,7 +1169,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           p.employeeId === emp.id ||
           (Boolean(p.employeeName) &&
             Boolean(emp.name) &&
-            p.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase())
+            String(p.employeeName ?? '').trim().toLowerCase() === String(emp.name ?? '').trim().toLowerCase())
       );
 
     // Auditoria de Folha Mensal na competência selecionada
@@ -1369,9 +1369,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         setDeductionItems(prev => {
           const manuals = prev.filter(
             it => it.isManual &&
-              !it.description?.toLowerCase().includes('sindicat') &&
-              !it.description?.toLowerCase().includes('taxa assist') &&
-              !it.type?.toLowerCase().includes('sindicat')
+              !String(it.description ?? '').toLowerCase().includes('sindicat') &&
+              !String(it.description ?? '').toLowerCase().includes('taxa assist') &&
+              !String(it.type ?? '').toLowerCase().includes('sindicat')
           );
           return [...dedItems, ...manuals];
         });
@@ -1426,7 +1426,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const targetEmpObj = employees.find(e => e.id === empId);
     const empAbsences = currentAbsencesList.filter(a => {
       const isTargetEmployee = a.employeeId === empId || 
-        (targetEmpObj && a.employeeName && a.employeeName.trim().toLowerCase() === targetEmpObj.name.trim().toLowerCase());
+        (targetEmpObj && a.employeeName && String(a.employeeName ?? '').trim().toLowerCase() === String(targetEmpObj.name ?? '').trim().toLowerCase());
       if (!isTargetEmployee) return false;
       if (a.status === 'abonada') return false;
       if (a.discountPayroll === false) return false;
@@ -1534,9 +1534,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     setDeductionItems(prev => {
       const manuals = prev.filter(
         it => it.isManual && 
-              !it.description?.toLowerCase().includes('sindicat') && 
-              !it.description?.toLowerCase().includes('taxa assist') &&
-              !it.type?.toLowerCase().includes('sindicat')
+              !String(it.description ?? '').toLowerCase().includes('sindicat') && 
+              !String(it.description ?? '').toLowerCase().includes('taxa assist') &&
+              !String(it.type ?? '').toLowerCase().includes('sindicat')
       );
       return [...generatedDeductItems, ...manuals];
     });
@@ -1552,7 +1552,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     // 4.1 Constrói lista estruturada de Comissões preservando itens manuais
     const generatedCommItems: PayrollCommissionItem[] = commData.breakdown.map((b, idx) => {
       let desc = (b.formattedLine || b.description || 'Comissão de Silagem / Produção').replace(/\s*\(\s*cla?ss\s*\)/gi, '');
-      if (b.clientName && !desc.toLowerCase().includes(b.clientName.toLowerCase())) {
+      if (b.clientName && !String(desc ?? '').toLowerCase().includes(String(b.clientName ?? '').toLowerCase())) {
         desc = `Ensilagem - Produtor ${b.clientName}`;
       }
       return {
@@ -1786,7 +1786,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const empAbsences = recType === 'monthly'
         ? currentAbsencesList.filter(a => {
             const isTargetEmployee = a.employeeId === payroll.employeeId || 
-              (targetEmpObj && a.employeeName && a.employeeName.trim().toLowerCase() === targetEmpObj.name.trim().toLowerCase());
+              (targetEmpObj && a.employeeName && String(a.employeeName ?? '').trim().toLowerCase() === String(targetEmpObj.name ?? '').trim().toLowerCase());
             if (!isTargetEmployee) return false;
             if (a.status === 'abonada') return false;
             if (a.discountPayroll === false) return false;
@@ -1815,7 +1815,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       } else if (recType === 'monthly') {
         loadedCommItems = commData.breakdown.map((b, idx) => {
           let desc = (b.formattedLine || b.description || 'Comissão de Produção / Silagem').replace(/\s*\(\s*cla?ss\s*\)/gi, '');
-          if (b.clientName && !desc.toLowerCase().includes(b.clientName.toLowerCase())) {
+          if (b.clientName && !String(desc ?? '').toLowerCase().includes(String(b.clientName ?? '').toLowerCase())) {
             desc = `Ensilagem - Produtor ${b.clientName}`;
           }
           return {
@@ -1923,9 +1923,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       // Se houver desconto sindical na lista de deduções vindo de dados legados, extrai o valor para o campo fixo e purga da lista
       const legacySindicalItem = loadedDeductItems.find(
-        it => it.description?.toLowerCase().includes('sindicat') || 
-              it.description?.toLowerCase().includes('taxa assist') || 
-              it.type?.toLowerCase().includes('sindicat')
+        it => String(it.description ?? '').toLowerCase().includes('sindicat') || 
+              String(it.description ?? '').toLowerCase().includes('taxa assist') || 
+              String(it.type ?? '').toLowerCase().includes('sindicat')
       );
       if (legacySindicalItem && (!savedSindical || Number(savedSindical) === 0)) {
         finalSindicalAmount = Number(legacySindicalItem.amount) || 25.23;
@@ -1934,9 +1934,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       // Limpa estritamente a lista de deduções para que NUNCA exiba itens de taxa sindical
       loadedDeductItems = loadedDeductItems.filter(
-        it => !it.description?.toLowerCase().includes('sindicat') && 
-              !it.description?.toLowerCase().includes('taxa assist') && 
-              !it.type?.toLowerCase().includes('sindicat')
+        it => !String(it.description ?? '').toLowerCase().includes('sindicat') && 
+              !String(it.description ?? '').toLowerCase().includes('taxa assist') && 
+              !String(it.type ?? '').toLowerCase().includes('sindicat')
       );
 
       setSindicalEnabled(finalSindicalEnabled);
@@ -2079,7 +2079,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     // Se o usuário tentar incluir taxa sindical manualmente no extrato inferior,
     // direciona para o campo fixo de Taxa Assistencial Sindicato no topo
-    if (newDeductDesc.toLowerCase().includes('sindicat') || newDeductDesc.toLowerCase().includes('taxa assist') || newDeductType.toLowerCase().includes('sindicat')) {
+    if (String(newDeductDesc ?? '').toLowerCase().includes('sindicat') || String(newDeductDesc ?? '').toLowerCase().includes('taxa assist') || String(newDeductType ?? '').toLowerCase().includes('sindicat')) {
       setSindicalEnabled(true);
       setSindicalDiscount(newDeductAmount);
       setLastCustomSindical(newDeductAmount);
@@ -2167,9 +2167,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const activeCommission = commissionItems.length > 0 ? totalCommissions : (commissionAmount || 0);
 
     const cleanDeductionsList = deductionItems.filter(
-      it => !it.description?.toLowerCase().includes('sindicat') && 
-            !it.description?.toLowerCase().includes('taxa assist') && 
-            !it.type?.toLowerCase().includes('sindicat')
+      it => !String(it.description ?? '').toLowerCase().includes('sindicat') && 
+            !String(it.description ?? '').toLowerCase().includes('taxa assist') && 
+            !String(it.type ?? '').toLowerCase().includes('sindicat')
     );
     const totalDeductionsList = cleanDeductionsList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
     const totalAdv = cleanDeductionsList.length > 0
@@ -2993,7 +2993,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         getDefaultPayrollDueDate(item.referenceMonth, recType);
 
       const emp = employees.find(
-        (e) => e.id === item.employeeId || e.name.trim().toLowerCase() === item.employeeName.trim().toLowerCase()
+        (e) => e.id === item.employeeId || String(e.name ?? '').trim().toLowerCase() === String(item.employeeName ?? '').trim().toLowerCase()
       );
       const machineriesList = getStoredMachineries();
       const linkedMachinery = findEmployeeLinkedMachinery(emp, machineriesList);
@@ -4364,7 +4364,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
                                   <td className="py-0.5 px-1.5 font-medium text-stone-900">
                                     {(() => {
-                                      const isFalta = item.type === 'Falta / Atraso' || item.description?.toLowerCase().includes('falta') || item.description?.toLowerCase().includes('dias anteriores');
+                                      const isFalta = item.type === 'Falta / Atraso' || String(item.description ?? '').toLowerCase().includes('falta') || String(item.description ?? '').toLowerCase().includes('dias anteriores');
                                       const verba = getVerbaForDeduction(item.type, item.description);
                                       const effectiveCode = item.verbaCode || verba.codigo;
                                       const effectiveDesc = isFalta ? verba.descricao : (item.verbaDescription || item.description || item.type);

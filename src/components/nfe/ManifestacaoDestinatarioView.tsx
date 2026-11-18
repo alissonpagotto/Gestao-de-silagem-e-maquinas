@@ -186,10 +186,10 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
 
       const matchSearch = 
         n.numero.includes(searchTerm) ||
-        n.chaveAcesso.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        n.emitenteNome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(n.chaveAcesso ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(n.emitenteNome ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
         n.emitenteCnpj.includes(searchTerm) ||
-        (n.categoriaGeral && n.categoriaGeral.toLowerCase().includes(searchTerm.toLowerCase()));
+        (n.categoriaGeral && String(n.categoriaGeral ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()));
       
       const matchStatus = statusFilter === 'TODOS' || n.statusManifestacao === statusFilter;
       return matchSearch && matchStatus;
@@ -259,11 +259,11 @@ export const ManifestacaoDestinatarioView: React.FC<ManifestacaoDestinatarioView
       let updatedInv = [...currentInventory];
 
       target.itens.forEach(item => {
-        const itemDescLower = item.descricao.trim().toLowerCase();
+        const itemDescLower = String(item.descricao ?? '').trim().toLowerCase();
         const existingIdx = updatedInv.findIndex(p => 
-          (p.code && p.code.toLowerCase().trim() === item.codigo.toLowerCase().trim()) ||
-          (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === itemDescLower) ||
-          (p.name && p.name.toLowerCase().trim() === itemDescLower)
+          (p.code && String(p.code ?? '').toLowerCase().trim() === String(item.codigo ?? '').toLowerCase().trim()) ||
+          (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === itemDescLower) ||
+          (p.name && String(p.name ?? '').toLowerCase().trim() === itemDescLower)
         );
 
         if (existingIdx >= 0) {

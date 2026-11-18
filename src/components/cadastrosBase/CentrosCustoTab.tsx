@@ -57,12 +57,12 @@ export const CentrosCustoTab: React.FC = () => {
   };
 
   const filteredCentros = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     if (!term) return centros;
     return centros.filter(c => 
-      c.name.toLowerCase().includes(term) ||
-      (c.type && c.type.toLowerCase().includes(term)) ||
-      (c.description && c.description.toLowerCase().includes(term))
+      String(c.name ?? '').toLowerCase().includes(term) ||
+      (c.type && String(c.type ?? '').toLowerCase().includes(term)) ||
+      (c.description && String(c.description ?? '').toLowerCase().includes(term))
     );
   }, [centros, searchTerm]);
 
@@ -95,7 +95,7 @@ export const CentrosCustoTab: React.FC = () => {
     }
 
     const exists = centros.some(c => 
-      c.name.trim().toLowerCase() === cleanNome.toLowerCase() && 
+      String(c.name ?? '').trim().toLowerCase() === String(cleanNome ?? '').toLowerCase() && 
       c.id !== editingCentro?.id
     );
     if (exists) {

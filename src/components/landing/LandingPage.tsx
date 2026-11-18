@@ -67,7 +67,7 @@ function mapSupabasePlan(row: any): PlanDefinition {
   // 2. Mapeamento de Status / Ativo (campo 'status' = 'active'/'ativo' ou 'is_active' boolean)
   let isActive = true;
   if (row.status !== undefined && row.status !== null) {
-    const s = String(row.status).toLowerCase().trim();
+    const s = String(row.status ?? '').toLowerCase().trim();
     isActive = s === 'active' || s === 'ativo' || s === 'true' || s === '1';
   } else if (row.is_active !== undefined && row.is_active !== null) {
     isActive = Boolean(row.is_active);
@@ -84,11 +84,11 @@ function mapSupabasePlan(row: any): PlanDefinition {
   const name = String(row.name || row.nome || row.title || 'Plano');
 
   return {
-    id: String(row.id || name.toLowerCase().replace(/\s+/g, '-')),
+    id: String(row.id || String(name ?? '').toLowerCase().replace(/\s+/g, '-')),
     name,
     description: String(row.description || row.descricao || ''),
     price,
-    billingCycle: (String(row.billing_cycle || row.billingCycle || 'mensal').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
+    billingCycle: (String((row.billing_cycle || row.billingCycle || 'mensal') ?? '').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
     badge: row.badge ? String(row.badge) : undefined,
     isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
     isActive,

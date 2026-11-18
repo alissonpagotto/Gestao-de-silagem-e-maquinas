@@ -57,13 +57,13 @@ export const RoleSidePanel: React.FC<RoleSidePanelProps> = ({
 
   // Filtro interativo por digitação (nome, setor ou descrição)
   const filteredOptions = useMemo(() => {
-    const term = (searchQuery || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const term = String(searchQuery ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (!term) return sortedOptions;
 
     return sortedOptions.filter((opt) => {
-      const normName = opt.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const normSetor = (opt.setor || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const normDesc = (opt.descricao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const normName = String(opt.name ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const normSetor = String(opt.setor ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const normDesc = String(opt.descricao ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       return normName.includes(term) || normSetor.includes(term) || normDesc.includes(term);
     });
   }, [sortedOptions, searchQuery]);
@@ -194,8 +194,8 @@ export const RoleSidePanel: React.FC<RoleSidePanelProps> = ({
         {filteredOptions.length > 0 ? (
           filteredOptions.map((opt, index) => {
             const optName = opt.name;
-            const isSelected = currentValue.trim().toLowerCase() === optName.trim().toLowerCase();
-            const isAlreadyChosen = disabledValue && disabledValue.trim().toLowerCase() === optName.trim().toLowerCase();
+            const isSelected = String(currentValue ?? '').trim().toLowerCase() === String(optName ?? '').trim().toLowerCase();
+            const isAlreadyChosen = disabledValue && String(disabledValue ?? '').trim().toLowerCase() === String(optName ?? '').trim().toLowerCase();
 
             return (
               <div

@@ -351,7 +351,7 @@ export function getBankTheme(code?: string, name?: string, accountType?: string)
     }
 
     // Alias especial para Sicredi (074 -> 748)
-    if (code === '074' || (name && name.toLowerCase().includes('sicredi'))) {
+    if (code === '074' || (name && String(name ?? '').toLowerCase().includes('sicredi'))) {
       return BANK_THEMES['748'];
     }
 

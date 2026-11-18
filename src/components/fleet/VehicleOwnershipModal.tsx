@@ -41,7 +41,7 @@ export const VehicleOwnershipModal: React.FC<VehicleOwnershipModalProps> = ({
       return;
     }
 
-    if (regimes.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
+    if (regimes.some(r => String(r ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       setErrorMsg('Este regime já existe na lista.');
       return;
     }
@@ -80,7 +80,7 @@ export const VehicleOwnershipModal: React.FC<VehicleOwnershipModalProps> = ({
       setErrorMsg('O nome do regime não pode ficar vazio.');
       return;
     }
-    if (regimes.some((r, i) => i !== index && r.toLowerCase() === trimmed.toLowerCase())) {
+    if (regimes.some((r, i) => i !== index && String(r ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       setErrorMsg('Já existe outro regime com este nome.');
       return;
     }

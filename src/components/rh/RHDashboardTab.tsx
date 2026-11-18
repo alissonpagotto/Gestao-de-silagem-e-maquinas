@@ -188,7 +188,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           {activeVacationsList.length > 0 ? (
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
               {activeVacationsList.map((vac) => {
-                const isGozo = String(vac.status).toLowerCase() === 'em_gozo' || String(vac.situacao_execucao).toUpperCase() === 'EM_GOZO';
+                const isGozo = String(vac.status ?? '').toLowerCase() === 'em_gozo' || String(vac.situacao_execucao).toUpperCase() === 'EM_GOZO';
                 return (
                   <div key={vac.id} className="pt-2 flex items-center justify-between text-xs">
                     <div>

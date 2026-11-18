@@ -72,7 +72,7 @@ export const ClassificationListManagerModal: React.FC<
     const trimmed = newItemName.trim();
     if (!trimmed) return;
 
-    if (items.some((it) => it.toLowerCase() === trimmed.toLowerCase())) {
+    if (items.some((it) => String(it ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       setFeedbackError(`"${trimmed}" já existe nesta lista.`);
       return;
     }
@@ -98,7 +98,7 @@ export const ClassificationListManagerModal: React.FC<
 
     const oldVal = items[index];
     const hasDuplicate = items.some(
-      (it, idx) => idx !== index && it.toLowerCase() === trimmed.toLowerCase()
+      (it, idx) => idx !== index && String(it ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
     if (hasDuplicate) {
       setFeedbackError(`"${trimmed}" já existe nesta lista.`);
@@ -169,7 +169,7 @@ export const ClassificationListManagerModal: React.FC<
   };
 
   const filteredItems = items.filter((it) =>
-    it.toLowerCase().includes(searchTerm.trim().toLowerCase())
+    String(it ?? '').toLowerCase().includes(String(searchTerm ?? '').trim().toLowerCase())
   );
 
   return (
@@ -307,7 +307,7 @@ export const ClassificationListManagerModal: React.FC<
                   const isEditing = editingIndex === originalIndex;
                   const isCurrent =
                     Boolean(selectedValue) &&
-                    item.toLowerCase() === selectedValue.trim().toLowerCase();
+                    String(item ?? '').toLowerCase() === String(selectedValue ?? '').trim().toLowerCase();
 
                   return (
                     <div

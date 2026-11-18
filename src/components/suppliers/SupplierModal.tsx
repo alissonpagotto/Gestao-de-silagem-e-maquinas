@@ -324,7 +324,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
     if (!trimmed) return '';
     const catalog = getStoredSupplierCategoriesCatalog();
     const match = catalog.find(
-      (c) => c.label.toLowerCase() === trimmed.toLowerCase() || c.id.toLowerCase() === trimmed.toLowerCase()
+      (c) => String(c.label ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase() || String(c.id ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
     return match ? match.label : trimmed.toUpperCase();
   };
@@ -603,8 +603,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
     try {
       const supId = String(activeSupplier.id || '').trim();
       const supCnpjDigits = cleanDigits(activeSupplier.cnpjOrCpf || '');
-      const supNameNorm = (activeSupplier.name || '').trim().toLowerCase();
-      const supTradeNorm = (activeSupplier.tradeName || '').trim().toLowerCase();
+      const supNameNorm = String(activeSupplier.name ?? '').trim().toLowerCase();
+      const supTradeNorm = String(activeSupplier.tradeName ?? '').trim().toLowerCase();
 
       const matchesSupplier = (
         recSupId?: string | null,
@@ -614,7 +614,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         if (supId && recSupId && String(recSupId).trim() === supId) return true;
         const recDigits = cleanDigits(recCnpj || '');
         if (supCnpjDigits && recDigits && supCnpjDigits === recDigits) return true;
-        const recNorm = (recName || '').trim().toLowerCase();
+        const recNorm = String(recName ?? '').trim().toLowerCase();
         if (!recNorm) return false;
         if (
           supNameNorm &&
@@ -650,7 +650,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         const keyStr = String(doc.chave_acesso || '').trim();
         if (keyStr) seenAccessKeys.add(keyStr);
         const docNum = String(doc.numero || doc.numero_documento || doc.id.slice(-6)).trim();
-        if (docNum) seenDocNumbers.add(docNum.toLowerCase());
+        if (docNum) seenDocNumbers.add(String(docNum ?? '').toLowerCase());
 
         const items = Array.isArray(doc.itens)
           ? doc.itens.map((it) => ({
@@ -687,7 +687,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         if (expAccessKey && seenAccessKeys.has(expAccessKey)) continue;
 
         const expInv = String(expAny.invoiceNumber || expAny.numero_nota || expAny.documentNumber || '').trim();
-        if (expInv && seenDocNumbers.has(expInv.toLowerCase())) continue;
+        if (expInv && seenDocNumbers.has(String(expInv ?? '').toLowerCase())) continue;
 
         const expSupId = expAny.supplierId || expAny.fornecedor_id || null;
         const expCnpj = expAny.supplierCnpj || expAny.fornecedor_cnpj || expAny.cnpj || null;
@@ -697,7 +697,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
         seenIds.add(expId);
         if (expAccessKey) seenAccessKeys.add(expAccessKey);
-        if (expInv) seenDocNumbers.add(expInv.toLowerCase());
+        if (expInv) seenDocNumbers.add(String(expInv ?? '').toLowerCase());
 
         const amountVal = Number((exp as any).amount ?? (exp as any).valor ?? 0);
         const isPaid = exp.status === 'pago' || exp.status === 'compensado_estoque';
@@ -734,16 +734,16 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   }, [activeSupplier, isOpen]);
 
   const filteredPurchases = useMemo(() => {
-    const q = historicoSearch.trim().toLowerCase();
+    const q = String(historicoSearch ?? '').trim().toLowerCase();
     if (!q) return supplierPurchases;
     return supplierPurchases.filter((row) => {
-      const hasItem = row.itemsSummary.some((it) => it.descricao.toLowerCase().includes(q));
+      const hasItem = row.itemsSummary.some((it) => String(it.descricao ?? '').toLowerCase().includes(q));
       return (
-        row.docNumber.toLowerCase().includes(q) ||
-        row.description.toLowerCase().includes(q) ||
-        row.naturezaOrCategory.toLowerCase().includes(q) ||
-        row.paymentInfo.toLowerCase().includes(q) ||
-        row.date.toLowerCase().includes(q) ||
+        String(row.docNumber ?? '').toLowerCase().includes(q) ||
+        String(row.description ?? '').toLowerCase().includes(q) ||
+        String(row.naturezaOrCategory ?? '').toLowerCase().includes(q) ||
+        String(row.paymentInfo ?? '').toLowerCase().includes(q) ||
+        String(row.date ?? '').toLowerCase().includes(q) ||
         hasItem
       );
     });
@@ -1639,7 +1639,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                         ))}
                         {category &&
                           !activeCategories.some(
-                            (cat) => cat.label.toLowerCase() === category.trim().toLowerCase()
+                            (cat) => String(cat.label ?? '').toLowerCase() === String(category ?? '').trim().toLowerCase()
                           ) && <option value={category}>{category}</option>}
                       </select>
                       <ChevronDown className="w-4 h-4 text-slate-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -2445,14 +2445,14 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             setCategory(newlyAdded.label);
           } else if (renamedLabels && category) {
             const matchedKey = Object.keys(renamedLabels).find(
-              (k) => k.toLowerCase() === category.trim().toLowerCase()
+              (k) => String(k ?? '').toLowerCase() === String(category ?? '').trim().toLowerCase()
             );
             if (matchedKey) {
               setCategory(renamedLabels[matchedKey]);
             }
           } else if (
             category &&
-            !nextActive.some((i) => i.label.toLowerCase() === category.trim().toLowerCase())
+            !nextActive.some((i) => String(i.label ?? '').toLowerCase() === String(category ?? '').trim().toLowerCase())
           ) {
             setCategory('');
           }

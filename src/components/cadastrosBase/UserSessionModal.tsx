@@ -59,7 +59,7 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
   };
 
   const handleSelectCargo = (cargo: CargoPermissao) => {
-    const isAdm = cargo.nome.toLowerCase().includes('admin');
+    const isAdm = String(cargo.nome ?? '').toLowerCase().includes('admin');
     const session: SimulatedUserSession = {
       type: isAdm ? 'admin' : 'employee',
       cargoId: cargo.id,
@@ -75,17 +75,17 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
   };
 
   const handleSelectEmployee = (emp: Employee) => {
-    const cleanRole = (emp.role || '').trim().toLowerCase();
+    const cleanRole = String(emp.role ?? '').trim().toLowerCase();
     const primaryRole = cleanRole.split(',')[0].trim();
 
     const matchedCargo = cargos.find(c => 
       c.id === emp.cargoId || 
-      c.nome.trim().toLowerCase() === cleanRole ||
-      c.nome.trim().toLowerCase() === primaryRole ||
-      cleanRole.includes(c.nome.trim().toLowerCase())
+      String(c.nome ?? '').trim().toLowerCase() === cleanRole ||
+      String(c.nome ?? '').trim().toLowerCase() === primaryRole ||
+      cleanRole.includes(String(c.nome ?? '').trim().toLowerCase())
     );
 
-    const isAdm = cleanRole.includes('admin') || cleanRole.includes('diretor') || (matchedCargo?.nome || '').toLowerCase().includes('admin');
+    const isAdm = cleanRole.includes('admin') || cleanRole.includes('diretor') || String(matchedCargo?.nome ?? '').toLowerCase().includes('admin');
 
     const permissions: RolePermissions = isAdm
       ? { ...DEFAULT_ADMIN_PERMISSIONS }
@@ -236,7 +236,7 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
               </div>
 
               {/* Lista de Cargos */}
-              {cargos.filter(c => !c.nome.toLowerCase().includes('admin')).map((cargo, index) => {
+              {cargos.filter(c => !String(c.nome ?? '').toLowerCase().includes('admin')).map((cargo, index) => {
                 const isSelected = currentSession.cargoId === cargo.id;
                 return (
                   <div
@@ -289,13 +289,13 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
               ) : (
                 employees.map(emp => {
                   const isSelected = currentSession.employeeId === emp.id;
-                  const cleanRole = (emp.role || '').trim().toLowerCase();
+                  const cleanRole = String(emp.role ?? '').trim().toLowerCase();
                   const primaryRole = cleanRole.split(',')[0].trim();
                   const matchedCargo = cargos.find(c => 
                     c.id === emp.cargoId || 
-                    c.nome.trim().toLowerCase() === cleanRole ||
-                    c.nome.trim().toLowerCase() === primaryRole ||
-                    cleanRole.includes(c.nome.trim().toLowerCase())
+                    String(c.nome ?? '').trim().toLowerCase() === cleanRole ||
+                    String(c.nome ?? '').trim().toLowerCase() === primaryRole ||
+                    cleanRole.includes(String(c.nome ?? '').trim().toLowerCase())
                   );
                   const perms = matchedCargo?.permissoes || emp.permissoes || emp.permissions || {
                     financeiro: false,

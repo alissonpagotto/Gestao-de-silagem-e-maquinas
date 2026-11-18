@@ -102,7 +102,7 @@ function applyPixMask(value: string, type: 'cpf' | 'cnpj' | 'phone' | 'email' | 
       return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
     }
     case 'email':
-      return value.trim().toLowerCase();
+      return String(value ?? '').trim().toLowerCase();
     case 'random':
       return value.trim();
     default:
@@ -375,7 +375,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       .filter((e) => {
         if (e.status === 'pago') return false; // Apenas despesas abertas / a pagar
         if (e.corporateCardId && e.corporateCardId === card.id) return true;
-        if (card.name && e.corporateCardName && e.corporateCardName.toLowerCase() === card.name.toLowerCase()) return true;
+        if (card.name && e.corporateCardName && String(e.corporateCardName ?? '').toLowerCase() === String(card.name ?? '').toLowerCase()) return true;
         if (
           card.responsibleEmployeeId &&
           e.employeeId === card.responsibleEmployeeId &&
@@ -573,7 +573,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
     const defaultRole = (defaultEmp?.role || 'COLABORADOR').toUpperCase();
     const newCardId = `card_${Date.now()}`;
     const randomEnding = '4520';
-    const isSicredi = (bankName || '').toLowerCase().includes('sicredi') || bankCode === '748';
+    const isSicredi = String(bankName ?? '').toLowerCase().includes('sicredi') || bankCode === '748';
     const brand: 'mastercard' | 'visa' = isSicredi ? 'mastercard' : 'visa';
     const brandLabel = brand === 'mastercard' ? 'Mastercard' : 'Visa';
     const newCard: CorporateCard = {
@@ -1402,7 +1402,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                   Bandeira
                                 </label>
                                 <select
-                                  value={card.brand || ((card.name || '').toLowerCase().includes('visa') ? 'visa' : 'mastercard')}
+                                  value={card.brand || (String(card.name ?? '').toLowerCase().includes('visa') ? 'visa' : 'mastercard')}
                                   onChange={(e) => {
                                     const newBrand = e.target.value as any;
                                     const brandLabel = newBrand === 'visa' ? 'Visa' : newBrand === 'elo' ? 'Elo' : 'Mastercard';

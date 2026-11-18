@@ -1460,7 +1460,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                             }
                             if (tId === '__almoxarifado_galao__') {
                               const galProd = fuelStockProducts.find(item => {
-                                const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                                const nm = String((item.nome_comercial || item.name) ?? '').toLowerCase();
                                 return nm.includes('arla') && (nm.includes('galão') || nm.includes('galao'));
                               });
                               if (galProd) {
@@ -1473,10 +1473,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                             if (t) {
                               setSupplierStation(t.nome);
                               // Sincroniza o combustível selecionado a partir do tanque (apenas combustíveis a granel)
-                              const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                              const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
+                              const isS500 = String(t.tipo_combustivel ?? '').toLowerCase().includes('s500') || String(t.nome ?? '').toLowerCase().includes('s500');
+                              const isArla = String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(t.nome ?? '').toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
                               const matched = fuelStockProducts.find(item => {
-                                const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                                const nm = String((item.nome_comercial || item.name) ?? '').toLowerCase();
                                 const isGal = nm.includes('galão') || nm.includes('galao');
                                 if (isGal) return false;
                                 if (t.produto_id && item.id === t.produto_id) return true;
@@ -1773,10 +1773,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                       if (t) {
                         setSupplierStation(t.nome);
                         // Sincroniza o combustível selecionado a partir do tanque (sempre a versão Granel/Tanque)
-                        const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                        const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
+                        const isS500 = String(t.tipo_combustivel ?? '').toLowerCase().includes('s500') || String(t.nome ?? '').toLowerCase().includes('s500');
+                        const isArla = String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(t.nome ?? '').toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
                         const matched = fuelStockProducts.find(item => {
-                          const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                          const nm = String((item.nome_comercial || item.name) ?? '').toLowerCase();
                           const isGal = nm.includes('galão') || nm.includes('galao');
                           if (isGal) return false;
                           if (t.produto_id && item.id === t.produto_id) return true;
@@ -1835,9 +1835,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     {fuelOrigin === 'Tanque Interno (Fazenda)' 
                       ? (isArlaGalaoSelected
                           ? 'Almoxarifado (Galão 20L)'
-                          : (selectedTanque?.tipo_combustivel?.toLowerCase().includes('arla') || selectedTanque?.nome?.toLowerCase().includes('arla')
+                          : (String(selectedTanque?.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(selectedTanque?.nome ?? '').toLowerCase().includes('arla')
                               ? 'Tanque Arla 32 (Granel)'
-                              : (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10')))
+                              : (String(selectedTanque?.tipo_combustivel ?? '').toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10')))
                       : 'Origem Externa'}
                   </span>
                   <ArrowDown className="w-3 h-3 text-zinc-400 dark:text-zinc-300 animate-bounce" />

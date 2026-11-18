@@ -182,7 +182,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const subscriberIdentity = resolveSubscriberPrintHeader(company);
   const fullAddress = subscriberIdentity.fullAddress;
 
-  const defaultPdfFilename = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
+  const defaultPdfFilename = `${String(title ?? '').toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden overflow-y-hidden animate-in fade-in duration-200" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>

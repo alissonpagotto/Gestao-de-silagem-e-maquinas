@@ -30,12 +30,12 @@ export const ManageableMultiSelect: React.FC<ManageableMultiSelectProps> = ({
   // Alterna a seleção de uma opção
   const handleToggleOption = (opt: string) => {
     const isAlreadySelected = values.some(
-      v => v.toLowerCase() === opt.toLowerCase()
+      v => String(v ?? '').toLowerCase() === String(opt ?? '').toLowerCase()
     );
 
     let updated: string[];
     if (isAlreadySelected) {
-      updated = values.filter(v => v.toLowerCase() !== opt.toLowerCase());
+      updated = values.filter(v => String(v ?? '').toLowerCase() !== String(opt ?? '').toLowerCase());
     } else {
       updated = [...values, opt];
     }
@@ -49,13 +49,13 @@ export const ManageableMultiSelect: React.FC<ManageableMultiSelectProps> = ({
     if (!trimmed) return;
 
     // Adiciona na lista de opções se ainda não existir
-    if (!options.some(opt => opt.toLowerCase() === trimmed.toLowerCase())) {
+    if (!options.some(opt => String(opt ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       const updatedOpts = [...options, trimmed].sort((a, b) => a.localeCompare('pt-BR'));
       onOptionsChange(updatedOpts);
     }
 
     // Seleciona automaticamente o novo cargo adicionado
-    if (!values.some(v => v.toLowerCase() === trimmed.toLowerCase())) {
+    if (!values.some(v => String(v ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       onChange([...values, trimmed]);
     }
 
@@ -65,10 +65,10 @@ export const ManageableMultiSelect: React.FC<ManageableMultiSelectProps> = ({
   // Exclui uma opção customizada da lista
   const handleDeleteOption = (e: React.MouseEvent, optToDelete: string) => {
     e.stopPropagation();
-    const updatedOpts = options.filter(opt => opt.toLowerCase() !== optToDelete.toLowerCase());
+    const updatedOpts = options.filter(opt => String(opt ?? '').toLowerCase() !== String(optToDelete ?? '').toLowerCase());
     onOptionsChange(updatedOpts);
-    if (values.some(v => v.toLowerCase() === optToDelete.toLowerCase())) {
-      onChange(values.filter(v => v.toLowerCase() !== optToDelete.toLowerCase()));
+    if (values.some(v => String(v ?? '').toLowerCase() === String(optToDelete ?? '').toLowerCase())) {
+      onChange(values.filter(v => String(v ?? '').toLowerCase() !== String(optToDelete ?? '').toLowerCase()));
     }
   };
 
@@ -112,10 +112,10 @@ export const ManageableMultiSelect: React.FC<ManageableMultiSelectProps> = ({
         <div className="flex flex-wrap gap-2 items-center">
           {options.map((opt) => {
             const isSelected = values.some(
-              v => v.toLowerCase() === opt.toLowerCase()
+              v => String(v ?? '').toLowerCase() === String(opt ?? '').toLowerCase()
             );
             const isDefault = defaultOptions.some(
-              d => d.toLowerCase() === opt.toLowerCase()
+              d => String(d ?? '').toLowerCase() === String(opt ?? '').toLowerCase()
             );
 
             return (

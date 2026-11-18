@@ -74,13 +74,13 @@ export const PlanoContasTab: React.FC = () => {
   const safeFormasPagamento = Array.isArray(data?.formasPagamento) ? data.formasPagamento : [];
 
   const filteredCategorias = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     if (!term) return safeCategorias;
     return safeCategorias.filter(c => 
       String(c?.nome || '').toLowerCase().includes(term) ||
       String(c?.codigo || '').toLowerCase().includes(term) ||
       String(c?.tipo || '').toLowerCase().includes(term) ||
-      (c?.descricao && String(c.descricao).toLowerCase().includes(term))
+      (c?.descricao && String(c.descricao ?? '').toLowerCase().includes(term))
     );
   }, [safeCategorias, searchTerm]);
 

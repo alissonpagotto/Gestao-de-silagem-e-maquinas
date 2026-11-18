@@ -330,7 +330,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       if (log.partsList && Array.isArray(log.partsList)) {
         log.partsList.forEach((part, pIdx) => {
           const matchById = part.inventoryItemId && part.inventoryItemId === viewingItem.id;
-          const matchByName = part.description && part.description.toLowerCase().trim() === viewingItem.name.toLowerCase().trim();
+          const matchByName = part.description && String(part.description ?? '').toLowerCase().trim() === String(viewingItem.name ?? '').toLowerCase().trim();
 
           if (matchById || matchByName) {
             movements.push({
@@ -349,7 +349,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     });
 
     // 2. Se for combustível (diesel), verificar abastecimentos
-    if (viewingItem.category === 'combustivel' || viewingItem.name.toLowerCase().includes('diesel')) {
+    if (viewingItem.category === 'combustivel' || String(viewingItem.name ?? '').toLowerCase().includes('diesel')) {
       fuelLogs.slice(0, 50).forEach((fuel) => {
         movements.push({
           id: `fuel_${fuel.id}`,
@@ -376,7 +376,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   }, [localInventory]);
 
   const filteredItems = useMemo(() => {
-    const s = searchTerm.toLowerCase().trim();
+    const s = String(searchTerm ?? '').toLowerCase().trim();
     if (!s) return allItems;
     return allItems.filter(item => {
       const nameMatch = String(item.nome_comercial || item.name || '').toLowerCase().includes(s);
@@ -406,8 +406,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         i.category === 'combustivel' || 
         i.category === 'Combustível & Arla' || 
         i.categoria === 'Combustível & Arla' || 
-        (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel')) ||
-        (i.name && i.name.toLowerCase().includes('diesel'))
+        (i.nome_comercial && String(i.nome_comercial ?? '').toLowerCase().includes('diesel')) ||
+        (i.name && String(i.name ?? '').toLowerCase().includes('diesel'))
       )
       .reduce((acc, curr) => acc + (Number(curr.quantidade_atual ?? curr.quantity) || 0), 0);
   }, [allItems]);
@@ -895,7 +895,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   const displayCat = item.categoria || item.category || 'outro';
 
                   const fotoBase64 = getFotoForProduct(item);
-                  const isService = item.categoria === 'SERVIÇOS' || item.categoria === 'servicos' || displayCat.toLowerCase().includes('servi');
+                  const isService = item.categoria === 'SERVIÇOS' || item.categoria === 'servicos' || String(displayCat ?? '').toLowerCase().includes('servi');
 
                   const configuredMin = Number(item.minQuantity ?? (item as any).quantidade_minima ?? (item as any).estoque_minimo ?? 0);
                   const isLow = configuredMin > 0 && effectiveQty <= configuredMin;
@@ -1319,11 +1319,11 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           initialData={editingItem}
           onClose={() => setEditingItem(null)}
           onSuccess={(updatedProduct) => {
-            const targetNameNorm = (updatedProduct.nome_comercial || updatedProduct.name || '').toLowerCase().trim();
-            const origNameNorm = (editingItem.nome_comercial || editingItem.name || '').toLowerCase().trim();
+            const targetNameNorm = String((updatedProduct.nome_comercial || updatedProduct.name) ?? '').toLowerCase().trim();
+            const origNameNorm = String((editingItem.nome_comercial || editingItem.name) ?? '').toLowerCase().trim();
             let foundMatch = false;
             const updated = allItems.map(i => {
-              const iNameNorm = (i.nome_comercial || i.name || '').toLowerCase().trim();
+              const iNameNorm = String((i.nome_comercial || i.name) ?? '').toLowerCase().trim();
               const isSameId = i.id === updatedProduct.id || i.id === editingItem.id;
               const isSameName = (i.nome_comercial || i.name || '').trim().toUpperCase() === (updatedProduct.nome_comercial || updatedProduct.name || '').trim().toUpperCase();
               const isSameFuel = (targetNameNorm === 'diesel s10' || targetNameNorm === 'diesel s500' || targetNameNorm.includes('arla 32')) &&

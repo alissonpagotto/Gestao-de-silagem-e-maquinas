@@ -283,8 +283,8 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   // Filtragem exclusiva de Vendas (serviceTab === 'venda' ou serviceType com 'venda')
   const salesRecords = useMemo(() => {
     const list = localServices.filter((srv) => {
-      const typeStr = (srv.serviceType || '').toLowerCase();
-      const tabStr = (srv.serviceTab || '').toLowerCase();
+      const typeStr = String(srv.serviceType ?? '').toLowerCase();
+      const tabStr = String(srv.serviceTab ?? '').toLowerCase();
       return typeStr.includes('venda') || tabStr === 'venda';
     });
 
@@ -345,10 +345,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
 
       // Filtro por busca
       if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const matchesClient = (srv.clientName || '').toLowerCase().includes(query);
-        const matchesFarm = (srv.farmName || '').toLowerCase().includes(query);
-        const matchesNumber = (srv.orderNumber || srv.id || '').toLowerCase().includes(query);
+        const query = String(searchTerm ?? '').toLowerCase();
+        const matchesClient = String(srv.clientName ?? '').toLowerCase().includes(query);
+        const matchesFarm = String(srv.farmName ?? '').toLowerCase().includes(query);
+        const matchesNumber = String((srv.orderNumber || srv.id) ?? '').toLowerCase().includes(query);
         if (!matchesClient && !matchesFarm && !matchesNumber) return false;
       }
 

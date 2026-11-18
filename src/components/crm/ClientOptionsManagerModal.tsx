@@ -62,12 +62,12 @@ export const ClientOptionsManagerModal: React.FC<ClientOptionsManagerModalProps>
   }, [isOpen, items]);
 
   const filteredItems = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     if (!q) return draftItems;
     return draftItems.filter(
       (it) =>
-        it.label.toLowerCase().includes(q) ||
-        (it.group && it.group.toLowerCase().includes(q))
+        String(it.label ?? '').toLowerCase().includes(q) ||
+        (it.group && String(it.group ?? '').toLowerCase().includes(q))
     );
   }, [draftItems, searchTerm]);
 
@@ -83,7 +83,7 @@ export const ClientOptionsManagerModal: React.FC<ClientOptionsManagerModalProps>
     if (!trimmed) return;
 
     const exists = draftItems.some(
-      (it) => it.label.toLowerCase() === trimmed.toLowerCase()
+      (it) => String(it.label ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
     if (exists) {
       setErrorMsg(`"${trimmed}" já existe nesta lista.`);
@@ -91,8 +91,7 @@ export const ClientOptionsManagerModal: React.FC<ClientOptionsManagerModalProps>
     }
 
     const generatedId =
-      trimmed
-        .toLowerCase()
+      String(trimmed ?? '').toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '_')
@@ -168,7 +167,7 @@ export const ClientOptionsManagerModal: React.FC<ClientOptionsManagerModalProps>
       return;
     }
     const duplicate = draftItems.some(
-      (it) => it.id !== id && it.label.toLowerCase() === trimmed.toLowerCase()
+      (it) => it.id !== id && String(it.label ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
     if (duplicate) {
       setErrorMsg(`"${trimmed}" já existe nesta lista.`);

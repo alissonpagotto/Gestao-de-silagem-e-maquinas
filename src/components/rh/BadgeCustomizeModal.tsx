@@ -106,16 +106,16 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
     const sanitized: BadgeThemeConfig = {
       ...draftTheme,
       headerColor: isValidHex(draftTheme.headerColor)
-        ? draftTheme.headerColor.toLowerCase()
+        ? String(draftTheme.headerColor ?? '').toLowerCase()
         : DEFAULT_BADGE_THEME.headerColor,
       bodyBgColor: isValidHex(draftTheme.bodyBgColor)
-        ? draftTheme.bodyBgColor.toLowerCase()
+        ? String(draftTheme.bodyBgColor ?? '').toLowerCase()
         : DEFAULT_BADGE_THEME.bodyBgColor,
       textColor: isValidHex(draftTheme.textColor)
-        ? draftTheme.textColor.toLowerCase()
+        ? String(draftTheme.textColor ?? '').toLowerCase()
         : DEFAULT_BADGE_THEME.textColor,
       accentColor: isValidHex(draftTheme.accentColor)
-        ? draftTheme.accentColor.toLowerCase()
+        ? String(draftTheme.accentColor ?? '').toLowerCase()
         : DEFAULT_BADGE_THEME.accentColor,
       headerSubtitle: (draftTheme.headerSubtitle || '').trim(),
       backNoticeText: (draftTheme.backNoticeText ?? DEFAULT_BADGE_BACK_NOTICE).trim(),
@@ -331,7 +331,7 @@ export const BadgeCustomizeModal: React.FC<BadgeCustomizeModalProps> = ({
                             onChange={(e) =>
                               setDraftTheme((prev) => ({
                                 ...prev,
-                                [key]: e.target.value.toLowerCase(),
+                                [key]: String(e.target.value ?? '').toLowerCase(),
                               }))
                             }
                             className="w-7 h-6 p-0.5 bg-white border border-gray-400 rounded cursor-pointer shrink-0"

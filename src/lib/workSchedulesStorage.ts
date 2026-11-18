@@ -163,10 +163,10 @@ export function doesEmployeeMatchWorkSchedule(emp: Employee, schedule: WorkSched
     .toLowerCase();
   if (!empScheduleText) return false;
 
-  const formattedLabel = formatWorkScheduleLabel(schedule).toLowerCase();
+  const formattedLabel = String(formatWorkScheduleLabel(schedule) ?? '').toLowerCase();
   if (empScheduleText === formattedLabel) return true;
 
-  const scaleName = (schedule.name || '').trim().toLowerCase();
+  const scaleName = String(schedule.name ?? '').trim().toLowerCase();
   if (scaleName && (empScheduleText === scaleName || empScheduleText.startsWith(`${scaleName} (`))) {
     return true;
   }

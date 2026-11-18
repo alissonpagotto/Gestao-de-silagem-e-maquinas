@@ -3515,7 +3515,7 @@ export default function App() {
             setExpenses(cloudModules.expenses);
             saveStoredExpenses(cloudModules.expenses);
           } else {
-            const localFallback = getCompanyDespesas(targetSub.id);
+            const localFallback = getCompanyDespesas(targetCompanyId);
             setExpenses(localFallback);
             saveStoredExpenses(localFallback);
           }

@@ -122,8 +122,8 @@ export function getBadgeDimensions(size?: BadgeSizePreset): BadgeDimensions {
 export function normalizeHexColor(value: string | undefined, fallback: string): string {
   if (!value || typeof value !== 'string') return fallback;
   const trimmed = value.trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase();
-  if (/^[0-9a-fA-F]{6}$/.test(trimmed)) return `#${trimmed.toLowerCase()}`;
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return String(trimmed ?? '').toLowerCase();
+  if (/^[0-9a-fA-F]{6}$/.test(trimmed)) return `#${String(trimmed ?? '').toLowerCase()}`;
   return fallback;
 }
 

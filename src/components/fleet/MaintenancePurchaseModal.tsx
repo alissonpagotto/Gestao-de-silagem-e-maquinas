@@ -39,9 +39,9 @@ export const MaintenancePurchaseModal: React.FC<MaintenancePurchaseModalProps> =
 
   const filteredRequests = purchaseRequests.filter((req) => {
     const matchSearch =
-      req.vehiclePlateOrName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (req.osNumber && req.osNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      req.items.some(it => it.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      String(req.vehiclePlateOrName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+      (req.osNumber && String(req.osNumber ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())) ||
+      req.items.some(it => String(it.description ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()));
 
     const matchStatus = selectedStatus === 'todos' || req.status === selectedStatus;
     const matchUrgency = selectedUrgency === 'todos' || req.urgency === selectedUrgency;

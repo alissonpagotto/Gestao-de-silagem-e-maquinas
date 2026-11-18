@@ -122,7 +122,7 @@ export function extractPixKeyFromEmployee(emp?: Partial<Employee> | null): strin
 
   // 2. Campo bankAccount (onde fica o input "Conta Corrente (C.C.) / Chave Pix: E-mail")
   const account = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
-  if (account && account !== '00000-0' && account !== '-' && account.toLowerCase() !== 'não informada') {
+  if (account && account !== '00000-0' && account !== '-' && String(account ?? '').toLowerCase() !== 'não informada') {
     return account;
   }
 
@@ -140,7 +140,7 @@ export function extractPixKeyFromEmployee(emp?: Partial<Employee> | null): strin
   }
 
   // 4. Se Local de Recebimento contiver PIX, fallback para CPF ou Telefone
-  const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').toLowerCase();
+  const paymentLoc = String((emp.paymentLocation || (emp as any).local_recebimento) ?? '').toLowerCase();
   if (paymentLoc.includes('pix')) {
     if (emp.cpf) {
       const cleanCpf = emp.cpf.replace(/\D/g, '');
@@ -217,7 +217,7 @@ export function resolveEmployeePixKey(
   const match = allEmployees.find(e => {
     if (!e) return false;
     if (e.id && e.id === lookupId) return true;
-    if (e.name && e.name.toLowerCase().trim() === lookupId.toLowerCase().trim()) return true;
+    if (e.name && String(e.name ?? '').toLowerCase().trim() === String(lookupId ?? '').toLowerCase().trim()) return true;
     if (e.cpf && e.cpf.replace(/\D/g, '') === lookupId.replace(/\D/g, '')) return true;
     return false;
   });

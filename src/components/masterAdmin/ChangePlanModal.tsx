@@ -73,8 +73,8 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
 
       // Pré-seleciona o plano atual do assinante
       if (subscriber) {
-        const subPlanKey = (subscriber.planName || subscriber.planId || '').toLowerCase();
-        const normalize = (v: string) => v.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+        const subPlanKey = String((subscriber.planName || subscriber.planId) ?? '').toLowerCase();
+        const normalize = (v: string) => String(v ?? '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
         const subNorm = normalize(subPlanKey);
 
         const matched = activeList.find(p => {

@@ -483,10 +483,10 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
               typeConfigFromDb = tData.find((tc: any) => 
                 (vTipoId && (tc.id === vTipoId || tc.tipo_id === vTipoId)) ||
-                (tc.nome && vTipo && String(tc.nome).toLowerCase() === vTipo) ||
-                (tc.tipo && vTipo && String(tc.tipo).toLowerCase() === vTipo) ||
-                (tc.categoria && vCat && String(tc.categoria).toLowerCase() === vCat) ||
-                (tc.name && vTipo && String(tc.name).toLowerCase() === vTipo)
+                (tc.nome && vTipo && String(tc.nome ?? '').toLowerCase() === vTipo) ||
+                (tc.tipo && vTipo && String(tc.tipo ?? '').toLowerCase() === vTipo) ||
+                (tc.categoria && vCat && String(tc.categoria ?? '').toLowerCase() === vCat) ||
+                (tc.name && vTipo && String(tc.name ?? '').toLowerCase() === vTipo)
               );
             }
           } catch (err) {
@@ -1781,7 +1781,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                               {item.fireNumber}
                             </span>
                             <span className="text-[10px] text-stone-500 truncate" title={`${item.brand || ''} ${item.model || ''}`}>
-                              • {item.brand && item.model && item.model.trim().toLowerCase() !== item.brand.trim().toLowerCase()
+                              • {item.brand && item.model && String(item.model ?? '').trim().toLowerCase() !== String(item.brand ?? '').trim().toLowerCase()
                                   ? `${item.brand} ${item.model}`
                                   : (item.brand || item.model || 'Pneu')}
                             </span>

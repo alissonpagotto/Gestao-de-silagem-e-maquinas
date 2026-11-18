@@ -40,7 +40,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
     if (!trimmed) return;
 
     // Check if duplicate
-    if (items.some((it) => it.toLowerCase() === trimmed.toLowerCase())) {
+    if (items.some((it) => String(it ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase())) {
       setFeedbackError('Esta opção já existe na lista.');
       return;
     }
@@ -65,7 +65,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
     if (!trimmed) return;
 
     const hasDuplicate = items.some(
-      (it, idx) => idx !== index && it.toLowerCase() === trimmed.toLowerCase()
+      (it, idx) => idx !== index && String(it ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase()
     );
     if (hasDuplicate) {
       setFeedbackError('Esta opção já existe na lista.');
@@ -119,7 +119,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
   };
 
   const filteredItems = items.filter((it) =>
-    it.toLowerCase().includes(searchTerm.toLowerCase())
+    String(it ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase())
   );
 
   if (!isOpen) return null;

@@ -75,7 +75,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
 
   // Filtered Fuel Logs (Respeitando dinamicamente filtros de data, veículo e busca)
   const filteredLogs = useMemo(() => {
-    const term = (searchTerm || '').trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     const selVehicleLower = String(selectedVehicle || '').toLowerCase();
     return (localLogs || []).filter(log => {
       if (!log || isFictitiousOrZeroFuelLog(log)) return false;
@@ -137,7 +137,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       const vehicle = findVehicleForLog({ machineryId: item.id, machineryPlateOrName: item.name }, machineries);
       // Lógica condicional: veiculo.controla_por === 'horas' ? 'L/h' : 'km/L'
       const isHours = vehicle?.controla_por
-        ? (vehicle.controla_por.toLowerCase() === 'horas')
+        ? (String(vehicle.controla_por ?? '').toLowerCase() === 'horas')
         : isVehicleHoursControlled(vehicle, item.name);
 
       // Coleta médias válidas calculadas de cada abastecimento

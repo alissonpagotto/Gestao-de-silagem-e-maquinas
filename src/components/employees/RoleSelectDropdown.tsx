@@ -61,7 +61,7 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
     const list: RoleOptionItem[] = [];
     for (const opt of options) {
       const item: RoleOptionItem = typeof opt === 'string' ? { name: opt } : opt;
-      const normKey = (item.name || '').trim().toLowerCase();
+      const normKey = String(item.name ?? '').trim().toLowerCase();
       if (normKey && !seen.has(normKey)) {
         seen.add(normKey);
         list.push(item);

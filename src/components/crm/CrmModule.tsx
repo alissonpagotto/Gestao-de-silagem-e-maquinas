@@ -173,18 +173,18 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   }, []);
 
   const filteredClients = localClients.filter((c) => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     const clientName = c.nome || c.name || '';
     const farmName = c.fazenda || c.farmName || '';
-    const clientCode = (c.code || c.codigo || '').toLowerCase();
-    const clientDoc = (c.cpfCnpj || '').toLowerCase();
+    const clientCode = String((c.code || c.codigo) ?? '').toLowerCase();
+    const clientDoc = String(c.cpfCnpj ?? '').toLowerCase();
     const matchSearch =
       !q ||
       clientCode.includes(q) ||
-      clientName.toLowerCase().includes(q) ||
-      farmName.toLowerCase().includes(q) ||
+      String(clientName ?? '').toLowerCase().includes(q) ||
+      String(farmName ?? '').toLowerCase().includes(q) ||
       clientDoc.includes(q) ||
-      (c.city || c.cidade || '').toLowerCase().includes(q);
+      String((c.city || c.cidade) ?? '').toLowerCase().includes(q);
 
     if (!matchSearch) return false;
     if (selectedAtividade !== 'todos') {

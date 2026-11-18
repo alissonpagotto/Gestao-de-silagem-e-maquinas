@@ -106,7 +106,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
   const currentEmployee = useMemo(() => {
     if (!employees || employees.length === 0) return null;
     if (currentEmpId) {
-      const found = employees.find(e => e.id === currentEmpId || (e.name && e.name.trim().toLowerCase() === currentEmpId.trim().toLowerCase()));
+      const found = employees.find(e => e.id === currentEmpId || (e.name && String(e.name ?? '').trim().toLowerCase() === String(currentEmpId ?? '').trim().toLowerCase()));
       if (found) return found;
     }
     try {
@@ -116,7 +116,7 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           if (currentEmpId) {
-            const directMatch = parsed.find((e: any) => e && (e.id === currentEmpId || (e.name && e.name.trim().toLowerCase() === currentEmpId.trim().toLowerCase())));
+            const directMatch = parsed.find((e: any) => e && (e.id === currentEmpId || (e.name && String(e.name ?? '').trim().toLowerCase() === String(currentEmpId ?? '').trim().toLowerCase())));
             if (directMatch) return directMatch;
           }
           if (parsed.length > 0) return parsed[0];
@@ -129,11 +129,11 @@ export const EmployeeIndividualHistory: React.FC<EmployeeIndividualHistoryProps>
   // Lista de colaboradores filtrada para o selector
   const filteredEmployeesForPicker = useMemo(() => {
     if (!pickerSearch.trim()) return employees;
-    const term = pickerSearch.toLowerCase();
+    const term = String(pickerSearch ?? '').toLowerCase();
     return employees.filter(e =>
-      e.name.toLowerCase().includes(term) ||
+      String(e.name ?? '').toLowerCase().includes(term) ||
       (e.cpf && e.cpf.includes(term)) ||
-      (e.role && e.role.toLowerCase().includes(term))
+      (e.role && String(e.role ?? '').toLowerCase().includes(term))
     );
   }, [employees, pickerSearch]);
 

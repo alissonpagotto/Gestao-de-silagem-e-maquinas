@@ -270,15 +270,15 @@ export function efetivarRetornoPneusEstoque(order: TireReformOrder): void {
       const inventory = getStoredInventory();
       let inventoryChanged = false;
       for (const tire of order.tires) {
-        const tireBrand = (tire.brand || '').toLowerCase().trim();
-        const tireSize = (tire.size || '').toLowerCase().trim();
+        const tireBrand = String(tire.brand ?? '').toLowerCase().trim();
+        const tireSize = String(tire.size ?? '').toLowerCase().trim();
         let matchedProd = inventory.find(p => {
-          const pName = (p.nome_comercial || p.name || p.nome || '').toLowerCase();
-          const isTireCat = p.category?.toLowerCase() === 'pneus' || p.categoria?.toLowerCase() === 'pneus';
+          const pName = String((p.nome_comercial || p.name || p.nome) ?? '').toLowerCase();
+          const isTireCat = String(p.category ?? '').toLowerCase() === 'pneus' || String(p.categoria ?? '').toLowerCase() === 'pneus';
           return isTireCat && (pName.includes(tireBrand) || (tireSize && pName.includes(tireSize)));
         });
         if (!matchedProd) {
-          matchedProd = inventory.find(p => p.category?.toLowerCase() === 'pneus' || p.categoria?.toLowerCase() === 'pneus');
+          matchedProd = inventory.find(p => String(p.category ?? '').toLowerCase() === 'pneus' || String(p.categoria ?? '').toLowerCase() === 'pneus');
         }
         if (matchedProd) {
           matchedProd.quantity = (Number(matchedProd.quantity) || 0) + 1;
@@ -587,7 +587,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   // Seleção automática do primeiro fornecedor de recapagem se disponível
   useEffect(() => {
     if (suppliers.length > 0 && !selectedSupplierId) {
-      const recap = suppliers.find(s => (s.category || '').toLowerCase().includes('pneu') || (s.name || '').toLowerCase().includes('recap'));
+      const recap = suppliers.find(s => String(s.category ?? '').toLowerCase().includes('pneu') || String(s.name ?? '').toLowerCase().includes('recap'));
       setSelectedSupplierId(recap ? recap.id : suppliers[0].id);
     }
   }, [suppliers, selectedSupplierId]);
@@ -1084,11 +1084,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       if (!matchesCompetence(orderDate, activeCompetence)) return false;
 
       if (!searchTerm.trim()) return true;
-      const term = searchTerm.toLowerCase();
+      const term = String(searchTerm ?? '').toLowerCase();
       return (
-        o.orderNumber.toLowerCase().includes(term) ||
-        o.supplierName.toLowerCase().includes(term) ||
-        o.tires.some(t => t.fireNumber.toLowerCase().includes(term))
+        String(o.orderNumber ?? '').toLowerCase().includes(term) ||
+        String(o.supplierName ?? '').toLowerCase().includes(term) ||
+        o.tires.some(t => String(t.fireNumber ?? '').toLowerCase().includes(term))
       );
     });
   }, [orders, searchTerm, activeCompetence]);

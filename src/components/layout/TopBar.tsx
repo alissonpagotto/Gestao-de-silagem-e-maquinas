@@ -46,7 +46,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   const activeCorporateName = useMemo(() => {
     const raw = companyProfile?.corporateName || companyProfile?.companyName;
-    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'silagem fácil' || raw.trim().toUpperCase() === 'COLAÇA SILAGEM LTDA') {
+    if (!raw || raw.trim() === '' || String(raw ?? '').trim().toLowerCase() === 'silagem fácil' || raw.trim().toUpperCase() === 'COLAÇA SILAGEM LTDA') {
       return 'SUA EMPRESA AQUI';
     }
     return raw.trim().toUpperCase();
@@ -54,7 +54,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   const activeTradeName = useMemo(() => {
     const raw = companyProfile?.tradeName;
-    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil' || raw.trim().toUpperCase() === 'COLAÇA SILAGEM') {
+    if (!raw || raw.trim() === '' || String(raw ?? '').trim().toLowerCase() === 'gestão de silagem' || String(raw ?? '').trim().toLowerCase() === 'silagem fácil' || raw.trim().toUpperCase() === 'COLAÇA SILAGEM') {
       return 'SISTEMA ERP OPERACIONAL';
     }
     return raw.trim().toUpperCase();

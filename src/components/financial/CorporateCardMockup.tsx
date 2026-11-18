@@ -22,8 +22,8 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
   className = '',
 }) => {
   // Normalização de dados para detecção
-  const bankLower = (bankName || '').toLowerCase();
-  const cardNameLower = (card.name || '').toLowerCase();
+  const bankLower = String(bankName ?? '').toLowerCase();
+  const cardNameLower = String(card.name ?? '').toLowerCase();
   const cardAny = card as any;
   const detectedBankCode = identifyBankCode(bankCode, bankName) || (cardAny.bank ? identifyBankCode(undefined, cardAny.bank) : null);
 

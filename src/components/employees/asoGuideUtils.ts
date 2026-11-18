@@ -107,12 +107,11 @@ export function formatSupplierFullAddress(supplier: Partial<Supplier>): string {
 }
 
 export function isDriverOrOperatorRole(employee: Partial<Employee>): boolean {
-  const combinedRoles = [
+  const combinedRoles = String([
     employee.role || '',
     ...(Array.isArray(employee.roles) ? employee.roles : []),
   ]
-    .join(' ')
-    .toLowerCase()
+    .join(' ') ?? '').toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 

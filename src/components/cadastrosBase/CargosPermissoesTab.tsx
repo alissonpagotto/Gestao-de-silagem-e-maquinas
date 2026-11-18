@@ -291,13 +291,13 @@ export const CargosPermissoesTab: React.FC = () => {
   const employeeCountByCargo = useMemo(() => {
     const map: Record<string, number> = {};
     employees.forEach(emp => {
-      const roleStr = (emp.role || '').trim().toLowerCase();
+      const roleStr = String(emp.role ?? '').trim().toLowerCase();
       const cargoId = emp.cargoId;
       if (cargoId) {
         map[cargoId] = (map[cargoId] || 0) + 1;
       }
       cargos.forEach(c => {
-        if (c.nome.trim().toLowerCase() === roleStr) {
+        if (String(c.nome ?? '').trim().toLowerCase() === roleStr) {
           map[c.id] = (map[c.id] || 0) + 1;
         }
       });
@@ -313,31 +313,31 @@ export const CargosPermissoesTab: React.FC = () => {
   // Lista filtrada para a Tabela Principal (Print 2)
   const filteredCargos = useMemo(() => {
     if (!searchTerm.trim()) return sortedCargos;
-    const term = searchTerm.toLowerCase();
+    const term = String(searchTerm ?? '').toLowerCase();
     return sortedCargos.filter(c => 
-      c.nome.toLowerCase().includes(term) ||
-      c.setor.toLowerCase().includes(term) ||
-      (c.descricao && c.descricao.toLowerCase().includes(term))
+      String(c.nome ?? '').toLowerCase().includes(term) ||
+      String(c.setor ?? '').toLowerCase().includes(term) ||
+      (c.descricao && String(c.descricao ?? '').toLowerCase().includes(term))
     );
   }, [sortedCargos, searchTerm]);
 
   // Lista filtrada para o painel lateral interno do editor (Coluna 1)
   const editorFilteredCargos = useMemo(() => {
     if (!editorSearchTerm.trim()) return sortedCargos;
-    const term = editorSearchTerm.toLowerCase();
+    const term = String(editorSearchTerm ?? '').toLowerCase();
     return sortedCargos.filter(c => 
-      c.nome.toLowerCase().includes(term) ||
-      c.setor.toLowerCase().includes(term)
+      String(c.nome ?? '').toLowerCase().includes(term) ||
+      String(c.setor ?? '').toLowerCase().includes(term)
     );
   }, [sortedCargos, editorSearchTerm]);
 
   // Nomes de cargos cadastrados para o combobox
   const existingCargoSuggestions = useMemo(() => {
     const unique = Array.from(new Set(cargos.map(c => c.nome.trim()))).filter(Boolean);
-    const query = nome.trim().toLowerCase();
+    const query = String(nome ?? '').trim().toLowerCase();
     const sorted = unique.sort((a, b) => a.localeCompare(b, 'pt-BR'));
     if (!query) return sorted;
-    return sorted.filter(n => n.toLowerCase().includes(query));
+    return sorted.filter(n => String(n ?? '').toLowerCase().includes(query));
   }, [cargos, nome]);
 
   // Cargo selecionado atual no editor
@@ -509,7 +509,7 @@ export const CargosPermissoesTab: React.FC = () => {
 
     // Valida duplicação de nome
     const exists = cargos.some(c => 
-      c.nome.trim().toLowerCase() === cleanNome.toLowerCase() && 
+      String(c.nome ?? '').trim().toLowerCase() === String(cleanNome ?? '').toLowerCase() && 
       c.id !== selectedCargoId
     );
     if (exists) {
@@ -557,7 +557,7 @@ export const CargosPermissoesTab: React.FC = () => {
     const currentEmps = getStoredEmployees();
     let empsModified = false;
     const refreshedEmps = currentEmps.map(emp => {
-      const matchByName = emp.role && emp.role.trim().toLowerCase() === cleanNome.toLowerCase();
+      const matchByName = emp.role && String(emp.role ?? '').trim().toLowerCase() === String(cleanNome ?? '').toLowerCase();
       const matchById = emp.cargoId === savedCargoId;
       if (matchByName || matchById) {
         empsModified = true;

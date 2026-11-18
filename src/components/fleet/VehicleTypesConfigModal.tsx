@@ -81,7 +81,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
 
   const productSearchResults = React.useMemo(() => {
     if (!prevSearchQuery.trim()) return [];
-    const q = prevSearchQuery.toLowerCase().trim();
+    const q = String(prevSearchQuery ?? '').toLowerCase().trim();
     return allInventoryItems.filter(item => {
       const anyItem = item as any;
       const name = String(item.nome_comercial || item.name || '').toLowerCase();

@@ -183,7 +183,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
       const transactionsToImport: Omit<BankTransaction, 'id' | 'createdAt'>[] = [];
 
       try {
-        if (file.name.toLowerCase().endsWith('.ofx')) {
+        if (String(file.name ?? '').toLowerCase().endsWith('.ofx')) {
           // Parser simples de OFX bancário (STMTTRN)
           const trnRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi;
           let match;

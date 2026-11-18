@@ -206,15 +206,15 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         !term ||
         String(app.appointmentNumber ?? '').toLowerCase().includes(term) ||
         String(app.clientName ?? '').toLowerCase().includes(term) ||
-        (app.farmName && String(app.farmName).toLowerCase().includes(term)) ||
-        (app.locationCityState && String(app.locationCityState).toLowerCase().includes(term)) ||
-        (app.primaryMachineryPrefix && String(app.primaryMachineryPrefix).toLowerCase().includes(term)) ||
-        (app.primaryMachineryPlate && String(app.primaryMachineryPlate).toLowerCase().includes(term)) ||
-        (app.primaryMachineryModel && String(app.primaryMachineryModel).toLowerCase().includes(term)) ||
+        (app.farmName && String(app.farmName ?? '').toLowerCase().includes(term)) ||
+        (app.locationCityState && String(app.locationCityState ?? '').toLowerCase().includes(term)) ||
+        (app.primaryMachineryPrefix && String(app.primaryMachineryPrefix ?? '').toLowerCase().includes(term)) ||
+        (app.primaryMachineryPlate && String(app.primaryMachineryPlate ?? '').toLowerCase().includes(term)) ||
+        (app.primaryMachineryModel && String(app.primaryMachineryModel ?? '').toLowerCase().includes(term)) ||
         app.assignedVehicles?.some(v => 
           String(v.prefix ?? '').toLowerCase().includes(term) || 
           String(v.plateOrSerial ?? '').toLowerCase().includes(term) ||
-          (v.driverOrOperatorName && String(v.driverOrOperatorName).toLowerCase().includes(term))
+          (v.driverOrOperatorName && String(v.driverOrOperatorName ?? '').toLowerCase().includes(term))
         );
 
       // Filtro de Status
@@ -353,7 +353,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         if (!fn && !pref) return false;
         if (fn === pref || fn === `maq ${pref}` || fn === `maq-${pref}`) return true;
         if (digitsOnly && fn.replace(/\D/g, '') === digitsOnly && digitsOnly.length > 0) return true;
-        if (m.licensePlateOrSerial && String(m.licensePlateOrSerial).trim().toLowerCase() === pref) return true;
+        if (m.licensePlateOrSerial && String(m.licensePlateOrSerial ?? '').trim().toLowerCase() === pref) return true;
         return false;
       });
     }
@@ -457,9 +457,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         }
 
         // 4. Vínculo exato por nome/prefixo da máquina ou nome da coluna
-        const appPrefix = (app.primaryMachineryPrefix || '').trim().toLowerCase();
-        const colMach = (col.machineryName || '').trim().toLowerCase();
-        const colName = (col.name || '').trim().toLowerCase();
+        const appPrefix = String(app.primaryMachineryPrefix ?? '').trim().toLowerCase();
+        const colMach = String(col.machineryName ?? '').trim().toLowerCase();
+        const colName = String(col.name ?? '').trim().toLowerCase();
 
         if (appPrefix && colMach && appPrefix === colMach) {
           matchedColId = col.id;
@@ -469,7 +469,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           matchedColId = col.id;
           break;
         }
-        if (appPrefix && appPrefix === `frente #${col.frontNumber || ''}`.toLowerCase()) {
+        if (appPrefix && appPrefix === String(`frente #${col.frontNumber || ''}`).toLowerCase()) {
           matchedColId = col.id;
           break;
         }
@@ -485,7 +485,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         }
 
         // 6. Checa modelo das máquinas (ex: 870, 860, 6110, 2726, 8500)
-        const appModel = (app.primaryMachineryModel || '').toLowerCase();
+        const appModel = String(app.primaryMachineryModel ?? '').toLowerCase();
         if (colMach.includes('870') && (appModel.includes('870') || appPrefix.includes('870'))) {
           matchedColId = col.id;
           break;
@@ -1515,16 +1515,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                     // Coluna 5 (Trator): Trator escalado na frota de apoio deste agendamento (prefixo/placa). Se não houver, em branco
                     const tractors = (a.assignedVehicles || []).filter(v => {
                       if (v.category === 'trator') return true;
-                      const prefixL = (v.prefix || '').toLowerCase();
-                      const modelL = (v.model || '').toLowerCase();
+                      const prefixL = String(v.prefix ?? '').toLowerCase();
+                      const modelL = String(v.model ?? '').toLowerCase();
                       return prefixL.includes('trator') || modelL.includes('trator');
                     });
 
                     // Coluna 6 (Demais Veículos): Listar todos os outros veículos de apoio restantes (Caminhões de silagem, etc.)
                     const otherVehicles = (a.assignedVehicles || []).filter(v => {
                       const isTractor = v.category === 'trator' || 
-                        (v.prefix || '').toLowerCase().includes('trator') || 
-                        (v.model || '').toLowerCase().includes('trator');
+                        String(v.prefix ?? '').toLowerCase().includes('trator') || 
+                        String(v.model ?? '').toLowerCase().includes('trator');
                       return !isTractor;
                     });
 

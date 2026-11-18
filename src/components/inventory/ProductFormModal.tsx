@@ -390,7 +390,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   // Identifica dinamicamente se a categoria selecionada é 'Pneus'
   const isPneuCategory = useMemo(() => {
-    const catNorm = (categoria || '').trim().toLowerCase();
+    const catNorm = String(categoria ?? '').trim().toLowerCase();
     return catNorm === 'pneus' || catNorm === 'pneu' || catNorm.includes('pneu');
   }, [categoria]);
 
@@ -565,14 +565,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   // Verifica dinamicamente se a unidade é galão ou o nome contém 'Galão'
   const showGallonCapacity = useMemo(() => {
-    const unitNorm = (unidadeMedida || '')
-      .trim()
-      .toLowerCase()
+    const unitNorm = String(unidadeMedida ?? '').trim().toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
-    const nameNorm = (nome || '')
-      .trim()
-      .toLowerCase()
+    const nameNorm = String(nome ?? '').trim().toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
@@ -601,7 +597,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       if (exactMatch) {
         normalizedCat = exactMatch;
       } else {
-        const c = rawCat.toLowerCase();
+        const c = String(rawCat ?? '').toLowerCase();
         if (c.includes('pneu')) normalizedCat = 'Pneus';
         else if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) normalizedCat = 'Combustível & Arla';
         else if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) normalizedCat = 'Lona & Embalagem';
@@ -613,7 +609,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         else if (c.includes('outro')) normalizedCat = 'Outros Insumos';
       }
 
-      const matchedCat = storedCats.find(cat => cat.toLowerCase() === (normalizedCat || '').toLowerCase());
+      const matchedCat = storedCats.find(cat => String(cat ?? '').toLowerCase() === String(normalizedCat ?? '').toLowerCase());
       const initialCat = matchedCat || (normalizedCat && storedCats.includes(normalizedCat) ? normalizedCat : (storedCats[0] || 'Outros Insumos'));
       setCategoria(initialCat);
 
@@ -1286,7 +1282,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           const currentTireInv = getStoredTireInventory();
           const cleanFire = tireFireNumber.trim().toUpperCase();
           const existingIdx = currentTireInv.findIndex(
-            (t) => (t.fireNumber || '').trim().toLowerCase() === cleanFire.toLowerCase() || t.id === `tire_${prodId}`
+            (t) => String(t.fireNumber ?? '').trim().toLowerCase() === String(cleanFire ?? '').toLowerCase() || t.id === `tire_${prodId}`
           );
 
           const tireItemToSave: TireItem = {
@@ -1759,7 +1755,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
                           >
                             <option value="">Selecione...</option>
-                            {tipoProduto && !tipoProdutoOptions.some((opt) => opt.toLowerCase() === tipoProduto.toLowerCase()) && (
+                            {tipoProduto && !tipoProdutoOptions.some((opt) => String(opt ?? '').toLowerCase() === String(tipoProduto ?? '').toLowerCase()) && (
                               <option value={tipoProduto}>{tipoProduto}</option>
                             )}
                             {tipoProdutoOptions.map((opt) => (
@@ -1798,7 +1794,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
                           >
                             <option value="">Selecione...</option>
-                            {grupo && !groupOptions.some((g) => g.toLowerCase() === grupo.toLowerCase()) && (
+                            {grupo && !groupOptions.some((g) => String(g ?? '').toLowerCase() === String(grupo ?? '').toLowerCase()) && (
                               <option value={grupo}>{grupo}</option>
                             )}
                             {groupOptions.map((g) => (
@@ -1837,7 +1833,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
                           >
                             <option value="">Selecione...</option>
-                            {subgrupo && !subgroupOptions.some((sg) => sg.toLowerCase() === subgrupo.toLowerCase()) && (
+                            {subgrupo && !subgroupOptions.some((sg) => String(sg ?? '').toLowerCase() === String(subgrupo ?? '').toLowerCase()) && (
                               <option value={subgrupo}>{subgrupo}</option>
                             )}
                             {subgroupOptions.map((sg) => (
@@ -1876,7 +1872,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
                           >
                             <option value="">Selecione...</option>
-                            {variacao && !variationOptions.some((v) => v.toLowerCase() === variacao.toLowerCase()) && (
+                            {variacao && !variationOptions.some((v) => String(v ?? '').toLowerCase() === String(variacao ?? '').toLowerCase()) && (
                               <option value={variacao}>{variacao}</option>
                             )}
                             {variationOptions.map((v) => (
@@ -1941,7 +1937,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             className="flex-1 min-w-0 h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
                           >
                             <option value="">Selecione...</option>
-                            {marca && !brandOptions.some((b) => b.toLowerCase() === marca.toLowerCase()) && (
+                            {marca && !brandOptions.some((b) => String(b ?? '').toLowerCase() === String(marca ?? '').toLowerCase()) && (
                               <option value={marca}>{marca}</option>
                             )}
                             {brandOptions.map((b) => (
@@ -2829,10 +2825,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             onSaveItems: (next: string[]) => setTipoProdutoOptions(saveTipoProdutoOptionsList(next)),
             onSelectItem: (val: string) => setTipoProduto(val),
             onRenameItem: (oldV: string, newV: string) => {
-              if (tipoProduto.toLowerCase() === oldV.toLowerCase()) setTipoProduto(newV);
+              if (String(tipoProduto ?? '').toLowerCase() === String(oldV ?? '').toLowerCase()) setTipoProduto(newV);
             },
             onDeleteItem: (delV: string) => {
-              if (tipoProduto.toLowerCase() === delV.toLowerCase()) setTipoProduto('');
+              if (String(tipoProduto ?? '').toLowerCase() === String(delV ?? '').toLowerCase()) setTipoProduto('');
             },
           },
           grupo: {
@@ -2845,10 +2841,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             onSaveItems: (next: string[]) => setGroupOptions(saveProductGroupsList(next)),
             onSelectItem: (val: string) => setGrupo(val),
             onRenameItem: (oldV: string, newV: string) => {
-              if (grupo.toLowerCase() === oldV.toLowerCase()) setGrupo(newV);
+              if (String(grupo ?? '').toLowerCase() === String(oldV ?? '').toLowerCase()) setGrupo(newV);
             },
             onDeleteItem: (delV: string) => {
-              if (grupo.toLowerCase() === delV.toLowerCase()) setGrupo('');
+              if (String(grupo ?? '').toLowerCase() === String(delV ?? '').toLowerCase()) setGrupo('');
             },
           },
           subgrupo: {
@@ -2863,10 +2859,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             onSaveItems: (next: string[]) => setSubgroupOptions(saveProductSubgroupsList(grupo, next)),
             onSelectItem: (val: string) => setSubgrupo(val),
             onRenameItem: (oldV: string, newV: string) => {
-              if (subgrupo.toLowerCase() === oldV.toLowerCase()) setSubgrupo(newV);
+              if (String(subgrupo ?? '').toLowerCase() === String(oldV ?? '').toLowerCase()) setSubgrupo(newV);
             },
             onDeleteItem: (delV: string) => {
-              if (subgrupo.toLowerCase() === delV.toLowerCase()) setSubgrupo('');
+              if (String(subgrupo ?? '').toLowerCase() === String(delV ?? '').toLowerCase()) setSubgrupo('');
             },
           },
           variacao: {
@@ -2879,10 +2875,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             onSaveItems: (next: string[]) => setVariationOptions(saveProductVariationsList(next)),
             onSelectItem: (val: string) => setVariacao(val),
             onRenameItem: (oldV: string, newV: string) => {
-              if (variacao.toLowerCase() === oldV.toLowerCase()) setVariacao(newV);
+              if (String(variacao ?? '').toLowerCase() === String(oldV ?? '').toLowerCase()) setVariacao(newV);
             },
             onDeleteItem: (delV: string) => {
-              if (variacao.toLowerCase() === delV.toLowerCase()) setVariacao('');
+              if (String(variacao ?? '').toLowerCase() === String(delV ?? '').toLowerCase()) setVariacao('');
             },
           },
           marca: {
@@ -2900,15 +2896,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               }
             },
             onRenameItem: (oldV: string, newV: string) => {
-              if (marca.toLowerCase() === oldV.toLowerCase()) {
+              if (String(marca ?? '').toLowerCase() === String(oldV ?? '').toLowerCase()) {
                 setMarca(newV);
-                if (tireBrand.toLowerCase() === oldV.toLowerCase()) {
+                if (String(tireBrand ?? '').toLowerCase() === String(oldV ?? '').toLowerCase()) {
                   setTireBrand(newV.toUpperCase());
                 }
               }
             },
             onDeleteItem: (delV: string) => {
-              if (marca.toLowerCase() === delV.toLowerCase()) setMarca('');
+              if (String(marca ?? '').toLowerCase() === String(delV ?? '').toLowerCase()) setMarca('');
             },
           },
         } as const;

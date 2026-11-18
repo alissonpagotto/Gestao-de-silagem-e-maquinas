@@ -46,7 +46,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
 
   // Filtragem dos itens de estoque
   const filteredProducts = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     return inventory.filter(item => {
       const matchCategory = selectedCategory === 'todos' || item.category === selectedCategory;
       if (!matchCategory) return false;

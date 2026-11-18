@@ -78,12 +78,12 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
   const grossRevenue = ordersRevenue + servicesRevenue;
 
   // Categories breakdown
-  const fuelExpense = filteredExpenses.filter(e => e.categoryId === 'cat_combustivel' || e.categoryName?.toLowerCase().includes('combust') || e.categoryName?.toLowerCase().includes('diesel')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const maintenanceExpense = filteredExpenses.filter(e => e.categoryId === 'cat_manutencao' || e.categoryName?.toLowerCase().includes('manuten') || e.categoryName?.toLowerCase().includes('peça')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const inputsExpense = filteredExpenses.filter(e => e.categoryId === 'cat_insumos' || e.categoryName?.toLowerCase().includes('insumo') || e.categoryName?.toLowerCase().includes('sement') || e.categoryName?.toLowerCase().includes('inocul')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const laborExpense = filteredExpenses.filter(e => e.categoryId === 'cat_mao_de_obra' || e.categoryName?.toLowerCase().includes('mão') || e.categoryName?.toLowerCase().includes('salár') || e.categoryName?.toLowerCase().includes('diária')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const packagingExpense = filteredExpenses.filter(e => e.categoryId === 'cat_lona_embalagem' || e.categoryName?.toLowerCase().includes('lona') || e.categoryName?.toLowerCase().includes('embalag')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const freightExpense = filteredExpenses.filter(e => e.categoryId === 'cat_frete' || e.categoryName?.toLowerCase().includes('frete') || e.categoryName?.toLowerCase().includes('transp')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const fuelExpense = filteredExpenses.filter(e => e.categoryId === 'cat_combustivel' || String(e.categoryName ?? '').toLowerCase().includes('combust') || String(e.categoryName ?? '').toLowerCase().includes('diesel')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const maintenanceExpense = filteredExpenses.filter(e => e.categoryId === 'cat_manutencao' || String(e.categoryName ?? '').toLowerCase().includes('manuten') || String(e.categoryName ?? '').toLowerCase().includes('peça')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const inputsExpense = filteredExpenses.filter(e => e.categoryId === 'cat_insumos' || String(e.categoryName ?? '').toLowerCase().includes('insumo') || String(e.categoryName ?? '').toLowerCase().includes('sement') || String(e.categoryName ?? '').toLowerCase().includes('inocul')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const laborExpense = filteredExpenses.filter(e => e.categoryId === 'cat_mao_de_obra' || String(e.categoryName ?? '').toLowerCase().includes('mão') || String(e.categoryName ?? '').toLowerCase().includes('salár') || String(e.categoryName ?? '').toLowerCase().includes('diária')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const packagingExpense = filteredExpenses.filter(e => e.categoryId === 'cat_lona_embalagem' || String(e.categoryName ?? '').toLowerCase().includes('lona') || String(e.categoryName ?? '').toLowerCase().includes('embalag')).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const freightExpense = filteredExpenses.filter(e => e.categoryId === 'cat_frete' || String(e.categoryName ?? '').toLowerCase().includes('frete') || String(e.categoryName ?? '').toLowerCase().includes('transp')).reduce((sum, e) => sum + (e.amount || 0), 0);
   
   const categorizedSum = fuelExpense + maintenanceExpense + inputsExpense + laborExpense + packagingExpense + freightExpense;
   const otherExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0) - categorizedSum;

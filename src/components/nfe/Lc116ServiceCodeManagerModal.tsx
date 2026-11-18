@@ -45,11 +45,11 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
   }, [isOpen]);
 
   const filteredCodes = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     if (!q) return codes;
     return codes.filter(
       (c) =>
-        c.codigo.toLowerCase().includes(q) || c.descricao.toLowerCase().includes(q)
+        String(c.codigo ?? '').toLowerCase().includes(q) || String(c.descricao ?? '').toLowerCase().includes(q)
     );
   }, [codes, searchTerm]);
 
@@ -74,7 +74,7 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
       setFeedbackError('Informe a descrição do serviço.');
       return;
     }
-    if (codes.some((c) => c.codigo.toLowerCase() === codigo.toLowerCase())) {
+    if (codes.some((c) => String(c.codigo ?? '').toLowerCase() === String(codigo ?? '').toLowerCase())) {
       setFeedbackError(`O código ${codigo} já está cadastrado.`);
       return;
     }

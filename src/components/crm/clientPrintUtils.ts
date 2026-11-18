@@ -337,7 +337,7 @@ export async function printClientRegistrationA4(
         <div class="company-info">
           <h1>${escapeHtml(tradeName)}</h1>
           ${
-            corporateName && corporateName.toLowerCase() !== tradeName.toLowerCase()
+            corporateName && String(corporateName ?? '').toLowerCase() !== String(tradeName ?? '').toLowerCase()
               ? `<div class="trade">${escapeHtml(corporateName)}</div>`
               : ''
           }

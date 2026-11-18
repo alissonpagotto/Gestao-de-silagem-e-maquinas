@@ -4,10 +4,9 @@ import { Search, ChevronDown, X, Check, Truck, Building2 } from 'lucide-react';
 import { Supplier } from '../../types';
 
 function normalizeSearchText(text: string): string {
-  return (text || '')
+  return String((text || '')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, '') ?? '').toLowerCase()
     .trim();
 }
 

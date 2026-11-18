@@ -120,7 +120,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   const initialCleaned = sanitizeProfile(companyProfile);
 
   const resolveAutoPixKey = (pixKeyType: string, data: Partial<CompanyProfile>): string => {
-    const normalizedType = String(pixKeyType || 'cnpj').trim().toLowerCase();
+    const normalizedType = String((pixKeyType || 'cnpj') ?? '').trim().toLowerCase();
     const cnpjCpfDigits = cleanDigits(data.cnpjCpf || data.cnpj || '');
     const repCpfDigits = cleanDigits(data.representativeCpf || '');
 

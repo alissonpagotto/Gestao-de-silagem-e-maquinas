@@ -211,7 +211,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       // Ex: [FATURAMENTO: PIX - R$ 10.000,00 | CHEQUE (3x) - R$ 25.750,00]
       const methodTotals = new Map<string, { total: number; count: number; label: string }>();
       items.forEach((it) => {
-        const method = (it.paymentMethod || 'OUTRO').toLowerCase();
+        const method = String((it.paymentMethod || 'OUTRO') ?? '').toLowerCase();
         const methodLabel = getPaymentMethodLabel(it.paymentMethod);
         const prev = methodTotals.get(method) || { total: 0, count: 0, label: methodLabel };
         prev.total += Number(it.totalAmount) || 0;
@@ -285,8 +285,8 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       if (statusFilter === 'faturado' && !isFaturado) return false;
 
       if (serviceTypeFilter !== 'todos') {
-        const typeStr = (s.serviceType || '').toLowerCase();
-        const tabStr = (s.serviceTab || '').toLowerCase();
+        const typeStr = String(s.serviceType ?? '').toLowerCase();
+        const tabStr = String(s.serviceTab ?? '').toLowerCase();
         if (serviceTypeFilter === 'corte' && !typeStr.includes('corte') && !typeStr.includes('ensilagem') && tabStr !== 'corte') {
           return false;
         }
@@ -305,12 +305,12 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
       }
 
       if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const matchesClient = (s.clientName || '').toLowerCase().includes(q);
-        const matchesFarm = (s.farmName || '').toLowerCase().includes(q);
-        const matchesOrder = (item.cleanOrderNumber || s.orderNumber || s.id || '').toLowerCase().includes(q);
-        const matchesType = (s.serviceType || '').toLowerCase().includes(q);
-        const matchesNotes = (item.summaryBillingNotes || s.billingNotes || s.notes || '').toLowerCase().includes(q);
+        const q = String(searchTerm ?? '').toLowerCase();
+        const matchesClient = String(s.clientName ?? '').toLowerCase().includes(q);
+        const matchesFarm = String(s.farmName ?? '').toLowerCase().includes(q);
+        const matchesOrder = String((item.cleanOrderNumber || s.orderNumber || s.id) ?? '').toLowerCase().includes(q);
+        const matchesType = String(s.serviceType ?? '').toLowerCase().includes(q);
+        const matchesNotes = String((item.summaryBillingNotes || s.billingNotes || s.notes) ?? '').toLowerCase().includes(q);
         if (!matchesClient && !matchesFarm && !matchesOrder && !matchesType && !matchesNotes) {
           return false;
         }
@@ -464,8 +464,8 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
 
   // Helper para cor do Tipo de Serviço
   const getServiceTypeBadge = (service: ServiceOrder) => {
-    const type = (service.serviceType || '').toLowerCase();
-    const tab = (service.serviceTab || '').toLowerCase();
+    const type = String(service.serviceType ?? '').toLowerCase();
+    const tab = String(service.serviceTab ?? '').toLowerCase();
 
     if (type.includes('corte') || type.includes('ensilagem') || tab === 'corte') {
       return {

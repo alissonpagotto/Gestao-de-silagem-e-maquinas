@@ -472,7 +472,7 @@ function normalizeViaCepItems(data: any[], fallbackCity: string, fallbackUf: str
       localidade: String(entry.localidade || fallbackCity).trim(),
       uf: String(entry.uf || fallbackUf).trim().toUpperCase(),
     };
-    const key = `${item.cep}|${item.logradouro.toLowerCase()}|${item.bairro.toLowerCase()}`;
+    const key = `${item.cep}|${String(item.logradouro ?? '').toLowerCase()}|${String(item.bairro ?? '').toLowerCase()}`;
     if (!seen.has(key)) {
       seen.add(key);
       normalized.push(item);
@@ -578,7 +578,7 @@ export async function searchCepByCity(
   const merged: ReverseCepItem[] = [];
   for (const r of responses) {
     for (const item of r.items) {
-      const key = `${item.cep}|${item.logradouro.toLowerCase()}|${item.bairro.toLowerCase()}`;
+      const key = `${item.cep}|${String(item.logradouro ?? '').toLowerCase()}|${String(item.bairro ?? '').toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
         merged.push(item);
@@ -678,7 +678,7 @@ export async function fetchCompanyByCnpj(cnpj: string): Promise<CnpjLookupResult
           corporateName: data.razao_social || '',
           tradeName: data.nome_fantasia || data.razao_social || '',
           phone,
-          email: (data.email || '').toLowerCase(),
+          email: String(data.email ?? '').toLowerCase(),
           zipCode: formatCep(data.cep || ''),
           street: data.logradouro ? `${data.descricao_tipo_de_logradouro ? data.descricao_tipo_de_logradouro + ' ' : ''}${data.logradouro}`.trim() : '',
           number: data.numero || '',
@@ -712,7 +712,7 @@ export async function fetchCompanyByCnpj(cnpj: string): Promise<CnpjLookupResult
           corporateName: data.razao_social || '',
           tradeName: data.nome_fantasia || data.razao_social || '',
           phone: formatPhone(data.ddd_telefone_1 || ''),
-          email: (data.email || '').toLowerCase(),
+          email: String(data.email ?? '').toLowerCase(),
           zipCode: formatCep(data.cep || ''),
           street: data.logradouro || '',
           number: data.numero || '',

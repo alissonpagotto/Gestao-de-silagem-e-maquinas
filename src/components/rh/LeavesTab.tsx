@@ -98,9 +98,9 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
   // Filtered
   const filtered = competenceLeaves.filter(l => 
-    l.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (l.cid && l.cid.toLowerCase().includes(searchTerm.toLowerCase()))
+    String(l.employeeName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+    String(l.type ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+    (l.cid && String(l.cid ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()))
   );
 
   // KPIs

@@ -167,8 +167,8 @@ const STORAGE_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 
 export function normalizeTankIdToUUID(rawId?: string, tipoOuNome?: string): string {
   const id = String(rawId || '').trim();
-  if (STORAGE_UUID_REGEX.test(id)) return id.toLowerCase();
-  const text = `${id} ${tipoOuNome || ''}`.toLowerCase();
+  if (STORAGE_UUID_REGEX.test(id)) return String(id ?? '').toLowerCase();
+  const text = String(`${id} ${tipoOuNome || ''}`).toLowerCase();
   if (text.includes('s500') || text.includes('comum')) return CANONICAL_TANK_UUIDS.S500;
   if (text.includes('arla')) return CANONICAL_TANK_UUIDS.ARLA;
   return CANONICAL_TANK_UUIDS.S10;
@@ -178,7 +178,7 @@ export function normalizeFuelProdIdToUUID(rawId?: string, nome?: string): string
   const id = String(rawId || '').trim().toLowerCase();
   if (LEGACY_FUEL_PROD_UUID_MAP[id]) return LEGACY_FUEL_PROD_UUID_MAP[id];
   if (STORAGE_UUID_REGEX.test(id)) return id;
-  const text = `${id} ${nome || ''}`.toLowerCase();
+  const text = String(`${id} ${nome || ''}`).toLowerCase();
   if (text.includes('galao') || text.includes('galão') || text.includes('20l')) return CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO;
   if (text.includes('arla')) return CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL;
   if (text.includes('s500') || text.includes('comum')) return CANONICAL_FUEL_PROD_UUIDS.S500;
@@ -227,7 +227,7 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
 
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
-        if (k && purgeSubstrings.some(p => k.toLowerCase().includes(p))) {
+        if (k && purgeSubstrings.some(p => String(k ?? '').toLowerCase().includes(p))) {
           localStorage.removeItem(k);
         }
       }
@@ -360,8 +360,8 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
       // Garante que o tanque de Arla 32 sempre exista
       const hasArla = sanitized.some(t => 
         t.id === CANONICAL_TANK_UUIDS.ARLA || 
-        t.tipo_combustivel?.toLowerCase().includes('arla') || 
-        t.nome?.toLowerCase().includes('arla')
+        String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || 
+        String(t.nome ?? '').toLowerCase().includes('arla')
       );
       if (!hasArla) {
         needsSave = true;
@@ -405,6 +405,31 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
   }
 }
 
+function sanitizeExpenseRecord(item: any): Expense {
+  return {
+    ...item,
+    id: String(item.id ?? ''),
+    description: String(item.description ?? item.title ?? ''),
+    title: item.title !== undefined ? String(item.title ?? '') : undefined,
+    supplier: String(item.supplier ?? item.fornecedor ?? item.credor ?? ''),
+    categoryId: String(item.categoryId ?? ''),
+    categoryName: String(item.categoryName ?? item.categoria ?? ''),
+    costCenterId: String(item.costCenterId ?? ''),
+    costCenterName: String(item.costCenterName ?? item.centro_custo ?? ''),
+    dueDate: String(item.dueDate ?? item.data_vencimento ?? ''),
+    issueDate: item.issueDate !== undefined ? String(item.issueDate ?? '') : undefined,
+    invoiceNumber: String(item.invoiceNumber ?? item.nota_fiscal ?? ''),
+    notes: String(item.notes ?? item.observacoes ?? ''),
+    paymentMethod: String(item.paymentMethod ?? item.forma_pagamento ?? ''),
+    documentType: item.documentType !== undefined ? String(item.documentType ?? '') : undefined,
+    vehiclePlate: item.vehiclePlate !== undefined ? String(item.vehiclePlate ?? '') : undefined,
+    machineryName: item.machineryName !== undefined ? String(item.machineryName ?? '') : undefined,
+    driverName: item.driverName !== undefined ? String(item.driverName ?? '') : undefined,
+    dreCategory: item.dreCategory !== undefined ? String(item.dreCategory ?? '') : undefined,
+    status: item.status || 'pendente',
+  };
+}
+
 export function getStoredExpenses(): Expense[] {
   try {
     const candidateKeys = [
@@ -432,7 +457,7 @@ export function getStoredExpenses(): Expense[] {
     // Remove apenas registros estruturalmente inválidos (nulos, sem ID ou com valor inválido <= 0 quando não compensados)
     let hasInvalid = false;
     const cleaned = parsed.filter((item: any) => {
-      if (!item || !item.id) {
+      if (!item || typeof item !== 'object' || !item.id) {
         hasInvalid = true;
         return false;
       }
@@ -453,7 +478,7 @@ export function getStoredExpenses(): Expense[] {
         return false;
       }
       return true;
-    });
+    }).map(sanitizeExpenseRecord);
 
     if (hasInvalid && cleaned.length !== parsed.length) {
       const cleanedJson = JSON.stringify(cleaned);
@@ -523,7 +548,11 @@ export function getStoredFiscalRecords(): Expense[] {
     const raw = localStorage.getItem('silagem_facil_clean_v1_nfe_fiscal_records');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item: any) => item && typeof item === 'object')
+          .map(sanitizeExpenseRecord);
+      }
     }
   } catch (e) {
     console.warn('Failed to load fiscal records:', e);
@@ -575,7 +604,7 @@ export function getStoredCategories(): ExpenseCategory[] {
 
               if (!officialMap.has(n)) {
                 officialMap.set(n, {
-                  id: item.id || item.codigo || `cat_${n.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+                  id: item.id || item.codigo || `cat_${String(n ?? '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
                   name: n,
                   color: item.color || item.cor || '#0284c7',
                   icon: item.icon || 'Tag',
@@ -838,8 +867,8 @@ export function getStoredClients(): Client[] {
     // Higienização de clientes de teste/mock legados
     const cleaned = parsed.filter(c => {
       if (!c || typeof c !== 'object') return false;
-      const name = (c.name || '').toLowerCase();
-      const farm = (c.farmName || '').toLowerCase();
+      const name = String(c.name ?? '').toLowerCase();
+      const farm = String(c.farmName ?? '').toLowerCase();
       const isMock = ['agrícola silveira', 'agricola silveira', 'fazenda santa maria', 'agropecuária santa fé', 'agropecuaria santa fe'].some(fake =>
         name.includes(fake) || farm.includes(fake)
       );
@@ -951,16 +980,16 @@ export function getStoredAtividadesCatalog(): ClientSelectOption[] {
       try {
         const parsedLegacy = JSON.parse(rawLegacy);
         if (Array.isArray(parsedLegacy)) {
-          const existingLower = new Set(base.map((b) => b.label.toLowerCase()));
+          const existingLower = new Set(base.map((b) => String(b.label ?? '').toLowerCase()));
           parsedLegacy.forEach((entry: any) => {
             const label = String(entry || '').trim();
             if (!label) return;
             const upper = label.toUpperCase();
             if (LEGACY_ATIVIDADES_DEFAULTS.has(upper)) return;
-            if (!existingLower.has(label.toLowerCase())) {
-              existingLower.add(label.toLowerCase());
+            if (!existingLower.has(String(label ?? '').toLowerCase())) {
+              existingLower.add(String(label ?? '').toLowerCase());
               base.push({
-                id: `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+                id: `custom_${String(label ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
                 label,
                 active: true,
                 group: 'Personalizadas',
@@ -988,7 +1017,7 @@ export function saveStoredAtividadesCatalog(catalog: ClientSelectOption[]): Clie
     for (const item of catalog) {
       const label = String(item.label || '').trim();
       if (!label) continue;
-      const key = label.toLowerCase();
+      const key = String(label ?? '').toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       normalized.push({
@@ -1021,18 +1050,18 @@ export function getStoredAtividades(): string[] {
 export function saveStoredAtividades(atividades: string[]): string[] {
   try {
     const currentCatalog = getStoredAtividadesCatalog();
-    const activeSet = new Set(atividades.map((a) => String(a).trim().toLowerCase()).filter(Boolean));
+    const activeSet = new Set(atividades.map((a) => String(a ?? '').trim().toLowerCase()).filter(Boolean));
     const updatedCatalog = currentCatalog.map((item) => ({
       ...item,
-      active: activeSet.has(item.label.toLowerCase()),
+      active: activeSet.has(String(item.label ?? '').toLowerCase()),
     }));
-    const existingLower = new Set(updatedCatalog.map((i) => i.label.toLowerCase()));
+    const existingLower = new Set(updatedCatalog.map((i) => String(i.label ?? '').toLowerCase()));
     atividades.forEach((raw) => {
       const label = String(raw || '').trim();
-      if (label && !existingLower.has(label.toLowerCase())) {
-        existingLower.add(label.toLowerCase());
+      if (label && !existingLower.has(String(label ?? '').toLowerCase())) {
+        existingLower.add(String(label ?? '').toLowerCase());
         updatedCatalog.push({
-          id: `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+          id: `custom_${String(label ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
           label,
           active: true,
           group: 'Personalizadas',
@@ -1051,7 +1080,7 @@ export function addAtividadeIfNew(novaAtividade: string): string[] {
   const catalog = getStoredAtividadesCatalog();
   const trimmed = (novaAtividade || '').trim();
   if (!trimmed) return catalog.filter((i) => i.active).map((i) => i.label);
-  const existingIdx = catalog.findIndex((i) => i.label.toLowerCase() === trimmed.toLowerCase());
+  const existingIdx = catalog.findIndex((i) => String(i.label ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase());
   if (existingIdx >= 0) {
     if (!catalog[existingIdx].active) {
       const updated = catalog.map((item, idx) => idx === existingIdx ? { ...item, active: true } : item);
@@ -1063,7 +1092,7 @@ export function addAtividadeIfNew(novaAtividade: string): string[] {
   const updated = [
     ...catalog,
     {
-      id: `custom_${trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${Date.now()}`,
+      id: `custom_${String(trimmed ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${Date.now()}`,
       label: trimmed,
       active: true,
       group: 'Personalizadas',
@@ -1123,13 +1152,12 @@ export function saveStoredCrmStatusCatalog(catalog: ClientSelectOption[]): Clien
     for (const item of catalog) {
       const label = String(item.label || '').trim();
       if (!label) continue;
-      const key = label.toLowerCase();
+      const key = String(label ?? '').toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       const id = String(
         item.id ||
-          label
-            .toLowerCase()
+          String(label ?? '').toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, '_')
@@ -1159,7 +1187,7 @@ export function getCrmStatusLabel(statusIdOrLabel?: string): string {
   if (!statusIdOrLabel) return '—';
   const catalog = getStoredCrmStatusCatalog();
   const found = catalog.find(
-    (s) => s.id.toLowerCase() === statusIdOrLabel.toLowerCase() || s.label.toLowerCase() === statusIdOrLabel.toLowerCase()
+    (s) => String(s.id ?? '').toLowerCase() === String(statusIdOrLabel ?? '').toLowerCase() || String(s.label ?? '').toLowerCase() === String(statusIdOrLabel ?? '').toLowerCase()
   );
   return found ? found.label : statusIdOrLabel.replace(/_/g, ' ');
 }
@@ -1211,13 +1239,12 @@ export function saveStoredClientServicesCatalog(catalog: ClientSelectOption[]): 
     for (const item of catalog) {
       const label = String(item.label || '').trim();
       if (!label) continue;
-      const key = label.toLowerCase();
+      const key = String(label ?? '').toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       const id = String(
         item.id ||
-          label
-            .toLowerCase()
+          String(label ?? '').toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, '_')
@@ -1291,13 +1318,12 @@ export function saveStoredSupplierCategoriesCatalog(catalog: ClientSelectOption[
     for (const item of catalog) {
       const label = String(item.label || '').trim();
       if (!label) continue;
-      const key = label.toLowerCase();
+      const key = String(label ?? '').toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       const id = String(
         item.id ||
-          label
-            .toLowerCase()
+          String(label ?? '').toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, '_')
@@ -1342,6 +1368,38 @@ export function saveStoredOrders(orders: SilageOrder[]): void {
   }
 }
 
+export function sanitizeMachineryList(list: any): Machinery[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((m: any) => {
+      if (!m || typeof m !== 'object') return false;
+      const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61'].includes(m.id);
+      return !isMockId;
+    })
+    .map((m: any) => {
+      const img = m.imageUrl || m.photoUrl;
+      const sanitizedBase = {
+        ...m,
+        id: String(m.id ?? ''),
+        name: String(m.name ?? ''),
+        model: String(m.model ?? ''),
+        brand: String(m.brand ?? ''),
+        licensePlateOrSerial: String(m.licensePlateOrSerial ?? ''),
+        fleetNumber: String(m.fleetNumber ?? ''),
+        operatorOrDriver: String(m.operatorOrDriver ?? ''),
+        categoriaVeiculo: String(m.categoriaVeiculo ?? ''),
+        categoria: String(m.categoria ?? ''),
+        categoryType: String(m.categoryType ?? ''),
+        type: String(m.type ?? ''),
+        notes: String(m.notes ?? ''),
+      };
+      if (img && (img.includes('wix_mp.com') || img.includes('wix_mp') || img.includes('static.wixstatic.com') || img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
+        return { ...sanitizedBase, imageUrl: undefined, photoUrl: undefined, foto_url: undefined };
+      }
+      return sanitizedBase;
+    });
+}
+
 export function getStoredMachineries(): Machinery[] {
   try {
     let raw = localStorage.getItem('agrocontrol_maquinas') ||
@@ -1355,11 +1413,7 @@ export function getStoredMachineries(): Machinery[] {
     if (!Array.isArray(parsed)) return [];
     // Higienização segura preservando todos os cadastros do usuário
     let needsResave = false;
-    const cleaned = parsed.filter(m => {
-      if (!m || typeof m !== 'object') return false;
-      const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61'].includes(m.id);
-      return !isMockId;
-    }).map(m => {
+    const cleaned = sanitizeMachineryList(parsed).map(m => {
       // Normalização reativa de categoria vinda do LocalStorage (garante TRAÇÃO CAMINHÃO TRATOR para AKT e JAGUAR 860)
       const isAkt = Boolean(
         m.compositionType === 'cavalo' ||
@@ -1398,10 +1452,6 @@ export function getStoredMachineries(): Machinery[] {
           m.categoria = m.categoryType;
           needsResave = true;
         }
-      }
-      const img = m.imageUrl || m.photoUrl;
-      if (img && (img.includes('wix_mp.com') || img.includes('wix_mp') || img.includes('static.wixstatic.com') || img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
-        return { ...m, imageUrl: undefined, photoUrl: undefined, foto_url: undefined };
       }
       return m;
     });
@@ -1455,8 +1505,8 @@ export function getStoredSeasons(): CropSeason[] {
     // Higienização de safras de teste/mock legadas
     const cleaned = parsed.filter(s => {
       if (!s || typeof s !== 'object') return false;
-      const name = (s.name || '').toLowerCase();
-      const crop = (s.cropType || '').toLowerCase();
+      const name = String(s.name ?? '').toLowerCase();
+      const crop = String(s.cropType ?? '').toLowerCase();
       const isMock = ['safra 2026/2027', 'silagem de milho', 'c chácara + oton', '2026/2027'].some(fake => 
         name.includes(fake) || crop.includes(fake)
       );
@@ -1492,7 +1542,7 @@ function isAlissonPagottoRecord(emp: any): boolean {
 
 function isEmployeeCurrentlyActive(emp: any): boolean {
   if (!emp || emp.active === false || Boolean(emp.terminationDate)) return false;
-  const st = String(emp.status || 'ativo').toLowerCase().trim();
+  const st = String((emp.status || 'ativo') ?? '').toLowerCase().trim();
   return st === 'ativo' || st === '' || st === 'ferias';
 }
 
@@ -1848,8 +1898,8 @@ export function getStoredFleetTeams(): FleetTeam[] {
     // Higienização de frentes/equipes de teste legadas
     const cleaned = parsed.filter(t => {
       if (!t || typeof t !== 'object') return false;
-      const name = (t.name || '').toLowerCase();
-      const mName = (t.machineryName || '').toLowerCase();
+      const name = String(t.name ?? '').toLowerCase();
+      const mName = String(t.machineryName ?? '').toLowerCase();
       const isMock = ['maq 10', 'jf maq1', 'john deere maq 10', 'maq 02', 'maq 03', 'maq 04', 'maq 05', 'claas 870', 'claas 860', 'jf c120'].some(fake =>
         name.includes(fake) || mName.includes(fake)
       );
@@ -1915,7 +1965,7 @@ export function saveStoredSuppliers(suppliers: Supplier[]): void {
 export function ensureDieselProductsInInventory(items: InventoryItem[]): InventoryItem[] {
   const currentList = (Array.isArray(items) ? items : []).map(item => {
     const rawId = String(item?.id || '').trim();
-    const mappedId = LEGACY_FUEL_PROD_UUID_MAP[rawId.toLowerCase()] || rawId;
+    const mappedId = LEGACY_FUEL_PROD_UUID_MAP[String(rawId ?? '').toLowerCase()] || rawId;
     return {
       ...item,
       id: mappedId,
@@ -1986,8 +2036,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   const s10Idx = currentList.findIndex(i => 
     i.id === 'prod_diesel_s10' ||
     i.id === CANONICAL_FUEL_PROD_UUIDS.S10 ||
-    (i.name && i.name.toLowerCase().includes('diesel s10')) ||
-    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel s10'))
+    (i.name && String(i.name ?? '').toLowerCase().includes('diesel s10')) ||
+    (i.nome_comercial && String(i.nome_comercial ?? '').toLowerCase().includes('diesel s10'))
   );
 
   if (s10Idx >= 0) {
@@ -2052,8 +2102,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   const s500Idx = currentList.findIndex(i => 
     i.id === 'prod_diesel_s500' ||
     i.id === CANONICAL_FUEL_PROD_UUIDS.S500 ||
-    (i.name && i.name.toLowerCase().includes('diesel s500')) ||
-    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel s500'))
+    (i.name && String(i.name ?? '').toLowerCase().includes('diesel s500')) ||
+    (i.nome_comercial && String(i.nome_comercial ?? '').toLowerCase().includes('diesel s500'))
   );
 
   if (s500Idx >= 0) {
@@ -2119,7 +2169,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   const isGalaoItem = (i: InventoryItem) => {
     const idStr = String(i.id || '').toLowerCase();
     const codeStr = String(i.code || i.codigo_produto || '').toLowerCase();
-    const fullName = `${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`.toLowerCase();
+    const fullName = String(`${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`).toLowerCase();
     if (fullName.includes('granel') || fullName.includes('litro') || idStr.includes('granel') || codeStr.includes('granel')) {
       return false;
     }
@@ -2136,7 +2186,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   const arlaGranelIdx = currentList.findIndex(i => {
     if (isGalaoItem(i)) return false;
     const idStr = String(i.id || '').toLowerCase();
-    const fullName = `${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`.toLowerCase();
+    const fullName = String(`${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`).toLowerCase();
     return idStr === 'prod_arla_32_granel' || idStr === 'prod_arla_32' || idStr === CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL || fullName.includes('arla');
   });
 
@@ -2637,10 +2687,10 @@ export function sanitizeServiceOrders(services: ServiceOrder[]): ServiceOrder[] 
   if (!Array.isArray(services)) return [];
   return services.filter((s) => {
     if (!s || typeof s !== 'object') return false;
-    const client = (s.clientName || '').toLowerCase();
-    const farm = (s.farmName || '').toLowerCase();
-    const tractor = (s.tractorName || '').toLowerCase();
-    const machinery = (s.machineryAssigned || '').toLowerCase();
+    const client = String(s.clientName ?? '').toLowerCase();
+    const farm = String(s.farmName ?? '').toLowerCase();
+    const tractor = String(s.tractorName ?? '').toLowerCase();
+    const machinery = String(s.machineryAssigned ?? '').toLowerCase();
     const orderNum = String(s.orderNumber || '').trim();
     const sId = String(s.id || '').trim().toLowerCase();
     const notes = String(s.notes || '').toLowerCase();
@@ -2667,7 +2717,21 @@ export function sanitizeServiceOrders(services: ServiceOrder[]): ServiceOrder[] 
       (orderNum === '#001' && (client.includes('juca') || tractor.includes('kiki') || s.tractorHours === 10 || s.totalAmount === 3500));
 
     return !isMock;
-  });
+  }).map((s: any) => ({
+    ...s,
+    id: String(s.id ?? ''),
+    orderNumber: String(s.orderNumber ?? ''),
+    clientName: String(s.clientName ?? ''),
+    farmName: String(s.farmName ?? ''),
+    tractorName: String(s.tractorName ?? ''),
+    machineryAssigned: String(s.machineryAssigned ?? ''),
+    operatorAssigned: String(s.operatorAssigned ?? ''),
+    serviceType: String(s.serviceType ?? ''),
+    notes: String(s.notes ?? ''),
+    date: String(s.date ?? ''),
+    paymentMethod: String(s.paymentMethod ?? ''),
+    invoiceNumber: String(s.invoiceNumber ?? ''),
+  }));
 }
 
 export function getStoredServices(): ServiceOrder[] {
@@ -2713,15 +2777,27 @@ export function getStoredAppointments(): ServiceAppointment[] {
     // Higienização de agendamentos de teste/mock legados
     const cleaned = parsed.filter(a => {
       if (!a || typeof a !== 'object') return false;
-      const cName = (a.clientName || '').toLowerCase();
-      const fName = (a.farmName || '').toLowerCase();
-      const machName = (a.primaryMachineryPrefix || a.primaryMachineryModel || '').toLowerCase();
+      const cName = String(a.clientName ?? '').toLowerCase();
+      const fName = String(a.farmName ?? '').toLowerCase();
+      const machName = String((a.primaryMachineryPrefix || a.primaryMachineryModel) ?? '').toLowerCase();
       const isMock = ['santa maria', 'agrícola silveira', 'agricola silveira', 'chácara + oton', 'chacara + oton'].some(fake =>
         cName.includes(fake) || fName.includes(fake) || machName.includes(fake)
       );
       const isMockId = ['appt-initial-01', 'appt-initial-02', 'appt-001', 'appt-002'].includes(a.id);
       return !isMock && !isMockId;
-    });
+    }).map((a: any) => ({
+      ...a,
+      id: String(a.id ?? ''),
+      appointmentNumber: String(a.appointmentNumber ?? ''),
+      clientName: String(a.clientName ?? ''),
+      farmName: String(a.farmName ?? ''),
+      locationCityState: String(a.locationCityState ?? ''),
+      primaryMachineryPrefix: String(a.primaryMachineryPrefix ?? ''),
+      primaryMachineryPlate: String(a.primaryMachineryPlate ?? ''),
+      primaryMachineryModel: String(a.primaryMachineryModel ?? ''),
+      startDate: String(a.startDate ?? ''),
+      notes: String(a.notes ?? ''),
+    }));
     if (cleaned.length !== parsed.length) {
       safeLocalStorageSetItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(cleaned));
     }
@@ -2793,7 +2869,24 @@ export function isFictitiousOrZeroFuelLog(log: any): boolean {
 
 export function sanitizeFuelLogs(logs: any): FuelLog[] {
   if (!Array.isArray(logs)) return [];
-  return logs.filter(log => !isFictitiousOrZeroFuelLog(log));
+  return logs
+    .filter(log => !isFictitiousOrZeroFuelLog(log))
+    .map((log: any) => ({
+      ...log,
+      id: String(log.id ?? ''),
+      machineryId: String(log.machineryId ?? log.veiculo_id ?? ''),
+      machineryName: String(log.machineryName ?? log.veiculo_nome ?? ''),
+      machineryPlate: String(log.machineryPlate ?? log.veiculo_placa ?? ''),
+      fuelType: String(log.fuelType ?? log.tipo_combustivel ?? ''),
+      stationName: String(log.stationName ?? log.posto ?? ''),
+      driverName: String(log.driverName ?? log.motorista ?? ''),
+      driverId: log.driverId !== undefined ? String(log.driverId ?? '') : undefined,
+      fuelOrigin: log.fuelOrigin !== undefined ? String(log.fuelOrigin ?? '') : undefined,
+      date: String(log.date ?? log.data ?? ''),
+      notes: String(log.notes ?? log.observacoes ?? ''),
+      invoiceNumber: String(log.invoiceNumber ?? ''),
+      paymentMethod: String(log.paymentMethod ?? ''),
+    }));
 }
 
 export function purgeFictitiousFuelLogsFromStorage(): number {
@@ -2888,13 +2981,32 @@ export function saveStoredFuelLogs(logs: FuelLog[]): void {
   }
 }
 
+export function sanitizeMaintenanceLogs(list: any): MaintenanceLog[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((m: any) => m && typeof m === 'object' && m.id !== 'maint_os_rhx3e15_30048' && m.osNumber !== 'OS-1001')
+    .map((m: any) => ({
+      ...m,
+      id: String(m.id ?? ''),
+      osNumber: String(m.osNumber ?? ''),
+      machineryId: String(m.machineryId ?? ''),
+      machineryPlateOrName: String(m.machineryPlateOrName ?? ''),
+      driverName: String(m.driverName ?? ''),
+      description: String(m.description ?? ''),
+      category: String(m.category ?? ''),
+      supplierName: String(m.supplierName ?? ''),
+      notes: String(m.notes ?? ''),
+      date: String(m.date ?? ''),
+    }));
+}
+
 export function getStoredMaintenanceLogs(): MaintenanceLog[] {
   try {
     const raw = localStorage.getItem('agrocontrol_manutencoes') || localStorage.getItem(STORAGE_KEYS.MAINTENANCE_LOGS);
     if (raw === null) return INITIAL_MAINTENANCE_LOGS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_MAINTENANCE_LOGS;
-    const cleaned = parsed.filter(m => m && m.id !== 'maint_os_rhx3e15_30048' && m.osNumber !== 'OS-1001');
+    const cleaned = sanitizeMaintenanceLogs(parsed);
     if (cleaned.length !== parsed.length) {
       saveStoredMaintenanceLogs(cleaned);
     }
@@ -3030,7 +3142,7 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
       if (isAdminImpersonating && currentCompanyId && currentCompanyId !== 'default' && currentCompanyId !== 'company_default_fazenda') {
         return currentCompanyId;
       }
-      const impersonatedEmail = (localStorage.getItem('impersonated_subscriber_email') || '').trim().toLowerCase();
+      const impersonatedEmail = String(localStorage.getItem('impersonated_subscriber_email') ?? '').trim().toLowerCase();
       if (isAdminImpersonating && impersonatedEmail && impersonatedEmail.includes('@')) {
         if (impersonatedEmail === 'csilagem@gmail.com') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
         return `company_${impersonatedEmail.replace(/[^a-z0-9]/g, '_')}`;
@@ -3066,7 +3178,7 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
 
     // Se houver e-mail de usuário logado (permanece idêntico em qualquer aparelho para a mesma conta)
     if (typeof localStorage !== 'undefined') {
-      const activeUserEmail = (localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || '').trim().toLowerCase();
+      const activeUserEmail = String((localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email')) ?? '').trim().toLowerCase();
       if (activeUserEmail && activeUserEmail.includes('@') && activeUserEmail !== 'usuario@silagem.com') {
         if (activeUserEmail === 'csilagem@gmail.com') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
         return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;
@@ -3081,7 +3193,7 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
     if (profile?.id && profile.id.trim() && profile.id !== 'default' && profile.id !== 'default_company' && profile.id !== 'company_default_fazenda') {
       return profile.id.trim();
     }
-    const email = (profile?.loginEmail || profile?.email || '').trim().toLowerCase();
+    const email = String((profile?.loginEmail || profile?.email) ?? '').trim().toLowerCase();
     if (email && email.includes('@') && email !== 'silagemteste02@gmail.com') {
       if (email === 'csilagem@gmail.com') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
       return `company_${email.replace(/[^a-z0-9]/g, '_')}`;
@@ -3301,7 +3413,7 @@ export const getStoredInventoryCategories = (): string[] => {
     list = [...DEFAULT_INVENTORY_CATEGORIES];
   }
 
-  if (!list.some(c => c.toLowerCase() === 'pneus' || c.toLowerCase() === 'pneu')) {
+  if (!list.some(c => String(c ?? '').toLowerCase() === 'pneus' || String(c ?? '').toLowerCase() === 'pneu')) {
     list = ['Pneus', ...list];
   }
 
@@ -3634,7 +3746,18 @@ export function getStoredBankAccounts(): BankAccount[] {
   try {
     const normalizeAccounts = (accList: BankAccount[]): BankAccount[] => {
       if (!Array.isArray(accList)) return [];
-      return accList;
+      return accList
+        .filter((a: any) => a && typeof a === 'object')
+        .map((a: any) => ({
+          ...a,
+          id: String(a.id ?? ''),
+          name: String(a.name ?? ''),
+          bankName: String(a.bankName ?? ''),
+          agency: String(a.agency ?? ''),
+          accountNumber: String(a.accountNumber ?? ''),
+          pixKey: String(a.pixKey ?? ''),
+          notes: String(a.notes ?? ''),
+        }));
     };
 
     // 1. Chave prioritária oficial AgroControl e espelhos (respeita array vazio explícito se salvo)
@@ -3707,7 +3830,20 @@ export function getStoredBankTransactions(): BankTransaction[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BANK_TRANSACTIONS);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((t: any) => t && typeof t === 'object')
+      .map((t: any) => ({
+        ...t,
+        id: String(t.id ?? ''),
+        bankAccountId: String(t.bankAccountId ?? ''),
+        description: String(t.description ?? ''),
+        category: String(t.category ?? ''),
+        referenceId: String(t.referenceId ?? ''),
+        date: String(t.date ?? ''),
+        notes: String(t.notes ?? ''),
+      }));
   } catch (e) {
     return [];
   }
@@ -3725,7 +3861,19 @@ export function getStoredSettlements(): ThirdPartySettlement[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTLEMENTS);
     if (!raw) return INITIAL_SETTLEMENTS;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return INITIAL_SETTLEMENTS;
+    return parsed
+      .filter((s: any) => s && typeof s === 'object')
+      .map((s: any) => ({
+        ...s,
+        id: String(s.id ?? ''),
+        providerName: String(s.providerName ?? s.supplierName ?? ''),
+        description: String(s.description ?? ''),
+        notes: String(s.notes ?? ''),
+        dueDate: String(s.dueDate ?? ''),
+        paymentMethod: String(s.paymentMethod ?? ''),
+      }));
   } catch (e) {
     return INITIAL_SETTLEMENTS;
   }
@@ -3751,7 +3899,19 @@ export function getStoredBrokerSettlements(): BrokerSettlement[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BROKER_SETTLEMENTS);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((s: any) => s && typeof s === 'object')
+      .map((s: any) => ({
+        ...s,
+        id: String(s.id ?? ''),
+        brokerName: String(s.brokerName ?? ''),
+        description: String(s.description ?? ''),
+        notes: String(s.notes ?? ''),
+        dueDate: String(s.dueDate ?? ''),
+        paymentMethod: String(s.paymentMethod ?? ''),
+      }));
   } catch (e) {
     return [];
   }
@@ -4525,10 +4685,10 @@ export function getStoredMaintenanceCategories(): MaintenanceCategoryDefinition[
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Garantir que categorias essenciais padrão não se percam
-        const existingNames = new Set(parsed.map((c: any) => (c.name || '').trim().toLowerCase()));
+        const existingNames = new Set(parsed.map((c: any) => String(c.name ?? '').trim().toLowerCase()));
         list = [...parsed];
         for (const initCat of INITIAL_MAINTENANCE_CATEGORIES) {
-          if (!existingNames.has(initCat.name.trim().toLowerCase())) {
+          if (!existingNames.has(String(initCat.name ?? '').trim().toLowerCase())) {
             list.push(initCat);
           }
         }
@@ -4536,7 +4696,7 @@ export function getStoredMaintenanceCategories(): MaintenanceCategoryDefinition[
     }
     // Garantir que a opção "Revisão (entressafra)" esteja presente
     const hasRevisaoEntressafra = list.some(
-      c => c.name?.toLowerCase().trim() === 'revisão (entressafra)' || c.name?.toLowerCase().trim() === 'revisao (entressafra)'
+      c => String(c.name ?? '').toLowerCase().trim() === 'revisão (entressafra)' || String(c.name ?? '').toLowerCase().trim() === 'revisao (entressafra)'
     );
     if (!hasRevisaoEntressafra) {
       list.push({
@@ -5040,7 +5200,18 @@ export function getStoredFinanceiroCheques(): FinanceiroCheque[] {
     const raw = localStorage.getItem(STORAGE_KEYS.FINANCEIRO_CHEQUES);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((c: any) => c && typeof c === 'object')
+          .map((c: any) => ({
+            ...c,
+            id: String(c.id ?? ''),
+            numero: String(c.numero ?? ''),
+            banco: String(c.banco ?? ''),
+            emitente: String(c.emitente ?? ''),
+            notes: String(c.notes ?? ''),
+          }))
+      : [];
   } catch (e) {
     console.error('Erro ao ler cheques do storage local:', e);
     return [];
@@ -5065,7 +5236,17 @@ export function getStoredClienteCreditos(): ClienteCredito[] {
     const raw = localStorage.getItem(STORAGE_KEYS.CLIENTE_CREDITOS);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((c: any) => c && typeof c === 'object')
+          .map((c: any) => ({
+            ...c,
+            id: String(c.id ?? ''),
+            clientName: String(c.clientName ?? ''),
+            description: String(c.description ?? ''),
+            notes: String(c.notes ?? ''),
+          }))
+      : [];
   } catch (e) {
     console.warn('Erro ao ler créditos do cliente no storage local:', e);
     return [];
@@ -5116,12 +5297,12 @@ export function getCompanyData<T>(entity: string, fallbackGetter?: () => T[], co
     const rawScoped = localStorage.getItem(`colaca_silagem_${entity}_${cId}`);
     if (rawScoped) {
       const parsed = JSON.parse(rawScoped);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter((item: any) => item !== null && item !== undefined);
     }
     const rawGlobal = localStorage.getItem(`colaca_silagem_${entity}`);
     if (rawGlobal) {
       const parsed = JSON.parse(rawGlobal);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter((item: any) => item !== null && item !== undefined);
     }
     return fallbackGetter ? fallbackGetter() : [];
   } catch (e) {
@@ -5134,7 +5315,7 @@ export const saveCompanyFrotas = (frotas: Machinery[], companyId?: string): void
   saveCompanyData('frotas', frotas, companyId);
   try { localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(frotas)); } catch {}
 };
-export const getCompanyFrotas = (companyId?: string): Machinery[] => getCompanyData<Machinery>('frotas', getStoredMachineries, companyId);
+export const getCompanyFrotas = (companyId?: string): Machinery[] => sanitizeMachineryList(getCompanyData<Machinery>('frotas', getStoredMachineries, companyId));
 
 export const saveCompanyFuncionarios = (funcionarios: Employee[], companyId?: string): void => {
   saveStoredEmployees(funcionarios);
@@ -5209,7 +5390,7 @@ export const saveCompanyServicos = (servicos: ServiceOrder[], companyId?: string
   saveCompanyData('servicos', servicos, companyId);
   try { localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(servicos)); } catch {}
 };
-export const getCompanyServicos = (companyId?: string): ServiceOrder[] => getCompanyData<ServiceOrder>('servicos', getStoredServices, companyId);
+export const getCompanyServicos = (companyId?: string): ServiceOrder[] => sanitizeServiceOrders(getCompanyData<ServiceOrder>('servicos', getStoredServices, companyId));
 
 export const saveCompanyEstoque = (itens: InventoryItem[], companyId?: string): void => {
   saveCompanyData('estoque', itens, companyId);
@@ -5240,7 +5421,7 @@ export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?
   saveCompanyData('manutencoes', manutencoes, companyId);
   try { localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(manutencoes)); } catch {}
 };
-export const getCompanyManutencoes = (companyId?: string): MaintenanceLog[] => getCompanyData<MaintenanceLog>('manutencoes', getStoredMaintenanceLogs, companyId);
+export const getCompanyManutencoes = (companyId?: string): MaintenanceLog[] => sanitizeMaintenanceLogs(getCompanyData<MaintenanceLog>('manutencoes', getStoredMaintenanceLogs, companyId));
 
 export const saveCompanyFinanceiroContas = (contas: BankAccount[], companyId?: string): void => {
   saveStoredBankAccounts(contas);

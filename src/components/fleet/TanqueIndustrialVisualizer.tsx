@@ -97,7 +97,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                     ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-500/40'
                     : 'bg-zinc-200 dark:bg-zinc-700 text-amber-800 dark:text-amber-300 border-zinc-300 dark:border-amber-500/40'
                 }`}>
-                  {isArla ? 'ARLA 32' : (tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : 'S10')}
+                  {isArla ? 'ARLA 32' : (String(tanque?.tipo_combustivel ?? '').toLowerCase().includes('s500') ? 'S500' : 'S10')}
                 </span>
               </div>
               <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">
@@ -149,8 +149,8 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
             <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar w-full">
               {tanques.map((t) => {
                 const isSelected = t.id === tanque?.id;
-                const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                const isTArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
+                const isS500 = String(t.tipo_combustivel ?? '').toLowerCase().includes('s500') || String(t.nome ?? '').toLowerCase().includes('s500');
+                const isTArla = String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(t.nome ?? '').toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
                 const badge = isTArla ? 'ARLA' : (isS500 ? 'S500' : 'S10');
                 return (
                   <button

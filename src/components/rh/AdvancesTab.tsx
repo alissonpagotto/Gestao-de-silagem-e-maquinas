@@ -205,8 +205,8 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 
   // Filtered
   const filtered = competenceAdvances.filter(a => 
-    a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (a.reason && a.reason.toLowerCase().includes(searchTerm.toLowerCase()))
+    String(a.employeeName ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+    (a.reason && String(a.reason ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()))
   );
 
   // KPIs

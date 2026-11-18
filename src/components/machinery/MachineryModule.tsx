@@ -159,13 +159,13 @@ export const MachineryModule: React.FC<MachineryModuleProps> = ({
   // Filtered vehicles
   const filteredMachineries = useMemo(() => {
     return machineries.filter((m) => {
-      const q = searchTerm.toLowerCase();
+      const q = String(searchTerm ?? '').toLowerCase();
       const matchSearch =
-        (m.licensePlateOrSerial || '').toLowerCase().includes(q) ||
-        (m.name || '').toLowerCase().includes(q) ||
-        (m.model || '').toLowerCase().includes(q) ||
-        (m.brand || '').toLowerCase().includes(q) ||
-        (m.operatorOrDriver || '').toLowerCase().includes(q);
+        String(m.licensePlateOrSerial ?? '').toLowerCase().includes(q) ||
+        String(m.name ?? '').toLowerCase().includes(q) ||
+        String(m.model ?? '').toLowerCase().includes(q) ||
+        String(m.brand ?? '').toLowerCase().includes(q) ||
+        String(m.operatorOrDriver ?? '').toLowerCase().includes(q);
 
       const matchStatus =
         filterStatus === 'todos'

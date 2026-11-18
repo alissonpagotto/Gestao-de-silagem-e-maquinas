@@ -707,17 +707,17 @@ export interface MasterAdminMetrics {
 export function computeMasterMetrics(subscribers?: Subscriber[] | null): MasterAdminMetrics {
   const list = Array.isArray(subscribers) ? subscribers.filter(Boolean) : [];
   const totalSubscribers = list.length;
-  const activeSubscribers = list.filter(s => (s?.status || '').toLowerCase() === 'ativa').length;
-  const trialSubscribers = list.filter(s => (s?.status || '').toLowerCase() === 'trial').length;
+  const activeSubscribers = list.filter(s => String(s?.status ?? '').toLowerCase() === 'ativa').length;
+  const trialSubscribers = list.filter(s => String(s?.status ?? '').toLowerCase() === 'trial').length;
   // Suspensas e inadimplentes
   const suspendedSubscribers = list.filter(s => {
-    const st = (s?.status || '').toLowerCase();
+    const st = String(s?.status ?? '').toLowerCase();
     return st === 'suspensa' || st === 'inadimplente';
   }).length;
 
   // Soma dinâmica do MRR Estimado (APENAS assinantes com status "ativa" somam no faturamento recorrente. Clientes em trial permanecem com MRR R$ 0,00)
   const estimatedMrr = list
-    .filter(s => (s?.status || '').toLowerCase() === 'ativa')
+    .filter(s => String(s?.status ?? '').toLowerCase() === 'ativa')
     .reduce((sum, s) => sum + (Number(s?.monthlyValue) || 0), 0);
 
   return {
@@ -789,7 +789,7 @@ export function registerNewSubscriber(payload: CreateSubscriberPayload): { subsc
   const newSubscriber: Subscriber = {
     id,
     name: payload.name.trim(),
-    responsibleEmail: payload.responsibleEmail.trim().toLowerCase(),
+    responsibleEmail: String(payload.responsibleEmail ?? '').trim().toLowerCase(),
     password: payload.password || '••••••••',
     trialUntil,
     cpfCnpj: payload.cpfCnpj.trim(),
@@ -812,7 +812,7 @@ export function registerNewSubscriber(payload: CreateSubscriberPayload): { subsc
   // 5. Inserir no topo da lista e salvar no Admin Mestre
   const updatedSubscribers = [
     newSubscriber,
-    ...subscribers.filter(s => s.id !== id && s.responsibleEmail.toLowerCase() !== newSubscriber.responsibleEmail.toLowerCase())
+    ...subscribers.filter(s => s.id !== id && String(s.responsibleEmail ?? '').toLowerCase() !== String(newSubscriber.responsibleEmail ?? '').toLowerCase())
   ];
   saveStoredSubscribers(updatedSubscribers);
 
@@ -825,8 +825,8 @@ export function registerNewSubscriber(payload: CreateSubscriberPayload): { subsc
     cnpjCpf: payload.cpfCnpj.trim(),
     stateRegistration: payload.stateRegistration?.trim() || '',
     phone: payload.phone.trim(),
-    email: payload.responsibleEmail.trim().toLowerCase(),
-    loginEmail: payload.responsibleEmail.trim().toLowerCase(),
+    email: String(payload.responsibleEmail ?? '').trim().toLowerCase(),
+    loginEmail: String(payload.responsibleEmail ?? '').trim().toLowerCase(),
     representativeName: (payload.representativeName || payload.name).trim(),
     representativeCpf: payload.representativeCpf?.trim() || '',
     zipCode: payload.cep.trim(),

@@ -261,7 +261,7 @@ export const findPriorityBankAccount = (accounts: BankAccount[]): BankAccount | 
   // 3. Conta Sicredi (748 / 074) frequentemente associada à Colaça Silagem
   const sicredi = accounts.find(
     (a: any) =>
-      (a.bankName || a.name || '').toLowerCase().includes('sicredi') ||
+      String((a.bankName || a.name) ?? '').toLowerCase().includes('sicredi') ||
       a.bankCode === '748' ||
       a.agency === '074'
   );
@@ -359,12 +359,12 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
         if (byId) return byId;
       }
       if (!clientName) return null;
-      const cleanSearch = clientName.trim().toLowerCase();
+      const cleanSearch = String(clientName ?? '').trim().toLowerCase();
       return (
         clients.find(
           c =>
-            (c.name || '').trim().toLowerCase() === cleanSearch ||
-            (c.nome || '').trim().toLowerCase() === cleanSearch
+            String(c.name ?? '').trim().toLowerCase() === cleanSearch ||
+            String(c.nome ?? '').trim().toLowerCase() === cleanSearch
         ) || null
       );
     } catch {
@@ -880,7 +880,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       'agrocontrol'
     ];
 
-    return defaultMasterPasswords.some(p => p.toLowerCase() === cleanPass.toLowerCase());
+    return defaultMasterPasswords.some(p => String(p ?? '').toLowerCase() === String(cleanPass ?? '').toLowerCase());
   };
 
   // Executa o destravamento administrativo de forma de pagamento

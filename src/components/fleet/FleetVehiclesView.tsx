@@ -370,7 +370,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Autocomplete real de produtos do almoxarifado buscando síncronamente na chave 'agrocontrol_produtos'
   const inventoryAutocompleteResults = useMemo(() => {
     if (!inventorySearchQuery.trim()) return [];
-    const q = inventorySearchQuery.toLowerCase().trim();
+    const q = String(inventorySearchQuery ?? '').toLowerCase().trim();
     let currentStockList = inventoryList;
     try {
       const raw = localStorage.getItem('agrocontrol_produtos');
@@ -393,7 +393,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Autocomplete específico de vinculação física com estoque real ('agrocontrol_produtos')
   const stockLinkAutocompleteResults = useMemo(() => {
     if (!stockLinkSearchQuery.trim()) return [];
-    const q = stockLinkSearchQuery.toLowerCase().trim();
+    const q = String(stockLinkSearchQuery ?? '').toLowerCase().trim();
     let currentStockList = inventoryList;
     try {
       const raw = localStorage.getItem('agrocontrol_produtos');
@@ -432,7 +432,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Autocomplete real de produtos do almoxarifado (Edição Inline no Grid)
   const inlineAutocompleteResults = useMemo(() => {
     if (!inlineSearchQuery.trim()) return [];
-    const q = inlineSearchQuery.toLowerCase().trim();
+    const q = String(inlineSearchQuery ?? '').toLowerCase().trim();
     return inventoryList.filter(item => {
       const anyItem = item as any;
       const name = String(anyItem.nome_comercial || item.name || '').toLowerCase();
@@ -747,7 +747,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       });
     } else {
       const newRule: PreventiveGroupItem = {
-        id: `prev_${upperCat.toLowerCase().slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        id: `prev_${String(upperCat ?? '').toLowerCase().slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
         CATEGORIA: upperCat,
         SUBGRUPO: ruleSubgroup,
         PRODUTO_ID: selectedProdId,
@@ -970,7 +970,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       ...fromStorage,
       ...fromMachines.map(o => {
         if (!o) return 'Próprio';
-        const oLower = String(o).toLowerCase();
+        const oLower = String(o ?? '').toLowerCase();
         if (oLower === 'proprio' || oLower.includes('próprio')) return 'Próprio';
         if (oLower === 'terceirizado' || oLower.includes('terceir')) return 'De Terceiros';
         if (oLower === 'alugado' || oLower.includes('alug')) return 'Alugado / Locação';
@@ -983,7 +983,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
   const getOwnershipBadge = (ownership?: string) => {
     const own = String(ownership || 'Próprio');
-    const ownLower = own.toLowerCase();
+    const ownLower = String(own ?? '').toLowerCase();
     
     if (ownLower === 'proprio' || ownLower.includes('próprio') || ownLower.includes('proprio')) {
       return {
@@ -1048,7 +1048,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         vehicle.tipo ||
         ''
       );
-      const lower = String(rawCategory).trim().toLowerCase();
+      const lower = String(rawCategory ?? '').trim().toLowerCase();
       if (lower === 'cavalo' || vehicle.compositionType === 'cavalo' || (vehicle.licensePlateOrSerial && vehicle.licensePlateOrSerial.toUpperCase().includes('AKT')) || (vehicle.model && vehicle.model.toUpperCase().includes('AKT'))) {
         label = 'TRAÇÃO CAMINHÃO TRATOR (CAVALO)';
       } else if (lower === 'forrageira' || lower === 'ensiladeira' || (vehicle.model && vehicle.model.toUpperCase().includes('JAGUAR')) || (vehicle.name && vehicle.name.toUpperCase().includes('JAGUAR'))) {
@@ -1082,7 +1082,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
   const filteredVehicles = useMemo(() => {
     const list = Array.isArray(machineries) ? machineries : [];
-    const term = (searchTerm || '').trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
 
     return list.filter((m) => {
       if (!m) return false;
@@ -1116,7 +1116,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         mDetailed.includes(term);
 
       const catLower = String(m.categoryType || '').toLowerCase();
-      const selLower = String(selectedCategory || 'todos').toLowerCase();
+      const selLower = String((selectedCategory || 'todos') ?? '').toLowerCase();
       const matchCategory =
         selectedCategory === 'todos' ||
         m.categoryType === selectedCategory ||
@@ -1130,8 +1130,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         (selectedCategory === 'onibus' && (catLower.includes('onibus') || catLower.includes('ônibus') || catLower.includes('van')));
       const matchStatus = selectedStatus === 'todos' || m.status === selectedStatus;
       
-      const ownLower = String(m.ownership || 'próprio').toLowerCase();
-      const selOwnLower = String(selectedOwnership || 'todos').toLowerCase();
+      const ownLower = String((m.ownership || 'próprio') ?? '').toLowerCase();
+      const selOwnLower = String((selectedOwnership || 'todos') ?? '').toLowerCase();
       const matchOwnership = 
         selectedOwnership === 'todos' || 
         m.ownership === selectedOwnership ||
@@ -2627,7 +2627,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     }
 
                     const isCavalo = vehicle.compositionType === 'cavalo';
-                    const isReboque = vehicle.compositionType === 'reboque' || (vehicle.categoryType || '').trim().toLowerCase() === 'reboque';
+                    const isReboque = vehicle.compositionType === 'reboque' || String(vehicle.categoryType ?? '').trim().toLowerCase() === 'reboque';
                     const hasCoupledTrailer = vehicle.hasCoupledTrailer === false
                       ? false
                       : Boolean(vehicle.hasCoupledTrailer && (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id || vehicle.trailerPlate || vehicle.coupledTrailerName));
@@ -2956,7 +2956,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             }
 
             const isCavalo = vehicle.compositionType === 'cavalo';
-            const isReboque = vehicle.compositionType === 'reboque' || (vehicle.categoryType || '').trim().toLowerCase() === 'reboque';
+            const isReboque = vehicle.compositionType === 'reboque' || String(vehicle.categoryType ?? '').trim().toLowerCase() === 'reboque';
             const hasCoupledTrailer = vehicle.hasCoupledTrailer === false
               ? false
               : Boolean(vehicle.hasCoupledTrailer && (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id || vehicle.trailerPlate || vehicle.coupledTrailerName));

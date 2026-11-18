@@ -386,18 +386,18 @@ export function injectClientCreditFromNfe(
 ): { clientName: string; previousBalance: number; newBalance: number } {
   const clients = getStoredClients();
   const rawDigits = cleanDigits(clientIdentifier.cnpjOrCpf || '');
-  const nameQuery = (clientIdentifier.name || '').trim().toLowerCase();
+  const nameQuery = String(clientIdentifier.name ?? '').trim().toLowerCase();
 
   let targetIndex = clients.findIndex(c => {
     if (rawDigits && cleanDigits(c.cpfCnpj || '') === rawDigits) return true;
-    if (nameQuery && (c.name || '').trim().toLowerCase() === nameQuery) return true;
+    if (nameQuery && String(c.name ?? '').trim().toLowerCase() === nameQuery) return true;
     return false;
   });
 
   if (targetIndex === -1 && nameQuery) {
     targetIndex = clients.findIndex(c => {
-      const cName = (c.name || '').toLowerCase();
-      const cFarm = (c.farmName || '').toLowerCase();
+      const cName = String(c.name ?? '').toLowerCase();
+      const cFarm = String(c.farmName ?? '').toLowerCase();
       return (cName && (cName.includes(nameQuery) || nameQuery.includes(cName))) ||
              (cFarm && (cFarm.includes(nameQuery) || nameQuery.includes(cFarm)));
     });
@@ -479,7 +479,7 @@ export function injectClientCreditFromNfe(
 
 export const normalizeToInventoryCategory = (cat?: string): string => {
   if (!cat) return 'Outros Insumos';
-  const c = cat.toLowerCase().trim();
+  const c = String(cat ?? '').toLowerCase().trim();
   if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) return 'Combustível & Arla';
   if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) return 'Lona & Embalagem';
   if (c.includes('inocul') || c.includes('biol')) return 'Inoculante & Biológico';
@@ -487,7 +487,7 @@ export const normalizeToInventoryCategory = (cat?: string): string => {
   if (c.includes('adubo') || c.includes('fertiliz') || c.includes('ureia') || c.includes('npk')) return 'Adubo & Fertilizante';
   if (c.includes('peca') || c.includes('peça') || c.includes('manuten') || c.includes('filtro') || c.includes('faca') || c.includes('oleo') || c.includes('óleo')) return 'Peças & Manutenção';
   if (c.includes('outro')) return 'Outros Insumos';
-  const match = DEFAULT_INVENTORY_CATEGORIES.find(d => d.toLowerCase() === c);
+  const match = DEFAULT_INVENTORY_CATEGORIES.find(d => String(d ?? '').toLowerCase() === c);
   if (match) return match;
   return cat;
 };
@@ -510,7 +510,7 @@ export function getDeletedNfeKeys(): Set<string> {
     const raw = localStorage.getItem(DELETED_NFE_STORAGE_KEY);
     if (raw) {
       const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) return new Set(arr.map(s => String(s).trim().toLowerCase()));
+      if (Array.isArray(arr)) return new Set(arr.map(s => String(s ?? '').trim().toLowerCase()));
     }
   } catch (_) {}
   return new Set();
@@ -520,7 +520,7 @@ export function recordDeletedNfeKey(key: string): void {
   if (!key) return;
   try {
     const set = getDeletedNfeKeys();
-    set.add(String(key).trim().toLowerCase());
+    set.add(String(key ?? '').trim().toLowerCase());
     localStorage.setItem(DELETED_NFE_STORAGE_KEY, JSON.stringify(Array.from(set)));
   } catch (_) {}
 }
@@ -539,7 +539,7 @@ function saveCachedNfe(nfe: ParsedNfeData, expenseId?: string) {
     const map = getCachedNfeMap();
     if (expenseId) map[expenseId] = nfe;
     if (nfe.invoiceNumber) {
-      map[nfe.invoiceNumber.toLowerCase().trim()] = nfe;
+      map[String(nfe.invoiceNumber ?? '').toLowerCase().trim()] = nfe;
       const cleanNum = nfe.invoiceNumber.replace(/\D/g, '');
       if (cleanNum) map[cleanNum] = nfe;
     }
@@ -554,8 +554,8 @@ function isValidItemsList(items?: ParsedNfeItem[], supplierName?: string): boole
   if (!items || !Array.isArray(items) || items.length === 0) return false;
   // Se for apenas 1 item e a descrição for exatamente o nome do fornecedor ou genérico de erro
   if (items.length === 1 && supplierName) {
-    const desc = (items[0].description || '').trim().toLowerCase();
-    const supp = supplierName.trim().toLowerCase();
+    const desc = String(items[0].description ?? '').trim().toLowerCase();
+    const supp = String(supplierName ?? '').trim().toLowerCase();
     if (desc === supp || desc.includes('empresa teste') || desc === 'produto registrado na nf-e') {
       return false;
     }
@@ -641,7 +641,7 @@ function buildNfeDataFromExpense(
 
   // 3. Verifica no cache local se existe lista válida de itens
   const cachedCandidate = (exp.id && map[exp.id]) ||
-                          (exp.invoiceNumber && map[exp.invoiceNumber.toLowerCase().trim()]) ||
+                          (exp.invoiceNumber && map[String(exp.invoiceNumber ?? '').toLowerCase().trim()]) ||
                           (cleanNum && map[cleanNum]) ||
                           (foundKey && map[foundKey]);
   if (cachedCandidate && isValidItemsList(cachedCandidate.items, supplier)) {
@@ -655,12 +655,12 @@ function buildNfeDataFromExpense(
     const qty = Number(exp.quantity);
     const unitPrice = Number(exp.unitPrice) || (qty > 0 ? Number((totalAmount / qty).toFixed(2)) : totalAmount);
     let cleanDesc = exp.description ? exp.description.replace(/^Compra\s+NF-e\s*[\w\d]*\s*-\s*/i, '').trim() : '';
-    if (!cleanDesc || cleanDesc.toLowerCase() === supplier.toLowerCase()) {
+    if (!cleanDesc || String(cleanDesc ?? '').toLowerCase() === String(supplier ?? '').toLowerCase()) {
       cleanDesc = `Item da ${invoiceNumber}`;
     }
     const linked = inventoryList.find(i => 
-      i.name.toLowerCase().includes(cleanDesc.toLowerCase()) ||
-      (suggestedCategory === 'cat_combustivel' && (i.category === 'combustivel' || i.name.toLowerCase().includes('diesel')))
+      String(i.name ?? '').toLowerCase().includes(String(cleanDesc ?? '').toLowerCase()) ||
+      (suggestedCategory === 'cat_combustivel' && (i.category === 'combustivel' || String(i.name ?? '').toLowerCase().includes('diesel')))
     );
 
     items = [{
@@ -674,14 +674,14 @@ function buildNfeDataFromExpense(
       linkedInventoryId: linked?.id
     }];
   } else {
-    const descLower = (exp.description || '').toLowerCase();
-    const suppLower = supplier.toLowerCase();
+    const descLower = String(exp.description ?? '').toLowerCase();
+    const suppLower = String(supplier ?? '').toLowerCase();
     
     if (descLower.includes('diesel') || suppLower.includes('petro') || suppLower.includes('combust') || suggestedCategory.includes('combustivel')) {
       const avgPrice = 5.85;
       const qty = Math.max(1, Math.round(totalAmount / avgPrice));
       const unitPrice = Number((totalAmount / qty).toFixed(2));
-      const linked = inventoryList.find(i => i.category === 'combustivel' || i.name.toLowerCase().includes('diesel'));
+      const linked = inventoryList.find(i => i.category === 'combustivel' || String(i.name ?? '').toLowerCase().includes('diesel'));
       items = [{
         code: '001',
         description: 'ÓLEO DIESEL S10 COMUM A GRANEL',
@@ -695,7 +695,7 @@ function buildNfeDataFromExpense(
     } else if (descLower.includes('lona') || descLower.includes('filme') || suggestedCategory.includes('lona')) {
       const qty = Math.max(1, Math.round(totalAmount / 850));
       const unitPrice = Number((totalAmount / qty).toFixed(2));
-      const linked = inventoryList.find(i => i.category === 'lona_embalagem' || i.name.toLowerCase().includes('lona'));
+      const linked = inventoryList.find(i => i.category === 'lona_embalagem' || String(i.name ?? '').toLowerCase().includes('lona'));
       items = [{
         code: '002',
         description: 'LONA PLÁSTICA DUPLA FACE 200 MICRAS',
@@ -709,7 +709,7 @@ function buildNfeDataFromExpense(
     } else if (descLower.includes('inoculante') || suggestedCategory.includes('inoculante')) {
       const qty = Math.max(1, Math.round(totalAmount / 350));
       const unitPrice = Number((totalAmount / qty).toFixed(2));
-      const linked = inventoryList.find(i => i.category === 'inoculante' || i.name.toLowerCase().includes('inoculante'));
+      const linked = inventoryList.find(i => i.category === 'inoculante' || String(i.name ?? '').toLowerCase().includes('inoculante'));
       items = [{
         code: '003',
         description: 'INOCULANTE BIOLÓGICO PARA SILAGEM',
@@ -721,7 +721,7 @@ function buildNfeDataFromExpense(
         linkedInventoryId: linked?.id
       }];
     } else if (descLower.includes('peça') || descLower.includes('filtro') || descLower.includes('manutenção') || suggestedCategory.includes('manutencao')) {
-      const linked = inventoryList.find(i => i.category === 'pecas' || i.name.toLowerCase().includes('peça'));
+      const linked = inventoryList.find(i => i.category === 'pecas' || String(i.name ?? '').toLowerCase().includes('peça'));
       items = [{
         code: '004',
         description: 'PEÇAS DE REPOSIÇÃO E FILTROS',
@@ -734,10 +734,10 @@ function buildNfeDataFromExpense(
       }];
     } else {
       let cleanDesc = exp.description ? exp.description.replace(/^Compra\s+NF-e\s*[\w\d]*\s*-\s*/i, '').trim() : '';
-      if (!cleanDesc || cleanDesc.toLowerCase() === supplier.toLowerCase()) {
+      if (!cleanDesc || String(cleanDesc ?? '').toLowerCase() === String(supplier ?? '').toLowerCase()) {
         cleanDesc = `Produto / Insumo da ${invoiceNumber}`;
       }
-      const linked = inventoryList.find(i => i.name.toLowerCase().includes(cleanDesc.toLowerCase()));
+      const linked = inventoryList.find(i => String(i.name ?? '').toLowerCase().includes(String(cleanDesc ?? '').toLowerCase()));
       items = [{
         code: '001',
         description: cleanDesc,
@@ -813,7 +813,7 @@ export function findInventoryItemForNfeItem(
 
   // 2. Vinculação por Código exato
   if (itemCode && itemCode !== '001' && itemCode !== '0001' && itemCode !== '1') {
-    const foundByCode = inventory.find(i => i.code !== undefined && i.code !== null && String(i.code).trim().toLowerCase() === itemCode);
+    const foundByCode = inventory.find(i => i.code !== undefined && i.code !== null && String(i.code ?? '').trim().toLowerCase() === itemCode);
     if (foundByCode) return foundByCode;
   }
 
@@ -833,14 +833,14 @@ export function findInventoryItemForNfeItem(
 
   // 5. Vinculação por Código simples se houver match exato
   if (itemCode) {
-    const foundByCode = inventory.find(i => i.code !== undefined && i.code !== null && String(i.code).trim().toLowerCase() === itemCode);
+    const foundByCode = inventory.find(i => i.code !== undefined && i.code !== null && String(i.code ?? '').trim().toLowerCase() === itemCode);
     if (foundByCode) return foundByCode;
   }
 
   // 6. Vinculação por aproximação de Nome / Substring
   const foundBySubstring = inventory.find(i => {
-    const nm = (i.name || '').trim().toLowerCase();
-    const fn = (i.fiscalName || '').trim().toLowerCase();
+    const nm = String(i.name ?? '').trim().toLowerCase();
+    const fn = String(i.fiscalName ?? '').trim().toLowerCase();
     if (nm && (itemDesc.includes(nm) || nm.includes(itemDesc))) return true;
     if (fn && (itemDesc.includes(fn) || fn.includes(itemDesc))) return true;
     return false;
@@ -851,8 +851,8 @@ export function findInventoryItemForNfeItem(
   if (itemDesc.includes('diesel') || itemDesc.includes('s10') || itemDesc.includes('s-10') || itemDesc.includes('combustivel') || itemDesc.includes('combustível')) {
     const dieselItem = inventory.find(i => 
       i.category === 'combustivel' || 
-      i.name.toLowerCase().includes('diesel') || 
-      (i.fiscalName && i.fiscalName.toLowerCase().includes('diesel'))
+      String(i.name ?? '').toLowerCase().includes('diesel') || 
+      (i.fiscalName && String(i.fiscalName ?? '').toLowerCase().includes('diesel'))
     );
     if (dieselItem) return dieselItem;
   }
@@ -860,7 +860,7 @@ export function findInventoryItemForNfeItem(
   if (itemDesc.includes('lona') || itemDesc.includes('filme') || itemDesc.includes('plastico') || itemDesc.includes('plástico')) {
     const lonaItem = inventory.find(i => 
       i.category === 'lona_embalagem' || 
-      i.name.toLowerCase().includes('lona')
+      String(i.name ?? '').toLowerCase().includes('lona')
     );
     if (lonaItem) return lonaItem;
   }
@@ -868,7 +868,7 @@ export function findInventoryItemForNfeItem(
   if (itemDesc.includes('inoculante') || itemDesc.includes('aditivo') || itemDesc.includes('biologico') || itemDesc.includes('biológico')) {
     const inocItem = inventory.find(i => 
       i.category === 'inoculante' || 
-      i.name.toLowerCase().includes('inoculante')
+      String(i.name ?? '').toLowerCase().includes('inoculante')
     );
     if (inocItem) return inocItem;
   }
@@ -876,7 +876,7 @@ export function findInventoryItemForNfeItem(
   if (itemDesc.includes('semente') || itemDesc.includes('milho') || itemDesc.includes('sorgo') || itemDesc.includes('capim')) {
     const sementeItem = inventory.find(i => 
       i.category === 'sementes' || 
-      i.name.toLowerCase().includes('semente')
+      String(i.name ?? '').toLowerCase().includes('semente')
     );
     if (sementeItem) return sementeItem;
   }
@@ -884,8 +884,8 @@ export function findInventoryItemForNfeItem(
   if (itemDesc.includes('adubo') || itemDesc.includes('fertilizante') || itemDesc.includes('ureia') || itemDesc.includes('uréia')) {
     const aduboItem = inventory.find(i => 
       i.category === 'adubo' || 
-      i.name.toLowerCase().includes('adubo') || 
-      i.name.toLowerCase().includes('ureia')
+      String(i.name ?? '').toLowerCase().includes('adubo') || 
+      String(i.name ?? '').toLowerCase().includes('ureia')
     );
     if (aduboItem) return aduboItem;
   }
@@ -893,9 +893,9 @@ export function findInventoryItemForNfeItem(
   if (itemDesc.includes('peça') || itemDesc.includes('peca') || itemDesc.includes('filtro') || itemDesc.includes('faca') || itemDesc.includes('óleo') || itemDesc.includes('oleo')) {
     const pecasItem = inventory.find(i => 
       i.category === 'pecas' || 
-      i.name.toLowerCase().includes('filtro') || 
-      i.name.toLowerCase().includes('óleo') || 
-      i.name.toLowerCase().includes('oleo')
+      String(i.name ?? '').toLowerCase().includes('filtro') || 
+      String(i.name ?? '').toLowerCase().includes('óleo') || 
+      String(i.name ?? '').toLowerCase().includes('oleo')
     );
     if (pecasItem) return pecasItem;
   }
@@ -919,14 +919,14 @@ export function getStockReversalAnalysis(
 
   // B. Se não houver itens diretos, busca em despesas/parcelas associadas à mesma nota
   if (items.length === 0) {
-    const cleanNum = getCleanInvoiceNumber(nota.invoiceNumber).toLowerCase();
+    const cleanNum = String(getCleanInvoiceNumber(nota.invoiceNumber) ?? '').toLowerCase();
     const targetKey = getCanonicalNfeKey(nota);
 
     const related = allExpenses.find(e => {
       if (e.nfeItems && e.nfeItems.length > 0) {
         if (e.id === nota.id || (nota.id && e.id.startsWith(nota.id))) return true;
         if (targetKey && getCanonicalNfeKey(e) === targetKey) return true;
-        if (cleanNum && getCleanInvoiceNumber(e.invoiceNumber).toLowerCase() === cleanNum) return true;
+        if (cleanNum && String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase() === cleanNum) return true;
       }
       return false;
     });
@@ -965,7 +965,7 @@ export function getStockReversalAnalysis(
     const foundKey = keyMatch ? keyMatch[1] || keyMatch[0] : '';
 
     const cachedCandidate = (nota.id && map[nota.id]) ||
-                            (nota.invoiceNumber && map[nota.invoiceNumber.toLowerCase().trim()]) ||
+                            (nota.invoiceNumber && map[String(nota.invoiceNumber ?? '').toLowerCase().trim()]) ||
                             (cleanNum && map[cleanNum]) ||
                             (foundKey && map[foundKey]);
     if (cachedCandidate?.items && cachedCandidate.items.length > 0) {
@@ -995,7 +995,7 @@ export function getStockReversalAnalysis(
     if (qty <= 0) return;
 
     const matchedInv = findInventoryItemForNfeItem(item, inventoryList);
-    const key = matchedInv ? matchedInv.id : `unmatched_${item.description.trim().toLowerCase()}`;
+    const key = matchedInv ? matchedInv.id : `unmatched_${String(item.description ?? '').trim().toLowerCase()}`;
     const name = matchedInv ? matchedInv.name : item.description;
     const unit = matchedInv?.unit || item.unit || 'UN';
     const currentStock = matchedInv ? Number(matchedInv.quantity) || 0 : 0;
@@ -1115,8 +1115,7 @@ export function getCanonicalNfeKey(item: {
   const digits = cleanStr.replace(/\D/g, '');
   if (digits) {
     const normalizedDigits = digits.replace(/^0+/, '') || '0';
-    const supp = (item.supplier || '')
-      .toLowerCase()
+    const supp = String(item.supplier ?? '').toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]/g, '')
@@ -1125,12 +1124,10 @@ export function getCanonicalNfeKey(item: {
   }
 
   // 3. Fallback: Raiz do ID
-  const rootId = (item.id || '')
+  const rootId = String((item.id || '')
     .split('_parc_')[0]
     .replace(/^nfe_fisc_/, '')
-    .replace(/^exp_nfe_/, '')
-    .trim()
-    .toLowerCase();
+    .replace(/^exp_nfe_/, '') ?? '').trim().toLowerCase();
   return `id_${rootId || 'desconhecido'}`;
 }
 
@@ -1150,9 +1147,9 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
     ...storedFiscal,
     ...(expensesList || []).filter(e => {
       if (!e) return false;
-      const num = (e.invoiceNumber || '').toLowerCase();
-      const notes = (e.notes || '').toLowerCase();
-      const id = (e.id || '').toLowerCase();
+      const num = String(e.invoiceNumber ?? '').toLowerCase();
+      const notes = String(e.notes ?? '').toLowerCase();
+      const id = String(e.id ?? '').toLowerCase();
       return (
         num.includes('nf') || 
         num.includes('danfe') ||
@@ -1166,11 +1163,11 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
     })
   ].filter(item => {
     if (!item || !item.id) return false;
-    const cleanId = String(item.id).trim().toLowerCase();
-    const cleanNum = getCleanInvoiceNumber(item.invoiceNumber).toLowerCase();
+    const cleanId = String(item.id ?? '').trim().toLowerCase();
+    const cleanNum = String(getCleanInvoiceNumber(item.invoiceNumber) ?? '').toLowerCase();
     const digits = (item.invoiceNumber || '').replace(/\D/g, '');
-    const num = (item.invoiceNumber || '').trim().toLowerCase();
-    const canonical = getCanonicalNfeKey(item).toLowerCase();
+    const num = String(item.invoiceNumber ?? '').trim().toLowerCase();
+    const canonical = String(getCanonicalNfeKey(item) ?? '').toLowerCase();
 
     if (deletedNfeKeys.has(cleanId) || deletedDocIds.has(item.id)) return false;
     if (cleanNum && deletedNfeKeys.has(cleanNum)) return false;
@@ -1210,8 +1207,8 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
       const keyStr = keyMatch ? keyMatch[1] : '';
 
       const candidate = (item.id && cachedMap[item.id]) ||
-                        (item.invoiceNumber && cachedMap[item.invoiceNumber.toLowerCase().trim()]) ||
-                        (cleanNum && cachedMap[cleanNum.toLowerCase().trim()]) ||
+                        (item.invoiceNumber && cachedMap[String(item.invoiceNumber ?? '').toLowerCase().trim()]) ||
+                        (cleanNum && cachedMap[String(cleanNum ?? '').toLowerCase().trim()]) ||
                         (digits && cachedMap[digits]) ||
                         (keyStr && cachedMap[keyStr]) ||
                         cachedMap[groupKey];
@@ -1933,7 +1930,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [availableVehicles, setAvailableVehicles] = useState<Machinery[]>(() => loadAvailableVehicles());
 
   const mapPaymentConditionToMethodKey = (cond: string): string => {
-    const c = (cond || '').toLowerCase();
+    const c = String(cond ?? '').toLowerCase();
     if (c.includes('pix')) return 'pix';
     if (c.includes('dinheiro')) return 'dinheiro';
     if (c.includes('cart')) return 'cartao_credito';
@@ -2374,7 +2371,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           (isNfeRetornoMode && c.codigo.startsWith(retornoEntradaPrefix))) &&
         c.tipo !== 'transporte'
     );
-    const isDevolucaoSelected = nfeNaturezaOperacao.toLowerCase().startsWith('devolu');
+    const isDevolucaoSelected = String(nfeNaturezaOperacao ?? '').toLowerCase().startsWith('devolu');
     const priorityOrder: Record<CfopOperacaoTipo, number> = isDevolucaoSelected
       ? {
           devolucao: 0,
@@ -2571,10 +2568,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setSaidaDataVencimento(payload.dueDate || calculateDefaultDueDate(today));
       setSaidaChaveAcesso('');
 
-      const normClientName = (payload.clientName || '').trim().toLowerCase();
+      const normClientName = String(payload.clientName ?? '').trim().toLowerCase();
       const matchedClient =
         (payload.clientId ? freshClients.find((c) => c.id === payload.clientId) : undefined) ||
-        freshClients.find((c) => (c.name || c.nome || '').trim().toLowerCase() === normClientName);
+        freshClients.find((c) => String((c.name || c.nome) ?? '').trim().toLowerCase() === normClientName);
 
       if (matchedClient) {
         const endParts = [matchedClient.address, matchedClient.neighborhood].filter(Boolean);
@@ -2696,7 +2693,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setLocalServices(getStoredServices());
     setEditingNotaSaida(nota);
     const rawTipoEdit = nota.tipoDocumento || 'NFS-e (Prestação de Serviço)';
-    const natEditLower = (nota.nfeNaturezaOperacao || '').toLowerCase();
+    const natEditLower = String(nota.nfeNaturezaOperacao ?? '').toLowerCase();
     const normalizedTipoEdit: TipoDocumentoSaida =
       rawTipoEdit === 'NF-e (Remessa / Retorno)'
         ? natEditLower.startsWith('retorno') || natEditLower.startsWith('devolu')
@@ -2918,11 +2915,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const findClientOrSupplierByName = (rawName: string) => {
-    const norm = rawName.trim().toLowerCase();
+    const norm = String(rawName ?? '').trim().toLowerCase();
     if (!norm) return null;
 
     const matchedClient = localClients.find(
-      c => (c.name || c.nome || '').trim().toLowerCase() === norm
+      c => String((c.name || c.nome) ?? '').trim().toLowerCase() === norm
     );
     if (matchedClient) {
       const endParts = [matchedClient.address, matchedClient.neighborhood].filter(Boolean);
@@ -2940,8 +2937,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     const matchedSupplier = localSuppliers.find(
       s =>
-        (s.name || '').trim().toLowerCase() === norm ||
-        (s.tradeName || '').trim().toLowerCase() === norm
+        String(s.name ?? '').trim().toLowerCase() === norm ||
+        String(s.tradeName ?? '').trim().toLowerCase() === norm
     );
     if (matchedSupplier) {
       const endParts = [matchedSupplier.address, matchedSupplier.neighborhood].filter(Boolean);
@@ -3161,7 +3158,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const resolveActiveCteTomador = () => {
-    const tomadorTipo = (cteTomador || 'Remetente').toLowerCase();
+    const tomadorTipo = String((cteTomador || 'Remetente') ?? '').toLowerCase();
     if (tomadorTipo.includes('outro') || tomadorTipo.includes('terceiro')) {
       return {
         modalidade: 'Outros / Terceiro (Consignatário)',
@@ -3203,8 +3200,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const matched = saidaTipoDocumento.includes('CT-e')
       ? findClientOrSupplierByName(val)
       : (() => {
-          const norm = val.trim().toLowerCase();
-          const mc = localClients.find(c => (c.name || c.nome || '').trim().toLowerCase() === norm);
+          const norm = String(val ?? '').trim().toLowerCase();
+          const mc = localClients.find(c => String((c.name || c.nome) ?? '').trim().toLowerCase() === norm);
           if (!mc) return null;
           const endParts = [mc.address, mc.neighborhood].filter(Boolean);
           const city = mc.city || mc.cidade || '';
@@ -3368,7 +3365,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfeNaturezaOperacao(natureza);
     setNfeRemessaEscopo(escopo);
     setNfeCfop(cfopAuto);
-    setNfeFinalidade(natureza.toLowerCase().startsWith('devolu') ? 'Devolução' : 'Normal');
+    setNfeFinalidade(String(natureza ?? '').toLowerCase().startsWith('devolu') ? 'Devolução' : 'Normal');
     setSaidaItens(prev =>
       prev.length > 0
         ? prev.map(it => ({ ...it, cfop: cfopAuto }))
@@ -3720,7 +3717,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       ? `${fullModel} - ${idParts.join(' / ')}`
       : (serial ? `${fullModel} - Série/Chassi ${serial}` : fullModel);
 
-    const catText = [
+    const catText = String([
       v.categoryType,
       v.categoriaVeiculo,
       v.categoria,
@@ -3728,7 +3725,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       v.vehicleTypeDetailed,
       v.model,
       v.name,
-    ].filter(Boolean).join(' ').toLowerCase();
+    ].filter(Boolean).join(' ') ?? '').toLowerCase();
     const isTruck =
       catText.includes('caminh') ||
       catText.includes('cavalo') ||
@@ -4885,9 +4882,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Verifica se o fornecedor digitado já existe
   const isSupplierExisting = useMemo(() => {
-    const q = manualSupplier.trim().toLowerCase();
+    const q = String(manualSupplier ?? '').trim().toLowerCase();
     if (!q) return true;
-    return localSuppliers.some(s => s.name.trim().toLowerCase() === q);
+    return localSuppliers.some(s => String(s.name ?? '').trim().toLowerCase() === q);
   }, [manualSupplier, localSuppliers]);
 
   // Abertura rápida do cadastro de fornecedores com pré-preenchimento
@@ -5146,7 +5143,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (searchedStockProducts && searchedStockProducts.length > 0) {
       return searchedStockProducts;
     }
-    const q = itemSearchQuery.trim().toLowerCase();
+    const q = String(itemSearchQuery ?? '').trim().toLowerCase();
     const sorted = [...localInventory].sort((a, b) => {
       const aFuel = (a.categoria || a.category) === 'Combustível & Arla' || 
         String(a.nome_comercial || a.name || '').toLowerCase().includes('diesel') || 
@@ -5169,13 +5166,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   }, [searchedStockProducts, itemSearchQuery, localInventory]);
 
   const isProductExistingInStock = useMemo(() => {
-    const q = itemSearchQuery.trim().toLowerCase();
+    const q = String(itemSearchQuery ?? '').trim().toLowerCase();
     if (!q) return true;
     return filteredStockProducts.some(p => {
-      const nc = (p.nome_comercial || p.name || p.nome || '').trim().toLowerCase();
+      const nc = String((p.nome_comercial || p.name || p.nome) ?? '').trim().toLowerCase();
       return nc === q;
     }) || localInventory.some(p => {
-      const nc = (p.nome_comercial || p.name || p.nome || '').trim().toLowerCase();
+      const nc = String((p.nome_comercial || p.name || p.nome) ?? '').trim().toLowerCase();
       return nc === q;
     });
   }, [itemSearchQuery, filteredStockProducts, localInventory]);
@@ -5186,9 +5183,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const prodName = prod.nome_comercial || prod.name || prod.nome || '';
     setItemSearchQuery(prodName);
     const rawUnit = String(prod.unidade_medida || prod.unit || 'un').trim();
-    const cleanUnit = rawUnit.toLowerCase() === 'l' || rawUnit.toLowerCase() === 'litro' || rawUnit.toLowerCase() === 'litros' || rawUnit.toLowerCase() === 'lt'
+    const cleanUnit = String(rawUnit ?? '').toLowerCase() === 'l' || String(rawUnit ?? '').toLowerCase() === 'litro' || String(rawUnit ?? '').toLowerCase() === 'litros' || String(rawUnit ?? '').toLowerCase() === 'lt'
       ? 'L'
-      : (rawUnit.toLowerCase() === 'un' || rawUnit.toLowerCase() === 'und' || rawUnit.toLowerCase() === 'unidade' ? 'un' : rawUnit);
+      : (String(rawUnit ?? '').toLowerCase() === 'un' || String(rawUnit ?? '').toLowerCase() === 'und' || String(rawUnit ?? '').toLowerCase() === 'unidade' ? 'un' : rawUnit);
     setItemUnit(cleanUnit);
     const cost = Number(prod.preco_custo_inicial ?? prod.unitCost ?? 0);
     if (cost > 0) {
@@ -5379,11 +5376,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const query = itemSearchQuery.trim();
     const matchedStockProduct = selectedProduct || localInventory.find(p => {
       if (!query) return false;
-      const qLower = query.toLowerCase();
-      const nc = (p.nome_comercial || '').trim().toLowerCase();
-      const nm = (p.name || '').trim().toLowerCase();
-      const no = (p.nome || '').trim().toLowerCase();
-      const cd = (p.code || p.codigo_produto || '').trim().toLowerCase();
+      const qLower = String(query ?? '').toLowerCase();
+      const nc = String(p.nome_comercial ?? '').trim().toLowerCase();
+      const nm = String(p.name ?? '').trim().toLowerCase();
+      const no = String(p.nome ?? '').trim().toLowerCase();
+      const cd = String((p.code || p.codigo_produto) ?? '').trim().toLowerCase();
       return nc === qLower || nm === qLower || no === qLower || (cd && cd === qLower);
     });
 
@@ -5454,11 +5451,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque' (estoque_produtos)
       let targetProduct = matchedStockProduct || localInventory.find(p => 
-        (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === realProductName.toLowerCase()) ||
-        (p.name && p.name.toLowerCase().trim() === realProductName.toLowerCase())
+        (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase()) ||
+        (p.name && String(p.name ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase())
       );
 
-      const descLower = realProductName.toLowerCase();
+      const descLower = String(realProductName ?? '').toLowerCase();
       const isCombustivel = 
         (targetProduct?.categoria || targetProduct?.category) === 'Combustível & Arla' ||
         descLower.includes('diesel') ||
@@ -5560,7 +5557,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       // Estorna a quantidade no saldo de Estoque
       const targetProduct = localInventory.find(p => 
         (item.produto_id && p.id === item.produto_id) ||
-        p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+        String(p.name ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()
       );
 
       if (targetProduct) {
@@ -5577,10 +5574,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // Estorna do Tanque de Combustível da Fazenda se for Combustível
       const isCombustivel = (targetProduct?.categoria || targetProduct?.category) === 'Combustível & Arla' ||
-        item.descricao.toLowerCase().includes('diesel') ||
-        item.descricao.toLowerCase().includes('arla');
+        String(item.descricao ?? '').toLowerCase().includes('diesel') ||
+        String(item.descricao ?? '').toLowerCase().includes('arla');
       if (isCombustivel && Number(item.quantidade) > 0) {
-        const isS500 = item.descricao.toLowerCase().includes('s500') || item.descricao.toLowerCase().includes('comum');
+        const isS500 = String(item.descricao ?? '').toLowerCase().includes('s500') || String(item.descricao ?? '').toLowerCase().includes('comum');
         const tId = isS500 ? 'tanque_diesel_s500' : 'tanque_diesel_s10';
         subtrairCombustivelTanque(tId, Number(item.quantidade)).catch(() => {});
       }
@@ -5979,8 +5976,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const labelsToPrint: LabelProductItem[] = (manualDocItems || []).map(item => {
         const matched = localInventory.find(p => 
           (item.produto_id && p.id === item.produto_id) ||
-          (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.descricao.toLowerCase().trim()) ||
-          p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+          (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()) ||
+          String(p.name ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()
         );
 
         const invItem: InventoryItem = matched || {
@@ -6034,7 +6031,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (!doc || !doc.id) return;
       const docId = doc.id;
       const docNum = doc.numero || doc.numero_documento || '';
-      const cleanNum = getCleanInvoiceNumber(docNum).toLowerCase();
+      const cleanNum = String(getCleanInvoiceNumber(docNum) ?? '').toLowerCase();
       const digits = (docNum || '').replace(/\D/g, '');
 
       // Trava de tombstone: garante que o ID e número nunca voltem após F5
@@ -6042,7 +6039,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       recordDeletedNfeKey(docId);
       if (cleanNum) recordDeletedNfeKey(cleanNum);
       if (digits) recordDeletedNfeKey(digits);
-      if (docNum) recordDeletedNfeKey(String(docNum).toLowerCase().trim());
+      if (docNum) recordDeletedNfeKey(String(docNum ?? '').toLowerCase().trim());
 
       await deleteDocumentoEntrada(docId).catch(() => {});
 
@@ -6120,7 +6117,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         delete cached[docId];
         if (cleanNum) delete cached[cleanNum];
         if (digits) delete cached[digits];
-        if (docNum) delete cached[String(docNum).toLowerCase().trim()];
+        if (docNum) delete cached[String(docNum ?? '').toLowerCase().trim()];
         localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
       } catch (_) {}
 
@@ -6280,7 +6277,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (explicitCategory === 'nfe_c' || explicitCategory === 'nfce') return 'nfce';
     if (explicitCategory === 'mdfe') return 'mdfe';
 
-    const t = (rawType || '').toLowerCase();
+    const t = String(rawType ?? '').toLowerCase();
     if (t.includes('nfc-e') || t.includes('nfce') || t.includes('consumidor')) return 'nfce';
     if (t.includes('nfs-e') || t.includes('nfse') || t.includes('serviç') || t.includes('servic')) return 'nfse';
     if (t.includes('ct-e') || t.includes('cte') || t.includes('frete') || t.includes('transporte') || t.includes('conhecimento')) return 'cte';
@@ -6342,7 +6339,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const extractManualObservation = (rawTexts: Array<string | undefined>, supplier?: string, docNumber?: string): string => {
-    const cleanSupplier = (supplier || '').trim().toLowerCase();
+    const cleanSupplier = String(supplier ?? '').trim().toLowerCase();
     const cleanNum = (docNumber || '').replace(/\D/g, '');
     const cleaned: string[] = [];
 
@@ -6364,7 +6361,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         .trim();
 
       if (!t) continue;
-      const lower = t.toLowerCase();
+      const lower = String(t ?? '').toLowerCase();
       if (cleanSupplier && lower === cleanSupplier) continue;
       if (cleanNum && lower === cleanNum) continue;
       if (lower === 'nf-e' || lower === 'xml / nf-e' || lower === 'produto registrado na nf-e') continue;
@@ -6384,7 +6381,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (opts.nature) parts.push(opts.nature);
     if (opts.vehicleOrOs) {
       const v = opts.vehicleOrOs.trim();
-      if (v && !parts.some((p) => p.toLowerCase().includes(v.toLowerCase()))) {
+      if (v && !parts.some((p) => String(p ?? '').toLowerCase().includes(String(v ?? '').toLowerCase()))) {
         parts.push(v);
       }
     }
@@ -6684,12 +6681,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       else if (docCat === 'mdfe') badge = 'emerald';
       else if (docCat === 'avulsas') badge = 'amber';
 
-      const isCteRec = (n.tipoDocumento || '').toLowerCase().includes('ct-e');
+      const isCteRec = String(n.tipoDocumento ?? '').toLowerCase().includes('ct-e');
       const displayParty = isCteRec
         ? (n.cteTomadorFinalNome || n.destinatarioNome || 'Tomador não informado')
         : (n.destinatarioNome || 'Consumidor Avulso');
 
-      const tipoLower = (n.tipoDocumento || '').toLowerCase();
+      const tipoLower = String(n.tipoDocumento ?? '').toLowerCase();
       const rawNature =
         n.nfeNaturezaOperacao ||
         n.nfseNaturezaOperacao ||
@@ -6773,7 +6770,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 1. NF-e emitidas pela empresa (Notas de Saída: Venda e Remessa/Retorno)
     notasSaida.forEach((n) => {
       if (!n || !n.id) return;
-      const tipo = (n.tipoDocumento || '').toLowerCase();
+      const tipo = String(n.tipoDocumento ?? '').toLowerCase();
       if (!tipo.includes('nf-e') && !tipo.includes('nfe')) return;
       const num = String(n.numero || '').trim();
       const serie = String(n.serie || '1').trim();
@@ -6782,7 +6779,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const sig = chave || `saida_${num}_${serie}_${n.id}`;
       if (seenKeys.has(sig)) return;
       seenKeys.add(sig);
-      const natLower = (n.nfeNaturezaOperacao || '').toLowerCase();
+      const natLower = String(n.nfeNaturezaOperacao ?? '').toLowerCase();
       const isRetorno = tipo.includes('retorno') || natLower.startsWith('retorno') || natLower.startsWith('devolu');
       const isRemessa = !isRetorno && (tipo.includes('remessa') || natLower.includes('remessa'));
       const naturezaBadge = isRetorno
@@ -6886,7 +6883,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 1. Notas de Saída já emitidas pela empresa (Remessas, Vendas, NFC-e)
     notasSaida.forEach((n) => {
       if (!n || !n.id || n.id === editingNotaSaida?.id) return;
-      const tipo = (n.tipoDocumento || '').toLowerCase();
+      const tipo = String(n.tipoDocumento ?? '').toLowerCase();
       if (!tipo.includes('nf-e') && !tipo.includes('nfe') && !tipo.includes('nfc-e')) return;
       const num = String(n.numero || '').trim();
       const serie = String(n.serie || '1').trim();
@@ -6895,7 +6892,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (seenKeys.has(sig)) return;
       seenKeys.add(sig);
 
-      const natLower = (n.nfeNaturezaOperacao || '').toLowerCase();
+      const natLower = String(n.nfeNaturezaOperacao ?? '').toLowerCase();
       const isRetorno =
         tipo.includes('retorno') || natLower.startsWith('retorno') || natLower.startsWith('devolu');
       const isRemessa = !isRetorno && (tipo.includes('remessa') || natLower.includes('remessa'));
@@ -7200,7 +7197,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     notasSaida.forEach((n) => {
       if (!n || !n.id) return;
-      if (!(n.tipoDocumento || '').toLowerCase().includes('ct-e')) return;
+      if (!String(n.tipoDocumento ?? '').toLowerCase().includes('ct-e')) return;
       const valCarga = Number(n.cteValorCarga || n.valorTotal || 0);
       docs.push({
         id: `cte:${n.id}`,
@@ -8116,7 +8113,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
 
       // 10. Sugestão automática de categoria e definição de Categoria Prioritária
-      const allText = (supplierName + ' ' + items.map(i => i.description).join(' ')).toLowerCase();
+      const allText = String(supplierName + ' ' + items.map(i => i.description).join(' ')).toLowerCase();
       let suggestedCategory = 'cat_insumos';
       let deducedPriorityCategory = 'Outros Insumos';
 
@@ -8228,10 +8225,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (result.items && result.items.length > 0) {
         result.items = result.items.map((item) => {
           const match = localInventory.find(inv => 
-            (inv.code !== undefined && inv.code !== null && item.code && String(inv.code).trim().toLowerCase() === String(item.code).trim().toLowerCase()) ||
+            (inv.code !== undefined && inv.code !== null && item.code && String(inv.code ?? '').trim().toLowerCase() === String(item.code ?? '').trim().toLowerCase()) ||
             (inv.barcode && item.barcode && String(inv.barcode) === String(item.barcode)) ||
-            (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
-            (inv.fiscalName && item.description && String(inv.fiscalName).trim().toLowerCase() === String(item.description).trim().toLowerCase())
+            (inv.name && item.description && String(inv.name ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase()) ||
+            (inv.fiscalName && item.description && String(inv.fiscalName ?? '').trim().toLowerCase() === String(item.description ?? '').trim().toLowerCase())
           );
           const markup = match?.profitMargin;
           let calculatedSale = match?.salePrice;
@@ -8294,7 +8291,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       if (!existingSupplier && result.supplier) {
         existingSupplier = localSuppliers.find(s => 
-          s.name.trim().toLowerCase() === result.supplier.trim().toLowerCase()
+          String(s.name ?? '').trim().toLowerCase() === String(result.supplier ?? '').trim().toLowerCase()
         );
       }
 
@@ -8323,7 +8320,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       } else {
         // Fornecedor novo não encontrado: inicia novo cadastro em segundo plano com dados extraídos
         let inferredCat: Supplier['category'] = 'Combustível';
-        const allText = (result.supplier + ' ' + (result.items || []).map(i => i.description).join(' ')).toLowerCase();
+        const allText = String(result.supplier + ' ' + (result.items || []).map(i => i.description).join(' ')).toLowerCase();
         if (allText.includes('diesel') || allText.includes('combustivel') || allText.includes('petro') || allText.includes('arla') || allText.includes('posto')) {
           inferredCat = 'Combustível';
         } else if (allText.includes('lona') || allText.includes('filme') || allText.includes('embalagem') || allText.includes('plastico')) {
@@ -8462,7 +8459,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Busca primeiro nas despesas já cadastradas
     const existingExpense = expenses.find(exp => 
-      exp.invoiceNumber && exp.invoiceNumber.toLowerCase().includes(query.toLowerCase())
+      exp.invoiceNumber && String(exp.invoiceNumber ?? '').toLowerCase().includes(String(query ?? '').toLowerCase())
     );
 
     setTimeout(() => {
@@ -8539,7 +8536,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const item = parsedData.items[rowIndex];
 
     // Dedução de categoria inteligente baseada na descrição do item
-    const descLower = item.description.toLowerCase();
+    const descLower = String(item.description ?? '').toLowerCase();
     let cat: InventoryItem['category'] = 'outro';
     if (descLower.includes('diesel') || descLower.includes('combustivel') || descLower.includes('s10') || descLower.includes('arla')) {
       cat = 'combustivel';
@@ -8603,9 +8600,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const existingProd = localInventory.find(p =>
       (item.linkedInventoryId && p.id === item.linkedInventoryId) ||
       (item.barcode && p.barcode && String(p.barcode) !== 'SEM GTIN' && String(p.barcode).trim() === String(item.barcode).trim()) ||
-      (item.code && p.code !== undefined && p.code !== null && String(p.code).trim().toLowerCase() === String(item.code).trim().toLowerCase()) ||
-      (p.nome_comercial && String(p.nome_comercial).trim().toLowerCase() === String(item.description || '').trim().toLowerCase()) ||
-      (p.name && String(p.name).trim().toLowerCase() === String(item.description || '').trim().toLowerCase())
+      (item.code && p.code !== undefined && p.code !== null && String(p.code ?? '').trim().toLowerCase() === String(item.code ?? '').trim().toLowerCase()) ||
+      (p.nome_comercial && String(p.nome_comercial ?? '').trim().toLowerCase() === String(item.description || '').trim().toLowerCase()) ||
+      (p.name && String(p.name ?? '').trim().toLowerCase() === String(item.description || '').trim().toLowerCase())
     );
 
     const xmlCustoComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
@@ -8832,8 +8829,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Sincronização automática com a Frota (Pneus Disponíveis - Estoque)
     if (
-      (savedProduct.categoria?.toLowerCase().includes('pneu') || 
-       savedProduct.category?.toLowerCase().includes('pneu') ||
+      (String(savedProduct.categoria ?? '').toLowerCase().includes('pneu') || 
+       String(savedProduct.category ?? '').toLowerCase().includes('pneu') ||
        savedProduct.tireParameters) &&
       (savedProduct.fireNumber || savedProduct.tireParameters?.fireNumber)
     ) {
@@ -8842,7 +8839,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const fireNum = (savedProduct.fireNumber || savedProduct.tireParameters?.fireNumber || '').trim();
         if (fireNum) {
           const existingIdx = currentTireInv.findIndex(
-            (t) => (t.fireNumber || '').trim().toLowerCase() === fireNum.toLowerCase() || t.id === `tire_${savedProduct.id}`
+            (t) => String(t.fireNumber ?? '').trim().toLowerCase() === String(fireNum ?? '').toLowerCase() || t.id === `tire_${savedProduct.id}`
           );
           const tireItemToSave: TireItem = {
             id: existingIdx >= 0 ? currentTireInv[existingIdx].id : `tire_inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -9247,7 +9244,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const nfeKey = (nfe.accessKey || '').replace(/\D/g, '').trim();
 
     // 2. Número da NF-e
-    const nfeNumRaw = (nfe.invoiceNumber || '').trim().toLowerCase();
+    const nfeNumRaw = String(nfe.invoiceNumber ?? '').trim().toLowerCase();
     const nfeNumDigits = (nfe.invoiceNumber || '').replace(/\D/g, '').trim();
     const nfeNumInt = nfeNumDigits ? parseInt(nfeNumDigits, 10) : null;
 
@@ -9264,7 +9261,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // B. Verificação por Número da NF-e
       if (exp.invoiceNumber) {
-        const expNumRaw = exp.invoiceNumber.trim().toLowerCase();
+        const expNumRaw = String(exp.invoiceNumber ?? '').trim().toLowerCase();
         // Comparação de texto (ex: "NF-e 142" === "NF-e 142")
         if (expNumRaw === nfeNumRaw) {
           return true;
@@ -9285,7 +9282,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // C. Verificação por menção ao número da nota nas notas da despesa
       if (exp.notes && nfeNumDigits && nfeNumDigits.length >= 3) {
-        const notesLower = exp.notes.toLowerCase();
+        const notesLower = String(exp.notes ?? '').toLowerCase();
         if (
           notesLower.includes(`nf-e ${nfeNumDigits}`) ||
           notesLower.includes(`nfe ${nfeNumDigits}`) ||
@@ -9302,7 +9299,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Função auxiliar para deduzir categoria do item no estoque
   const deduceItemCategory = (desc: string): InventoryItem['category'] => {
-    const d = (desc || '').toLowerCase();
+    const d = String(desc ?? '').toLowerCase();
     if (d.includes('diesel') || d.includes('combustivel') || d.includes('combustível') || d.includes('s10') || d.includes('arla')) {
       return 'combustivel';
     }
@@ -9329,12 +9326,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (!parsedData) return;
 
     // Bloqueio de Nota Duplicada (ignora a própria nota e suas parcelas em modo de edição)
-    const cleanCurrentNum = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase();
+    const cleanCurrentNum = String((parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
     const listToCheck = editingExpenseId 
       ? expenses.filter(e => {
           if (e.id === editingExpenseId) return false;
           if (editingExpenseId && e.id.startsWith(editingExpenseId)) return false;
-          const eCleanNum = (e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase();
+          const eCleanNum = String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
           if (cleanCurrentNum && eCleanNum && eCleanNum === cleanCurrentNum) return false;
           return true;
         }) 
@@ -9365,7 +9362,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
 
             // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
-            const descLower = (item.description || '').toLowerCase();
+            const descLower = String(item.description ?? '').toLowerCase();
             const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
             if (isFuelOrArla && addQty > 0) {
               sincronizarEntradaCombustivelSupabase({
@@ -9470,7 +9467,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           item.linkedInventoryId = newProdId;
           updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
 
-          const newDescLower = (item.description || '').toLowerCase();
+          const newDescLower = String(item.description ?? '').toLowerCase();
           const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
           if (isNewFuelOrArla && autoQty > 0) {
             sincronizarEntradaCombustivelSupabase({
@@ -9517,7 +9514,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const expensesCleaned = expenses.filter(e => 
         e.id !== editingExpenseId && 
         !e.id.startsWith(`${editingExpenseId}_parc_`) &&
-        (e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanInvoiceNumber.toLowerCase()
+        String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== String(cleanInvoiceNumber ?? '').toLowerCase()
       );
       saveStoredExpenses(expensesCleaned);
     }
@@ -9573,10 +9570,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     };
 
     const currentStoredFiscal = getStoredFiscalRecords();
-    const cleanNumCompare = cleanInvoiceNumber.toLowerCase();
+    const cleanNumCompare = String(cleanInvoiceNumber ?? '').toLowerCase();
     const filteredFiscal = currentStoredFiscal.filter(f => 
       f.id !== fiscalRecordId && 
-      (f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+      String((f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
     );
     const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
     saveStoredFiscalRecords(updatedFiscalList);
@@ -9584,7 +9581,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNotasLancadas(prev => {
       const remaining = prev.filter(f => 
         f.id !== fiscalRecordId && 
-        (f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+        String((f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
       );
       return [singleFiscalRecord, ...remaining];
     });
@@ -9630,7 +9627,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         p.id === item.linkedInventoryId ||
         (item.barcode && p.barcode && String(p.barcode) !== 'SEM GTIN' && String(p.barcode).trim() === String(item.barcode).trim()) ||
         (item.code && p.code !== undefined && p.code !== null && String(p.code).trim().toUpperCase() === String(item.code).trim().toUpperCase()) ||
-        (p.nome_comercial && String(p.nome_comercial).toLowerCase().trim() === String(item.description || '').toLowerCase().trim()) ||
+        (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(item.description || '').toLowerCase().trim()) ||
         String(p.name || '').toLowerCase().trim() === String(item.description || '').toLowerCase().trim()
       );
       const invItem: InventoryItem = matched || {
@@ -9715,7 +9712,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       ...currentNonFinDocs.filter(
         (d) =>
           d.id !== fiscalRecordId &&
-          (d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+          String((d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
       ),
     ];
     saveStoredDocumentosEntrada(updatedNonFinDocs);
@@ -9783,12 +9780,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
 
     // Bloqueio de Nota Duplicada (ignora a própria nota e suas parcelas em modo de edição)
-    const cleanCurrentNum = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase();
+    const cleanCurrentNum = String((parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
     const listToCheck = editingExpenseId 
       ? expenses.filter(e => {
           if (e.id === editingExpenseId) return false;
           if (editingExpenseId && e.id.startsWith(editingExpenseId)) return false;
-          const eCleanNum = (e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase();
+          const eCleanNum = String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
           if (cleanCurrentNum && eCleanNum && eCleanNum === cleanCurrentNum) return false;
           return true;
         }) 
@@ -9828,7 +9825,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
 
             // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
-            const descLower = (item.description || '').toLowerCase();
+            const descLower = String(item.description ?? '').toLowerCase();
             const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
             if (isFuelOrArla && addQty > 0) {
               sincronizarEntradaCombustivelSupabase({
@@ -9934,7 +9931,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
 
           // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
-          const newDescLower = (item.description || '').toLowerCase();
+          const newDescLower = String(item.description ?? '').toLowerCase();
           const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
           if (isNewFuelOrArla && autoQty > 0) {
             sincronizarEntradaCombustivelSupabase({
@@ -10110,10 +10107,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Atualiza a persistência dedicada de registros fiscais (evitando qualquer duplicação por parcelas)
     const currentStoredFiscal = getStoredFiscalRecords();
-    const cleanNumCompare = cleanInvoiceNumber.toLowerCase();
+    const cleanNumCompare = String(cleanInvoiceNumber ?? '').toLowerCase();
     const filteredFiscal = currentStoredFiscal.filter(f => 
       f.id !== fiscalRecordId && 
-      (f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+      String((f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
     );
     const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
     saveStoredFiscalRecords(updatedFiscalList);
@@ -10149,7 +10146,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const currentStoredDocs = getStoredDocumentosEntrada();
     const updatedDocsList = [docEntradaFinal, ...currentStoredDocs.filter(d => 
       d.id !== fiscalRecordId && 
-      (d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+      String((d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
     )];
     saveStoredDocumentosEntrada(updatedDocsList);
     setDocumentosEntrada(updatedDocsList);
@@ -10159,7 +10156,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const remaining = prev.filter(f => 
         f.id !== fiscalRecordId && 
         !installmentRecords.some(r => r.id === f.id) &&
-        (f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim().toLowerCase() !== cleanNumCompare
+        String((f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
       );
       return [singleFiscalRecord, ...remaining];
     });
@@ -10232,7 +10229,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         p.id === item.linkedInventoryId ||
         (item.barcode && p.barcode && String(p.barcode) !== 'SEM GTIN' && String(p.barcode).trim() === String(item.barcode).trim()) ||
         (item.code && p.code !== undefined && p.code !== null && String(p.code).trim().toUpperCase() === String(item.code).trim().toUpperCase()) ||
-        (p.nome_comercial && String(p.nome_comercial).toLowerCase().trim() === String(item.description || '').toLowerCase().trim()) ||
+        (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(item.description || '').toLowerCase().trim()) ||
         String(p.name || '').toLowerCase().trim() === String(item.description || '').toLowerCase().trim()
       );
       const invItem: InventoryItem = matched || {
@@ -10344,12 +10341,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const nfeData = buildNfeDataFromExpense(exp, localInventory, companyProfile);
     const targetKey = getCanonicalNfeKey(exp);
     const cleanNum = getCleanInvoiceNumber(exp.invoiceNumber);
-    const cleanNumLower = cleanNum.toLowerCase();
+    const cleanNumLower = String(cleanNum ?? '').toLowerCase();
     
     // Identifica todas as parcelas vinculadas a essa nota no Contas a Pagar
     const relatedExpenses = expenses.filter(e => {
       if (getCanonicalNfeKey(e) === targetKey) return true;
-      const eNum = getCleanInvoiceNumber(e.invoiceNumber).toLowerCase();
+      const eNum = String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase();
       if (eNum && cleanNumLower && eNum === cleanNumLower) return true;
       if (exp.id && e.id.startsWith(exp.id)) return true;
       if (e.notes && exp.notes && exp.notes.includes('Chave:') && e.notes.includes(exp.notes.slice(0, 30))) return true;
@@ -10445,7 +10442,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     recordDeletedNfeKey(notaId);
     if (cleanNum) recordDeletedNfeKey(cleanNum);
     if (digits) recordDeletedNfeKey(digits);
-    if (docNum) recordDeletedNfeKey(String(docNum).toLowerCase().trim());
+    if (docNum) recordDeletedNfeKey(String(docNum ?? '').toLowerCase().trim());
     if (accessKey) recordDeletedNfeKey(accessKey);
     if (targetKey) recordDeletedNfeKey(targetKey);
 
@@ -10455,7 +10452,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       delete cached[notaId];
       if (cleanNum) delete cached[cleanNum];
       if (digits) delete cached[digits];
-      if (docNum) delete cached[String(docNum).toLowerCase().trim()];
+      if (docNum) delete cached[String(docNum ?? '').toLowerCase().trim()];
       if (accessKey) delete cached[accessKey];
       if (targetKey) delete cached[targetKey];
       localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
@@ -11307,7 +11304,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             const rawDigits = cleanDigits(parsedData.supplierCnpj || '');
                             const s = localSuppliers.find(sup => 
                               (rawDigits && cleanDigits(sup.cnpjOrCpf || '') === rawDigits) ||
-                              sup.name.trim().toLowerCase() === parsedData.supplier.trim().toLowerCase()
+                              String(sup.name ?? '').trim().toLowerCase() === String(parsedData.supplier ?? '').trim().toLowerCase()
                             ) || supplierForModal;
                             if (s) setSupplierForModal(s);
                             setIsSupplierModalOpen(true);
@@ -13690,12 +13687,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             setItemSearchQuery(val);
                             setIsItemSearchOpen(true);
                             const match = localInventory.find(p => {
-                              const q = val.trim().toLowerCase();
+                              const q = String(val ?? '').trim().toLowerCase();
                               if (!q) return false;
-                              const nc = (p.nome_comercial || '').trim().toLowerCase();
-                              const nm = (p.name || '').trim().toLowerCase();
-                              const no = (p.nome || '').trim().toLowerCase();
-                              const cd = (p.code || p.codigo_produto || '').trim().toLowerCase();
+                              const nc = String(p.nome_comercial ?? '').trim().toLowerCase();
+                              const nm = String(p.name ?? '').trim().toLowerCase();
+                              const no = String(p.nome ?? '').trim().toLowerCase();
+                              const cd = String((p.code || p.codigo_produto) ?? '').trim().toLowerCase();
                               return nc === q || nm === q || no === q || (cd && cd === q);
                             });
                             if (match) {
@@ -13705,9 +13702,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 setItemUnitCostDisplay(formatCurrencyInputDisplay(cost));
                               }
                               const rawUnit = String(match.unidade_medida || match.unit || 'un').trim();
-                              const cleanUnit = rawUnit.toLowerCase() === 'l' || rawUnit.toLowerCase() === 'litro' || rawUnit.toLowerCase() === 'litros' || rawUnit.toLowerCase() === 'lt'
+                              const cleanUnit = String(rawUnit ?? '').toLowerCase() === 'l' || String(rawUnit ?? '').toLowerCase() === 'litro' || String(rawUnit ?? '').toLowerCase() === 'litros' || String(rawUnit ?? '').toLowerCase() === 'lt'
                                 ? 'L'
-                                : (rawUnit.toLowerCase() === 'un' || rawUnit.toLowerCase() === 'und' || rawUnit.toLowerCase() === 'unidade' ? 'un' : rawUnit);
+                                : (String(rawUnit ?? '').toLowerCase() === 'un' || String(rawUnit ?? '').toLowerCase() === 'und' || String(rawUnit ?? '').toLowerCase() === 'unidade' ? 'un' : rawUnit);
                               setItemUnit(cleanUnit.toUpperCase());
                             } else if (selectedProduct && (selectedProduct.nome_comercial || selectedProduct.name || selectedProduct.nome) !== val) {
                               setSelectedProduct(null);
@@ -13738,14 +13735,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           {filteredStockProducts.map((prod) => {
                             const displayName = prod.nome_comercial || prod.name || prod.nome || '';
                             const rawUnit = String(prod.unidade_medida || prod.unit || 'un').trim();
-                            const displayUnit = rawUnit.toLowerCase() === 'l' || rawUnit.toLowerCase() === 'litro' || rawUnit.toLowerCase() === 'litros' || rawUnit.toLowerCase() === 'lt'
+                            const displayUnit = String(rawUnit ?? '').toLowerCase() === 'l' || String(rawUnit ?? '').toLowerCase() === 'litro' || String(rawUnit ?? '').toLowerCase() === 'litros' || String(rawUnit ?? '').toLowerCase() === 'lt'
                               ? 'L'
-                              : (rawUnit.toLowerCase() === 'un' || rawUnit.toLowerCase() === 'und' || rawUnit.toLowerCase() === 'unidade' ? 'un' : rawUnit);
+                              : (String(rawUnit ?? '').toLowerCase() === 'un' || String(rawUnit ?? '').toLowerCase() === 'und' || String(rawUnit ?? '').toLowerCase() === 'unidade' ? 'un' : rawUnit);
                             const displayQty = Number(prod.quantidade_atual !== undefined ? prod.quantidade_atual : (prod.quantity ?? 0));
                             const displayCost = Number(prod.preco_custo_inicial ?? prod.unitCost ?? 0);
                             const isFuelOrArla = (prod.categoria || prod.category) === 'Combustível & Arla' || 
-                              displayName.toLowerCase().includes('diesel') || 
-                              displayName.toLowerCase().includes('arla');
+                              String(displayName ?? '').toLowerCase().includes('diesel') || 
+                              String(displayName ?? '').toLowerCase().includes('arla');
 
                             return (
                               <div
@@ -13999,8 +13996,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                         onClick={() => {
                                           const matchedProd = localInventory.find(p =>
                                             (item.produto_id && p.id === item.produto_id) ||
-                                            (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.descricao.toLowerCase().trim()) ||
-                                            p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+                                            (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()) ||
+                                            String(p.name ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()
                                           ) || {
                                             id: item.produto_id || `inv_${Date.now()}`,
                                             name: item.descricao,
@@ -17637,7 +17634,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               {/* Destinatário / Remetente / Tomador & Dados Gerais */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-50 dark:bg-stone-800/60 border border-slate-200 dark:border-stone-700 rounded-lg space-y-2">
-                  {(viewingNotaSaida.tipoDocumento || '').toLowerCase().includes('ct-e') ? (
+                  {String(viewingNotaSaida.tipoDocumento ?? '').toLowerCase().includes('ct-e') ? (
                     <>
                       <div>
                         <span className="text-[10px] font-black uppercase text-sky-700 dark:text-sky-400 block">1. Remetente (Origem da Carga)</span>
@@ -18020,7 +18017,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           cfopManagerTarget === 'cte'
             ? 'transporte'
             : isRemessaRetornoSelected
-              ? nfeNaturezaOperacao.toLowerCase().startsWith('devolu')
+              ? String(nfeNaturezaOperacao ?? '').toLowerCase().startsWith('devolu')
                 ? 'devolucao'
                 : 'remessa_retorno'
               : 'venda'

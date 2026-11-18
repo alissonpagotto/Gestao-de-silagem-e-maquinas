@@ -875,10 +875,10 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                             onClick={() => {
                               const mode: FreightCommissionMode = 'porcentagem';
                               const baseRatio = Number(valorProporcionalCaminhao.toFixed(2));
-                              const cleanDriverName = (truck.primaryDriverName || '').trim().toLowerCase();
+                              const cleanDriverName = String(truck.primaryDriverName ?? '').trim().toLowerCase();
                               const selectedDriver = employees.find(e => 
                                 (truck.primaryDriverId && e.id === truck.primaryDriverId) || 
-                                (cleanDriverName && e.name.trim().toLowerCase() === cleanDriverName)
+                                (cleanDriverName && String(e.name ?? '').trim().toLowerCase() === cleanDriverName)
                               );
                               const empPct = (selectedDriver?.commissionPercentage !== undefined && Number(selectedDriver.commissionPercentage) > 0)
                                 ? Number(selectedDriver.commissionPercentage)

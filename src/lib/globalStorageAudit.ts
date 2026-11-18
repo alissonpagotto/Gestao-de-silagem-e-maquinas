@@ -71,11 +71,8 @@ function getActiveCompanyId(): string {
         return curComp;
       }
 
-      const activeUserEmail = (
-        localStorage.getItem('silagem_active_user_email') ||
-        localStorage.getItem('silagem_active_subscriber_email') ||
-        ''
-      ).trim().toLowerCase();
+      const activeUserEmail = String((localStorage.getItem('silagem_active_user_email') ||
+        localStorage.getItem('silagem_active_subscriber_email')) ?? '').trim().toLowerCase();
       if (activeUserEmail && activeUserEmail.includes('@') && activeUserEmail !== 'usuario@silagem.com') {
         if (activeUserEmail === 'csilagem@gmail.com') return 'e5b34cd7-aab4-4ce2-b5f0-45040c9ee7a4';
         return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;

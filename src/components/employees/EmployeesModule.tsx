@@ -171,7 +171,7 @@ function normalizeStandardOption(val: string | undefined | null, defaults: strin
   if (!val) return '';
   const trimmed = String(val).trim();
   if (!trimmed) return '';
-  const matched = defaults.find(opt => opt.toLowerCase() === trimmed.toLowerCase());
+  const matched = defaults.find(opt => String(opt ?? '').toLowerCase() === String(trimmed ?? '').toLowerCase());
   return matched || trimmed;
 }
 
@@ -434,7 +434,7 @@ export function evaluateEmployeeVacationAlert(
       level: 'expired',
       badgeText: 'FÉRIAS VENCIDAS',
       title: 'ALERTA CRÍTICO: FÉRIAS VENCIDAS (PERÍODO CONCESSIVO LIMITE)',
-      description: `O período aquisitivo (${formatDateBR(vestingStartStr)} a ${formatDateBR(vestingEndStr)}) está vencido há ${overdueMonthsText.toLowerCase()} sem registro de gozo de férias. Data limite para gozo: ${formatDateBR(concessiveLimitStr)}.`,
+      description: `O período aquisitivo (${formatDateBR(vestingStartStr)} a ${formatDateBR(vestingEndStr)}) está vencido há ${String(overdueMonthsText ?? '').toLowerCase()} sem registro de gozo de férias. Data limite para gozo: ${formatDateBR(concessiveLimitStr)}.`,
       monthsAccumulated: Math.max(monthsAccumulated, 12.1),
       monthsLabel: overdueMonthsText,
       vestingStart: vestingStartStr,
@@ -503,7 +503,7 @@ const EditableComboboxField: React.FC<EditableComboboxFieldProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const hasExactMatch = options.some(opt => opt.toLowerCase() === (value || '').trim().toLowerCase());
+  const hasExactMatch = options.some(opt => String(opt ?? '').toLowerCase() === String(value ?? '').trim().toLowerCase());
 
   return (
     <div ref={containerRef} className="relative">
@@ -541,7 +541,7 @@ const EditableComboboxField: React.FC<EditableComboboxFieldProps> = ({
             Opções Padrão (ou digite no campo)
           </div>
           {options.map((option) => {
-            const isSelected = (value || '').trim().toLowerCase() === option.toLowerCase();
+            const isSelected = String(value ?? '').trim().toLowerCase() === String(option ?? '').toLowerCase();
             return (
               <button
                 key={option}
@@ -775,10 +775,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       window.dispatchEvent(new CustomEvent('agrocontrol_auxiliary_registries_updated', { detail: sorted }));
       window.dispatchEvent(new Event('storage'));
     }
-    if (role1 && !sorted.some(r => r.toLowerCase() === role1.toLowerCase())) {
+    if (role1 && !sorted.some(r => String(r ?? '').toLowerCase() === String(role1 ?? '').toLowerCase())) {
       setRole1(sorted[0] || 'Operador de Forrageira');
     }
-    if (role2 && !sorted.some(r => r.toLowerCase() === role2.toLowerCase())) {
+    if (role2 && !sorted.some(r => String(r ?? '').toLowerCase() === String(role2 ?? '').toLowerCase())) {
       setRole2('');
     }
   };
@@ -861,13 +861,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   }, []);
 
   const isBroker = useMemo(() => {
-    return role1.trim().toLowerCase() === 'agenciador' || role2.trim().toLowerCase() === 'agenciador';
+    return String(role1 ?? '').trim().toLowerCase() === 'agenciador' || String(role2 ?? '').trim().toLowerCase() === 'agenciador';
   }, [role1, role2]);
 
   // Opções dinâmicas de cargos lidas do LocalStorage (colaca_silagem_cargos_permissoes)
   // Agrupadas, sanitizadas e com setor obrigatório para 100% dos itens!
   const cargosDropdownOptions = useMemo(() => {
-    const norm = (s: string) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const norm = (s: string) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     const mapSetor = (nomeCargo: string, setorOriginal?: string): string => {
       if (setorOriginal && setorOriginal.trim() && setorOriginal.toUpperCase() !== 'GERAL') {
@@ -927,9 +927,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // Herança reativa de permissões para exibição em tempo real na tela
   const selectedCargoPermissions = useMemo(() => {
     if (!role1) return null;
-    const clean = role1.trim().toLowerCase();
+    const clean = String(role1 ?? '').trim().toLowerCase();
     const isAdmin = clean.includes('admin') || clean.includes('diretor');
-    const directMatch = cargosDropdownOptions.find(opt => opt.name.trim().toLowerCase() === clean);
+    const directMatch = cargosDropdownOptions.find(opt => String(opt.name ?? '').trim().toLowerCase() === clean);
     if (directMatch && directMatch.permissoes) {
       return {
         cargoId: directMatch.id,
@@ -1601,8 +1601,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const termList = getStoredTerminations();
       for (const t of termList) {
         if (t.status === 'homologado' || t.status === 'integrado' || Boolean(t.isIntegrated)) {
-          if (t.employeeId) terminatedKeys.add(String(t.employeeId).toLowerCase());
-          if (t.employeeName) terminatedKeys.add(t.employeeName.trim().toLowerCase());
+          if (t.employeeId) terminatedKeys.add(String(t.employeeId ?? '').toLowerCase());
+          if (t.employeeName) terminatedKeys.add(String(t.employeeName ?? '').trim().toLowerCase());
         }
       }
     } catch {}
@@ -1613,7 +1613,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const safeList = Array.isArray(localEmployees) ? localEmployees : [];
     for (const emp of safeList) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
-      const st = String(emp.status || 'ativo').toLowerCase().trim();
+      const st = String((emp.status || 'ativo') ?? '').toLowerCase().trim();
       const empNameUpper = emp.name.trim().toUpperCase();
       const isInactiveStatus = st === 'inativo' || 
                                st === 'inativo_sazonal' || 
@@ -1627,8 +1627,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const isAlissonTarget = empNameUpper.includes('ALISSON PAGOTTO');
       const isTerminatedInRecords =
         !isAlissonTarget &&
-        ((emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) ||
-          terminatedKeys.has(emp.name.trim().toLowerCase()));
+        ((emp.id && terminatedKeys.has(String(emp.id ?? '').toLowerCase())) ||
+          terminatedKeys.has(String(emp.name ?? '').trim().toLowerCase()));
       const isActive =
         emp.active !== false &&
         (st === 'ativo' || st === '' || st === 'ferias') &&
@@ -1651,9 +1651,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     return deduplicated
       .filter(emp =>
-        (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (emp.role || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (emp.roles && emp.roles.some(r => r.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+        String(emp.name ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        String(emp.role ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()) ||
+        (emp.roles && emp.roles.some(r => String(r ?? '').toLowerCase().includes(String(searchTerm ?? '').toLowerCase()))) ||
         (emp.cpf && emp.cpf.includes(searchTerm)) ||
         (emp.rg && emp.rg.includes(searchTerm)) ||
         (emp.pis && emp.pis.includes(searchTerm)) ||
@@ -1810,8 +1810,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const termList = getStoredTerminations();
       for (const t of termList) {
         if (t.status === 'homologado' || t.status === 'integrado' || Boolean(t.isIntegrated)) {
-          if (t.employeeId) terminatedKeys.add(String(t.employeeId).toLowerCase());
-          if (t.employeeName) terminatedKeys.add(t.employeeName.trim().toLowerCase());
+          if (t.employeeId) terminatedKeys.add(String(t.employeeId ?? '').toLowerCase());
+          if (t.employeeName) terminatedKeys.add(String(t.employeeName ?? '').trim().toLowerCase());
         }
       }
     } catch {}
@@ -1829,8 +1829,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                    st === 'DESLIGADO' || 
                    emp.active === false || 
                    Boolean(emp.terminationDate) ||
-                   (emp.id && terminatedKeys.has(String(emp.id).toLowerCase())) ||
-                   terminatedKeys.has(emp.name.trim().toLowerCase());
+                   (emp.id && terminatedKeys.has(String(emp.id ?? '').toLowerCase())) ||
+                   terminatedKeys.has(String(emp.name ?? '').trim().toLowerCase());
       return isEx;
     });
   }, [allEmployeesForHistory, employeesStorageVersion]);
@@ -1838,13 +1838,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // Filtro de busca na sub-aba de ex-colaboradores
   const filteredExEmployees = useMemo(() => {
     if (!exEmployeesSearchTerm.trim()) return exEmployeesList;
-    const term = exEmployeesSearchTerm.toLowerCase().trim();
+    const term = String(exEmployeesSearchTerm ?? '').toLowerCase().trim();
     return exEmployeesList.filter((emp) =>
-      (emp.name || '').toLowerCase().includes(term) ||
-      (emp.role || '').toLowerCase().includes(term) ||
+      String(emp.name ?? '').toLowerCase().includes(term) ||
+      String(emp.role ?? '').toLowerCase().includes(term) ||
       (emp.cpf && emp.cpf.includes(term)) ||
       (emp.rg && emp.rg.includes(term)) ||
-      (emp.cnhNumber && emp.cnhNumber.toLowerCase().includes(term))
+      (emp.cnhNumber && String(emp.cnhNumber ?? '').toLowerCase().includes(term))
     );
   }, [exEmployeesList, exEmployeesSearchTerm]);
 
@@ -1911,7 +1911,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCommissionPerHectare('0,00');
     setCommissionPercentage('0,00');
     setCnhNumber('');
-    const isDriverRole = resolvedRole.toLowerCase().includes('motorista');
+    const isDriverRole = String(resolvedRole ?? '').toLowerCase().includes('motorista');
     setCnhCategory(isDriverRole ? 'E' : 'B');
     setCnhExpiration('');
     setCnhUpgradeDT(false);
@@ -2095,7 +2095,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       rawSt === 'desligado' || 
       Boolean(emp.terminationDate);
     setIsActive(emp.active !== undefined ? (emp.active && !isEmpInactiveOrTerminated) : !isEmpInactiveOrTerminated);
-    const isEmpBroker = r1.trim().toLowerCase() === 'agenciador' || r2.trim().toLowerCase() === 'agenciador';
+    const isEmpBroker = String(r1 ?? '').trim().toLowerCase() === 'agenciador' || String(r2 ?? '').trim().toLowerCase() === 'agenciador';
 
     // Normalização rigorosa de comissões numéricas
     const commVal = Number(
@@ -2295,7 +2295,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     const activeRoles: string[] = [];
     if (role1.trim()) activeRoles.push(role1.trim());
-    if (role2.trim() && role2.trim().toLowerCase() !== role1.trim().toLowerCase()) activeRoles.push(role2.trim());
+    if (role2.trim() && String(role2 ?? '').trim().toLowerCase() !== String(role1 ?? '').trim().toLowerCase()) activeRoles.push(role2.trim());
     const finalRoles = activeRoles.length > 0 ? activeRoles : ['Operador de Forrageira'];
     const finalRole = finalRoles.join(', ');
     const rawRegType = registrationType.trim();
@@ -2319,9 +2319,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
       photoUrl: photoUrl || undefined,
       phone: phone.trim() || 'Não informado',
-      email: personalEmail.trim().toLowerCase() || undefined,
-      personalEmail: personalEmail.trim().toLowerCase() || undefined,
-      email_pessoal: personalEmail.trim().toLowerCase() || undefined,
+      email: String(personalEmail ?? '').trim().toLowerCase() || undefined,
+      personalEmail: String(personalEmail ?? '').trim().toLowerCase() || undefined,
+      email_pessoal: String(personalEmail ?? '').trim().toLowerCase() || undefined,
       emergencyContact: emergencyContact.trim() || undefined,
       contato_emergencia: emergencyContact.trim() || undefined,
       dependentsCount: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
@@ -2597,7 +2597,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           try {
             const validUuid = toValidUUID(finalId) || finalId;
             const cleanCompanyId = activeCompany?.id ? (toValidUUID(activeCompany.id) || activeCompany.id) : (activeUid || 'geral');
-            const fileExt = file.name.includes('.') ? '.' + file.name.split('.').pop()?.toLowerCase() : '.pdf';
+            const fileExt = file.name.includes('.') ? '.' + String(file.name.split('.').pop() ?? '').toLowerCase() : '.pdf';
             const safeDocName = file.name
               .replace(/[^a-zA-Z0-9._-]/g, '_')
               .replace(/\.[^/.]+$/, '');
@@ -2675,7 +2675,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
       const activeRoles: string[] = [];
       if (role1.trim()) activeRoles.push(role1.trim());
-      if (role2.trim() && role2.trim().toLowerCase() !== role1.trim().toLowerCase()) activeRoles.push(role2.trim());
+      if (role2.trim() && String(role2 ?? '').trim().toLowerCase() !== String(role1 ?? '').trim().toLowerCase()) activeRoles.push(role2.trim());
       const finalRoles = activeRoles.length > 0 ? activeRoles : ['Operador de Forrageira'];
       const finalRole = finalRoles.join(', ');
       
@@ -2749,9 +2749,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         cnh_url: finalCnhUrl || undefined,
         ficha_registro_url: finalFichaUrl || undefined,
         phone: phone.trim(),
-        email: personalEmail.trim() ? personalEmail.trim().toLowerCase() : undefined,
-        personalEmail: personalEmail.trim() ? personalEmail.trim().toLowerCase() : undefined,
-        email_pessoal: personalEmail.trim() ? personalEmail.trim().toLowerCase() : undefined,
+        email: personalEmail.trim() ? String(personalEmail ?? '').trim().toLowerCase() : undefined,
+        personalEmail: personalEmail.trim() ? String(personalEmail ?? '').trim().toLowerCase() : undefined,
+        email_pessoal: personalEmail.trim() ? String(personalEmail ?? '').trim().toLowerCase() : undefined,
         emergencyContact: emergencyContact.trim() || undefined,
         contato_emergencia: emergencyContact.trim() || undefined,
         dependentsCount: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
@@ -2902,7 +2902,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             cnh_upgrade_category: cnhUpgradeDT ? cnhUpgradeCategory : null,
             termination_date: formattedTerminationDate || null,
             numero_registro: finalBadgeNumber,
-            personal_email: personalEmail.trim() ? personalEmail.trim().toLowerCase() : null,
+            personal_email: personalEmail.trim() ? String(personalEmail ?? '').trim().toLowerCase() : null,
             emergency_contact: emergencyContact.trim() || null,
             dependents_count: Math.max(0, parseInt(String(dependentsCount || 0), 10) || 0),
             work_schedule: workSchedule.trim() || null,
@@ -2960,11 +2960,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 sentColumns: Object.keys(fPatch),
                 fullError: fUpdate.error,
               });
-              const errStr = `${fUpdate.error.message || ''} ${fUpdate.error.details || ''}`.toLowerCase();
+              const errStr = String(`${fUpdate.error.message || ''} ${fUpdate.error.details || ''}`).toLowerCase();
               let removed = false;
               if (fUpdate.error.code === 'PGRST204' || fUpdate.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                 for (const k of Object.keys(fPatch)) {
-                  if (k !== 'nome' && errStr.includes(k.toLowerCase())) {
+                  if (k !== 'nome' && errStr.includes(String(k ?? '').toLowerCase())) {
                     delete fPatch[k];
                     funcSchemaCols.delete(k);
                     removed = true;
@@ -2979,11 +2979,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               for (let attempt = 0; attempt < 6; attempt++) {
                 const fUpsert = await supabase.from('funcionarios').upsert(cleanedF, { onConflict: 'id' });
                 if (!fUpsert.error) break;
-                const errStr = `${fUpsert.error.message || ''} ${fUpsert.error.details || ''}`.toLowerCase();
+                const errStr = String(`${fUpsert.error.message || ''} ${fUpsert.error.details || ''}`).toLowerCase();
                 let removed = false;
                 if (fUpsert.error.code === 'PGRST204' || fUpsert.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                   for (const k of Object.keys(cleanedF)) {
-                    if (k !== 'id' && k !== 'nome' && errStr.includes(k.toLowerCase())) {
+                    if (k !== 'id' && k !== 'nome' && errStr.includes(String(k ?? '').toLowerCase())) {
                       delete cleanedF[k];
                       funcSchemaCols.delete(k);
                       removed = true;
@@ -3085,11 +3085,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               sentColumns: Object.keys(patchBody),
               fullError: updateRes.error,
             });
-            const errStr = `${updateRes.error.message || ''} ${updateRes.error.details || ''}`.toLowerCase();
+            const errStr = String(`${updateRes.error.message || ''} ${updateRes.error.details || ''}`).toLowerCase();
             let removed = false;
             if (updateRes.error.code === 'PGRST204' || updateRes.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
               for (const k of Object.keys(patchBody)) {
-                if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(k.toLowerCase())) {
+                if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(String(k ?? '').toLowerCase())) {
                   delete patchBody[k];
                   rhSchemaCols.delete(k);
                   removed = true;
@@ -3118,11 +3118,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 sentColumns: Object.keys(upsertBody),
                 fullError: upsertErr,
               });
-              const errStr = `${upsertErr.message || ''} ${upsertErr.details || ''}`.toLowerCase();
+              const errStr = String(`${upsertErr.message || ''} ${upsertErr.details || ''}`).toLowerCase();
               let removed = false;
               if (upsertErr.code === 'PGRST204' || upsertErr.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                 for (const k of Object.keys(upsertBody)) {
-                  if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(k.toLowerCase())) {
+                  if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(String(k ?? '').toLowerCase())) {
                     delete upsertBody[k];
                     rhSchemaCols.delete(k);
                     removed = true;

@@ -102,9 +102,9 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
     (d) =>
       d.verbaCode === '505' ||
       d.type?.includes('13') ||
-      d.description?.toLowerCase().includes('1ª parcela') ||
-      d.description?.toLowerCase().includes('13°') ||
-      d.description?.toLowerCase().includes('13º')
+      String(d.description ?? '').toLowerCase().includes('1ª parcela') ||
+      String(d.description ?? '').toLowerCase().includes('13°') ||
+      String(d.description ?? '').toLowerCase().includes('13º')
   );
   const thirteenth1stTotal = thirteenth1stList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 
@@ -114,8 +114,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
       !thirteenth1stList.includes(d) &&
       (d.verbaCode === '501' ||
         d.type === 'Falta / Atraso' ||
-        d.description?.toLowerCase().includes('falta') ||
-        d.description?.toLowerCase().includes('dias anteriores'))
+        String(d.description ?? '').toLowerCase().includes('falta') ||
+        String(d.description ?? '').toLowerCase().includes('dias anteriores'))
   );
   const faltasTotal = faltasList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 
@@ -142,8 +142,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
       (d.verbaCode === '502' ||
         d.verbaCode === '110' ||
         d.type === 'Vale / Adiantamento' ||
-        d.description?.toLowerCase().includes('vale') ||
-        d.description?.toLowerCase().includes('adiantamento'))
+        String(d.description ?? '').toLowerCase().includes('vale') ||
+        String(d.description ?? '').toLowerCase().includes('adiantamento'))
   );
   const valesTotal =
     valesList.length > 0
@@ -158,12 +158,12 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
       !valesList.includes(d) &&
       (d.verbaCode === '503' ||
         d.type === 'Peças / Oficina' ||
-        d.type?.toLowerCase().includes('avaria') ||
-        d.type?.toLowerCase().includes('equipamento') ||
-        d.description?.toLowerCase().includes('peça') ||
-        d.description?.toLowerCase().includes('peca') ||
-        d.description?.toLowerCase().includes('avaria') ||
-        d.description?.toLowerCase().includes('equipamento'))
+        String(d.type ?? '').toLowerCase().includes('avaria') ||
+        String(d.type ?? '').toLowerCase().includes('equipamento') ||
+        String(d.description ?? '').toLowerCase().includes('peça') ||
+        String(d.description ?? '').toLowerCase().includes('peca') ||
+        String(d.description ?? '').toLowerCase().includes('avaria') ||
+        String(d.description ?? '').toLowerCase().includes('equipamento'))
   );
   const avariasTotal = avariasList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 
@@ -174,8 +174,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
       !faltasList.includes(d) &&
       !valesList.includes(d) &&
       !avariasList.includes(d) &&
-      !d.type?.toLowerCase().includes('sindicat') &&
-      !d.description?.toLowerCase().includes('sindicat')
+      !String(d.type ?? '').toLowerCase().includes('sindicat') &&
+      !String(d.description ?? '').toLowerCase().includes('sindicat')
   );
 
   // Helper para resolver Código e Descrição (respeitando overrides do colaborador ou dicionário do LocalStorage)

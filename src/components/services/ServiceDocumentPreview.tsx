@@ -160,8 +160,8 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
 
   // Título dinâmico por modalidade conforme a aba ativa
   const operationalSpecsTitle = useMemo(() => {
-    const tab = (serviceTab || '').toLowerCase();
-    const title = (serviceTypeTitle || '').toLowerCase();
+    const tab = String(serviceTab ?? '').toLowerCase();
+    const title = String(serviceTypeTitle ?? '').toLowerCase();
     if (tab === 'corte' || title.includes('corte')) {
       return 'ESPECIFICAÇÕES OPERACIONAIS DO CORTE';
     }

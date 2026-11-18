@@ -98,17 +98,17 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
   }, [employees]);
 
   const filteredList = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     if (!term) return employeesWithCodes;
     return employeesWithCodes.filter(({ employee, regNumber }) => {
-      const name = (employee.name || '').toLowerCase();
-      const role = (employee.role || '').toLowerCase();
-      const cpf = (employee.cpf || '').toLowerCase();
+      const name = String(employee.name ?? '').toLowerCase();
+      const role = String(employee.role ?? '').toLowerCase();
+      const cpf = String(employee.cpf ?? '').toLowerCase();
       return (
         name.includes(term) ||
         role.includes(term) ||
         cpf.includes(term) ||
-        regNumber.toLowerCase().includes(term)
+        String(regNumber ?? '').toLowerCase().includes(term)
       );
     });
   }, [employeesWithCodes, searchTerm]);

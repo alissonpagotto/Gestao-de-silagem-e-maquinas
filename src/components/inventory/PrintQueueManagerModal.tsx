@@ -233,7 +233,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
   // Resultados filtrados da busca por Nome, Código interno ou Código de Barras
   const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = String(searchQuery ?? '').trim().toLowerCase();
     if (!q) return allStockProducts.slice(0, 15);
 
     return allStockProducts
@@ -241,8 +241,8 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
         const name = String(item.nome_comercial || item.name || '').toLowerCase();
         const code = String(item.code ?? item.codigo_produto ?? '').toLowerCase();
         const barcode = String(item.barcode ?? item.codigo_barras ?? '').toLowerCase();
-        const address = resolveFormattedAddress(item).toLowerCase();
-        const category = resolveCategory(item).toLowerCase();
+        const address = String(resolveFormattedAddress(item) ?? '').toLowerCase();
+        const category = String(resolveCategory(item) ?? '').toLowerCase();
         return (
           name.includes(q) ||
           code.includes(q) ||
@@ -275,7 +275,7 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
     // Se nenhum produto foi clicado explicitamente, tenta o primeiro resultado da busca ou o match exato de código
     if (!productToInsert && searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
+      const q = String(searchQuery ?? '').trim().toLowerCase();
       const exactMatch = allStockProducts.find((p) => {
         const code = String(p.code ?? p.codigo_produto ?? '').toLowerCase();
         const barcode = String(p.barcode ?? p.codigo_barras ?? '').toLowerCase();

@@ -36,7 +36,7 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
     if (!inputPrompt.trim()) return;
     setIsProcessing(true);
 
-    const text = inputPrompt.toLowerCase();
+    const text = String(inputPrompt ?? '').toLowerCase();
 
     // 1. Extract Amount (R$ 1.200,50 or 1200 or 1450.00)
     let extractedAmount = 0;
@@ -76,8 +76,8 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
 
     // 4. Machinery match
     const matchedMach = machineries.find((m) => {
-      const nameL = m.name.toLowerCase();
-      const brandL = m.brand.toLowerCase();
+      const nameL = String(m.name ?? '').toLowerCase();
+      const brandL = String(m.brand ?? '').toLowerCase();
       return text.includes(nameL) || text.includes(brandL) || 
         (text.includes('trator') && nameL.includes('trator')) ||
         (text.includes('ensiladeira') && nameL.includes('ensiladeira')) ||
@@ -85,7 +85,7 @@ export const AiExpenseParserModal: React.FC<AiExpenseParserModalProps> = ({
     });
 
     // 5. Cost center match
-    const matchedCC = costCenters.find((cc) => text.includes(cc.name.toLowerCase()));
+    const matchedCC = costCenters.find((cc) => text.includes(String(cc.name ?? '').toLowerCase()));
 
     // 6. Dates
     const today = new Date().toISOString().split('T')[0];

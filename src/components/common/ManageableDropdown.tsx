@@ -100,7 +100,7 @@ export const ManageableDropdown: React.FC<ManageableDropdownProps> = ({
               const isSelected = 
                 opt === value || 
                 (opt === 'Mecanico Especialista' && value === 'mecanico_especialista') ||
-                (opt.toLowerCase() === value.toLowerCase());
+                (String(opt ?? '').toLowerCase() === String(value ?? '').toLowerCase());
               return (
                 <div
                   key={opt}

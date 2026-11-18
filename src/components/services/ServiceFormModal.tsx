@@ -1469,7 +1469,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     const rate = typeof brokerCommissionRate === 'number' ? brokerCommissionRate : 0;
     if (rate <= 0) return 0;
 
-    const typeStr = (brokerCommissionType || '').toLowerCase();
+    const typeStr = String(brokerCommissionType ?? '').toLowerCase();
     if (typeStr.includes('valor do pedido') || typeStr.includes('pedido') || typeStr.includes('área') || typeStr.includes('area')) {
       // Calcule a comissão sobre o campo "Subtotal Área (Base)"
       return Number(((valorBaseArea * rate) / 100).toFixed(2));

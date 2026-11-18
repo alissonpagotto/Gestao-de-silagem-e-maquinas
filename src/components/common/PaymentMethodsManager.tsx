@@ -60,7 +60,7 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
   );
 
   const filteredMethods = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     if (!q) return safeAllMethods;
     return safeAllMethods.filter(
       (m) =>

@@ -1463,7 +1463,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       const datePart = String(r.data_retirada || '').split('T')[0];
       const groupKey =
         rawNumeroPedido ||
-        `${datePart}__${r.veiculo_id || r.veiculo_nome || 'veh'}__${(r.retirado_por || '').trim().toLowerCase()}`;
+        `${datePart}__${r.veiculo_id || r.veiculo_nome || 'veh'}__${String(r.retirado_por ?? '').trim().toLowerCase()}`;
 
       if (!groupsMap.has(groupKey)) {
         const matchedVeh = frotasList.find(
@@ -1479,7 +1479,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         const vPlaca = String(matchedVeh?.plateOrSerial || r.veiculo_placa || '').trim();
 
         const nomeComModelo =
-          vModelo && !vNome.toLowerCase().includes(vModelo.toLowerCase())
+          vModelo && !String(vNome ?? '').toLowerCase().includes(String(vModelo ?? '').toLowerCase())
             ? `${vNome} (${vModelo})`
             : vNome;
         const displayCompleto = vPlaca ? `${nomeComModelo} - ${vPlaca}` : nomeComModelo;
@@ -1535,13 +1535,13 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
     return enriched.filter(g => {
       const headerMatch =
-        g.numeroPedido.toLowerCase().includes(q) ||
-        g.loteCodigo.toLowerCase().includes(q) ||
-        g.veiculoDisplayCompleto.toLowerCase().includes(q) ||
-        g.veiculoPlaca.toLowerCase().includes(q) ||
-        g.operadorAlmoxarifado.toLowerCase().includes(q) ||
-        g.retiradoPor.toLowerCase().includes(q) ||
-        g.status.toLowerCase().includes(q);
+        String(g.numeroPedido ?? '').toLowerCase().includes(q) ||
+        String(g.loteCodigo ?? '').toLowerCase().includes(q) ||
+        String(g.veiculoDisplayCompleto ?? '').toLowerCase().includes(q) ||
+        String(g.veiculoPlaca ?? '').toLowerCase().includes(q) ||
+        String(g.operadorAlmoxarifado ?? '').toLowerCase().includes(q) ||
+        String(g.retiradoPor ?? '').toLowerCase().includes(q) ||
+        String(g.status ?? '').toLowerCase().includes(q);
       if (headerMatch) return true;
       return g.items.some(
         it =>
@@ -1711,9 +1711,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   }, [movimentacoesFerramentas, almoxCompetence]);
 
   const filteredMovimentacoesFerramentas = useMemo(() => {
-    const q = ferSearchTerm.toLowerCase().trim();
+    const q = String(ferSearchTerm ?? '').toLowerCase().trim();
     return movimentacoesFerramentasCompetencia.filter(item => {
-      const isDevolvido = Boolean(item.data_devolucao) || String(item.status).toLowerCase() === 'devolvido';
+      const isDevolvido = Boolean(item.data_devolucao) || String(item.status ?? '').toLowerCase() === 'devolvido';
       if (ferStatusFilter === 'ativas' && isDevolvido) return false;
       if (ferStatusFilter === 'devolvidas' && !isDevolvido) return false;
 
@@ -1762,7 +1762,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const [caixaSearchTerm, setCaixaSearchTerm] = useState<string>('');
 
   const filteredItensCaixaDoVeiculo = useMemo(() => {
-    const q = caixaSearchTerm.toLowerCase().trim();
+    const q = String(caixaSearchTerm ?? '').toLowerCase().trim();
     if (!q) return itensCaixaDoVeiculo;
     return itensCaixaDoVeiculo.filter(item =>
       String(item.codigo_item_ferramenta || '').toLowerCase().includes(q) ||
@@ -1964,7 +1964,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   // Resumo de KPIs do Almoxarifado
   const totalEmprestimosAtivos = useMemo(() => {
     return movimentacoesFerramentasCompetencia.filter(
-      m => !m.data_devolucao && String(m.status).toLowerCase() !== 'devolvido'
+      m => !m.data_devolucao && String(m.status ?? '').toLowerCase() !== 'devolvido'
     ).length;
   }, [movimentacoesFerramentasCompetencia]);
 
@@ -2690,7 +2690,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">
                     {groupedPedidosLotes.map(grupo => {
                       const isExpanded = Boolean(expandedLotes[grupo.loteKey]);
-                      const isAguardando = grupo.status.toLowerCase().includes('aguardando');
+                      const isAguardando = String(grupo.status ?? '').toLowerCase().includes('aguardando');
                       const firstRecord = grupo.items[0];
                       const isEditingThisBatch =
                         editingLoteKey === grupo.loteKey ||
@@ -3171,7 +3171,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 {filteredMovimentacoesFerramentas.map(item => {
                   const isDevolvido =
                     Boolean(item.data_devolucao) ||
-                    String(item.status).toLowerCase() === 'devolvido';
+                    String(item.status ?? '').toLowerCase() === 'devolvido';
 
                   return (
                     <div

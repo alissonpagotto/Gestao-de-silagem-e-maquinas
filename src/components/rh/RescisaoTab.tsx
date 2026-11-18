@@ -155,9 +155,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
       // Correspondência por colaborador e histórico rescisório
       const empMatches = (e.employeeId && e.employeeId === t.employeeId) ||
-        (e.supplier && e.supplier.trim().toLowerCase() === t.employeeName?.trim().toLowerCase()) ||
-        (e.employeeName && e.employeeName.trim().toLowerCase() === t.employeeName?.trim().toLowerCase()) ||
-        (e.description && t.employeeName && e.description.toLowerCase().includes(t.employeeName.trim().toLowerCase()));
+        (e.supplier && String(e.supplier ?? '').trim().toLowerCase() === String(t.employeeName ?? '').trim().toLowerCase()) ||
+        (e.employeeName && String(e.employeeName ?? '').trim().toLowerCase() === String(t.employeeName ?? '').trim().toLowerCase()) ||
+        (e.description && t.employeeName && String(e.description ?? '').toLowerCase().includes(String(t.employeeName ?? '').trim().toLowerCase()));
 
       if (empMatches) {
         const desc = String(e.description || '').toLowerCase();
@@ -259,12 +259,12 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     let modified = false;
     const updated = employees.map((emp) => {
       const isTerminated = completedTerminations.some(
-        (t) => t.employeeId === emp.id || t.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase()
+        (t) => t.employeeId === emp.id || String(t.employeeName ?? '').trim().toLowerCase() === String(emp.name ?? '').trim().toLowerCase()
       );
       if (isTerminated && (emp.active !== false || emp.status !== 'inativo')) {
         modified = true;
         const matchingTerm = completedTerminations.find(
-          (t) => t.employeeId === emp.id || t.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase()
+          (t) => t.employeeId === emp.id || String(t.employeeName ?? '').trim().toLowerCase() === String(emp.name ?? '').trim().toLowerCase()
         );
         return {
           ...emp,
@@ -573,7 +573,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
       // 2. Colaborador e verificação de veículo / maquinário fixo vinculado
       const emp = employees.find(
-        (e) => e.id === t.employeeId || e.name.trim().toLowerCase() === t.employeeName.trim().toLowerCase()
+        (e) => e.id === t.employeeId || String(e.name ?? '').trim().toLowerCase() === String(t.employeeName ?? '').trim().toLowerCase()
       );
       const machineriesList = getStoredMachineries();
       const linkedMachinery = findEmployeeLinkedMachinery(emp, machineriesList);
@@ -716,7 +716,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       // 6.1. TRANSIÇÃO DE ESTADO DO COLABORADOR:
       // Ao integrar o acerto rescisório, o colaborador é automaticamente desativado (Inativo / Demitido)
       const nextEmployees = employees.map((e) => {
-        const isMatch = e.id === t.employeeId || e.name.trim().toLowerCase() === t.employeeName.trim().toLowerCase();
+        const isMatch = e.id === t.employeeId || String(e.name ?? '').trim().toLowerCase() === String(t.employeeName ?? '').trim().toLowerCase();
         if (isMatch) {
           return {
             ...e,
@@ -734,7 +734,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       }
 
       const deactivatedEmp = nextEmployees.find(
-        (e) => e.id === t.employeeId || e.name.trim().toLowerCase() === t.employeeName.trim().toLowerCase()
+        (e) => e.id === t.employeeId || String(e.name ?? '').trim().toLowerCase() === String(t.employeeName ?? '').trim().toLowerCase()
       );
       if (deactivatedEmp && isSupabaseConfigured) {
         upsertRhFuncionario(deactivatedEmp, activeTenantId).catch(() => {});
@@ -811,7 +811,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     if (onSaveEmployees) {
       const updatedEmployees = employees.map((emp) => {
-        if (emp.id === record.employeeId || emp.name.trim().toLowerCase() === record.employeeName.trim().toLowerCase()) {
+        if (emp.id === record.employeeId || String(emp.name ?? '').trim().toLowerCase() === String(record.employeeName ?? '').trim().toLowerCase()) {
           return {
             ...emp,
             status: 'inativo' as const,
@@ -824,7 +824,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       saveStoredEmployees(updatedEmployees);
       onSaveEmployees(updatedEmployees);
       const deactivatedEmp = updatedEmployees.find(
-        (e) => e.id === record.employeeId || e.name.trim().toLowerCase() === record.employeeName.trim().toLowerCase()
+        (e) => e.id === record.employeeId || String(e.name ?? '').trim().toLowerCase() === String(record.employeeName ?? '').trim().toLowerCase()
       );
       if (deactivatedEmp && isSupabaseConfigured) {
         upsertRhFuncionario(deactivatedEmp, activeTenantId).catch(() => {});
@@ -949,10 +949,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
       // Busca por termo
       if (!searchTerm.trim()) return true;
-      const term = searchTerm.toLowerCase();
-      const empName = (item.employeeName || '').toLowerCase();
-      const role = (item.employeeRole || '').toLowerCase();
-      const reasonLabel = getReasonLabel(item.reason).toLowerCase();
+      const term = String(searchTerm ?? '').toLowerCase();
+      const empName = String(item.employeeName ?? '').toLowerCase();
+      const role = String(item.employeeRole ?? '').toLowerCase();
+      const reasonLabel = String(getReasonLabel(item.reason) ?? '').toLowerCase();
       return empName.includes(term) || role.includes(term) || reasonLabel.includes(term);
     });
   }, [competenceTerminations, statusFilter, searchTerm]);

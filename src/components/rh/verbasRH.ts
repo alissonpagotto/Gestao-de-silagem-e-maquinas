@@ -124,8 +124,8 @@ export function getVerbaForDeduction(
   description?: string
 ): { codigo: string; descricao: string; tipo: 'DESCONTO' } {
   const verbas = getStoredVerbasRH();
-  const lowerType = (type || '').toLowerCase();
-  const lowerDesc = (description || '').toLowerCase();
+  const lowerType = String(type ?? '').toLowerCase();
+  const lowerDesc = String(description ?? '').toLowerCase();
 
   // 1. FALTA É FALTA: Rubrica 501 - FALTAS INTEGRADAS (DIAS)
   if (

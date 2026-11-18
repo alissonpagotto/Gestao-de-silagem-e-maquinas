@@ -258,7 +258,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             resolvedClientName = n.cteTomadorFinalNome;
             resolvedClientId = n.cteTomadorFinalId;
           } else {
-            const tomadorTipo = String(n.cteTomador ?? 'Remetente').toLowerCase();
+            const tomadorTipo = String(n.cteTomador ?? 'Remetente' ?? '').toLowerCase();
             if (tomadorTipo.includes('outro') || tomadorTipo.includes('terceiro')) {
               resolvedClientName = n.cteTomadorTerceiroNome || n.destinatarioNome || 'Terceiro Tomador';
               resolvedClientId = n.cteTomadorTerceiroId;

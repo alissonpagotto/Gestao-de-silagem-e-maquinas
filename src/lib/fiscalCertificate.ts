@@ -129,7 +129,7 @@ export async function validateAndStorePfxCertificate(
   meta?: StoredCertificateMeta;
 }> {
   const fileName = (file?.name || '').trim();
-  const extLower = fileName.toLowerCase();
+  const extLower = String(fileName ?? '').toLowerCase();
   if (!extLower.endsWith('.pfx') && !extLower.endsWith('.p12')) {
     return {
       success: false,
@@ -376,7 +376,7 @@ export function generateSefazChaveAcesso44(
     .padStart(14, '0')
     .slice(0, 14);
 
-  const docLower = (nota.tipoDocumento || '').toLowerCase();
+  const docLower = String(nota.tipoDocumento ?? '').toLowerCase();
   const modelo = docLower.includes('ct-e') || docLower.includes('cte')
     ? '57'
     : docLower.includes('mdf-e') || docLower.includes('mdfe')

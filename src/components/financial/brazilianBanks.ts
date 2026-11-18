@@ -165,8 +165,7 @@ export const BRAZILIAN_BANKS: BrazilianBank[] = [
 export function normalizeBankSearch(str?: any): string {
   try {
     if (!str || typeof str !== 'string') return '';
-    return str
-      .toLowerCase()
+    return String(str ?? '').toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .trim();

@@ -23,7 +23,7 @@ export const PauseSubscriberModal: React.FC<PauseSubscriberModalProps> = ({
 
   if (!isOpen || !subscriber) return null;
 
-  const isCurrentlySuspended = subscriber.status?.toLowerCase() === 'suspensa' || subscriber.status?.toLowerCase() === 'suspenso';
+  const isCurrentlySuspended = String(subscriber.status ?? '').toLowerCase() === 'suspensa' || String(subscriber.status ?? '').toLowerCase() === 'suspenso';
   const targetStatus = isCurrentlySuspended ? 'Ativa' : 'Suspenso';
   const targetStatusLocal = isCurrentlySuspended ? 'ativa' : 'suspensa';
 

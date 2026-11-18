@@ -191,7 +191,7 @@ function readStringArray(key: string, defaults: string[], upperCase = false): st
       const clean = String(item || '').trim();
       if (!clean) continue;
       const val = upperCase ? clean.toUpperCase() : clean;
-      const k = val.toLowerCase();
+      const k = String(val ?? '').toLowerCase();
       if (!seen.has(k)) {
         seen.add(k);
         result.push(val);
@@ -210,7 +210,7 @@ function saveStringArray(key: string, items: string[], eventName: string, upperC
     const raw = String(item || '').trim();
     if (!raw) continue;
     const val = upperCase ? raw.toUpperCase() : raw;
-    const k = val.toLowerCase();
+    const k = String(val ?? '').toLowerCase();
     if (!seen.has(k)) {
       seen.add(k);
       cleaned.push(val);
@@ -240,7 +240,7 @@ function readKeyLabelArray(key: string, defaults: KeyLabelAuxItem[]): KeyLabelAu
       const id = String((item as any).id || '')
         .trim()
         .toLowerCase()
-        .replace(/[^a-z0-9_]+/g, '_') || label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
+        .replace(/[^a-z0-9_]+/g, '_') || String(label ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
       if (!label || !id || seen.has(id)) continue;
       seen.add(id);
       result.push({ id, label });
@@ -257,13 +257,12 @@ function saveKeyLabelArray(key: string, items: KeyLabelAuxItem[], eventName: str
   for (const item of items) {
     const label = String(item?.label || '').trim();
     if (!label) continue;
-    const rawId = String(item?.id || '').trim() || label
-      .toLowerCase()
+    const rawId = String(item?.id || '').trim() || String(label ?? '').toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
-    const id = rawId.toLowerCase().replace(/[^a-z0-9_]+/g, '_') || `item_${cleaned.length + 1}`;
+    const id = String(rawId ?? '').toLowerCase().replace(/[^a-z0-9_]+/g, '_') || `item_${cleaned.length + 1}`;
     if (seen.has(id)) continue;
     seen.add(id);
     cleaned.push({ id, label });

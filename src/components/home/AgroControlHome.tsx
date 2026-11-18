@@ -260,22 +260,22 @@ export function calculateRealIndicators(): IndicatorValues {
   vendasList.forEach((v: any) => {
     const items = Array.isArray(v.itens) ? v.itens : Array.isArray(v.items) ? v.items : Array.isArray(v.carrinho) ? v.carrinho : [];
     items.forEach((it: any) => {
-      if (it.id) soldProductKeys.add(String(it.id).trim().toLowerCase());
-      if (it.productId) soldProductKeys.add(String(it.productId).trim().toLowerCase());
-      if (it.codigo) soldProductKeys.add(String(it.codigo).trim().toLowerCase());
-      if (it.code) soldProductKeys.add(String(it.code).trim().toLowerCase());
-      if (it.descricao) soldProductKeys.add(String(it.descricao).trim().toLowerCase());
-      if (it.name) soldProductKeys.add(String(it.name).trim().toLowerCase());
-      if (it.nome) soldProductKeys.add(String(it.nome).trim().toLowerCase());
+      if (it.id) soldProductKeys.add(String(it.id ?? '').trim().toLowerCase());
+      if (it.productId) soldProductKeys.add(String(it.productId ?? '').trim().toLowerCase());
+      if (it.codigo) soldProductKeys.add(String(it.codigo ?? '').trim().toLowerCase());
+      if (it.code) soldProductKeys.add(String(it.code ?? '').trim().toLowerCase());
+      if (it.descricao) soldProductKeys.add(String(it.descricao ?? '').trim().toLowerCase());
+      if (it.name) soldProductKeys.add(String(it.name ?? '').trim().toLowerCase());
+      if (it.nome) soldProductKeys.add(String(it.nome ?? '').trim().toLowerCase());
     });
-    if (v.productType) soldProductKeys.add(String(v.productType).trim().toLowerCase());
-    if (v.product_name) soldProductKeys.add(String(v.product_name).trim().toLowerCase());
+    if (v.productType) soldProductKeys.add(String(v.productType ?? '').trim().toLowerCase());
+    if (v.product_name) soldProductKeys.add(String(v.product_name ?? '').trim().toLowerCase());
   });
 
   const outrosSemVendas = prodsList.length === 0 ? 0 : prodsList.filter((p: any) => {
-    const pId = p.id ? String(p.id).trim().toLowerCase() : '';
-    const pCode = (p.code || p.codigo || p.codigo_produto) ? String(p.code || p.codigo || p.codigo_produto).trim().toLowerCase() : '';
-    const pName = (p.name || p.nome_comercial || p.item || p.descricao) ? String(p.name || p.nome_comercial || p.item || p.descricao).trim().toLowerCase() : '';
+    const pId = p.id ? String(p.id ?? '').trim().toLowerCase() : '';
+    const pCode = (p.code || p.codigo || p.codigo_produto) ? String((p.code || p.codigo || p.codigo_produto) ?? '').trim().toLowerCase() : '';
+    const pName = (p.name || p.nome_comercial || p.item || p.descricao) ? String((p.name || p.nome_comercial || p.item || p.descricao) ?? '').trim().toLowerCase() : '';
 
     const hasSold = 
       (pId && soldProductKeys.has(pId)) ||

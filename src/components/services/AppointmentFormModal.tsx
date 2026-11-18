@@ -198,7 +198,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           setPrimaryOperatorId(linkedOp.id);
         } else if (linkedOp.name) {
           const matchedEmp = employees.find(e => 
-            e.name.trim().toLowerCase() === linkedOp.name.trim().toLowerCase()
+            String(e.name ?? '').trim().toLowerCase() === String(linkedOp.name ?? '').trim().toLowerCase()
           );
           if (matchedEmp) {
             setPrimaryOperatorId(matchedEmp.id);
@@ -230,8 +230,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       const targetMachId = editAppointment.primaryMachineryId || '';
       const matchingMach = availableMachineries.find(m => 
         m.id === targetMachId || 
-        (editAppointment.primaryMachineryPrefix && m.fleetNumber && m.fleetNumber.toLowerCase() === editAppointment.primaryMachineryPrefix.toLowerCase()) ||
-        (m.fleetNumber && targetMachId.toLowerCase().includes(m.fleetNumber.toLowerCase()))
+        (editAppointment.primaryMachineryPrefix && m.fleetNumber && String(m.fleetNumber ?? '').toLowerCase() === String(editAppointment.primaryMachineryPrefix ?? '').toLowerCase()) ||
+        (m.fleetNumber && String(targetMachId ?? '').toLowerCase().includes(String(m.fleetNumber ?? '').toLowerCase()))
       );
       setPrimaryMachineryId(matchingMach ? matchingMach.id : targetMachId);
 
@@ -241,7 +241,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setFieldNotes(editAppointment.fieldNotes || '');
 
       // Procura operador principal na equipe ou faz o LOOKUP automático na máquina
-      const op = editAppointment.assignedTeam?.find(t => t.role.toLowerCase().includes('forrageira') || t.role.toLowerCase().includes('principal'));
+      const op = editAppointment.assignedTeam?.find(t => String(t.role ?? '').toLowerCase().includes('forrageira') || String(t.role ?? '').toLowerCase().includes('principal'));
       if (op && op.employeeId) {
         setPrimaryOperatorId(op.employeeId);
       } else if (matchingMach) {
@@ -250,7 +250,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           setPrimaryOperatorId(linkedOp.id);
         } else if (linkedOp.name) {
           const matchedEmp = employees.find(e => 
-            e.name.trim().toLowerCase() === linkedOp.name.trim().toLowerCase()
+            String(e.name ?? '').trim().toLowerCase() === String(linkedOp.name ?? '').trim().toLowerCase()
           );
           if (matchedEmp) setPrimaryOperatorId(matchedEmp.id);
         }
