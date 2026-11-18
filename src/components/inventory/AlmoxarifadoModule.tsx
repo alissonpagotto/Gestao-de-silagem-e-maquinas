@@ -2559,7 +2559,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         </div>
 
         {/* ÁREA PRINCIPAL DOS INDICADORES E PAINÉIS */}
-        <div className="w-full overflow-y-auto overflow-x-hidden space-y-2.5 flex-1 min-h-0 flex flex-col">
+        <div
+          className={`w-full ${
+            activeTab === 'kits_ferramentas' ? 'overflow-hidden' : 'overflow-y-auto'
+          } overflow-x-hidden space-y-2.5 flex-1 min-h-0 flex flex-col`}
+        >
           {/* 3 Cards de Indicadores Padronizados */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 shrink-0">
             <div

@@ -42,6 +42,137 @@ const KIT_CATEGORIES = [
 
 const UNIT_OPTIONS = ['UN', 'JOGO', 'PAR', 'CX', 'KIT', 'PC'];
 
+const MATCH_STOPWORDS = new Set([
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'e',
+  'a',
+  'o',
+  'as',
+  'os',
+  'com',
+  'para',
+  'em',
+  'na',
+  'no',
+  'nas',
+  'nos',
+]);
+
+function normalizeMatchText(raw: string): string {
+  return String(raw || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/["'´`.,;:()[\]{}/\\+-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizeMatchText(normalized: string): string[] {
+  return normalized
+    .split(' ')
+    .map(t => t.trim())
+    .filter(t => t.length >= 2 && !MATCH_STOPWORDS.has(t));
+}
+
+function findBestMatchingInventoryProduct(
+  item: ToolKitItem,
+  products: InventoryItem[]
+): InventoryItem | undefined {
+  if (!products.length) return undefined;
+
+  const itemCodeNorm = String(item.codigo || '').trim().toLowerCase();
+  if (itemCodeNorm) {
+    const byCode = products.find(p => {
+      const pCode = String(p.code ?? p.codigo_produto ?? '').trim().toLowerCase();
+      return pCode !== '' && pCode === itemCodeNorm;
+    });
+    if (byCode) return byCode;
+  }
+
+  const itemNorm = normalizeMatchText(item.nome);
+  if (!itemNorm) return undefined;
+  const itemTokens = tokenizeMatchText(itemNorm);
+  const itemNumbers = new Set(itemNorm.match(/\d+(?:[.,]\d+)?/g) || []);
+
+  let bestProd: InventoryItem | undefined;
+  let bestScore = 0;
+
+  for (const prod of products) {
+    const prodName = String(prod.nome_comercial || prod.name || '').trim();
+    const prodNorm = normalizeMatchText(prodName);
+    if (!prodNorm) continue;
+
+    if (prodNorm === itemNorm) {
+      return prod;
+    }
+
+    let score = 0;
+
+    if (itemNorm.length >= 4 && prodNorm.length >= 4) {
+      if (prodNorm.includes(itemNorm)) {
+        score = Math.max(score, 0.92);
+      } else if (itemNorm.includes(prodNorm)) {
+        score = Math.max(score, 0.85);
+      }
+    }
+
+    const prodTokens = tokenizeMatchText(prodNorm);
+    if (itemTokens.length > 0 && prodTokens.length > 0) {
+      const prodSet = new Set(prodTokens);
+      let matchedCount = 0;
+      for (const tok of itemTokens) {
+        if (
+          prodSet.has(tok) ||
+          prodTokens.some(
+            pt =>
+              (tok.length >= 4 && pt.includes(tok)) ||
+              (pt.length >= 4 && tok.includes(pt))
+          )
+        ) {
+          matchedCount++;
+        }
+      }
+
+      const itemCoverage = matchedCount / itemTokens.length;
+      const prodCoverage = matchedCount / prodTokens.length;
+      const minMatchedRequired = itemTokens.length === 1 ? 1 : 2;
+
+      if (matchedCount >= minMatchedRequired && itemCoverage >= 0.55) {
+        let tokenScore = itemCoverage * 0.65 + prodCoverage * 0.35;
+
+        if (itemNumbers.size > 0) {
+          const prodNumbers = new Set(prodNorm.match(/\d+(?:[.,]\d+)?/g) || []);
+          let numMatches = 0;
+          for (const n of itemNumbers) {
+            if (prodNumbers.has(n)) numMatches++;
+          }
+          if (numMatches > 0) {
+            tokenScore += 0.12;
+          } else if (prodNumbers.size > 0) {
+            tokenScore -= 0.18;
+          }
+        }
+
+        if (tokenScore >= 0.55) {
+          score = Math.max(score, tokenScore);
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestProd = prod;
+    }
+  }
+
+  return bestProd;
+}
+
 export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
   toolKits,
   products,
@@ -302,6 +433,55 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
     );
   };
 
+  const handleAutoLinkStockItems = () => {
+    if (!activeKit) return;
+    let unlinkedCount = 0;
+    let linkedCount = 0;
+    let costUpdatedCount = 0;
+
+    const nextItens = activeKit.itens.map(it => {
+      const alreadyLinked = Boolean(
+        it.produto_id && products.some(p => p.id === it.produto_id)
+      );
+      if (alreadyLinked) return it;
+
+      unlinkedCount++;
+      const matchedProd = findBestMatchingInventoryProduct(it, products);
+      if (!matchedProd) return it;
+
+      linkedCount++;
+      const cost = resolveInventoryUnitCost(matchedProd);
+      if (cost > 0) {
+        costUpdatedCount++;
+      }
+      return {
+        ...it,
+        produto_id: matchedProd.id,
+        ...(cost > 0 ? { valor_unitario: cost } : {}),
+      };
+    });
+
+    if (unlinkedCount === 0) {
+      onShowFeedback('success', 'Todos os itens deste kit já estão vinculados ao Estoque Geral.');
+      return;
+    }
+
+    if (linkedCount > 0) {
+      handleUpdateActiveKitField({ itens: nextItens });
+      onShowFeedback(
+        'success',
+        `${linkedCount} item(ns) vinculado(s) automaticamente ao Estoque Geral${
+          costUpdatedCount > 0 ? ` com custo da última entrada em ${costUpdatedCount} item(ns)` : ''
+        }!`
+      );
+    } else {
+      onShowFeedback(
+        'error',
+        'Nenhum produto com nome correspondente foi encontrado no Estoque Geral para os itens sem vínculo.'
+      );
+    }
+  };
+
   const handleRemoveKitItem = (itemId: string) => {
     if (!activeKit) return;
     handleUpdateActiveKitField({
@@ -312,7 +492,7 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
   const activeKitTotal = activeKit ? calcKitTotalValue(activeKit) : 0;
 
   return (
-    <div className="no-print flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
+    <div className="no-print flex-1 min-h-0 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-3">
       {/* COLUNA ESQUERDA: LISTA DE KITS PADRÃO */}
       <div className="lg:col-span-4 bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col min-h-0 overflow-hidden">
         <div className="shrink-0 flex items-center justify-between gap-2 pb-2 mb-2 border-b border-black/25 dark:border-stone-800">
@@ -578,17 +758,27 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
                   value={activeKit.descricao || ''}
                   onChange={e => handleUpdateActiveKitField({ descricao: e.target.value })}
                   placeholder="Descrição ou observação técnica do kit..."
-                  className="flex-1 px-2.5 py-1 rounded-md border border-slate-400 bg-white text-[11px] font-medium text-zinc-800"
+                  className="flex-1 min-w-0 px-2.5 py-1 rounded-md border border-slate-400 bg-white text-[11px] font-medium text-zinc-800"
                 />
-                <button
-                  type="button"
-                  onClick={handleSyncAllCostsFromStock}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-black bg-[#cad4e6] hover:bg-[#b8c6de] text-black text-[11px] font-bold cursor-pointer shrink-0"
-                  title="Atualiza o valor unitário R$ dos itens vinculados com o custo atual do estoque / última NF-e"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Atualizar Custos do Estoque</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleAutoLinkStockItems}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-black bg-[#cad4e6] hover:bg-[#b8c6de] text-black text-[11px] font-bold cursor-pointer shrink-0"
+                    title="Busca no Estoque Geral produtos com nome correspondente aos itens ainda sem vínculo e preenche vínculo e custo R$ da última entrada fiscal"
+                  >
+                    <span>🔗 Auto-Vincular Estoque</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSyncAllCostsFromStock}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-black bg-[#cad4e6] hover:bg-[#b8c6de] text-black text-[11px] font-bold cursor-pointer shrink-0"
+                    title="Atualiza o valor unitário R$ dos itens vinculados com o custo atual do estoque / última NF-e"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Atualizar Custos do Estoque</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -762,18 +952,18 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
               </div>
             </form>
 
-            {/* Tabela de Itens do Kit (Totalmente Editável) */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-black rounded-lg bg-[#e0e6f1]">
-              <table className="w-full text-left border-collapse text-xs">
+            {/* Tabela de Itens do Kit (Totalmente Editável e Sem Rolagem Horizontal) */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden border border-black rounded-lg bg-[#e0e6f1]">
+              <table className="w-full table-fixed text-left border-collapse text-xs">
                 <thead className="sticky top-0 z-20 bg-[#cad4e6] border-b border-black">
-                  <tr className="text-[10px] font-black uppercase text-black tracking-wider">
-                    <th className="py-2 px-2 border-b border-black">Código</th>
-                    <th className="py-2 px-2 border-b border-black">Ferramenta / Vínculo Estoque</th>
-                    <th className="py-2 px-2 border-b border-black text-center w-20">Qtd</th>
-                    <th className="py-2 px-2 border-b border-black text-center w-20">Unid.</th>
-                    <th className="py-2 px-2 border-b border-black text-right w-28">Valor Unit. (R$)</th>
-                    <th className="py-2 px-2 border-b border-black text-right w-28">Subtotal (R$)</th>
-                    <th className="py-2 px-2 border-b border-black text-right w-14">Ação</th>
+                  <tr className="text-[10px] font-black uppercase text-black tracking-tight">
+                    <th className="py-1.5 px-1.5 border-b border-black w-16">Código</th>
+                    <th className="py-1.5 px-1.5 border-b border-black w-auto min-w-0">Ferramenta / Vínculo Estoque</th>
+                    <th className="py-1.5 px-1.5 border-b border-black text-center w-14">Qtd</th>
+                    <th className="py-1.5 px-1.5 border-b border-black text-center w-20">Unid.</th>
+                    <th className="py-1.5 px-1.5 border-b border-black text-right w-20">Valor Unit. (R$)</th>
+                    <th className="py-1.5 px-1.5 border-b border-black text-right w-22">Subtotal</th>
+                    <th className="py-1.5 px-1.5 border-b border-black text-center w-10">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="bg-[#e0e6f1] divide-y divide-black/15">
@@ -793,33 +983,33 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
                         : undefined;
                       return (
                         <tr key={item.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] transition">
-                          <td className="py-1.5 px-2 align-middle">
+                          <td className="py-1.5 px-1.5 align-middle">
                             <input
                               type="text"
                               value={item.codigo}
                               onChange={e =>
                                 handleUpdateKitItem(item.id, { codigo: e.target.value })
                               }
-                              className="w-20 px-1.5 py-1 rounded border border-slate-400 bg-white font-mono font-bold text-[11px] text-zinc-900"
+                              className="w-full min-w-0 px-1 py-1 rounded border border-slate-400 bg-white font-mono font-bold text-[11px] text-zinc-900"
                             />
                           </td>
-                          <td className="py-1.5 px-2 align-middle space-y-1">
+                          <td className="py-1.5 px-1.5 align-middle space-y-1 min-w-0">
                             <input
                               type="text"
                               value={item.nome}
                               onChange={e =>
                                 handleUpdateKitItem(item.id, { nome: e.target.value })
                               }
-                              className="w-full px-2 py-1 rounded border border-slate-400 bg-white font-bold text-xs text-zinc-900"
+                              className="w-full min-w-0 px-1.5 py-1 rounded border border-slate-400 bg-white font-bold text-xs text-zinc-900"
                             />
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1 min-w-0 w-full">
                               <Link2 className="w-3 h-3 text-slate-600 shrink-0" />
                               <select
                                 value={item.produto_id || ''}
                                 onChange={e =>
                                   handleLinkExistingItemToStock(item.id, e.target.value)
                                 }
-                                className="flex-1 px-1.5 py-0.5 rounded border border-slate-400 bg-white text-[10.5px] font-semibold text-slate-800"
+                                className="flex-1 min-w-0 w-full truncate px-1 py-0.5 rounded border border-slate-400 bg-white text-[10.5px] font-semibold text-slate-800"
                               >
                                 <option value="">Sem vínculo direto (Valor manual R$)</option>
                                 {products.map(p => (
@@ -832,13 +1022,13 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
                                 ))}
                               </select>
                               {linkedProd && (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-400 text-emerald-900 text-[9.5px] font-black shrink-0">
-                                  Saldo: {Number(linkedProd.quantidade_atual ?? linkedProd.quantity ?? 0)}
+                                <span className="px-1 py-0.5 rounded bg-emerald-100 border border-emerald-400 text-emerald-900 text-[9px] font-black shrink-0 whitespace-nowrap">
+                                  Est: {Number(linkedProd.quantidade_atual ?? linkedProd.quantity ?? 0)}
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="py-1.5 px-2 align-middle text-center">
+                          <td className="py-1.5 px-1.5 align-middle text-center">
                             <input
                               type="number"
                               min="0.01"
@@ -849,16 +1039,16 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
                                   quantidade: Math.max(0.01, parseFloat(e.target.value) || 1),
                                 })
                               }
-                              className="w-16 px-1.5 py-1 rounded border border-slate-400 bg-white font-black text-xs text-center text-zinc-900"
+                              className="w-full min-w-0 px-1 py-1 rounded border border-slate-400 bg-white font-black text-xs text-center text-zinc-900"
                             />
                           </td>
-                          <td className="py-1.5 px-2 align-middle text-center">
+                          <td className="py-1.5 px-1.5 align-middle text-center">
                             <select
                               value={item.unidade}
                               onChange={e =>
                                 handleUpdateKitItem(item.id, { unidade: e.target.value })
                               }
-                              className="w-16 px-1 py-1 rounded border border-slate-400 bg-white font-bold text-[11px] text-zinc-900"
+                              className="w-full min-w-0 px-1 py-1 rounded border border-slate-400 bg-white font-bold text-[11px] text-zinc-900"
                             >
                               {!UNIT_OPTIONS.includes(item.unidade) && (
                                 <option value={item.unidade}>{item.unidade}</option>
@@ -870,7 +1060,7 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
                               ))}
                             </select>
                           </td>
-                          <td className="py-1.5 px-2 align-middle text-right">
+                          <td className="py-1.5 px-1.5 align-middle text-right">
                             <input
                               type="number"
                               min="0"
@@ -881,18 +1071,18 @@ export const ToolKitsTab: React.FC<ToolKitsTabProps> = ({
                                   valor_unitario: Math.max(0, parseFloat(e.target.value) || 0),
                                 })
                               }
-                              className="w-24 px-1.5 py-1 rounded border border-slate-400 bg-white font-mono font-bold text-xs text-right text-zinc-900"
+                              className="w-full min-w-0 px-1 py-1 rounded border border-slate-400 bg-white font-mono font-bold text-xs text-right text-zinc-900"
                             />
                           </td>
-                          <td className="py-1.5 px-2 align-middle text-right font-mono font-black text-zinc-900 whitespace-nowrap">
+                          <td className="py-1.5 px-1.5 align-middle text-right font-mono font-black text-[11px] text-zinc-900 whitespace-nowrap truncate">
                             {formatCurrencyBRL(subtotal)}
                           </td>
-                          <td className="py-1.5 px-2 align-middle text-right">
+                          <td className="py-1.5 px-1.5 align-middle text-center">
                             <button
                               type="button"
                               onClick={() => handleRemoveKitItem(item.id)}
                               title="Remover ferramenta do kit"
-                              className="p-1.5 rounded text-rose-700 hover:bg-rose-100 cursor-pointer"
+                              className="p-1 rounded text-rose-700 hover:bg-rose-100 cursor-pointer inline-flex items-center justify-center"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
