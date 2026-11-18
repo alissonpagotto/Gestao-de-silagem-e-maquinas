@@ -5,6 +5,7 @@ import {
   DEFAULT_LC116_SERVICE_CODES,
   saveStoredLc116ServiceCodes,
 } from '../../lib/cfopCatalog';
+import { RestoreConfirmModal } from '../common/RestoreConfirmModal';
 
 export interface Lc116ServiceCodeManagerModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
   const [searchTerm, setSearchTerm] = useState('');
   const [feedbackError, setFeedbackError] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,6 +40,7 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
       setSearchTerm('');
       setFeedbackError('');
       setFeedbackSuccess('');
+      setIsResetConfirmOpen(false);
     }
   }, [isOpen]);
 
@@ -111,6 +114,10 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
   };
 
   const handleRestoreDefaults = () => {
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleConfirmRestoreDefaults = () => {
     const map = new Map<string, Lc116ServiceCodeEntry>();
     DEFAULT_LC116_SERVICE_CODES.forEach((d) => map.set(d.codigo, { ...d }));
     codes.forEach((c) => {
@@ -118,6 +125,7 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
     });
     const updated = saveStoredLc116ServiceCodes(Array.from(map.values()));
     onSaveCodes(updated);
+    setIsResetConfirmOpen(false);
     showTempSuccess('Códigos padrão LC 116/03 restaurados!');
   };
 
@@ -350,6 +358,14 @@ export const Lc116ServiceCodeManagerModal: React.FC<Lc116ServiceCodeManagerModal
           </button>
         </div>
       </div>
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        zIndexClass="z-[10000]"
+        message="TEM CERTEZA QUE DESEJA RESTAURAR OS CÓDIGOS DE SERVIÇO PADRÃO (LC 116/03) DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS CÓDIGOS PADRÃO ATUAIS."
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleConfirmRestoreDefaults}
+      />
     </div>
   );
 };

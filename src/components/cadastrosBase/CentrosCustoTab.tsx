@@ -7,7 +7,6 @@ import {
   Trash2, 
   CheckCircle2, 
   RotateCcw,
-  AlertTriangle,
   FolderKanban,
   Check,
   Pencil,
@@ -19,6 +18,7 @@ import {
   saveStoredCentrosCusto, 
   INITIAL_CENTROS_CUSTO
 } from '../../lib/cadastrosBaseStorage';
+import { RestoreConfirmModal } from '../common/RestoreConfirmModal';
 
 export const CentrosCustoTab: React.FC = () => {
   const [centros, setCentros] = useState<CostCenter[]>(() => getStoredCentrosCusto());
@@ -33,6 +33,7 @@ export const CentrosCustoTab: React.FC = () => {
   const [ativo, setAtivo] = useState(true);
   const [formError, setFormError] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   useEffect(() => {
     const handleSync = (e: any) => {
@@ -149,11 +150,14 @@ export const CentrosCustoTab: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
-    if (confirm('Deseja restaurar os Centros de Custo padrão do sistema?')) {
-      setCentros(INITIAL_CENTROS_CUSTO);
-      saveStoredCentrosCusto(INITIAL_CENTROS_CUSTO);
-      showToast('Centros de custo restaurados para o padrão.');
-    }
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleConfirmResetDefaults = () => {
+    setCentros(INITIAL_CENTROS_CUSTO);
+    saveStoredCentrosCusto(INITIAL_CENTROS_CUSTO);
+    setIsResetConfirmOpen(false);
+    showToast('Centros de custo restaurados para o padrão.');
   };
 
   return (
@@ -441,6 +445,13 @@ export const CentrosCustoTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        message="TEM CERTEZA QUE DESEJA RESTAURAR OS CENTROS DE CUSTO PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS."
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleConfirmResetDefaults}
+      />
     </div>
   );
 };

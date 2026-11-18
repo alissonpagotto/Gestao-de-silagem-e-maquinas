@@ -69,7 +69,6 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [selectedStatus, setSelectedStatus] = useState<string>('todos');
   const [selectedOwnership, setSelectedOwnership] = useState<string>('todos');
-  const [selectedComposition, setSelectedComposition] = useState<string>('todos');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // Print Preview Modal States
@@ -1142,29 +1141,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         (selOwnLower.includes('alug') && (ownLower === 'alugado' || ownLower.includes('alug'))) ||
         (selOwnLower.includes('arrend') && (ownLower === 'arrendado' || ownLower.includes('arrend')));
 
-      // FILTRO SEGURO 100% LOCAL (REACT MEMORY) PARA "TODAS COMPOSIÇÕES"
-      // Não injeta nenhum parâmetro na requisição do Supabase
-      const isReboqueItem = 
-        m.compositionType === 'reboque' ||
-        catLower.includes('reboque') ||
-        catLower.includes('carreta') ||
-        catLower.includes('transbordo') ||
-        catLower.includes('implemento');
-
-      const isCavaloItem = 
-        m.compositionType === 'cavalo' || 
-        m.hasCoupledTrailer === true ||
-        Boolean(m.coupledTrailerId || m.reboque_vinculado_id || m.trailerPlate);
-
-      const matchComposition = 
-        selectedComposition === 'todos' ||
-        (selectedComposition === 'cavalo' && isCavaloItem) ||
-        (selectedComposition === 'reboque' && isReboqueItem) ||
-        (selectedComposition === 'veiculo_simples' && !isCavaloItem && !isReboqueItem);
-
-      return matchSearch && matchCategory && matchStatus && matchOwnership && matchComposition;
+      return matchSearch && matchCategory && matchStatus && matchOwnership;
     });
-  }, [machineries, searchTerm, selectedCategory, selectedStatus, selectedOwnership, selectedComposition]);
+  }, [machineries, searchTerm, selectedCategory, selectedStatus, selectedOwnership]);
 
   const getVehicleTotalFuel = (machId: string) => {
     return fuelLogs
@@ -2516,7 +2495,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
         </div>
 
-        {/* Filter Bar (Categorias, Composição, Propriedade, Status) */}
+        {/* Filter Bar (Categorias, Propriedade, Status) */}
         <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-stone-100 dark:border-stone-800 text-xs font-semibold">
           
           <span className="text-stone-400 dark:text-stone-500 text-[11px] font-bold uppercase tracking-wider flex items-center space-x-1 mr-1">
@@ -2536,18 +2515,6 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                 {cat}
               </option>
             ))}
-          </select>
-
-          {/* Composição: Cavalo, Reboque, Simples */}
-          <select
-            value={selectedComposition}
-            onChange={(e) => setSelectedComposition(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-sky-600 cursor-pointer"
-          >
-            <option value="todos">Todas Composições</option>
-            <option value="cavalo">Cavalos Mecânicos</option>
-            <option value="reboque">Reboques & Carretas</option>
-            <option value="veiculo_simples">Veículos Simples / Tratores</option>
           </select>
 
           {/* Propriedade: Todos os Regimes */}
@@ -2578,11 +2545,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
           </select>
 
           {/* Reset Filters */}
-          {(selectedCategory !== 'todos' || selectedComposition !== 'todos' || selectedOwnership !== 'todos' || selectedStatus !== 'todos' || searchTerm) && (
+          {(selectedCategory !== 'todos' || selectedOwnership !== 'todos' || selectedStatus !== 'todos' || searchTerm) && (
             <button
               onClick={() => {
                 setSelectedCategory('todos');
-                setSelectedComposition('todos');
                 setSelectedOwnership('todos');
                 setSelectedStatus('todos');
                 setSearchTerm('');

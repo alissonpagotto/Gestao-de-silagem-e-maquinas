@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus, Edit2, Trash2, Check, Search, Tag, ArrowUp, ArrowDown, ArrowDownAZ, RotateCcw, Settings } from 'lucide-react';
+import { RestoreConfirmModal } from './RestoreConfirmModal';
 
 interface CategoryOptionsManagerModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
   const [editingValue, setEditingValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [feedbackError, setFeedbackError] = useState('');
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,12 +211,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
                 {defaultItems && defaultItems.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm('Deseja restaurar as opções para a lista padrão original?')) {
-                        const sorted = [...defaultItems].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-                        onSaveItems(sorted);
-                      }
-                    }}
+                    onClick={() => setIsResetConfirmOpen(true)}
                     className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold text-black bg-white hover:bg-gray-100 border border-gray-400 rounded-lg transition cursor-pointer shadow-2xs"
                     title="Restaurar lista de opções padrão"
                   >
@@ -380,6 +377,20 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
           </button>
         </div>
       </div>
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        zIndexClass="z-[10000]"
+        message={`TEM CERTEZA QUE DESEJA RESTAURAR AS OPÇÕES DE "${title.toUpperCase()}" PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS.`}
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={() => {
+          if (defaultItems && defaultItems.length > 0) {
+            const sorted = [...defaultItems].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+            onSaveItems(sorted);
+          }
+          setIsResetConfirmOpen(false);
+        }}
+      />
     </div>
   );
 };

@@ -20,6 +20,7 @@ import {
   INITIAL_PLANO_CONTAS_E_FORMAS
 } from '../../lib/cadastrosBaseStorage';
 import { PaymentMethodsManagerPanel } from '../common/PaymentMethodsManager';
+import { RestoreConfirmModal } from '../common/RestoreConfirmModal';
 
 export const PlanoContasTab: React.FC = () => {
   const [data, setData] = useState<PlanoContasEFormasData>(() => getStoredPlanoContas());
@@ -36,6 +37,7 @@ export const PlanoContasTab: React.FC = () => {
   const [catDescricao, setCatDescricao] = useState('');
   const [catAtivo, setCatAtivo] = useState(true);
   const [catError, setCatError] = useState('');
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   useEffect(() => {
     const handleSync = (e: any) => {
@@ -158,11 +160,14 @@ export const PlanoContasTab: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
-    if (confirm('Deseja restaurar o Plano de Contas e as Formas de Pagamento para o padrão de fábrica?')) {
-      setData(INITIAL_PLANO_CONTAS_E_FORMAS);
-      saveStoredPlanoContas(INITIAL_PLANO_CONTAS_E_FORMAS);
-      showToast('Dados restaurados com sucesso.');
-    }
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleConfirmResetDefaults = () => {
+    setData(INITIAL_PLANO_CONTAS_E_FORMAS);
+    saveStoredPlanoContas(INITIAL_PLANO_CONTAS_E_FORMAS);
+    setIsResetConfirmOpen(false);
+    showToast('Dados restaurados com sucesso.');
   };
 
   return (
@@ -485,6 +490,13 @@ export const PlanoContasTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        message="TEM CERTEZA QUE DESEJA RESTAURAR O PLANO DE CONTAS E AS FORMAS DE PAGAMENTO PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS."
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleConfirmResetDefaults}
+      />
     </div>
   );
 };

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { MaintenanceCategoryDefinition } from '../../types';
 import { INITIAL_MAINTENANCE_CATEGORIES } from '../../lib/storage';
+import { RestoreConfirmModal } from '../common/RestoreConfirmModal';
 
 interface MaintenanceCategoriesModalProps {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
   const [color, setColor] = useState('#0284c7');
   const [formError, setFormError] = useState('');
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const filteredCategories = [...categories]
     .filter(cat => 
@@ -150,11 +152,14 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
   };
 
   const handleResetDefaults = () => {
-    if (window.confirm('Deseja restaurar todos os subgrupos padrão do sistema? Seus subgrupos personalizados serão mantidos no final da lista.')) {
-      const customOnes = categories.filter(c => !c.isSystem);
-      const updated = [...INITIAL_MAINTENANCE_CATEGORIES, ...customOnes];
-      onSaveCategories(updated);
-    }
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleConfirmResetDefaults = () => {
+    const customOnes = categories.filter(c => !c.isSystem);
+    const updated = [...INITIAL_MAINTENANCE_CATEGORIES, ...customOnes];
+    onSaveCategories(updated);
+    setIsResetConfirmOpen(false);
   };
 
   if (!isOpen) return null;
@@ -430,6 +435,14 @@ export const MaintenanceCategoriesModal: React.FC<MaintenanceCategoriesModalProp
         </div>
 
       </div>
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        zIndexClass="z-[10000]"
+        message="TEM CERTEZA QUE DESEJA RESTAURAR OS SUBGRUPOS DE MANUTENÇÃO PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS SUBGRUPOS PADRÃO ATUAIS."
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleConfirmResetDefaults}
+      />
     </div>
   );
 };

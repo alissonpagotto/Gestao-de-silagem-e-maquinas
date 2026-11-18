@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { RestoreConfirmModal } from '../common/RestoreConfirmModal';
 
 export interface ClassificationListManagerModalProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ export const ClassificationListManagerModal: React.FC<
   const [editingValue, setEditingValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [feedbackError, setFeedbackError] = useState('');
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -60,6 +62,7 @@ export const ClassificationListManagerModal: React.FC<
       setEditingValue('');
       setSearchTerm('');
       setFeedbackError('');
+      setIsResetConfirmOpen(false);
     }
   }, [isOpen, title]);
 
@@ -155,8 +158,14 @@ export const ClassificationListManagerModal: React.FC<
 
   const handleRestoreDefaults = () => {
     if (!defaultItems || defaultItems.length === 0) return;
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleConfirmRestoreDefaults = () => {
+    if (!defaultItems || defaultItems.length === 0) return;
     setFeedbackError('');
     onSaveItems([...defaultItems]);
+    setIsResetConfirmOpen(false);
   };
 
   const filteredItems = items.filter((it) =>
@@ -431,6 +440,14 @@ export const ClassificationListManagerModal: React.FC<
           </button>
         </div>
       </div>
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        zIndexClass="z-[10000]"
+        message={`TEM CERTEZA QUE DESEJA RESTAURAR "${title.toUpperCase()}" PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS.`}
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleConfirmRestoreDefaults}
+      />
     </div>
   );
 };

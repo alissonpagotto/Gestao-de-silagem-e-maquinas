@@ -157,6 +157,7 @@ import { VehicleTypesConfigModal } from '../fleet/VehicleTypesConfigModal';
 import { CfopManagerModal } from '../nfe/CfopManagerModal';
 import { Lc116ServiceCodeManagerModal } from '../nfe/Lc116ServiceCodeManagerModal';
 import { PlacasTerceirosManagerModal } from '../nfe/PlacasTerceirosManagerModal';
+import { RestoreConfirmModal } from '../common/RestoreConfirmModal';
 
 export type AuxModuleCategory =
   | 'all'
@@ -253,6 +254,7 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
   const [editingKeyLabelId, setEditingKeyLabelId] = useState<string | null>(null);
   const [editingKeyLabelValue, setEditingKeyLabelValue] = useState('');
   const [tanksDraft, setTanksDraft] = useState<TanqueCombustivel[]>([]);
+  const [isKeyLabelResetConfirmOpen, setIsKeyLabelResetConfirmOpen] = useState(false);
 
   // Leituras reativas de todas as listas auxiliares
   const snapshot = useMemo(() => {
@@ -1230,9 +1232,15 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
 
   const handleResetKeyLabel = () => {
     if (!keyLabelModal) return;
+    setIsKeyLabelResetConfirmOpen(true);
+  };
+
+  const handleConfirmResetKeyLabel = () => {
+    if (!keyLabelModal) return;
     const defaults = keyLabelModal.defaultItems.map((d) => ({ ...d }));
     keyLabelModal.onSave(defaults);
     setKeyLabelModal({ ...keyLabelModal, items: defaults });
+    setIsKeyLabelResetConfirmOpen(false);
   };
 
   // Handlers Tanques
@@ -2018,6 +2026,18 @@ export const CadastrosAuxiliaresTab: React.FC<CadastrosAuxiliaresTabProps> = ({ 
       <PlacasTerceirosManagerModal
         isOpen={isPlacasTerceirosModalOpen}
         onClose={() => setIsPlacasTerceirosModalOpen(false)}
+      />
+
+      <RestoreConfirmModal
+        isOpen={isKeyLabelResetConfirmOpen}
+        zIndexClass="z-[10000]"
+        message={
+          keyLabelModal
+            ? `TEM CERTEZA QUE DESEJA RESTAURAR "${keyLabelModal.title.toUpperCase()}" PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS.`
+            : 'TEM CERTEZA QUE DESEJA RESTAURAR ESTA TABELA PARA O PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS.'
+        }
+        onCancel={() => setIsKeyLabelResetConfirmOpen(false)}
+        onConfirm={handleConfirmResetKeyLabel}
       />
     </div>
   );

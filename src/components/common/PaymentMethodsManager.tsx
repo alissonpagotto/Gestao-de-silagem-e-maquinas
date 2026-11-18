@@ -20,6 +20,7 @@ import {
   resetGlobalPaymentMethodsToDefault,
   getPaymentMethodKey,
 } from '../../lib/paymentMethodsStorage';
+import { RestoreConfirmModal } from './RestoreConfirmModal';
 
 interface PaymentMethodsManagerPanelProps {
   compact?: boolean;
@@ -46,6 +47,7 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
   const [geraParcelaPrazo, setGeraParcelaPrazo] = useState(false);
   const [prazoDias, setPrazoDias] = useState<number>(0);
   const [ativo, setAtivo] = useState(true);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -194,7 +196,12 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
   };
 
   const handleReset = () => {
+    setIsResetConfirmOpen(true);
+  };
+
+  const handleConfirmReset = () => {
     resetGlobalPaymentMethodsToDefault();
+    setIsResetConfirmOpen(false);
     showToast('Lista padrão oficial restaurada (10 modalidades)!');
     onChanged?.();
   };
@@ -535,6 +542,14 @@ export const PaymentMethodsManagerPanel: React.FC<PaymentMethodsManagerPanelProp
           </table>
         </div>
       </div>
+
+      <RestoreConfirmModal
+        isOpen={isResetConfirmOpen}
+        zIndexClass="z-[10000]"
+        message="TEM CERTEZA QUE DESEJA RESTAURAR AS 10 FORMAS DE PAGAMENTO E RECEBIMENTO PADRÃO DO SISTEMA? ESTA AÇÃO IRÁ SOBRESCREVER OS REGISTROS PERSONALIZADOS ATUAIS."
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleConfirmReset}
+      />
     </div>
   );
 };
