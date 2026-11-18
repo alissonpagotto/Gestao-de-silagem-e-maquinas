@@ -12,8 +12,7 @@ import {
   MoreVertical, 
   Edit3, 
   Trash2, 
-  Copy, 
-  Plus, 
+  Copy,
   FileSpreadsheet,
   Tractor,
   ArrowUpDown,
@@ -419,14 +418,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
               <span className="hidden sm:inline">Imprimir</span>
             </button>
-
-            <button
-              onClick={onNewExpense}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#059669] hover:bg-emerald-700 rounded-lg border border-emerald-800 transition shadow-xs active:scale-95 cursor-pointer uppercase tracking-wider"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ NOVO LANÇAMENTO</span>
-            </button>
           </div>
 
         </div>
@@ -643,20 +634,14 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     )}
                   </td>
 
-                  {/* Status with quick toggle */}
+                  {/* Status (Puramente Informativo) */}
                   <td className="py-1.5 px-3 whitespace-nowrap">
-                    <button
-                      onClick={() =>
-                        onToggleStatus(
-                          exp.id,
-                          exp.status === 'pago' ? 'pendente' : 'pago'
-                        )
-                      }
-                      title="Clique para alternar Pago / Pendente"
-                      className="cursor-pointer hover:opacity-85 transition"
+                    <span
+                      title="Status informativo — A baixa/liquidação deve ser realizada em Financeiro > A Pagar"
+                      className="inline-flex cursor-default select-none"
                     >
                       {getStatusBadge(getEffectiveStatus(exp))}
-                    </button>
+                    </span>
                   </td>
 
                   {/* Actions */}
@@ -751,16 +736,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   <span className="font-black text-black dark:text-white text-base block font-['Outfit']">
                     {formatCurrencyBRL(exp.amount)}
                   </span>
-                  <button
-                    onClick={() =>
-                      onToggleStatus(
-                        exp.id,
-                        exp.status === 'pago' ? 'pendente' : 'pago'
-                      )
-                    }
+                  <span
+                    title="Status informativo — A baixa/liquidação deve ser realizada em Financeiro > A Pagar"
+                    className="inline-flex cursor-default select-none"
                   >
                     {getStatusBadge(getEffectiveStatus(exp))}
-                  </button>
+                  </span>
                 </div>
               </div>
 

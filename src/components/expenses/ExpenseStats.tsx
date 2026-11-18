@@ -7,7 +7,7 @@ import {
   TrendingDown, 
   Tractor,
   Layers,
-  Scale
+  Utensils
 } from 'lucide-react';
 import { Expense, Machinery, CropSeason } from '../../types';
 import { formatCurrencyBRL } from '../../lib/storage';
@@ -43,16 +43,23 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
     .filter((e) => e.categoryId === 'cat_manutencao')
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Silage specific metric: Cost per Estimated Ton & Cost per Hectare
-  const currentSeason = Array.isArray(seasons) && seasons.length > 0 ? seasons[0] : null;
-  const totalTons = (currentSeason?.estimatedTons && currentSeason.estimatedTons > 0) ? currentSeason.estimatedTons : 0;
-  const costPerTon = totalTons > 0 ? totalExpenses / totalTons : 0;
-  const plantedHectares = (currentSeason?.plantedHectares && currentSeason.plantedHectares > 0)
-    ? currentSeason.plantedHectares
-    : (currentSeason?.totalAreaHectares && currentSeason.totalAreaHectares > 0)
-      ? currentSeason.totalAreaHectares
-      : 0;
-  const costPerHectare = plantedHectares > 0 ? totalExpenses / plantedHectares : 0;
+  // Gasto com Alimentação (na competência filtrada)
+  const foodExpenseItems = expenses.filter((e) => {
+    const catId = (e.categoryId || '').toLowerCase().trim();
+    const catName = (e.categoryName || e.category || '').toLowerCase().trim();
+    return (
+      catId === 'cat_alimentacao' ||
+      catName === 'alimentação' ||
+      catName === 'alimentacao' ||
+      catName.includes('aliment') ||
+      catName.includes('refei') ||
+      catName.includes('marmit') ||
+      catName.includes('restaurante')
+    );
+  });
+  const foodExpensesTotal = foodExpenseItems.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const foodExpensesCount = foodExpenseItems.length;
+  const foodExpensesPercent = totalExpenses > 0 ? (foodExpensesTotal / totalExpenses) * 100 : 0;
 
   return (
     <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -130,26 +137,29 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
         </div>
       </div>
 
-      {/* Card 4: Indicador de Custo por Tonelada de Silagem */}
+      {/* Card 4: Gasto com Alimentação */}
       <div 
-        id="card-despesas-custo-ton"
+        id="card-despesas-alimentacao"
         className="bg-[#e0e6f1] dark:bg-stone-900 py-2 px-3 rounded-lg border border-black dark:border-stone-800 shadow-xs text-black dark:text-white"
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wider leading-none">Custo / Tonelada</span>
-          <div className="p-1 rounded-lg bg-white/80 dark:bg-emerald-900/80 text-emerald-700 dark:text-emerald-400 border border-black/20 dark:border-emerald-700/50 shrink-0">
-            <Scale className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-black text-slate-700 dark:text-stone-300 uppercase tracking-wider leading-none">Gasto com Alimentação</span>
+          <div className="p-1 rounded-lg bg-white/80 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 border border-black/20 dark:border-orange-800/60 shrink-0">
+            <Utensils className="w-3.5 h-3.5" />
           </div>
         </div>
         <div className="mt-0.5 leading-tight">
-          <span className="text-lg sm:text-xl font-black text-black dark:text-emerald-300 tracking-tight font-['Outfit'] leading-tight">
-            {formatCurrencyBRL(costPerTon)}
-            <span className="text-[10px] font-bold text-slate-700 dark:text-emerald-400/80 ml-1">/ ton</span>
+          <span className="text-lg sm:text-xl font-black text-black dark:text-white tracking-tight font-['Outfit'] leading-tight">
+            {formatCurrencyBRL(foodExpensesTotal)}
           </span>
         </div>
         <div className="mt-1 text-[10.5px] text-slate-700 dark:text-stone-300 flex items-center justify-between pt-1 border-t border-black/20 dark:border-stone-800 leading-tight">
-          <span>Safra: {currentSeason?.name ? currentSeason.name.slice(0, 15) + '...' : 'Atual'}</span>
-          <span className="font-bold text-black dark:text-white">{formatCurrencyBRL(costPerHectare)}/ha</span>
+          <span className="font-bold">
+            {foodExpensesCount} {foodExpensesCount === 1 ? 'lançamento' : 'lançamentos'}
+          </span>
+          <span className="font-bold text-black dark:text-white">
+            {foodExpensesPercent.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% do total
+          </span>
         </div>
       </div>
 
