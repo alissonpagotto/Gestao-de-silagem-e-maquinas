@@ -63,7 +63,7 @@ import {
   formatCPF, 
   formatEmployeeAdmissionDate,
   findEmployeeLinkedMachinery,
-  formatEmployeeBankDeposit
+  sanitizeTerminationPaymentDescription
 } from './payrollHelpers';
 import { PixQrCodeBlock } from './PixQrCodeBlock';
 import { resolveEmployeePixKey } from './pixQrCodeHelper';
@@ -598,6 +598,18 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const reasonLabel = getReasonLabel(t.reason);
       const descricaoTitulo = `Acerto Rescisório - ${t.employeeName} | Tipo: ${reasonLabel}`;
 
+      const paymentDescLower = String(t.paymentDescription || '').toLowerCase();
+      const inferredFormaPagamento = paymentDescLower.includes('dinheiro') || paymentDescLower.includes('espécie') || paymentDescLower.includes('especie')
+        ? 'DINHEIRO'
+        : paymentDescLower.includes('transfer')
+          ? 'TRANSFERÊNCIA'
+          : 'PIX';
+      const inferredPaymentMethod = paymentDescLower.includes('dinheiro') || paymentDescLower.includes('espécie') || paymentDescLower.includes('especie')
+        ? 'dinheiro'
+        : paymentDescLower.includes('transfer')
+          ? 'transferencia'
+          : 'pix';
+
       // 4. REGRA DE NEGÓCIO 1: Lançamento no Contas a Pagar (tabela 'public.financeiro_contas_a_pagar' do Supabase)
       await insertFinanceiroContasAPagar({
         id: payableId,
@@ -610,7 +622,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           ? `DRE Veículo: ${vehicleLabel}`
           : 'Custos Administrativos / Pessoal',
         data_vencimento: dueDateIso,
-        forma_pagamento: 'PIX',
+        forma_pagamento: inferredFormaPagamento,
         employee_id: t.employeeId,
         colaborador_id: t.employeeId,
         colaborador_nome: t.employeeName,
@@ -642,7 +654,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         dueDate: dueDateIso,
         date: t.terminationDate || `${compMonthIso}-01`,
         status: 'pendente',
-        paymentMethod: 'pix',
+        paymentMethod: inferredPaymentMethod,
         supplier: t.employeeName,
         employeeId: t.employeeId,
         employeeName: t.employeeName,
@@ -1430,10 +1442,23 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-1 border-t border-black print:pt-0.5 flex items-center justify-between text-[10px] print:text-[9px]">
-                  <span className="font-bold text-slate-600 print:text-black uppercase">DEPÓSITO / FORMA DE PAGAMENTO:</span>
-                  <span className="font-bold text-black uppercase">
-                    {formatEmployeeBankDeposit(findEmployeeFromStorage(viewingTRCT.employeeId || viewingTRCT.employeeName) || employees.find(e => e.id === viewingTRCT.employeeId || e.name === viewingTRCT.employeeName) || (viewingTRCT as any))}
+                <div className="pt-1 border-t border-black print:pt-0.5 flex items-center justify-between gap-2 text-[10px] print:text-[9px]">
+                  <span className="font-bold text-slate-600 print:text-black uppercase shrink-0">DEPÓSITO / FORMA DE PAGAMENTO:</span>
+                  <span className="font-bold text-black text-right">
+                    {(() => {
+                      const liveEmp = employees.find(e => e.id === viewingTRCT.employeeId || e.name === viewingTRCT.employeeName);
+                      const storedEmp = findEmployeeFromStorage(viewingTRCT.employeeId || viewingTRCT.employeeName);
+                      const mergedEmp: Record<string, any> = { ...(storedEmp || {}) };
+                      if (liveEmp) {
+                        for (const [k, v] of Object.entries(liveEmp)) {
+                          if (v !== undefined && v !== null && String(v).trim() !== '') {
+                            mergedEmp[k] = v;
+                          }
+                        }
+                      }
+                      const resolvedEmp = (liveEmp || storedEmp) ? mergedEmp : (viewingTRCT as any);
+                      return sanitizeTerminationPaymentDescription(viewingTRCT.paymentDescription, resolvedEmp);
+                    })()}
                   </span>
                 </div>
               </div>
@@ -1585,36 +1610,72 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 </table>
               </div>
 
-              {/* Quadro Resumo com Líquido e Multa FGTS + QR Code PIX */}
-              <div className="block-rescisao trct-avoid-break border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-1.5 flex flex-row items-center justify-between gap-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%):</span>
-                    <span className="text-sm font-bold text-black print:text-xs">
-                      {formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}
-                    </span>
-                  </div>
+              {/* Quadro Resumo com Líquido, Comprovação de Quitação e QR Code PIX */}
+              {(() => {
+                const isFgtsEligibleReason =
+                  viewingTRCT.reason === 'sem_justa_causa' || viewingTRCT.reason === 'acordo_mutuo';
+                const hasPositiveFgtsFine = (viewingTRCT.calculation?.fgtsFineAmount || 0) > 0;
+                const showFgtsFineBlock = isFgtsEligibleReason || hasPositiveFgtsFine;
 
-                  <div className="text-left sm:text-right">
-                    <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase print:text-[9px]">VALOR LÍQUIDO A RECEBER:</span>
-                    <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black print:text-lg">
-                      {formatMoneyBRL(viewingTRCT.calculation?.netTotal || 0)}
-                    </span>
-                  </div>
-                </div>
+                const paymentDescLower = String(viewingTRCT.paymentDescription || '').toLowerCase();
+                const isExplicitNonPixPayment =
+                  paymentDescLower.includes('dinheiro') ||
+                  paymentDescLower.includes('espécie') ||
+                  paymentDescLower.includes('especie') ||
+                  paymentDescLower.includes('cheque');
 
-                {trctPixKey ? (
-                  <div className="shrink-0 pl-2 border-l border-black/20 self-center">
-                    <PixQrCodeBlock
-                      pixKey={trctPixKey}
-                      amount={viewingTRCT.calculation?.netTotal || 0}
-                      label="QR CODE PIX PARA PAGAMENTO"
-                      receiverName={viewingTRCT.employeeName}
-                      city={companyProfile?.city || 'Brasil'}
-                    />
+                return (
+                  <div className="block-rescisao trct-avoid-break border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-1.5 flex flex-col sm:flex-row print:flex-row items-stretch sm:items-center print:items-center justify-between gap-3 print:gap-2">
+                    {/* Coluna Esquerda: Multa FGTS (quando aplicável) e Valor Líquido */}
+                    <div className="shrink-0 flex flex-col justify-center gap-1.5 print:gap-1">
+                      {showFgtsFineBlock && (
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[8.5px]">
+                            Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || (viewingTRCT.reason === 'acordo_mutuo' ? 20 : 40)}%):
+                          </span>
+                          <span className="text-sm font-bold text-black print:text-xs">
+                            {formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="text-left">
+                        <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase print:text-[8.5px]">VALOR LÍQUIDO A RECEBER:</span>
+                        <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black print:text-lg">
+                          {formatMoneyBRL(viewingTRCT.calculation?.netTotal || 0)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Espaço Central: Quadro Discreto de Comprovação de Quitação */}
+                    <div className="flex-1 min-w-0 border border-slate-300 print:border-slate-400 rounded p-2.5 print:p-1.5 bg-white text-[10px] print:text-[8px] text-slate-600 print:text-black leading-snug space-y-1.5 print:space-y-1">
+                      <div className="font-bold uppercase tracking-wide text-slate-700 print:text-black text-[10px] print:text-[8.5px]">
+                        COMPROVAÇÃO DE QUITAÇÃO
+                      </div>
+                      <p className="m-0 leading-tight">
+                        Guardar o comprovante do PIX, depósito ou transferência bancária grampeado junto a este termo assinado, ou registrar abaixo a forma e data do pagamento:
+                      </p>
+                      <div className="pt-1 print:pt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-slate-700 print:text-black">
+                        <span>Forma de Pagamento: ___________________________</span>
+                        <span>Data: ____/____/20____</span>
+                      </div>
+                    </div>
+
+                    {/* Coluna Direita: QR Code PIX */}
+                    {trctPixKey && !isExplicitNonPixPayment ? (
+                      <div className="shrink-0 pl-2 border-l border-black/20 self-center">
+                        <PixQrCodeBlock
+                          pixKey={trctPixKey}
+                          amount={viewingTRCT.calculation?.netTotal || 0}
+                          label="QR CODE PIX PARA PAGAMENTO"
+                          receiverName={viewingTRCT.employeeName}
+                          city={companyProfile?.city || 'Brasil'}
+                        />
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
+                );
+              })()}
 
               {/* Container de Quitação e Assinaturas */}
               <div className="block-rescisao trct-signature-block trct-avoid-break pt-1.5 space-y-2 print:pt-1 print:space-y-1.5">

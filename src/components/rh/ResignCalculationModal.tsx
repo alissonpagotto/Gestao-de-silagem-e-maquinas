@@ -33,7 +33,10 @@ import {
   formatMoneyBRL,
   parseRawOrFormattedToFloat,
   formatNumberBRL,
+  formatEmployeeBankDeposit,
+  sanitizeTerminationPaymentDescription,
 } from './payrollHelpers';
+import { findEmployeeFromStorage } from './pixUtils';
 import { useConfirm } from '../../context/ConfirmContext';
 
 interface ResignCalculationModalProps {
@@ -82,6 +85,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   const [customFgtsBalance, setCustomFgtsBalance] = useState<string>('');
   const [isManualFgts, setIsManualFgts] = useState<boolean>(false);
   const [markInactive, setMarkInactive] = useState<boolean>(true);
+  const [paymentDescription, setPaymentDescription] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
   // Controles de Inclusão e Deduções
@@ -96,6 +100,30 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [draftBannerMessage, setDraftBannerMessage] = useState<string | null>(null);
   const [vacationAlert, setVacationAlert] = useState<string | null>(null);
+
+  const mergeNonEmptyEmployee = (live?: Employee | null, stored?: Employee | null): Employee | null => {
+    if (!live && !stored) return null;
+    const base: Record<string, any> = { ...(stored || {}) };
+    if (live) {
+      for (const [k, v] of Object.entries(live)) {
+        if (v !== undefined && v !== null && String(v).trim() !== '') {
+          base[k] = v;
+        }
+      }
+    }
+    return base as Employee;
+  };
+
+  const resolveDefaultPaymentDescription = (emp?: Employee | null): string => {
+    if (!emp) return '';
+    const stored = findEmployeeFromStorage(emp.id || emp.name);
+    const merged = mergeNonEmptyEmployee(emp, stored);
+    const formatted = formatEmployeeBankDeposit(merged);
+    if (formatted && formatted !== 'Não informado' && formatted !== 'NÃO INFORMADO') {
+      return formatted;
+    }
+    return '';
+  };
 
   // Carrega ou reseta os campos sempre que o modal abre ou initialTermination muda
   useEffect(() => {
@@ -124,6 +152,16 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       setCustomAbsencesDiscount(initialTermination.customAbsencesDiscount || '0,00');
       setCustomAdvancesDiscount(initialTermination.customAdvancesDiscount || '0,00');
       setOtherDeductionsInput(initialTermination.otherDeductionsInput || '0,00');
+      const matchedEmp = employees.find(
+        (e) => e.id === initialTermination.employeeId || e.name === initialTermination.employeeName
+      ) || findEmployeeFromStorage(initialTermination.employeeId || initialTermination.employeeName);
+      if (initialTermination.paymentDescription && initialTermination.paymentDescription.trim()) {
+        setPaymentDescription(
+          sanitizeTerminationPaymentDescription(initialTermination.paymentDescription, matchedEmp)
+        );
+      } else {
+        setPaymentDescription(resolveDefaultPaymentDescription(matchedEmp));
+      }
       setNotes(initialTermination.notes || '');
       setMarkInactive(Boolean(initialTermination.markEmployeeInactive ?? (initialTermination.status === 'homologado')));
       setDraftBannerMessage(
@@ -150,12 +188,13 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       setCustomAbsencesDiscount('0,00');
       setCustomAdvancesDiscount('0,00');
       setOtherDeductionsInput('0,00');
+      setPaymentDescription('');
       setNotes('');
       setMarkInactive(true);
       setDraftBannerMessage(null);
       setVacationAlert(null);
     }
-  }, [isOpen, initialTermination]);
+  }, [isOpen, initialTermination, employees]);
 
   // Colaborador Selecionado
   const selectedEmployee = useMemo(() => {
@@ -175,6 +214,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
       setCustomFgtsBalance('');
       setVacationExpiredPeriods(0);
       setVacationExpiredInput('0');
+      setPaymentDescription('');
       setDraftBannerMessage(null);
       setVacationAlert(null);
       return;
@@ -239,6 +279,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
     setIncludeFgtsFine(false);
     setIncludeInssDiscount(true);
     setOtherDeductionsInput('0,00');
+    setPaymentDescription(resolveDefaultPaymentDescription(emp));
     setNotes('');
   };
 
@@ -731,6 +772,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         customAbsencesDiscount,
         customAdvancesDiscount,
         otherDeductionsInput,
+        paymentDescription: paymentDescription.trim() || undefined,
         notes,
         status: 'homologado',
         markEmployeeInactive: markInactive,
@@ -786,6 +828,7 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
         customAbsencesDiscount,
         customAdvancesDiscount,
         otherDeductionsInput,
+        paymentDescription: paymentDescription.trim() || undefined,
         notes,
         status: 'rascunho',
         markEmployeeInactive: false,
@@ -1161,20 +1204,63 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                 </div>
               </div>
 
-              {/* Seção 5: Observações e Inativação */}
-              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-2">
-                <label className="block text-[11px] font-bold text-black dark:text-stone-300">
-                  Observações Gerais / Anotações
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Informações adicionais sobre o desligamento, entrega de EPIs, CTPS..."
-                  rows={2}
-                  className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                />
+              {/* Seção 5: Forma de Pagamento, Observações e Inativação */}
+              <div className="p-3.5 bg-[#e0e6f1] dark:bg-stone-800/40 rounded-xl border border-black dark:border-stone-800 space-y-3">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <label className="block text-[11px] font-bold text-black dark:text-stone-300">
+                      Depósito / Forma de Pagamento
+                    </label>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {selectedEmployee && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentDescription(resolveDefaultPaymentDescription(selectedEmployee))}
+                          className="px-2 py-0.5 text-[10px] rounded-md font-bold bg-white dark:bg-stone-800 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 hover:bg-gray-100 transition cursor-pointer"
+                          title="Preencher automaticamente com os dados bancários/PIX do cadastro do colaborador"
+                        >
+                          Usar cadastro
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPaymentDescription('Pagamento em Dinheiro')}
+                        className="px-2 py-0.5 text-[10px] rounded-md font-bold bg-white dark:bg-stone-800 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 hover:bg-gray-100 transition cursor-pointer"
+                      >
+                        Dinheiro
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentDescription('Transferência Bancária')}
+                        className="px-2 py-0.5 text-[10px] rounded-md font-bold bg-white dark:bg-stone-800 text-black dark:text-stone-300 border border-gray-400 dark:border-stone-700 hover:bg-gray-100 transition cursor-pointer"
+                      >
+                        Transferência Bancária
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={paymentDescription}
+                    onChange={(e) => setPaymentDescription(e.target.value)}
+                    placeholder="Ex: SICREDI • PIX (Telefone): (46) 99940-1854 ou Dinheiro / Transferência"
+                    className="w-full px-3 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
 
-                <label className="flex items-center space-x-2 text-xs font-bold text-black dark:text-stone-200 cursor-pointer pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-black dark:text-stone-300 mb-1">
+                    Observações Gerais / Anotações
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Informações adicionais sobre o desligamento, entrega de EPIs, CTPS..."
+                    rows={2}
+                    className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-xl text-xs text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                  />
+                </div>
+
+                <label className="flex items-center space-x-2 text-xs font-bold text-black dark:text-stone-200 cursor-pointer pt-0.5">
                   <input
                     type="checkbox"
                     checked={markInactive}
@@ -1212,12 +1298,14 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                     <span>Total Deduções:</span>
                     <span className="font-bold text-rose-400">- {formatMoneyBRL(calculation.totalDeductions)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-slate-300 pt-1 border-t border-slate-700/50">
-                    <span>Multa FGTS ({calculation.fgtsFineRate}%):</span>
-                    <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                      {includeFgtsFine ? formatMoneyBRL(calculation.fgtsFineAmount) : 'R$ 0,00'}
-                    </span>
-                  </div>
+                  {(reason === 'sem_justa_causa' || reason === 'acordo_mutuo' || calculation.fgtsFineAmount > 0) && (
+                    <div className="flex items-center justify-between text-slate-300 pt-1 border-t border-slate-700/50">
+                      <span>Multa FGTS ({calculation.fgtsFineRate}%):</span>
+                      <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                        {includeFgtsFine ? formatMoneyBRL(calculation.fgtsFineAmount) : 'R$ 0,00'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {selectedEmployee && (
@@ -1241,6 +1329,8 @@ export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
                         includeInssDiscount,
                         customFgtsBalance,
                         isManualFgts,
+                        paymentDescription: paymentDescription.trim() || undefined,
+                        notes,
                         status: initialTermination?.status || 'rascunho',
                         createdAt: initialTermination?.createdAt || new Date().toISOString(),
                       });

@@ -1920,6 +1920,7 @@ export interface TerminationRecord {
   baseSalary: number;
   calculation: TerminationCalculation;
   notes?: string;
+  paymentDescription?: string; // Forma / Dados de Pagamento da Rescisão exibidos no TRCT
   includeFgtsFine?: boolean;
   includeInssDiscount?: boolean;
   status: 'rascunho' | 'homologado' | 'pago' | 'cancelado' | 'integrado';

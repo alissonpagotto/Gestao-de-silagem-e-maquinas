@@ -614,75 +614,301 @@ export const formatEmployeeAdmissionDate = (dateStr?: string | null): string => 
   return dateStr;
 };
 
+const IGNORED_BANK_LABELS = new Set([
+  'CONTA PESSOAL',
+  'CONTA DE TERCEIRO',
+  'PIX',
+  'DINHEIRO',
+  'PAGAMENTO EM DINHEIRO',
+  'ESPÉCIE',
+  'ESPECIE',
+  'NÃO INFORMADO',
+  'NAO INFORMADO',
+  'A DEFINIR',
+]);
+
+const isPlaceholderZeroValue = (val: string): boolean => {
+  const trimmed = val.trim();
+  if (!trimmed) return true;
+  return /^0+([-/.]?0+)*$/.test(trimmed);
+};
+
+const cleanBankLabel = (val: string): string => {
+  return val
+    .replace(/^FORMA DE RECEBIMENTO:\s*/i, '')
+    .replace(/^CONTA BANCÁRIA\s*\|\s*/i, '')
+    .replace(/^CONTA BANCARIA\s*\|\s*/i, '')
+    .replace(/^BANCO:\s*/i, '')
+    .trim();
+};
+
+const formatPixTypeLabel = (rawType: string, keyValue: string, empPhone?: string): string => {
+  const t = rawType.trim().toUpperCase();
+  if (t.includes('CEL') || t.includes('TEL') || t.includes('FONE') || t.includes('PHONE')) {
+    return 'Telefone';
+  }
+  if (t.includes('CNPJ')) return 'CNPJ';
+  if (t.includes('CPF')) return 'CPF';
+  if (t.includes('MAIL')) return 'E-mail';
+  if (t.includes('ALEAT') || t.includes('RANDOM') || t.includes('EVP')) return 'Aleatória';
+
+  const k = keyValue.trim();
+  if (!k || k === 'NÃO INFORMADA') return '';
+  if (k.includes('@')) return 'E-mail';
+  if (/^[0-9a-fA-F-]{32,36}$/.test(k)) return 'Aleatória';
+
+  const digits = k.replace(/\D/g, '');
+  if (digits.length === 14) return 'CNPJ';
+  if (digits.length === 10) return 'Telefone';
+  if (digits.length === 11) {
+    const phoneDigits = (empPhone || '').replace(/\D/g, '');
+    if (
+      k.includes('(') ||
+      k.includes('+') ||
+      (phoneDigits.length >= 10 && phoneDigits.endsWith(digits))
+    ) {
+      return 'Telefone';
+    }
+    return 'CPF';
+  }
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+    return 'Telefone';
+  }
+  return '';
+};
+
+const formatPixKeyForDisplay = (keyValue: string, typeLabel: string): string => {
+  const k = keyValue.trim();
+  if (!k || k === 'NÃO INFORMADA') return 'Não informada';
+  if (typeLabel === 'E-mail') return k.toLowerCase();
+  if (typeLabel === 'Aleatória') return k;
+
+  let digits = k.replace(/\D/g, '');
+  if (typeLabel === 'Telefone') {
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+      digits = digits.slice(2);
+    }
+    if (digits.length === 11) {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10) {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return k;
+  }
+  if (typeLabel === 'CPF' && digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+  if (typeLabel === 'CNPJ' && digits.length === 14) {
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  return k;
+};
+
+export const looksLikePixKey = (val?: string | null, emp?: Partial<Employee> | null): boolean => {
+  const raw = String(val || '').trim();
+  if (!raw || isPlaceholderZeroValue(raw)) return false;
+  if (raw.includes('@')) return true;
+  if (/^[0-9a-fA-F-]{32,36}$/.test(raw)) return true;
+  if (/pix/i.test(raw)) return true;
+  // Telefone com DDD ou formatação típica
+  if (/^\s*\(\d{2}\)\s*\d{4,5}[-\s]?\d{4}\s*$/.test(raw)) return true;
+  if (/^\s*\+55\s*\d{10,11}\s*$/.test(raw.replace(/[^\d+]/g, ''))) return true;
+  if (/^\s*\d{2}\s+\d{4,5}[-\s]?\d{4}\s*$/.test(raw)) return true;
+  // CPF ou CNPJ formatado
+  if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(raw)) return true;
+  if (/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(raw)) return true;
+
+  const digits = raw.replace(/\D/g, '');
+  if ((digits.length === 10 || digits.length === 11) && /-\d{4}$/.test(raw)) return true;
+
+  const empCpfDigits = (emp?.cpf || '').replace(/\D/g, '');
+  if (empCpfDigits.length === 11 && digits === empCpfDigits) return true;
+  const empPhoneDigits = (emp?.phone || '').replace(/\D/g, '');
+  if (
+    empPhoneDigits.length >= 10 &&
+    digits.length >= 10 &&
+    (digits === empPhoneDigits || empPhoneDigits.endsWith(digits) || digits.endsWith(empPhoneDigits))
+  ) {
+    return true;
+  }
+
+  // 10 a 14 dígitos puros sem dígito verificador de conta (ex: 46999401854 ou CPF/CNPJ)
+  if (!raw.includes('-') && digits.length >= 10 && digits.length <= 14) return true;
+  return false;
+};
+
 /**
- * Formata as informações bancárias cadastradas do colaborador:
- * SE o colaborador recebe por PIX:
- * "PIX - CHAVE: [CHAVE_DO_FUNCIONÁRIO]"
- * SE o colaborador recebe por CONTA BANCÁRIA:
- * "[BANCO] AG: [AGÊNCIA] CC: [CONTA]"
+ * Formata as informações bancárias / PIX cadastradas do colaborador:
+ * - Se houver PIX: "[BANCO] • PIX (Telefone): (46) 99940-1854" (omitindo AG: 0000 quando não preenchida)
+ * - Se houver Conta Bancária: "[BANCO] • Ag: [AGÊNCIA] • CC: [CONTA]" (omitindo AG: 0000 / CC: 00000-0 quando não preenchidos)
+ * - Se Dinheiro: "Pagamento em Dinheiro"
  */
 export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): string => {
-  if (!emp) return 'NÃO INFORMADO';
+  if (!emp) return 'Não informado';
 
-  const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').trim().toUpperCase();
-  const directPix = (emp.chavePix || (emp as any).chave_pix || emp.pixKey || (emp as any).pix_key || '').trim();
-  const rawAccount = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
-  const rawAgency = (emp.bankAgency || (emp as any).agencia || '').trim();
-  const bankPixKey = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim().toUpperCase();
+  const paymentLoc = String(emp.paymentLocation || (emp as any).local_recebimento || '').trim();
+  const paymentLocUpper = paymentLoc.toUpperCase();
+  const directPix = String(emp.chavePix || (emp as any).chave_pix || emp.pixKey || (emp as any).pix_key || '').trim();
+  const rawPixType = String(emp.pixKeyType || (emp as any).tipo_chave_pix || '').trim();
+  const rawAccount = String(emp.bankAccount || (emp as any).conta_corrente || '').trim();
+  const rawAgency = String(emp.bankAgency || (emp as any).agencia || '').trim();
+  const rawBank = String(emp.bankPixKey || (emp as any).banco_chave_pix || '').trim();
+
+  const bankFieldLooksLikePix = looksLikePixKey(rawBank, emp);
+  const accountFieldLooksLikePix = looksLikePixKey(rawAccount, emp);
+
+  const cleanedBank = bankFieldLooksLikePix ? '' : cleanBankLabel(rawBank);
+  const validBankName =
+    cleanedBank &&
+    !IGNORED_BANK_LABELS.has(cleanedBank.toUpperCase()) &&
+    cleanedBank.toLowerCase() !== directPix.toLowerCase()
+      ? cleanedBank
+      : '';
+
+  const validAgency = !isPlaceholderZeroValue(rawAgency) ? rawAgency : '';
+  const validAccount = !isPlaceholderZeroValue(rawAccount) ? rawAccount : '';
 
   const isPix =
-    paymentLoc === 'PIX' ||
-    paymentLoc.includes('PIX') ||
+    paymentLocUpper === 'PIX' ||
+    paymentLocUpper.includes('PIX') ||
     Boolean(directPix) ||
-    rawAccount.includes('@') ||
-    /^[0-9a-fA-F-]{32,36}$/.test(rawAccount);
+    accountFieldLooksLikePix ||
+    bankFieldLooksLikePix;
 
   if (isPix) {
-    let chave = directPix || rawAccount;
-    chave = chave.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+    let chave = (
+      directPix ||
+      (accountFieldLooksLikePix ? rawAccount : '') ||
+      (bankFieldLooksLikePix ? rawBank : '') ||
+      (!isPlaceholderZeroValue(rawAccount) ? rawAccount : '')
+    )
+      .replace(/^chave\s*pix[:\s-]*/i, '')
+      .replace(/^pix[:\s-]*/i, '')
+      .trim();
 
-    if (!chave || chave === '00000-0' || chave === '000-0') {
+    let inferredType = rawPixType;
+    if (!chave || isPlaceholderZeroValue(chave)) {
       if (emp.cpf) {
         chave = emp.cpf;
+        if (!inferredType) inferredType = 'CPF';
       } else if (emp.phone) {
         chave = emp.phone;
+        if (!inferredType) inferredType = 'Telefone';
       } else {
-        chave = 'NÃO INFORMADA';
+        chave = '';
       }
     }
 
-    // Se for CPF, telefone ou CNPJ numérico, mantém apenas dígitos puros
-    const digitsOnly = chave.replace(/\D/g, '');
-    if (digitsOnly.length >= 10 && !chave.includes('@')) {
-      chave = digitsOnly;
+    if (!chave) {
+      return validBankName ? `${validBankName.toUpperCase()} • PIX (chave não informada)` : 'PIX (chave não informada)';
     }
 
-    return `PIX - CHAVE: ${chave.toUpperCase()}`;
+    const typeLabel = formatPixTypeLabel(inferredType, chave, emp.phone);
+    const displayKey = formatPixKeyForDisplay(chave, typeLabel);
+    const pixPart = typeLabel ? `PIX (${typeLabel}): ${displayKey}` : `PIX: ${displayKey}`;
+
+    const parts: string[] = [];
+    if (validBankName && validBankName.toLowerCase() !== chave.toLowerCase()) {
+      parts.push(validBankName.toUpperCase());
+    }
+    if (validAgency) {
+      parts.push(`Ag: ${validAgency}`);
+    }
+    parts.push(pixPart);
+
+    return parts.join(' • ');
   }
 
-  // Se o colaborador recebe por CONTA BANCÁRIA: "[BANCO] AG: [AGÊNCIA] CC: [CONTA]"
-  let bankName = bankPixKey
-    .replace(/^FORMA DE RECEBIMENTO:\s*/i, '')
-    .replace(/^CONTA BANCÁRIA\s*\|\s*/i, '')
-    .replace(/^BANCO:\s*/i, '')
-    .trim();
-
-  if (!bankName || bankName === 'CONTA PESSOAL' || bankName === 'CONTA DE TERCEIRO') {
-    let cleanPaymentLoc = paymentLoc
-      .replace(/^FORMA DE RECEBIMENTO:\s*/i, '')
-      .replace(/^CONTA BANCÁRIA\s*\|\s*/i, '')
-      .replace(/^BANCO:\s*/i, '')
-      .trim();
-
-    bankName = (cleanPaymentLoc && cleanPaymentLoc !== 'CONTA PESSOAL' && cleanPaymentLoc !== 'CONTA DE TERCEIRO')
-      ? cleanPaymentLoc
-      : 'BANCO';
+  if (
+    (paymentLocUpper.includes('DINHEIRO') || paymentLocUpper.includes('ESPECIE') || paymentLocUpper.includes('ESPÉCIE')) &&
+    !validBankName &&
+    !validAccount
+  ) {
+    return 'Pagamento em Dinheiro';
   }
 
-  const agency = (rawAgency || '0000').toUpperCase();
-  const account = (rawAccount || '00000-0').toUpperCase();
+  let bankName = validBankName;
+  if (!bankName) {
+    const cleanLoc = cleanBankLabel(paymentLoc);
+    if (
+      cleanLoc &&
+      !IGNORED_BANK_LABELS.has(cleanLoc.toUpperCase()) &&
+      cleanLoc.toUpperCase() !== 'CONTA BANCÁRIA' &&
+      cleanLoc.toUpperCase() !== 'CONTA BANCARIA'
+    ) {
+      bankName = cleanLoc;
+    }
+  }
 
-  return `${bankName} AG: ${agency} CC: ${account}`.toUpperCase();
+  const parts: string[] = [];
+  if (bankName) parts.push(bankName.toUpperCase());
+  if (validAgency) parts.push(`Ag: ${validAgency}`);
+  if (validAccount) parts.push(`CC: ${validAccount}`);
+
+  if (parts.length > 0) {
+    return parts.join(' • ');
+  }
+
+  return paymentLoc || 'Não informado';
+};
+
+/**
+ * Corrige descrições legadas gravadas como "BANCO — CC: <Chave PIX>" / "AG: 0000 CC: <Chave PIX>"
+ * para "BANCO • PIX (<Tipo>): <Chave>", preservando textos manuais (ex: "Pagamento em Dinheiro") e contas reais.
+ */
+export const sanitizeTerminationPaymentDescription = (
+  savedDesc?: string | null,
+  emp?: Partial<Employee> | null
+): string => {
+  const trimmed = String(savedDesc || '').trim();
+  if (!trimmed) {
+    return formatEmployeeBankDeposit(emp);
+  }
+
+  const ccMatch = trimmed.match(/\bCC:\s*(.+)$/i);
+  if (ccMatch) {
+    const ccValue = ccMatch[1].trim();
+    if (looksLikePixKey(ccValue, emp)) {
+      if (emp) {
+        const formattedFromEmp = formatEmployeeBankDeposit(emp);
+        if (formattedFromEmp && formattedFromEmp.includes('PIX')) {
+          return formattedFromEmp;
+        }
+      }
+
+      const cleanKey = ccValue
+        .replace(/^chave\s*pix[:\s-]*/i, '')
+        .replace(/^pix[:\s-]*/i, '')
+        .trim();
+      const typeLabel = formatPixTypeLabel(
+        String(emp?.pixKeyType || (emp as any)?.tipo_chave_pix || ''),
+        cleanKey,
+        emp?.phone
+      );
+      const displayKey = formatPixKeyForDisplay(cleanKey, typeLabel);
+      const pixPart = typeLabel ? `PIX (${typeLabel}): ${displayKey}` : `PIX: ${displayKey}`;
+
+      const prefixRaw = trimmed
+        .slice(0, ccMatch.index)
+        .replace(/\bAG:\s*0+\b/gi, '')
+        .replace(/[—•|-]+\s*$/g, '')
+        .replace(/^\s*[—•|-]+/g, '')
+        .trim();
+
+      const cleanedPrefix = cleanBankLabel(prefixRaw);
+      const validPrefix =
+        cleanedPrefix &&
+        !IGNORED_BANK_LABELS.has(cleanedPrefix.toUpperCase()) &&
+        cleanedPrefix.toUpperCase() !== 'BANCO'
+          ? cleanedPrefix.toUpperCase()
+          : '';
+
+      return validPrefix ? `${validPrefix} • ${pixPart}` : pixPart;
+    }
+  }
+
+  return trimmed;
 };
 
 /**
