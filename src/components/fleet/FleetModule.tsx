@@ -594,7 +594,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       };
       const calculatedNew = updateVehicleWithCalculatedMetrics(newVehicle, fuelLogs);
       savedTargetVehicle = calculatedNew;
-      updatedList = [calculatedNew, ...machineries];
+      updatedList = [calculatedNew, ...machineries.filter(m => m.id !== calculatedNew.id)];
       onSaveMachineries(updatedList);
       saveStoredMachineries(updatedList);
       saveCompanyFrotas(updatedList);

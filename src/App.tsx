@@ -107,6 +107,7 @@ import {
   getCompanyRhFaltas,
   saveCompanyFrotas,
   getCompanyFrotas,
+  dedupeMachineriesById,
   saveCompanyFuncionarios,
   getCompanyFuncionarios,
   saveCompanyFornecedores,
@@ -595,8 +596,9 @@ export default function App() {
             });
           }
           if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
-            lastSyncedState.current.rel_machineries = JSON.stringify(cloudData.gestao_frotas);
-            setMachineries(cloudData.gestao_frotas);
+            const dedupedFrotas = dedupeMachineriesById(cloudData.gestao_frotas);
+            lastSyncedState.current.rel_machineries = JSON.stringify(dedupedFrotas);
+            setMachineries(dedupedFrotas);
           }
           if (cloudData.contas_a_pagar !== undefined && Array.isArray(cloudData.contas_a_pagar) && cloudData.contas_a_pagar.length > 0) {
             const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => {
@@ -1160,12 +1162,13 @@ export default function App() {
               }
               return f;
             });
-            const ser = JSON.stringify(merged);
+            const dedupedMerged = dedupeMachineriesById(merged);
+            const ser = JSON.stringify(dedupedMerged);
             if (ser !== lastSyncedState.current.rel_machineries) {
               lastSyncedState.current.rel_machineries = ser;
-              saveStoredMachineries(merged);
+              saveStoredMachineries(dedupedMerged);
             }
-            return merged;
+            return dedupedMerged;
           });
         }
       });
@@ -1314,10 +1317,11 @@ export default function App() {
             }
           }
           if (Array.isArray(fresh.machineries) && fresh.machineries.length > 0) {
-            const ser = JSON.stringify(fresh.machineries);
+            const dedupedFresh = dedupeMachineriesById(fresh.machineries);
+            const ser = JSON.stringify(dedupedFresh);
             if (ser !== lastSyncedState.current.machineries) {
               lastSyncedState.current.machineries = ser;
-              setMachineries(fresh.machineries);
+              setMachineries(dedupedFresh);
             }
           }
           if (Array.isArray(fresh.expenses) && fresh.expenses.length > 0) {
@@ -2830,8 +2834,9 @@ export default function App() {
 
   // Gestão de Frotas Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveMachineries = (newMachineries: Machinery[]) => {
+    const dedupedMachineries = dedupeMachineriesById(newMachineries);
     const oldIds = new Set(machineries.map(m => m.id));
-    const newIds = new Set(newMachineries.map(m => m.id));
+    const newIds = new Set(dedupedMachineries.map(m => m.id));
 
     // Exclusões no Supabase
     for (const oldId of oldIds) {
@@ -2841,14 +2846,14 @@ export default function App() {
     }
 
     // Inserções / Atualizações no Supabase
-    for (const m of newMachineries) {
+    for (const m of dedupedMachineries) {
       upsertGestaoFrota(m, activeTenantId).catch(err => console.warn('Supabase upsertGestaoFrota notice:', err));
     }
-    saveCloudMachineries(newMachineries, activeTenantId).catch(err => console.warn('Supabase saveCloudMachineries notice:', err));
-    saveStoredMachineries(newMachineries);
-    saveCompanyFrotas(newMachineries, activeTenantId);
+    saveCloudMachineries(dedupedMachineries, activeTenantId).catch(err => console.warn('Supabase saveCloudMachineries notice:', err));
+    saveStoredMachineries(dedupedMachineries);
+    saveCompanyFrotas(dedupedMachineries, activeTenantId);
 
-    setMachineries(newMachineries);
+    setMachineries(dedupedMachineries);
   };
 
   // RH Funcionários Handlers (Multi-Tenant Persistência no Supabase)
@@ -3500,9 +3505,9 @@ export default function App() {
           }
 
           if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
-            setMachineries(cloudData.gestao_frotas);
+            setMachineries(dedupeMachineriesById(cloudData.gestao_frotas));
           } else if (cloudModules?.machineries && cloudModules.machineries.length > 0) {
-            setMachineries(cloudModules.machineries);
+            setMachineries(dedupeMachineriesById(cloudModules.machineries));
           } else {
             setMachineries([]);
           }
@@ -3522,7 +3527,7 @@ export default function App() {
         } else if (cloudModules) {
           if (cloudModules.clients) setClients(cloudModules.clients);
           if (cloudModules.inventory) setInventory(cloudModules.inventory);
-          if (cloudModules.machineries) setMachineries(cloudModules.machineries);
+          if (cloudModules.machineries) setMachineries(dedupeMachineriesById(cloudModules.machineries));
           if (cloudModules.expenses) {
             setExpenses(cloudModules.expenses);
             saveStoredExpenses(cloudModules.expenses);

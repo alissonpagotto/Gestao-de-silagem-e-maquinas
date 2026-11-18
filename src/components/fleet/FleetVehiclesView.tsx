@@ -1081,7 +1081,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   };
 
   const filteredVehicles = useMemo(() => {
-    const list = Array.isArray(machineries) ? machineries : [];
+    const rawList = Array.isArray(machineries) ? machineries : [];
+    const seenIds = new Set<string>();
+    const list = rawList.filter((m) => {
+      if (!m || !m.id) return false;
+      if (seenIds.has(m.id)) return false;
+      seenIds.add(m.id);
+      return true;
+    });
     const term = String(searchTerm ?? '').trim().toLowerCase();
 
     return list.filter((m) => {

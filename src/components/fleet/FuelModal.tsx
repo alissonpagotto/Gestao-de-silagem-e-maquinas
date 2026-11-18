@@ -105,14 +105,16 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   // Lista unificada de veículos (prioriza dados atualizados do banco mantendo props locais de fallback)
   // Remove permanentemente o prefixo fixo 'AGRÍCOLA' que aparece na frente das máquinas
   const availableMachineries = useMemo(() => {
-    let list: Machinery[] = propMachineries;
+    const map = new Map<string, Machinery>();
+    propMachineries.forEach(m => {
+      if (m?.id) map.set(m.id, m);
+    });
     if (dbMachineries.length > 0) {
-      // Mescla garantindo que todos os veículos apareçam
-      const map = new Map<string, Machinery>();
-      propMachineries.forEach(m => map.set(m.id, m));
-      dbMachineries.forEach(m => map.set(m.id, { ...(map.get(m.id) || {}), ...m }));
-      list = Array.from(map.values());
+      dbMachineries.forEach(m => {
+        if (m?.id) map.set(m.id, { ...(map.get(m.id) || {}), ...m });
+      });
     }
+    const list = Array.from(map.values());
     return list.map((v) => {
       const cleanRawNome = (v.nome || v.name || v.model || 'Veículo').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
       const cleanRawModel = (v.model || v.modelo || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();

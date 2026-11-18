@@ -1368,19 +1368,36 @@ export function saveStoredOrders(orders: SilageOrder[]): void {
   }
 }
 
+export function dedupeMachineriesById(list: Machinery[]): Machinery[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Map<string, Machinery>();
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    const rawId = String(item.id ?? '').trim();
+    if (!rawId) continue;
+    const existing = seen.get(rawId);
+    if (existing) {
+      seen.set(rawId, { ...existing, ...item, id: rawId });
+    } else {
+      seen.set(rawId, { ...item, id: rawId });
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export function sanitizeMachineryList(list: any): Machinery[] {
   if (!Array.isArray(list)) return [];
-  return list
+  const sanitized = list
     .filter((m: any) => {
       if (!m || typeof m !== 'object') return false;
       const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61'].includes(m.id);
       return !isMockId;
     })
-    .map((m: any) => {
+    .map((m: any, idx: number) => {
       const img = m.imageUrl || m.photoUrl;
       const sanitizedBase = {
         ...m,
-        id: String(m.id ?? ''),
+        id: String(m.id ?? '').trim() || `veh_sanitized_${idx}`,
         name: String(m.name ?? ''),
         model: String(m.model ?? ''),
         brand: String(m.brand ?? ''),
@@ -1398,6 +1415,7 @@ export function sanitizeMachineryList(list: any): Machinery[] {
       }
       return sanitizedBase;
     });
+  return dedupeMachineriesById(sanitized);
 }
 
 export function getStoredMachineries(): Machinery[] {
@@ -1474,7 +1492,8 @@ let lastSavedMachineriesJson = '';
 export function saveStoredMachineries(machines: Machinery[]): void {
   if (typeof localStorage === 'undefined') return;
   try {
-    const json = JSON.stringify(machines);
+    const deduped = dedupeMachineriesById(machines);
+    const json = JSON.stringify(deduped);
     if (json === lastSavedMachineriesJson) return;
     lastSavedMachineriesJson = json;
 
@@ -1486,10 +1505,10 @@ export function saveStoredMachineries(machines: Machinery[]): void {
     safeLocalStorageSetItem(STORAGE_KEYS.MACHINERIES, json);
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: machines }));
-      window.dispatchEvent(new CustomEvent('colaca_silagem_frotas_veiculos_updated', { detail: machines }));
-      window.dispatchEvent(new CustomEvent('agrocontrol_frotas_veiculos_updated', { detail: machines }));
-      window.dispatchEvent(new CustomEvent('agrocontrol_maquinas_updated', { detail: machines }));
+      window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: deduped }));
+      window.dispatchEvent(new CustomEvent('colaca_silagem_frotas_veiculos_updated', { detail: deduped }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_frotas_veiculos_updated', { detail: deduped }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_maquinas_updated', { detail: deduped }));
     }
   } catch (e) {
     console.warn('Aviso não-bloqueante ao salvar frotas:', e);

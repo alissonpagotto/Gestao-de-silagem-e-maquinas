@@ -821,9 +821,15 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
   // Filtro de Veículos da coluna esquerda baseado no resultado do banco
   const filteredVehicles = useMemo(() => {
-    const baseSource = (dbVehicles.length > 0 ? dbVehicles : machineries).filter((m) =>
+    const rawSource = (dbVehicles.length > 0 ? dbVehicles : machineries).filter((m) =>
       matchVehicleCategory(m, categoryFilter)
     );
+    const seenIds = new Set<string>();
+    const baseSource = rawSource.filter((m) => {
+      if (!m || !m.id || seenIds.has(m.id)) return false;
+      seenIds.add(m.id);
+      return true;
+    });
     const q = String(searchQuery || '').trim().toLowerCase();
     return baseSource.filter((m) => {
       if (!m) return false;

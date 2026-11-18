@@ -4503,7 +4503,7 @@ async function _unusedLegacyFetchGestaoFrotas(companyId?: string): Promise<Machi
     }
     const storedEmployees = getStoredEmployees();
 
-    return (data as any[] || []).map(row => {
+    const mappedRows = (data as any[] || []).map(row => {
       const tankCapacityNumber = row.tank_capacity !== undefined && row.tank_capacity !== null
         ? Number(row.tank_capacity)
         : (row.tankCapacity !== undefined && row.tankCapacity !== null
@@ -4691,6 +4691,15 @@ async function _unusedLegacyFetchGestaoFrotas(companyId?: string): Promise<Machi
         compositionType: row.composition_type || row.compositionType || (effectiveHasCoupledTrailer ? 'cavalo' : (row.tipo === 'reboque' ? 'reboque' : 'veiculo_simples')),
       };
     }) as Machinery[];
+
+    const dedupMap = new Map<string, Machinery>();
+    for (const item of mappedRows) {
+      if (item && item.id) {
+        const existing = dedupMap.get(item.id);
+        dedupMap.set(item.id, existing ? { ...existing, ...item } : item);
+      }
+    }
+    return Array.from(dedupMap.values());
   } catch (err) {
     console.warn('Supabase fetchGestaoFrotas err:', err);
     return [];
