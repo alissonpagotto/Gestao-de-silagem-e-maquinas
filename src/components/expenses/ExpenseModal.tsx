@@ -22,8 +22,9 @@ import {
   FileText,
   AlertCircle,
   Settings,
+  RotateCcw,
 } from 'lucide-react';
-import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard, EmployeePayrollDeductionItem } from '../../types';
+import { Expense, ExpenseCategory, CostCenter, Machinery, ExpenseStatus, PaymentMethod, Employee, FleetTeam, Supplier, BankAccount, MaintenanceLog, ExpenseItem, CorporateCard, EmployeePayrollDeductionItem, ExpenseEmployeeAllocation } from '../../types';
 import { INITIAL_CATEGORIES } from '../../lib/initialData';
 import { getStoredMaintenanceLogs, saveStoredMaintenanceLogs, getStoredMachineries, saveStoredMachineries, getStoredBankAccounts, getStoredSuppliers, saveStoredSuppliers, ensureSequentialSupplierCodes } from '../../lib/storage';
 import { formatCurrencyBRL, maskCurrencyLive, parseCurrencyToFloat, calculateCardInvoiceDueDate, formatDateBR, formatCpfCnpj, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -450,17 +451,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [notes, setNotes] = useState('');
   const [mealType, setMealType] = useState<'cafe' | 'almoco' | 'janta'>('almoco');
   
-  // Apportionment multi-targets (exclusive employee IDs; legacy team/group IDs preserved only when editing old records)
+  // Apportionment multi-targets + Desconto Particular (RH) unificados por funcionário
+  interface EmployeeAllocationRowState {
+    isCompanyAmountLocked: boolean;
+    manualCompanyAmountStr: string;
+    rhAmountStr: string;
+    rhItemDesc: string;
+  }
   const [enableApportionment, setEnableApportionment] = useState<boolean>(false);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [employeeRateioSearch, setEmployeeRateioSearch] = useState<string>('');
-
-  // Consumo Particular / Desconto em Folha (RH)
-  const [enableRhConsumption, setEnableRhConsumption] = useState<boolean>(false);
-  const [rhDeductionItems, setRhDeductionItems] = useState<EmployeePayrollDeductionItem[]>([]);
-  const [rhDraftEmpId, setRhDraftEmpId] = useState<string>('');
-  const [rhDraftDesc, setRhDraftDesc] = useState<string>('');
-  const [rhDraftAmountStr, setRhDraftAmountStr] = useState<string>('');
+  const [employeeAllocationsMap, setEmployeeAllocationsMap] = useState<Record<string, EmployeeAllocationRowState>>({});
 
   // Grade discriminada de produtos / itens da despesa
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
@@ -743,11 +744,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     setEnableApportionment(false);
     setSelectedTargets([]);
     setEmployeeRateioSearch('');
-    setEnableRhConsumption(false);
-    setRhDeductionItems([]);
-    setRhDraftEmpId('');
-    setRhDraftDesc('');
-    setRhDraftAmountStr('');
+    setEmployeeAllocationsMap({});
     setHasQuantity(false);
     setQuantity('');
     setUnit('litros');
@@ -789,11 +786,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       mealType,
       enableApportionment,
       selectedTargets,
-      enableRhConsumption,
-      rhDeductionItems,
-      rhDraftEmpId,
-      rhDraftDesc,
-      rhDraftAmountStr,
+      employeeAllocationsMap,
       expenseItems,
       hasQuantity,
       quantity,
@@ -881,37 +874,78 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         setUnitPrice('');
       }
 
-      if (editingExpense.employeeApportionment && editingExpense.employeeApportionment.trim()) {
-        const parts = editingExpense.employeeApportionment.split(',').map((s) => s.trim()).filter(Boolean);
-        if (parts.length > 0) {
-          setEnableApportionment(true);
-          setSelectedTargets(parts);
-        } else {
-          setEnableApportionment(false);
-          setSelectedTargets([]);
-        }
-      } else if (editingExpense.employeeId) {
-        setEnableApportionment(true);
-        setSelectedTargets([editingExpense.employeeId]);
-      } else if (editingExpense.teamId) {
-        setEnableApportionment(true);
-        setSelectedTargets([editingExpense.teamId]);
-      } else if (editingExpense.employeeName && editingExpense.employeeName.trim()) {
-        setEnableApportionment(true);
-        setSelectedTargets(['todos']);
-      } else {
-        setEnableApportionment(false);
-        setSelectedTargets([]);
-      }
-      setEmployeeRateioSearch('');
+      const loadedDetails = Array.isArray(editingExpense.employeeApportionmentDetails)
+        ? editingExpense.employeeApportionmentDetails
+        : [];
       const loadedRhDeductions = Array.isArray(editingExpense.employeePayrollDeductions)
         ? editingExpense.employeePayrollDeductions
         : [];
-      setRhDeductionItems(loadedRhDeductions);
-      setEnableRhConsumption(loadedRhDeductions.length > 0);
-      setRhDraftEmpId('');
-      setRhDraftDesc('');
-      setRhDraftAmountStr('');
+
+      if (loadedDetails.length > 0) {
+        setEnableApportionment(true);
+        setSelectedTargets(loadedDetails.map((d) => d.employeeId));
+        const restoredMap: Record<string, EmployeeAllocationRowState> = {};
+        loadedDetails.forEach((d) => {
+          restoredMap[d.employeeId] = {
+            isCompanyAmountLocked: Boolean(d.isManualAmount),
+            manualCompanyAmountStr: d.isManualAmount ? formatCurrencyInputDisplay(d.companyAmount) : '',
+            rhAmountStr:
+              d.rhDeductionAmount && d.rhDeductionAmount > 0
+                ? formatCurrencyInputDisplay(d.rhDeductionAmount)
+                : '',
+            rhItemDesc: d.rhItemDescription || '',
+          };
+        });
+        setEmployeeAllocationsMap(restoredMap);
+      } else {
+        const baseTargets: string[] = [];
+        if (editingExpense.employeeApportionment && editingExpense.employeeApportionment.trim()) {
+          editingExpense.employeeApportionment
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((t) => {
+              if (!baseTargets.includes(t)) baseTargets.push(t);
+            });
+        } else if (editingExpense.employeeId) {
+          baseTargets.push(editingExpense.employeeId);
+        } else if (editingExpense.teamId) {
+          baseTargets.push(editingExpense.teamId);
+        } else if (editingExpense.employeeName && editingExpense.employeeName.trim()) {
+          baseTargets.push('todos');
+        }
+
+        const restoredMap: Record<string, EmployeeAllocationRowState> = {};
+        loadedRhDeductions.forEach((ded) => {
+          if (!ded.employeeId) return;
+          if (!baseTargets.includes(ded.employeeId) && !baseTargets.includes('todos')) {
+            baseTargets.push(ded.employeeId);
+          }
+          const prev = restoredMap[ded.employeeId];
+          const prevAmt = prev ? parseCurrencyToFloat(prev.rhAmountStr) : 0;
+          const nextAmt = +(prevAmt + (Number(ded.amount) || 0)).toFixed(2);
+          const nextDesc = prev?.rhItemDesc
+            ? `${prev.rhItemDesc} + ${ded.itemDescription}`
+            : ded.itemDescription;
+          restoredMap[ded.employeeId] = {
+            isCompanyAmountLocked: false,
+            manualCompanyAmountStr: '',
+            rhAmountStr: nextAmt > 0 ? formatCurrencyInputDisplay(nextAmt) : '',
+            rhItemDesc: nextDesc || '',
+          };
+        });
+
+        if (baseTargets.length > 0 || loadedRhDeductions.length > 0) {
+          setEnableApportionment(true);
+          setSelectedTargets(baseTargets);
+          setEmployeeAllocationsMap(restoredMap);
+        } else {
+          setEnableApportionment(false);
+          setSelectedTargets([]);
+          setEmployeeAllocationsMap({});
+        }
+      }
+      setEmployeeRateioSearch('');
       const loadedItems = editingExpense.expense_items || (editingExpense as any).items || [];
       setExpenseItems(Array.isArray(loadedItems) ? loadedItems : []);
       setItemDescription('');
@@ -995,6 +1029,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       : [...cleaned, empId];
     setSelectedTargets(nextTargets);
 
+    if (exists) {
+      setEmployeeAllocationsMap((prev) => {
+        if (!prev[empId]) return prev;
+        const copy = { ...prev };
+        delete copy[empId];
+        return copy;
+      });
+    }
+
     if (!exists) {
       if (!machineryId && !costCenterId) {
         const linkedVeh = getLinkedVehicleForEmployee(empId);
@@ -1017,6 +1060,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const handleRemoveTarget = (idToRemove: string) => {
     const remaining = selectedTargets.filter((t) => t !== idToRemove);
     setSelectedTargets(remaining);
+    setEmployeeAllocationsMap((prev) => {
+      if (!prev[idToRemove]) return prev;
+      const copy = { ...prev };
+      delete copy[idToRemove];
+      return copy;
+    });
     if (!costCenterId) {
       const removedVeh = getLinkedVehicleForEmployee(idToRemove);
       if (removedVeh && machineryId === removedVeh.id) {
@@ -1136,60 +1185,140 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const totalParticipantsCount = resolvedUniqueEmployees.length > 0 ? resolvedUniqueEmployees.length : 1;
   const numAmount = parseFloat(amount) || 0;
-  const rhDeductionsTotal = useMemo(
-    () => +(rhDeductionItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0)).toFixed(2),
-    [rhDeductionItems]
-  );
-  const netRateioBaseAmount = Math.max(0, +(numAmount - (enableRhConsumption ? rhDeductionsTotal : 0)).toFixed(2));
+  const activeApportionmentEnabled = enableApportionment && !isFleetMaintenanceCategory;
+
+  const rhDeductionsTotal = useMemo(() => {
+    if (!activeApportionmentEnabled) return 0;
+    const sum = resolvedUniqueEmployees.reduce((acc, emp) => {
+      const row = employeeAllocationsMap[emp.id];
+      return acc + (row ? parseCurrencyToFloat(row.rhAmountStr) : 0);
+    }, 0);
+    return +sum.toFixed(2);
+  }, [activeApportionmentEnabled, resolvedUniqueEmployees, employeeAllocationsMap]);
+
+  const netRateioBaseAmount = Math.max(0, +(numAmount - rhDeductionsTotal).toFixed(2));
+
+  // Distribuição inteligente em centavos exatos: respeita valores travados manualmente e redistribui o saldo restante
+  const employeeCompanyAmountsMap = useMemo(() => {
+    const result: Record<string, number> = {};
+    if (!activeApportionmentEnabled || resolvedUniqueEmployees.length === 0) return result;
+
+    let lockedCentsSum = 0;
+    const unlockedIds: string[] = [];
+
+    resolvedUniqueEmployees.forEach((emp) => {
+      const row = employeeAllocationsMap[emp.id];
+      if (row?.isCompanyAmountLocked) {
+        const manualVal = Math.max(0, parseCurrencyToFloat(row.manualCompanyAmountStr));
+        const cents = Math.round(manualVal * 100);
+        result[emp.id] = cents / 100;
+        lockedCentsSum += cents;
+      } else {
+        unlockedIds.push(emp.id);
+      }
+    });
+
+    if (unlockedIds.length > 0) {
+      const baseCents = Math.round(netRateioBaseAmount * 100);
+      const remainingCents = Math.max(0, baseCents - lockedCentsSum);
+      const perPersonBase = Math.floor(remainingCents / unlockedIds.length);
+      const remainder = remainingCents % unlockedIds.length;
+      unlockedIds.forEach((empId, idx) => {
+        const cents = perPersonBase + (idx < remainder ? 1 : 0);
+        result[empId] = cents / 100;
+      });
+    }
+
+    return result;
+  }, [activeApportionmentEnabled, resolvedUniqueEmployees, employeeAllocationsMap, netRateioBaseAmount]);
+
+  const totalCompanyAllocated = useMemo(() => {
+    if (!activeApportionmentEnabled) return 0;
+    const sum = resolvedUniqueEmployees.reduce((acc, emp) => acc + (employeeCompanyAmountsMap[emp.id] || 0), 0);
+    return +sum.toFixed(2);
+  }, [activeApportionmentEnabled, resolvedUniqueEmployees, employeeCompanyAmountsMap]);
+
+  const hasLockedAllocations = useMemo(() => {
+    return resolvedUniqueEmployees.some((emp) => Boolean(employeeAllocationsMap[emp.id]?.isCompanyAmountLocked));
+  }, [resolvedUniqueEmployees, employeeAllocationsMap]);
+
   const rateioPerPerson = netRateioBaseAmount > 0 ? netRateioBaseAmount / totalParticipantsCount : 0;
 
-  const handleAddRhDeduction = (e?: React.MouseEvent | React.KeyboardEvent) => {
-    if (e) e.preventDefault();
-    if (!rhDraftEmpId) {
-      setFormError('POR FAVOR, SELECIONE O FUNCIONÁRIO PARA O DESCONTO EM FOLHA (RH).');
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    const desc = rhDraftDesc.trim();
-    if (!desc) {
-      setFormError('POR FAVOR, INFORME O ITEM / BREVE DESCRIÇÃO DO CONSUMO PARTICULAR.');
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    const val = parseCurrencyToFloat(rhDraftAmountStr);
-    if (isNaN(val) || val <= 0) {
-      setFormError('POR FAVOR, INFORME UM VALOR A DESCONTAR (R$) VÁLIDO MAIOR QUE ZERO.');
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    const emp = activeEmployees.find((em) => em.id === rhDraftEmpId) || employees.find((em) => em.id === rhDraftEmpId);
-    if (!emp) {
-      setFormError('FUNCIONÁRIO SELECIONADO NÃO ENCONTRADO.');
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    const nextTotal = +(rhDeductionsTotal + val).toFixed(2);
-    if (numAmount > 0 && nextTotal > numAmount + 0.009) {
-      setFormError(`O TOTAL DOS DESCONTOS EM FOLHA (${formatCurrencyBRL(nextTotal)}) NÃO PODE ULTRAPASSAR O VALOR TOTAL DA DESPESA (${formatCurrencyBRL(numAmount)}).`);
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    setFormError(null);
-    const newDeduction: EmployeePayrollDeductionItem = {
-      id: `rh_ded_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      employeeId: emp.id,
-      employeeName: emp.name,
-      itemDescription: desc,
-      amount: +val.toFixed(2),
-    };
-    setRhDeductionItems((prev) => [...prev, newDeduction]);
-    setRhDraftEmpId('');
-    setRhDraftDesc('');
-    setRhDraftAmountStr('');
+  const handleEmployeeCompanyAmountChange = (empId: string, rawValue: string) => {
+    const masked = maskCurrencyLive(rawValue);
+    setEmployeeAllocationsMap((prev) => ({
+      ...prev,
+      [empId]: {
+        isCompanyAmountLocked: true,
+        manualCompanyAmountStr: masked,
+        rhAmountStr: prev[empId]?.rhAmountStr || '',
+        rhItemDesc: prev[empId]?.rhItemDesc || '',
+      },
+    }));
   };
 
-  const handleRemoveRhDeduction = (idToRemove: string) => {
-    setRhDeductionItems((prev) => prev.filter((item) => item.id !== idToRemove));
+  const handleEmployeeCompanyAmountBlur = (empId: string) => {
+    setEmployeeAllocationsMap((prev) => {
+      const cur = prev[empId];
+      if (!cur || !cur.isCompanyAmountLocked) return prev;
+      if (!cur.manualCompanyAmountStr.trim()) {
+        return {
+          ...prev,
+          [empId]: { ...cur, manualCompanyAmountStr: '0,00' },
+        };
+      }
+      return prev;
+    });
+  };
+
+  const handleUnlockEmployeeCompanyAmount = (empId: string) => {
+    setEmployeeAllocationsMap((prev) => {
+      const cur = prev[empId];
+      if (!cur) return prev;
+      return {
+        ...prev,
+        [empId]: {
+          ...cur,
+          isCompanyAmountLocked: false,
+          manualCompanyAmountStr: '',
+        },
+      };
+    });
+  };
+
+  const handleResetAllEqualSplit = () => {
+    setEmployeeAllocationsMap((prev) => {
+      const next: Record<string, EmployeeAllocationRowState> = {};
+      Object.entries(prev).forEach(([k, val]) => {
+        next[k] = { ...val, isCompanyAmountLocked: false, manualCompanyAmountStr: '' };
+      });
+      return next;
+    });
+  };
+
+  const handleEmployeeRhAmountChange = (empId: string, rawValue: string) => {
+    const masked = maskCurrencyLive(rawValue);
+    setEmployeeAllocationsMap((prev) => ({
+      ...prev,
+      [empId]: {
+        isCompanyAmountLocked: prev[empId]?.isCompanyAmountLocked || false,
+        manualCompanyAmountStr: prev[empId]?.manualCompanyAmountStr || '',
+        rhAmountStr: masked,
+        rhItemDesc: prev[empId]?.rhItemDesc || '',
+      },
+    }));
+  };
+
+  const handleEmployeeRhItemChange = (empId: string, value: string) => {
+    setEmployeeAllocationsMap((prev) => ({
+      ...prev,
+      [empId]: {
+        isCompanyAmountLocked: prev[empId]?.isCompanyAmountLocked || false,
+        manualCompanyAmountStr: prev[empId]?.manualCompanyAmountStr || '',
+        rhAmountStr: prev[empId]?.rhAmountStr || '',
+        rhItemDesc: value,
+      },
+    }));
   };
 
   const isCashOrSignedNote = paymentMethod === 'dinheiro' || paymentMethod === 'assinado_nota';
@@ -1348,35 +1477,59 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       }
     }
 
-    let finalRhDeductions: EmployeePayrollDeductionItem[] = enableRhConsumption ? [...rhDeductionItems] : [];
-    if (enableRhConsumption) {
-      const hasDraftEmp = Boolean(rhDraftEmpId);
-      const hasDraftDesc = Boolean(rhDraftDesc.trim());
-      const draftVal = parseCurrencyToFloat(rhDraftAmountStr);
-      const hasDraftVal = draftVal > 0;
+    const finalRhDeductions: EmployeePayrollDeductionItem[] = [];
+    const finalAllocationDetails: ExpenseEmployeeAllocation[] = [];
 
-      if (hasDraftEmp || hasDraftDesc || hasDraftVal) {
-        if (hasDraftEmp && hasDraftDesc && hasDraftVal) {
-          const draftEmp = activeEmployees.find((em) => em.id === rhDraftEmpId) || employees.find((em) => em.id === rhDraftEmpId);
-          if (draftEmp) {
-            finalRhDeductions.push({
-              id: `rh_ded_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              employeeId: draftEmp.id,
-              employeeName: draftEmp.name,
-              itemDescription: rhDraftDesc.trim(),
-              amount: +draftVal.toFixed(2),
-            });
-          }
-        } else {
-          showValidationError('COMPLETE TODOS OS CAMPOS DO CONSUMO PARTICULAR (FUNCIONÁRIO, ITEM E VALOR) OU LIMPE O RASCUNHO ANTES DE SALVAR.');
+    if (activeApportionmentEnabled && resolvedUniqueEmployees.length > 0) {
+      for (const emp of resolvedUniqueEmployees) {
+        const rowState = employeeAllocationsMap[emp.id];
+        const rhVal = rowState ? parseCurrencyToFloat(rowState.rhAmountStr) : 0;
+        const rhDesc = (rowState?.rhItemDesc || '').trim();
+
+        if (rhVal > 0 && !rhDesc) {
+          showValidationError(`POR FAVOR, INFORME O ITEM / DESCRIÇÃO PARTICULAR PARA O DESCONTO RH DE ${emp.name.toUpperCase()}.`);
           return;
         }
+        if (rhDesc && rhVal <= 0) {
+          showValidationError(`POR FAVOR, INFORME O VALOR DE DESC. RH (R$) PARA "${rhDesc.toUpperCase()}" DE ${emp.name.toUpperCase()}.`);
+          return;
+        }
+
+        if (rhVal > 0) {
+          finalRhDeductions.push({
+            id: `rh_ded_${emp.id}`,
+            employeeId: emp.id,
+            employeeName: emp.name,
+            itemDescription: rhDesc,
+            amount: +rhVal.toFixed(2),
+          });
+        }
+
+        const linkedVeh = getLinkedVehicleForEmployee(emp.id);
+        const compAmt = +(employeeCompanyAmountsMap[emp.id] || 0).toFixed(2);
+        finalAllocationDetails.push({
+          employeeId: emp.id,
+          employeeName: emp.name,
+          companyAmount: compAmt,
+          isManualAmount: Boolean(rowState?.isCompanyAmountLocked),
+          machineryId: linkedVeh?.id,
+          machineryName: linkedVeh
+            ? (linkedVeh.licensePlateOrSerial || linkedVeh.model || linkedVeh.name)
+            : undefined,
+          rhDeductionAmount: rhVal > 0 ? +rhVal.toFixed(2) : undefined,
+          rhItemDescription: rhVal > 0 ? rhDesc : undefined,
+        });
       }
     }
 
     const finalRhTotal = +(finalRhDeductions.reduce((acc, item) => acc + (Number(item.amount) || 0), 0)).toFixed(2);
     if (finalRhTotal > numAmount + 0.009) {
-      showValidationError(`O TOTAL DOS DESCONTOS EM FOLHA (${formatCurrencyBRL(finalRhTotal)}) NÃO PODE SER MAIOR QUE O VALOR TOTAL DA DESPESA (${formatCurrencyBRL(numAmount)}).`);
+      showValidationError(`O TOTAL DOS DESCONTOS PARTICULARES EM FOLHA (${formatCurrencyBRL(finalRhTotal)}) NÃO PODE SER MAIOR QUE O VALOR TOTAL DA DESPESA (${formatCurrencyBRL(numAmount)}).`);
+      return;
+    }
+
+    if (activeApportionmentEnabled && resolvedUniqueEmployees.length > 0 && totalCompanyAllocated > netRateioBaseAmount + 0.019) {
+      showValidationError(`A SOMA DO RATEIO EMPRESA (${formatCurrencyBRL(totalCompanyAllocated)}) ULTRAPASSA A BASE LÍQUIDA DISPONÍVEL (${formatCurrencyBRL(netRateioBaseAmount)}). AJUSTE OS VALORES OU CLIQUE EM ↻.`);
       return;
     }
 
@@ -1482,6 +1635,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           teamId: shouldApplyApportionment ? resolvedTeamId : undefined,
           teamName: shouldApplyApportionment ? resolvedTeamName : undefined,
           employeeApportionment: shouldApplyApportionment ? selectedTargets.join(',') : undefined,
+          employeeApportionmentDetails: shouldApplyApportionment && finalAllocationDetails.length > 0
+            ? finalAllocationDetails.map((d) => ({
+                ...d,
+                companyAmount: +(d.companyAmount / installmentCount).toFixed(2),
+              }))
+            : undefined,
           invoiceNumber: invoiceNumber.trim() || undefined,
           notes: notes.trim() || undefined,
           quantity: isFleetMaintenanceCategory && readingKmOrHours ? parseFloat(readingKmOrHours) : (hasQuantity && quantity ? parseFloat(quantity) / installmentCount : undefined),
@@ -1556,6 +1715,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         teamId: shouldApplyApportionment ? resolvedTeamId : undefined,
         teamName: shouldApplyApportionment ? resolvedTeamName : undefined,
         employeeApportionment: shouldApplyApportionment ? selectedTargets.join(',') : undefined,
+        employeeApportionmentDetails: shouldApplyApportionment && finalAllocationDetails.length > 0 ? finalAllocationDetails : undefined,
         invoiceNumber: invoiceNumber.trim() || undefined,
         notes: notes.trim() || undefined,
         quantity: isFleetMaintenanceCategory && readingKmOrHours ? parseFloat(readingKmOrHours) : (hasQuantity && quantity ? parseFloat(quantity) : undefined),
@@ -2036,6 +2196,170 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             )}
           </div>
 
+          {/* BLOCO 3 (CARD): ITENS / PRODUTOS LANÇADOS NESTA DESPESA */}
+          <div className="w-full rounded-xl border border-black bg-[#e0e6f1] p-2.5 space-y-2 shadow-2xs overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-black" />
+                <span className="text-[11px] font-bold text-black uppercase tracking-wide">
+                  ITENS / PRODUTOS LANÇADOS NESTA DESPESA
+                </span>
+                {expenseItems.length > 0 && (
+                  <span className="text-[10px] font-bold text-black bg-white px-1.5 py-0.2 rounded border border-gray-400">
+                    {expenseItems.length} {expenseItems.length === 1 ? 'item' : 'itens'}
+                  </span>
+                )}
+              </div>
+              {expenseItems.length > 0 && (
+                <div className="text-[11px] font-extrabold text-emerald-800">
+                  TOTAL ITENS: {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
+                </div>
+              )}
+            </div>
+
+            {/* Linha de Inclusão Rápida */}
+            <div className="grid grid-cols-12 gap-1.5 items-end bg-[#e0e6f1] p-2 rounded-lg border border-black">
+              <div className="col-span-12 sm:col-span-5">
+                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                  Item / Descrição do Gasto
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Filtro de Óleo, Marmita Equipe..."
+                  value={itemDescription}
+                  onChange={(e) => setItemDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddItem();
+                    }
+                  }}
+                  className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:normal-case"
+                />
+              </div>
+
+              <div className="col-span-4 sm:col-span-2">
+                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                  Qtd
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0.01"
+                  placeholder="1"
+                  value={itemQuantity}
+                  onChange={(e) => setItemQuantity(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddItem();
+                    }
+                  }}
+                  className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold text-center focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                />
+              </div>
+
+              <div className="col-span-4 sm:col-span-3">
+                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                  Valor Unit. (R$)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 pointer-events-none">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="0,00"
+                    value={itemUnitValue}
+                    onChange={(e) => setItemUnitValue(maskCurrencyLive(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddItem();
+                      }
+                    }}
+                    className="w-full h-7.5 pl-7 pr-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+                  />
+                </div>
+              </div>
+
+              <div className="col-span-4 sm:col-span-2 flex items-center">
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white border border-black text-[11px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  title="Inserir item na despesa"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">+ INSERIR</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tabela Dinâmica de Listagem Interna */}
+            {expenseItems.length === 0 ? (
+              <div className="py-2.5 px-3 text-center rounded-lg border border-dashed border-gray-400 bg-white text-[11px] text-slate-700 font-medium">
+                Nenhum item discriminado. Adicione itens acima para discriminar produtos/serviços e calcular automaticamente o valor total.
+              </div>
+            ) : (
+              <div className="max-h-52 overflow-y-auto overflow-x-auto rounded-lg border border-black bg-white">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#cad4e6] border-b border-black text-[10px] font-bold text-black uppercase tracking-wider">
+                      <th className="py-1 px-2.5">Item / Descrição</th>
+                      <th className="py-1 px-2 text-center w-16">Qtd</th>
+                      <th className="py-1 px-2 text-right w-28">Valor Unit. (R$)</th>
+                      <th className="py-1 px-2 text-right w-28">Valor Total (R$)</th>
+                      <th className="py-1 px-2 text-center w-12">Remover</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {expenseItems.map((item, idx) => {
+                      const totalItemVal = (item.quantity || 0) * (item.unit_value || 0);
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-slate-50 transition">
+                          <td className="py-1.5 px-2.5 font-medium text-black uppercase">
+                            {item.description}
+                          </td>
+                          <td className="py-1.5 px-2 text-center font-semibold text-black">
+                            {item.quantity}
+                          </td>
+                          <td className="py-1.5 px-2 text-right text-black">
+                            {formatCurrencyBRL(item.unit_value)}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">
+                            {formatCurrencyBRL(totalItemVal)}
+                          </td>
+                          <td className="py-1.5 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Remover item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#e0e6f1] border-t border-black font-bold text-xs">
+                      <td colSpan={3} className="py-1.5 px-2.5 text-right uppercase text-black">
+                        Total Geral dos Itens:
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-extrabold text-emerald-800">
+                        {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* BLOCO CENTRAL DINÂMICO (CARD CONDICIONAL): MANUTENÇÃO & FROTAS OU RATEIO ALIMENTAÇÃO */}
           {isFleetMaintenanceCategory ? (
             <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-1.5">
@@ -2109,46 +2433,69 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             </div>
           ) : (
-            /* Checkbox Opcional de Rateio Exclusivo por Funcionários */
+            /* Tabela Unificada de Rateio Empresa/DRE + Desconto Particular (RH) por Funcionário */
             <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={enableApportionment}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setEnableApportionment(checked);
-                    if (!checked) {
-                      setSelectedTargets([]);
-                      setEmployeeRateioSearch('');
-                    }
-                  }}
-                  className="w-4 h-4 rounded border border-black bg-white text-emerald-700 focus:ring-emerald-600 cursor-pointer accent-emerald-700"
-                />
-                <span className="text-[11px] font-bold text-black uppercase tracking-wider">
-                  RATEAR ESTA DESPESA ENTRE FUNCIONÁRIOS?
-                </span>
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={enableApportionment}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEnableApportionment(checked);
+                      if (!checked) {
+                        setSelectedTargets([]);
+                        setEmployeeRateioSearch('');
+                        setEmployeeAllocationsMap({});
+                      }
+                    }}
+                    className="w-4 h-4 rounded border border-black bg-white text-emerald-700 focus:ring-emerald-600 cursor-pointer accent-emerald-700"
+                  />
+                  <span className="text-[11px] font-bold text-black uppercase tracking-wider">
+                    RATEAR ESTA DESPESA ENTRE FUNCIONÁRIOS?
+                  </span>
+                </label>
+
+                {enableApportionment && rhDeductionsTotal > 0 && (
+                  <span className="text-[10px] font-extrabold text-rose-800 bg-rose-100 border border-rose-400 px-2 py-0.5 rounded uppercase">
+                    RH: - R$ {rhDeductionsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
 
               {enableApportionment && (
                 <div className="border-t border-black/20 pt-2 space-y-1.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="block text-[10px] font-bold text-black uppercase tracking-wider">
                       FUNCIONÁRIOS NO RATEIO ({selectedTargets.length === 0 ? 0 : totalParticipantsCount}{' '}
                       {(selectedTargets.length === 0 ? 0 : totalParticipantsCount) === 1 ? 'SELECIONADO' : 'SELECIONADOS'})
                     </label>
-                    {selectedTargets.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedTargets([]);
-                          setEmployeeRateioSearch('');
-                        }}
-                        className="text-[9px] text-slate-700 hover:text-black font-bold cursor-pointer uppercase"
-                      >
-                        LIMPAR
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {hasLockedAllocations && (
+                        <button
+                          type="button"
+                          onClick={handleResetAllEqualSplit}
+                          className="inline-flex items-center gap-1 text-[9px] text-blue-800 hover:text-black font-bold cursor-pointer uppercase bg-white border border-gray-400 px-1.5 py-0.5 rounded"
+                          title="Voltar todos os funcionários para divisão igualitária"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>Dividir Igual</span>
+                        </button>
+                      )}
+                      {selectedTargets.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTargets([]);
+                            setEmployeeRateioSearch('');
+                            setEmployeeAllocationsMap({});
+                          }}
+                          className="text-[9px] text-slate-700 hover:text-black font-bold cursor-pointer uppercase"
+                        >
+                          LIMPAR
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Campo de Busca Digitável Exclusivo de Funcionários */}
@@ -2173,322 +2520,207 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     )}
                   </div>
 
-                  {/* Lista de Seleção Contendo Apenas os Funcionários Cadastrados */}
-                  <div className="max-h-36 overflow-y-auto rounded-md border border-gray-400 bg-white divide-y divide-gray-200">
+                  {/* Lista Estruturada em 3 Colunas por Funcionário */}
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-black bg-white divide-y divide-gray-200">
+                    {/* Cabeçalho das 3 Colunas */}
+                    <div className="hidden md:grid grid-cols-12 gap-2 px-2.5 py-1 bg-[#cad4e6] border-b border-black text-[9px] font-bold text-black uppercase tracking-wider sticky top-0 z-10">
+                      <div className="col-span-4">COLABORADOR & FROTA</div>
+                      <div className="col-span-3">VALOR EMPRESA (R$) / DRE</div>
+                      <div className="col-span-5">DESCONTO PARTICULAR (FOLHA RH)</div>
+                    </div>
+
                     {filteredRateioEmployees.length === 0 ? (
-                      <div className="p-2 text-center text-[10px] font-semibold text-slate-600 uppercase">
+                      <div className="p-2.5 text-center text-[10px] font-semibold text-slate-600 uppercase">
                         NENHUM FUNCIONÁRIO CADASTRADO ENCONTRADO.
                       </div>
                     ) : (
                       filteredRateioEmployees.map((emp) => {
-                        const isChecked = selectedTargets.includes(emp.id);
+                        const isChecked = selectedTargets.includes(emp.id) || selectedTargets.includes('todos');
                         const empMach = getLinkedVehicleForEmployee(emp.id);
-                        return (
-                          <label
-                            key={emp.id}
-                            className={`flex items-center justify-between gap-2 px-2.5 py-1.5 cursor-pointer transition text-xs ${
-                              isChecked ? 'bg-emerald-50 font-bold text-black' : 'hover:bg-slate-100 text-black font-medium'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => handleToggleEmployeeTarget(emp.id)}
-                                className="w-3.5 h-3.5 rounded border-gray-400 text-emerald-700 accent-emerald-700 cursor-pointer shrink-0"
-                              />
-                              <span className="truncate uppercase">{emp.name.toUpperCase()}</span>
-                              <span className="text-[9px] text-slate-600 font-semibold uppercase shrink-0">
-                                ({(emp.role || 'FUNCIONÁRIO').toUpperCase()})
-                              </span>
-                            </div>
-                            {empMach && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-gray-300 text-[9px] font-bold text-emerald-800 uppercase shrink-0">
-                                <Tractor className="w-2.5 h-2.5" />
-                                <span>
-                                  {empMach.licensePlateOrSerial
-                                    ? `${empMach.licensePlateOrSerial} · ${empMach.model || empMach.name}`
-                                    : (empMach.model || empMach.name)}
-                                </span>
-                              </span>
-                            )}
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
+                        const rowState = employeeAllocationsMap[emp.id];
+                        const isLocked = Boolean(rowState?.isCompanyAmountLocked);
+                        const computedCompanyVal = employeeCompanyAmountsMap[emp.id] ?? 0;
+                        const companyDisplayValue = isLocked
+                          ? rowState?.manualCompanyAmountStr ?? '0,00'
+                          : formatCurrencyInputDisplay(computedCompanyVal);
 
-                  {/* Chips dos Funcionários Selecionados */}
-                  {selectedTargets.length > 0 && (
-                    <div className="flex flex-wrap gap-1 max-h-14 overflow-y-auto scrollbar-none py-0.5">
-                      {selectedTargets.map((targetId) => {
-                        const empMatch = activeEmployees.find((e) => e.id === targetId);
-                        if (empMatch) {
-                          const empMach = getLinkedVehicleForEmployee(empMatch.id);
+                        if (!isChecked) {
                           return (
-                            <div
-                              key={empMatch.id}
-                              className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                            <label
+                              key={emp.id}
+                              className="flex items-center justify-between gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-slate-100 text-black font-medium text-xs transition"
                             >
-                              <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white text-[8px] flex items-center justify-center font-bold">
-                                {empMatch.name.charAt(0).toUpperCase()}
-                              </div>
-                              <span>{empMatch.name.toUpperCase()}</span>
-                              {empMach && (
-                                <span className="text-[9px] text-emerald-700 font-semibold">
-                                  · {(empMach.licensePlateOrSerial || empMach.model || empMach.name).toUpperCase()}
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={false}
+                                  onChange={() => handleToggleEmployeeTarget(emp.id)}
+                                  className="w-3.5 h-3.5 rounded border-gray-400 text-emerald-700 accent-emerald-700 cursor-pointer shrink-0"
+                                />
+                                <span className="truncate uppercase">{emp.name.toUpperCase()}</span>
+                                <span className="text-[9px] text-slate-600 font-semibold uppercase shrink-0">
+                                  ({(emp.role || 'FUNCIONÁRIO').toUpperCase()})
                                 </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTarget(empMatch.id)}
-                                className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
-                                title="Remover funcionário do rateio"
-                              >
-                                <X className="w-2.5 h-2.5" />
-                              </button>
-                            </div>
+                                {empMach && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 border border-gray-300 text-[9px] font-bold text-emerald-800 uppercase shrink-0">
+                                    <Tractor className="w-2.5 h-2.5" />
+                                    <span>
+                                      {empMach.licensePlateOrSerial
+                                        ? `${empMach.licensePlateOrSerial} • ${empMach.model || empMach.name}`
+                                        : (empMach.model || empMach.name)}
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[9px] font-semibold text-slate-400 uppercase shrink-0 hidden sm:inline">
+                                Marque para rateio / RH
+                              </span>
+                            </label>
                           );
                         }
 
                         return (
                           <div
-                            key={targetId}
-                            className="inline-flex items-center space-x-1 bg-white border border-gray-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                            key={emp.id}
+                            className="grid grid-cols-12 gap-2 items-center px-2.5 py-1.5 bg-emerald-50/70 text-xs"
                           >
-                            <Users className="w-3 h-3 text-slate-700" />
-                            <span>{targetId === 'todos' ? `TODOS (${activeEmployees.length})` : targetId}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTarget(targetId)}
-                              className="w-3.5 h-3.5 rounded hover:bg-slate-200 flex items-center justify-center text-black cursor-pointer ml-0.5"
-                              title="Remover do rateio"
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
+                            {/* Coluna 1: Colaborador & Frota */}
+                            <div className="col-span-12 md:col-span-4 min-w-0">
+                              <label className="flex items-start gap-2 cursor-pointer min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={true}
+                                  onChange={() => handleToggleEmployeeTarget(emp.id)}
+                                  className="w-3.5 h-3.5 mt-0.5 rounded border-gray-400 text-emerald-700 accent-emerald-700 cursor-pointer shrink-0"
+                                />
+                                <div className="min-w-0 flex-1 space-y-0.5">
+                                  <div className="font-bold text-black uppercase truncate">
+                                    {emp.name.toUpperCase()}
+                                  </div>
+                                  {empMach ? (
+                                    <div className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-white border border-gray-400 text-[9px] font-bold text-emerald-800 uppercase max-w-full">
+                                      <Tractor className="w-2.5 h-2.5 shrink-0" />
+                                      <span className="truncate">
+                                        {empMach.licensePlateOrSerial
+                                          ? `${empMach.licensePlateOrSerial} • ${empMach.model || empMach.name}`
+                                          : (empMach.model || empMach.name)}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[9px] text-slate-600 font-semibold uppercase truncate">
+                                      ({(emp.role || 'FUNCIONÁRIO').toUpperCase()})
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            </div>
+
+                            {/* Coluna 2: Valor Empresa (R$) / DRE Veículo */}
+                            <div className="col-span-12 md:col-span-3">
+                              <label className="block md:hidden text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                                Valor Empresa (R$) / DRE
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <div className="relative flex-1">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 pointer-events-none">
+                                    R$
+                                  </span>
+                                  <input
+                                    type="text"
+                                    placeholder="0,00"
+                                    value={companyDisplayValue}
+                                    onChange={(e) => handleEmployeeCompanyAmountChange(emp.id, e.target.value)}
+                                    onBlur={() => handleEmployeeCompanyAmountBlur(emp.id)}
+                                    title={isLocked ? 'Valor ajustado manualmente (travado)' : 'Valor calculado automaticamente'}
+                                    className={`w-full h-7.5 pl-6.5 pr-2 rounded border text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb] ${
+                                      isLocked
+                                        ? 'border-amber-600 bg-amber-50'
+                                        : 'border-gray-400 bg-white'
+                                    }`}
+                                  />
+                                </div>
+                                {isLocked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnlockEmployeeCompanyAmount(emp.id)}
+                                    className="h-7.5 w-7 shrink-0 rounded border border-gray-400 bg-white hover:bg-slate-100 text-black flex items-center justify-center cursor-pointer transition"
+                                    title="Voltar à divisão igualitária"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Coluna 3: Desconto Particular / Folha RH */}
+                            <div className="col-span-12 md:col-span-5">
+                              <div className="grid grid-cols-12 gap-1.5">
+                                <div className="col-span-5">
+                                  <label className="block md:hidden text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                                    Desc. RH (R$)
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-rose-700 pointer-events-none">
+                                      RH
+                                    </span>
+                                    <input
+                                      type="text"
+                                      placeholder="0,00"
+                                      value={rowState?.rhAmountStr || ''}
+                                      onChange={(e) => handleEmployeeRhAmountChange(emp.id, e.target.value)}
+                                      title="Desconto Particular em Folha (R$)"
+                                      className="w-full h-7.5 pl-6 pr-1.5 rounded border border-gray-400 bg-white text-rose-800 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-rose-600 placeholder:text-slate-400"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="col-span-7">
+                                  <label className="block md:hidden text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
+                                    Item / Descrição Particular
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Item particular (ex: Chocolate)"
+                                    value={rowState?.rhItemDesc || ''}
+                                    onChange={(e) => handleEmployeeRhItemChange(emp.id, e.target.value)}
+                                    className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:normal-case"
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
+                      })
+                    )}
+                  </div>
 
-                  {/* Resumo Claro de Rateio e Vínculo Automático com Veículo no DRE */}
-                  <div className="px-2 py-1 rounded border border-gray-400 bg-white text-[10px] flex flex-wrap items-center justify-between gap-1">
-                    <div className="flex flex-wrap items-center gap-1 font-bold text-black uppercase">
-                      <Calculator className="w-3 h-3 text-blue-600 shrink-0" />
-                      {selectedTargets.length === 0 ? (
-                        <span>SELECIONE UM OU MAIS FUNCIONÁRIOS PARA O RATEIO</span>
-                      ) : (
-                        <>
-                          <span>
-                            Rateio entre {totalParticipantsCount} funcionário(s)
-                          </span>
-                          {linkedMachineries.length > 0 && (
-                            <span className="text-emerald-700 font-bold">
-                              {'->'} Vinculado automaticamente ao(s) veículo(s):{' '}
-                              {linkedMachineries
-                                .map((m) =>
-                                  m.licensePlateOrSerial
-                                    ? `${m.licensePlateOrSerial} / ${m.model || m.name}`
-                                    : (m.model || m.name)
-                                )
-                                .join(', ')
-                                .toUpperCase()}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    {numAmount > 0 && selectedTargets.length > 0 && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {rhDeductionsTotal > 0 && (
-                          <span className="text-[9px] font-bold text-slate-700 uppercase">
-                            (Base líq: R$ {netRateioBaseAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                          </span>
-                        )}
-                        <span className="text-emerald-700 font-extrabold text-xs shrink-0">
-                          R$ {rateioPerPerson.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / PESSOA
-                        </span>
-                      </div>
+                  {/* Barra de Conferência em Tempo Real no Rodapé do Card de Rateio */}
+                  <div className="px-2.5 py-1.5 rounded border border-black bg-white text-[10px] flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-black uppercase">
+                      Total Fornecedor:{' '}
+                      <span className="text-slate-900 font-extrabold">
+                        R$ {numAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </span>
+                    <span className="text-slate-300 hidden sm:inline">|</span>
+                    <span className="font-extrabold text-emerald-800 uppercase">
+                      Rateio Empresa (DRE Frota):{' '}
+                      R$ {totalCompanyAllocated.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-slate-300 hidden sm:inline">|</span>
+                    <span className="font-extrabold text-rose-700 uppercase">
+                      Descontos Particulares (RH):{' '}
+                      R$ {rhDeductionsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {selectedTargets.length > 0 && Math.abs((totalCompanyAllocated + rhDeductionsTotal) - numAmount) > 0.02 && numAmount > 0 && (
+                      <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100 border border-amber-400 px-1.5 py-0.2 rounded uppercase">
+                        Dif.: R$ {(numAmount - (totalCompanyAllocated + rhDeductionsTotal)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     )}
                   </div>
                 </div>
               )}
             </div>
           )}
-
-          {/* SUB-BLOCO: CONSUMO PARTICULAR / DESCONTO EM FOLHA (RH) */}
-          <div className="border border-black rounded-xl p-2.5 bg-[#e0e6f1] shadow-2xs space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={enableRhConsumption}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setEnableRhConsumption(checked);
-                    if (!checked) {
-                      setRhDeductionItems([]);
-                      setRhDraftEmpId('');
-                      setRhDraftDesc('');
-                      setRhDraftAmountStr('');
-                    }
-                  }}
-                  className="w-4 h-4 rounded border border-black bg-white text-rose-700 focus:ring-rose-600 cursor-pointer accent-rose-700"
-                />
-                <span className="text-[11px] font-bold text-black uppercase tracking-wider">
-                  💸 Lançar consumo particular de funcionário para desconto em folha (RH)?
-                </span>
-              </label>
-
-              {enableRhConsumption && rhDeductionItems.length > 0 && (
-                <span className="text-[10px] font-extrabold text-rose-800 bg-rose-100 border border-rose-400 px-2 py-0.5 rounded uppercase">
-                  {rhDeductionItems.length} {rhDeductionItems.length === 1 ? 'desconto' : 'descontos'} · R$ {rhDeductionsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              )}
-            </div>
-
-            {enableRhConsumption && (
-              <div className="border-t border-black/20 pt-2 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] font-bold text-black uppercase">
-                  <span>CONSUMO PARTICULAR / DESCONTO EM FOLHA (RH)</span>
-                  <span className="text-[9px] font-semibold text-slate-700 normal-case">
-                    Estes itens serão abatidos do rateio da empresa e lançados automaticamente em RH &gt; Adiantamentos / Holerite.
-                  </span>
-                </div>
-
-                {/* Campos de Inclusão Rápida */}
-                <div className="grid grid-cols-12 gap-1.5 items-end bg-white/60 p-2 rounded-lg border border-black">
-                  <div className="col-span-12 sm:col-span-4">
-                    <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
-                      Funcionário <span className="text-rose-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={rhDraftEmpId}
-                        onChange={(e) => setRhDraftEmpId(e.target.value)}
-                        className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb] appearance-none pr-6 uppercase cursor-pointer"
-                      >
-                        <option value="">-- SELECIONE O FUNCIONÁRIO --</option>
-                        {activeEmployees.map((emp) => (
-                          <option key={emp.id} value={emp.id} className="uppercase">
-                            {emp.name.toUpperCase()} {emp.role ? `(${emp.role.toUpperCase()})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="w-3 h-3 text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="col-span-12 sm:col-span-4">
-                    <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
-                      Item / Breve Descrição <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Chocolate, Refrigerante, Cigarro..."
-                      value={rhDraftDesc}
-                      onChange={(e) => setRhDraftDesc(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddRhDeduction();
-                        }
-                      }}
-                      className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:normal-case"
-                    />
-                  </div>
-
-                  <div className="col-span-6 sm:col-span-2">
-                    <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
-                      Valor a Descontar (R$) <span className="text-rose-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 pointer-events-none">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="0,00"
-                        value={rhDraftAmountStr}
-                        onChange={(e) => setRhDraftAmountStr(maskCurrencyLive(e.target.value))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddRhDeduction();
-                          }
-                        }}
-                        className="w-full h-7.5 pl-7 pr-2 rounded border border-gray-400 bg-white text-black text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col-span-6 sm:col-span-2">
-                    <button
-                      type="button"
-                      onClick={handleAddRhDeduction}
-                      className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white border border-black text-[10px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
-                      title="Adicionar desconto particular em folha"
-                    >
-                      <Plus className="w-3 h-3 shrink-0" />
-                      <span className="truncate">+ Adicionar Desconto</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mini-lista de Descontos Vinculados */}
-                {rhDeductionItems.length > 0 && (
-                  <div className="max-h-36 overflow-y-auto rounded-lg border border-black bg-white divide-y divide-gray-200">
-                    {rhDeductionItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs hover:bg-slate-50"
-                      >
-                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                          <span className="font-bold text-black uppercase">{item.employeeName}</span>
-                          <span className="text-slate-400">·</span>
-                          <span className="font-medium text-slate-800 uppercase truncate">{item.itemDescription}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="font-extrabold text-rose-700 font-mono">
-                            - R$ {(Number(item.amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveRhDeduction(item.id)}
-                            className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            title="Remover desconto"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Resumo Contábil da Separação Empresa vs RH */}
-                {numAmount > 0 && rhDeductionsTotal > 0 && (
-                  <div className="px-2.5 py-1.5 rounded border border-gray-400 bg-white text-[10px] flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-bold text-black uppercase">
-                      Total Fornecedor (Contas a Pagar):{' '}
-                      <span className="text-slate-900">
-                        R$ {numAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </span>
-                    <span className="font-bold text-rose-700 uppercase">
-                      Desconto em Folha (RH):{' '}
-                      - R$ {rhDeductionsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    <span className="font-extrabold text-emerald-800 uppercase">
-                      Base Líquida Rateio / DRE Frota:{' '}
-                      R$ {netRateioBaseAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* BLOCO 3 (CARD): PAGAMENTO — STATUS, FORMA, DATA EFETIVA E CONTA DE DÉBITO / CARTÃO / CHEQUE */}
           <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
@@ -2958,170 +3190,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 className="w-full h-7.5 px-2.5 rounded-md border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:uppercase"
               />
             </div>
-          </div>
-
-          {/* BLOCO 5 (CARD): ITENS / PRODUTOS LANÇADOS NESTA DESPESA */}
-          <div className="w-full rounded-xl border border-black bg-[#e0e6f1] p-2.5 space-y-2 shadow-2xs overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5 text-black" />
-                <span className="text-[11px] font-bold text-black uppercase tracking-wide">
-                  ITENS / PRODUTOS LANÇADOS NESTA DESPESA
-                </span>
-                {expenseItems.length > 0 && (
-                  <span className="text-[10px] font-bold text-black bg-white px-1.5 py-0.2 rounded border border-gray-400">
-                    {expenseItems.length} {expenseItems.length === 1 ? 'item' : 'itens'}
-                  </span>
-                )}
-              </div>
-              {expenseItems.length > 0 && (
-                <div className="text-[11px] font-extrabold text-emerald-800">
-                  TOTAL ITENS: {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
-                </div>
-              )}
-            </div>
-
-            {/* Linha de Inclusão Rápida */}
-            <div className="grid grid-cols-12 gap-1.5 items-end bg-[#e0e6f1] p-2 rounded-lg border border-black">
-              <div className="col-span-12 sm:col-span-5">
-                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
-                  Item / Descrição do Gasto
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Filtro de Óleo, Marmita Equipe..."
-                  value={itemDescription}
-                  onChange={(e) => setItemDescription(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddItem();
-                    }
-                  }}
-                  className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase placeholder:normal-case"
-                />
-              </div>
-
-              <div className="col-span-4 sm:col-span-2">
-                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
-                  Qtd
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.01"
-                  placeholder="1"
-                  value={itemQuantity}
-                  onChange={(e) => setItemQuantity(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddItem();
-                    }
-                  }}
-                  className="w-full h-7.5 px-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold text-center focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                />
-              </div>
-
-              <div className="col-span-4 sm:col-span-3">
-                <label className="block text-[9px] font-bold text-black uppercase tracking-wider mb-0.5">
-                  Valor Unit. (R$)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 pointer-events-none">
-                    R$
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="0,00"
-                    value={itemUnitValue}
-                    onChange={(e) => setItemUnitValue(maskCurrencyLive(e.target.value))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddItem();
-                      }
-                    }}
-                    className="w-full h-7.5 pl-7 pr-2 rounded border border-gray-400 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
-                  />
-                </div>
-              </div>
-
-              <div className="col-span-4 sm:col-span-2 flex items-center">
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="w-full h-7.5 px-2 rounded bg-[#059669] hover:bg-emerald-700 active:bg-emerald-800 text-white border border-black text-[11px] font-bold uppercase transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
-                  title="Inserir item na despesa"
-                >
-                  <Plus className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">+ INSERIR</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Tabela Dinâmica de Listagem Interna */}
-            {expenseItems.length === 0 ? (
-              <div className="py-2.5 px-3 text-center rounded-lg border border-dashed border-gray-400 bg-white text-[11px] text-slate-700 font-medium">
-                Nenhum item discriminado. Adicione itens acima para discriminar produtos/serviços e calcular automaticamente o valor total.
-              </div>
-            ) : (
-              <div className="max-h-52 overflow-y-auto overflow-x-auto rounded-lg border border-black bg-white">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#cad4e6] border-b border-black text-[10px] font-bold text-black uppercase tracking-wider">
-                      <th className="py-1 px-2.5">Item / Descrição</th>
-                      <th className="py-1 px-2 text-center w-16">Qtd</th>
-                      <th className="py-1 px-2 text-right w-28">Valor Unit. (R$)</th>
-                      <th className="py-1 px-2 text-right w-28">Valor Total (R$)</th>
-                      <th className="py-1 px-2 text-center w-12">Remover</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {expenseItems.map((item, idx) => {
-                      const totalItemVal = (item.quantity || 0) * (item.unit_value || 0);
-                      return (
-                        <tr key={item.id || idx} className="hover:bg-slate-50 transition">
-                          <td className="py-1.5 px-2.5 font-medium text-black uppercase">
-                            {item.description}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-semibold text-black">
-                            {item.quantity}
-                          </td>
-                          <td className="py-1.5 px-2 text-right text-black">
-                            {formatCurrencyBRL(item.unit_value)}
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">
-                            {formatCurrencyBRL(totalItemVal)}
-                          </td>
-                          <td className="py-1.5 px-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItem(idx)}
-                              className="w-6 h-6 inline-flex items-center justify-center rounded text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                              title="Remover item"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#e0e6f1] border-t border-black font-bold text-xs">
-                      <td colSpan={3} className="py-1.5 px-2.5 text-right uppercase text-black">
-                        Total Geral dos Itens:
-                      </td>
-                      <td className="py-1.5 px-2 text-right font-extrabold text-emerald-800">
-                        {formatCurrencyBRL(expenseItems.reduce((acc, it) => acc + ((it.quantity || 0) * (it.unit_value || 0)), 0))}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
           </div>
 
         </form>

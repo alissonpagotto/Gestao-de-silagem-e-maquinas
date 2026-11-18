@@ -123,6 +123,7 @@ export interface Expense {
   teamId?: string;
   teamName?: string;
   employeeApportionment?: string;
+  employeeApportionmentDetails?: ExpenseEmployeeAllocation[];
   employeePayrollDeductions?: EmployeePayrollDeductionItem[];
   employeePayrollDeductionsTotal?: number;
   invoiceNumber?: string;
@@ -1621,6 +1622,17 @@ export interface EmployeePayrollDeductionItem {
   employeeName: string;
   itemDescription: string;
   amount: number;
+}
+
+export interface ExpenseEmployeeAllocation {
+  employeeId: string;
+  employeeName: string;
+  companyAmount: number;
+  isManualAmount?: boolean;
+  machineryId?: string;
+  machineryName?: string;
+  rhDeductionAmount?: number;
+  rhItemDescription?: string;
 }
 
 export interface PayrollCommissionItem {

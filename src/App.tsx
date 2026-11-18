@@ -2284,7 +2284,7 @@ export default function App() {
       const deductions = Array.isArray(exp.employeePayrollDeductions) ? exp.employeePayrollDeductions : [];
       if (deductions.length === 0) return;
 
-      const rawDate = (exp.dueDate || new Date().toISOString().split('T')[0]).split('T')[0];
+      const rawDate = (exp.date || exp.issueDate || exp.dueDate || new Date().toISOString().split('T')[0]).split('T')[0];
       const dateParts = rawDate.split('-');
       const refMonth =
         dateParts.length === 3

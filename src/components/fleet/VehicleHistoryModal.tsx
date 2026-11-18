@@ -173,13 +173,22 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
       const baseAmount = exp.dreGrossAmount
         ? rawAmount
         : Math.max(0, +(rawAmount - rhDeductionTotal).toFixed(2));
+      const driverIds = assignedDriverObjs.map((d) => d.id);
+      if (Array.isArray(exp.employeeApportionmentDetails) && exp.employeeApportionmentDetails.length > 0) {
+        const matchedEntries = exp.employeeApportionmentDetails.filter(
+          (entry) => driverIds.includes(entry.employeeId) || entry.machineryId === vehicle.id
+        );
+        if (matchedEntries.length > 0) {
+          return +matchedEntries.reduce((sum, entry) => sum + (Number(entry.companyAmount) || 0), 0).toFixed(2);
+        }
+        return 0;
+      }
       if (!exp.employeeApportionment || !exp.employeeApportionment.trim()) {
         return baseAmount;
       }
       const parts = exp.employeeApportionment.split(',').map((s) => s.trim()).filter(Boolean);
       if (parts.length === 0) return baseAmount;
 
-      const driverIds = assignedDriverObjs.map((d) => d.id);
       if (parts.includes('todos')) {
         const activeEmps = employees.filter((e) => e.status !== 'inativo');
         const total = Math.max(activeEmps.length, 1);
@@ -203,8 +212,11 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
   // --- 5. Filter Driver Expenses (Salários, Alimentação, Diárias) ---
   const driverExpenses = useMemo(() => {
     return expenses.filter(exp => {
-      // Rateio proporcional explícito por funcionários
-      if (exp.employeeApportionment && exp.employeeApportionment.trim()) {
+      // Rateio proporcional ou individual explícito por funcionários
+      if (
+        (exp.employeeApportionment && exp.employeeApportionment.trim()) ||
+        (Array.isArray(exp.employeeApportionmentDetails) && exp.employeeApportionmentDetails.length > 0)
+      ) {
         return getApportionedAmountForVehicle(exp) > 0;
       }
 
@@ -370,7 +382,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
   const totalOtherVehicleExpenses = useMemo(() => {
     const driverExpIds = new Set(driverExpenses.map(d => d.id));
     return vehicleDirectExpenses
-      .filter(e => !e.categoryId?.includes('combust') && !e.categoryId?.includes('manut') && !driverExpIds.has(e.id) && !e.isVacationExpense && !(e.employeeApportionment && e.employeeApportionment.trim()))
+      .filter(e => !e.categoryId?.includes('combust') && !e.categoryId?.includes('manut') && !driverExpIds.has(e.id) && !e.isVacationExpense && !(e.employeeApportionment && e.employeeApportionment.trim()) && !(Array.isArray(e.employeeApportionmentDetails) && e.employeeApportionmentDetails.length > 0))
       .reduce((acc, curr) => {
         const rhDeductionTotal = Number(
           curr.employeePayrollDeductionsTotal ??
@@ -1360,7 +1372,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                           <td className="py-2.5 px-3.5 text-stone-500">{exp.supplier || '--'}</td>
                           <td className="py-2.5 px-3.5 text-right font-black text-blue-700 dark:text-blue-400 font-['Outfit']">
                             {formatCurrencyBRL(getApportionedAmountForVehicle(exp))}
-                            {exp.employeeApportionment && exp.employeeApportionment.includes(',') && (
+                            {(exp.employeeApportionment?.includes(',') || (Array.isArray(exp.employeeApportionmentDetails) && exp.employeeApportionmentDetails.length > 0)) && (
                               <div className="text-[9px] font-semibold text-stone-500 uppercase">
                                 Rateio (Total {formatCurrencyBRL(exp.amount)})
                               </div>
