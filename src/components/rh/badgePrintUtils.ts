@@ -365,7 +365,6 @@ function buildSingleBadgeBackHtml(
 
   const headerIsLight = isLightHexColor(theme.headerColor);
   const headerTextColor = headerIsLight ? '#0f172a' : '#ffffff';
-  const headerSubColor = headerIsLight ? '#334155' : 'rgba(255,255,255,0.84)';
 
   const bodyIsLight = isLightHexColor(theme.bodyBgColor);
   const noticeBg = bodyIsLight ? 'rgba(15, 23, 42, 0.035)' : 'rgba(255, 255, 255, 0.09)';
@@ -452,14 +451,11 @@ function buildSingleBadgeBackHtml(
 
   return `
     <div class="badge-card badge-cut-card badge-back-card" style="background:${theme.bodyBgColor};color:${theme.textColor};">
-      <div style="background:${theme.headerColor};border-bottom:2px solid ${theme.accentColor};padding:${px(4)} ${px(8)} ${px(4.5)} ${px(8)};flex-shrink:0;">
-        <div style="width:${px(28)};height:${px(3)};border-radius:9999px;background:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.2);margin:0 auto ${px(2.5)} auto;"></div>
+      <div style="background:${theme.headerColor};border-bottom:2px solid ${theme.accentColor};padding:${px(4.5)} ${px(8)} ${px(5)} ${px(8)};flex-shrink:0;">
+        <div style="width:${px(28)};height:${px(3)};border-radius:9999px;background:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.2);margin:0 auto ${px(3)} auto;"></div>
         <div style="text-align:center;min-width:0;">
           <div style="font-size:${px(8.5)};font-weight:900;text-transform:uppercase;letter-spacing:0.03em;line-height:1.15;color:${headerTextColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
             ${escapeHtml(companyName)}
-          </div>
-          <div style="font-size:${px(6)};font-weight:700;text-transform:uppercase;letter-spacing:0.14em;line-height:1.2;margin-top:${px(1)};color:${headerSubColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-            Verso • Identificação Funcional
           </div>
         </div>
       </div>
@@ -883,7 +879,7 @@ export function generateBadgesPrintHtml(
       <select id="paper-size-select" class="print-toolbar-select">
         ${paperSelectOptionsHtml}
       </select>
-      <button type="button" class="print-toolbar-btn" onclick="window.focus(); window.print();">Imprimir Agora</button>
+      <button type="button" class="print-toolbar-btn" onclick="window.focus(); window.print();">🖨️ Imprimir Agora</button>
     </div>
   </div>
 
@@ -940,50 +936,9 @@ export function generateBadgesPrintHtml(
         });
       }
 
-      var printed = false;
-      function triggerPrint() {
-        if (printed) return;
-        printed = true;
-        setTimeout(function () {
-          try {
-            window.focus();
-            window.print();
-          } catch (err) {
-            console.error('Erro ao acionar impressão:', err);
-          }
-        }, 180);
-      }
-
-      function waitForImagesAndPrint() {
-        var imgs = Array.prototype.slice.call(document.images || []);
-        if (imgs.length === 0) {
-          triggerPrint();
-          return;
-        }
-        var pending = 0;
-        var done = function () {
-          pending--;
-          if (pending <= 0) triggerPrint();
-        };
-        imgs.forEach(function (img) {
-          if (!img.complete) {
-            pending++;
-            img.addEventListener('load', done, { once: true });
-            img.addEventListener('error', done, { once: true });
-          }
-        });
-        if (pending === 0) {
-          triggerPrint();
-        } else {
-          setTimeout(triggerPrint, 1200);
-        }
-      }
-
-      if (document.readyState === 'complete') {
-        waitForImagesAndPrint();
-      } else {
-        window.addEventListener('load', waitForImagesAndPrint, { once: true });
-      }
+      try {
+        window.focus();
+      } catch (e) {}
     })();
   </script>
 </body>

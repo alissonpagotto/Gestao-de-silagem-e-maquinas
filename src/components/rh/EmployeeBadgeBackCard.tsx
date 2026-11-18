@@ -31,7 +31,6 @@ export const EmployeeBadgeBackCard: React.FC<EmployeeBadgeBackCardProps> = ({
 
   const headerIsLight = isLightHexColor(theme.headerColor);
   const headerTextColor = headerIsLight ? '#0f172a' : '#ffffff';
-  const headerSubColor = headerIsLight ? '#334155' : 'rgba(255,255,255,0.82)';
 
   const bodyIsLight = isLightHexColor(theme.bodyBgColor);
   const noticeBg = bodyIsLight ? 'rgba(15, 23, 42, 0.035)' : 'rgba(255, 255, 255, 0.09)';
@@ -77,14 +76,14 @@ export const EmployeeBadgeBackCard: React.FC<EmployeeBadgeBackCardProps> = ({
       <div
         className="shrink-0"
         style={{
-          padding: `${px(4)} ${px(8)} ${px(4.5)} ${px(8)}`,
+          padding: `${px(4.5)} ${px(8)} ${px(5)} ${px(8)}`,
           backgroundColor: theme.headerColor,
           borderBottom: `2px solid ${theme.accentColor}`,
         }}
       >
         <div
           className="rounded-full bg-white/30 mx-auto border border-white/20"
-          style={{ width: px(28), height: px(3), marginBottom: px(2.5) }}
+          style={{ width: px(28), height: px(3), marginBottom: px(3) }}
         />
         <div className="text-center min-w-0">
           <div
@@ -92,12 +91,6 @@ export const EmployeeBadgeBackCard: React.FC<EmployeeBadgeBackCardProps> = ({
             style={{ color: headerTextColor, fontSize: px(8.5) }}
           >
             {companyName}
-          </div>
-          <div
-            className="font-bold uppercase tracking-[0.14em] leading-tight truncate"
-            style={{ color: headerSubColor, fontSize: px(6), marginTop: px(1) }}
-          >
-            Verso • Identificação Funcional
           </div>
         </div>
       </div>

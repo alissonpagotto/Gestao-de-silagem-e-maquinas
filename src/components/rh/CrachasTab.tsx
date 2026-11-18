@@ -17,7 +17,6 @@ import { EmployeeBadgeBackCard } from './EmployeeBadgeBackCard';
 import { BadgeCustomizeModal } from './BadgeCustomizeModal';
 import {
   BADGE_PAPER_OPTIONS,
-  BADGE_PAPER_ORDER,
   BADGE_PAPER_STORAGE_KEY,
   BadgePaperSize,
   BadgeThemeConfig,
@@ -153,11 +152,6 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
     saveStoredBadgeTheme(nextTheme);
   };
 
-  const handleChangePaperSize = (nextSize: BadgePaperSize) => {
-    setPaperSize(nextSize);
-    saveStoredBadgePaperSize(nextSize);
-  };
-
   const handlePrintSelected = async () => {
     if (selectedEntries.length === 0) {
       setSelectionWarning('Selecione pelo menos um funcionário na lista à esquerda para imprimir.');
@@ -272,67 +266,40 @@ export const CrachasTab: React.FC<CrachasTabProps> = ({
 
   return (
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
-      {/* Barra Superior de Título e Botões de Ação */}
-      <div className="no-print shrink-0 bg-[#e0e6f1] dark:bg-stone-800 border border-black/20 dark:border-stone-700 rounded-xl px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 flex items-center justify-center shrink-0">
-            <IdCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+      {/* Barra Superior Compacta em Linha Única: Título à Esquerda | Botões à Direita */}
+      <div className="no-print shrink-0 bg-[#cad4e6] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 flex items-center justify-center shrink-0">
+            <IdCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div>
-            <h2 className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white">
+          <div className="min-w-0">
+            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white leading-tight truncate">
               Emissão de Crachás com Código de Barras
             </h2>
-            <p className="text-xs font-medium text-slate-700 dark:text-stone-300">
+            <p className="text-[11px] font-semibold text-slate-700 dark:text-stone-300 leading-tight truncate">
               {activeBadgeDims.label} (Code 128) • {selectedEntries.length} de {employees.length} colaborador(es) selecionado(s)
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-start xl:self-auto">
-          <div className="flex items-center gap-1.5 bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-600 rounded-lg px-2.5 py-1 shadow-2xs">
-            <label
-              htmlFor="cracha-paper-size-select"
-              className="text-[10px] font-black uppercase tracking-wide text-slate-700 dark:text-stone-300 whitespace-nowrap"
-            >
-              Formato do Papel / Impressora:
-            </label>
-            <select
-              id="cracha-paper-size-select"
-              value={paperSize}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (isValidBadgePaperSize(val)) {
-                  handleChangePaperSize(val);
-                }
-              }}
-              className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer max-w-[260px] sm:max-w-[320px] truncate py-0.5"
-              title={activePaperOption.description}
-            >
-              {BADGE_PAPER_ORDER.map((id) => (
-                <option key={id} value={id} className="text-slate-900 bg-white">
-                  {BADGE_PAPER_OPTIONS[id].label}
-                </option>
-              ))}
-            </select>
-          </div>
-
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setIsCustomizeModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold border border-slate-400 shadow-2xs transition active:scale-95 cursor-pointer shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold border border-slate-400 shadow-2xs transition active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
           >
-            <Palette className="w-4 h-4 text-slate-700" />
+            <Palette className="w-3.5 h-3.5 text-slate-700" />
             <span>Personalizar Crachá</span>
           </button>
 
           <button
             type="button"
             onClick={handlePrintSelected}
-            className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border border-emerald-700 shadow-xs transition active:scale-95 cursor-pointer shrink-0 ${
+            className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border border-emerald-800 shadow-xs transition active:scale-95 cursor-pointer shrink-0 whitespace-nowrap ${
               selectedEntries.length === 0 ? 'opacity-80' : ''
             }`}
           >
-            <Printer className="w-4 h-4 text-white" />
+            <Printer className="w-3.5 h-3.5 text-white" />
             <span>
               Imprimir Crachá(s) Selecionado(s)
               {selectedEntries.length > 0 ? ` (${selectedEntries.length})` : ''}
