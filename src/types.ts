@@ -2486,6 +2486,11 @@ export interface CaixaFerramentaVeiculoRecord {
   // Dados enriquecidos opcionais
   veiculo_nome?: string;
   veiculo_placa?: string;
+  produto_id?: string | null;
+  valor_unitario?: number;
+  status_conferencia?: 'ok' | 'faltando' | 'danificada';
+  observacao_conferencia?: string;
+  kit_origem_nome?: string;
 }
 
 // ==============================================================================
