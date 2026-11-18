@@ -14,6 +14,7 @@ export interface PrintDocumentOptions {
   signatureLabels?: string[];
   footerNotes?: string;
   whatsappText?: string;
+  authCode?: string;
 }
 
 /**
@@ -31,13 +32,16 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
     showSignatures = true,
     signatureLabels = ['Responsável Técnico / Encarregado', 'Gerência Operacional / Diretoria'],
     footerNotes,
+    authCode,
   } = options;
 
   const now = new Date();
+  const resolvedAuthCode = authCode || `AC-${now.getTime().toString(36).toUpperCase()}`;
   const dateFormatted = formatDateBR(now.toISOString().split('T')[0]);
   const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const subscriber = resolveSubscriberPrintHeader(company);
   const fullAddress = subscriber.fullAddress;
+  const companyInitials = subscriber.displayTitle.trim().slice(0, 2).toUpperCase() || 'AC';
 
   const logoSrc = getCachedMediaUrl(subscriber.logoUrl || company?.logoUrl) || '';
 
@@ -49,7 +53,13 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
   <style>
     @page {
       size: ${orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait'};
-      margin: ${orientation === 'landscape' ? '8mm 8mm 10mm 8mm' : '12mm 10mm 15mm 10mm'};
+      margin: ${orientation === 'landscape' ? '8mm 8mm 12mm 8mm' : '12mm 10mm 15mm 10mm'};
+      @bottom-right {
+        content: "Página " counter(page) " de " counter(pages);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-size: 8pt;
+        color: #475569;
+      }
     }
     *, *::before, *::after {
       box-sizing: border-box;
@@ -179,6 +189,16 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
       margin-bottom: 14px;
       font-size: 9pt;
     }
+    thead {
+      display: table-header-group;
+    }
+    tfoot {
+      display: table-row-group;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
     th, td {
       border: 1px solid #cbd5e1;
       padding: 6px 8px;
@@ -300,15 +320,16 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
     <header class="company-header">
       <!-- Lado Esquerdo: Logomarca da Empresa -->
       <div class="company-logo-box">
-        ${logoSrc ? `<img src="${logoSrc}" alt="Logo ${company.tradeName}" />` : `<div style="font-weight:900;color:#0963cb;font-size:22pt;">SF</div>`}
+        ${logoSrc ? `<img src="${logoSrc}" alt="Logo ${subscriber.displayTitle}" />` : `<div style="font-weight:900;color:#0963cb;font-size:20pt;">${companyInitials}</div>`}
       </div>
 
-      <!-- Lado Direito: Nome Fantasia em destaque, Razão Social, CNPJ e Endereço -->
+      <!-- Lado Direito: Nome Fantasia em destaque, Razão Social, CNPJ, IE e Endereço -->
       <div class="company-info-right">
         <h2 class="company-trade-name">${subscriber.displayTitle}</h2>
         ${subscriber.corporateName && subscriber.corporateName.toUpperCase() !== subscriber.displayTitle.toUpperCase() ? `<p class="company-corporate-name">Razão Social: ${subscriber.corporateName}</p>` : ''}
         <div class="company-details">
           ${subscriber.cnpjCpf ? `<strong>CNPJ/CPF:</strong> ${subscriber.cnpjCpf}` : ''}
+          ${subscriber.stateRegistration ? `${subscriber.cnpjCpf ? ' &nbsp;|&nbsp; ' : ''}<strong>IE:</strong> ${subscriber.stateRegistration}` : ''}
           ${subscriber.cityState ? ` • <strong>${subscriber.cityState}</strong>` : ''}
           ${subscriber.phone ? ` &nbsp;|&nbsp; <strong>Contato:</strong> ${subscriber.phone}` : ''}
           ${subscriber.email ? ` &nbsp;|&nbsp; <strong>E-mail:</strong> ${subscriber.email}` : ''}
@@ -318,7 +339,7 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
           <span class="doc-type-badge">${documentType}</span>
           <div class="doc-meta">
             <span>Emissão: <strong>${dateFormatted} às ${timeFormatted}</strong></span>
-            <span>• Autenticação: <strong>AC-${now.getTime().toString(36).toUpperCase()}</strong></span>
+            <span>• Autenticação: <strong>${resolvedAuthCode}</strong></span>
           </div>
         </div>
       </div>
@@ -349,9 +370,10 @@ export function generatePrintableHtml(options: PrintDocumentOptions): string {
     ` : ''}
 
     <!-- Footer (Standard Fixed) -->
+    ${footerNotes ? `<div style="margin-top:10px;font-size:8pt;color:#475569;text-align:center;">${footerNotes}</div>` : ''}
     <footer class="print-footer">
       <div>${buildSystemPrintFooterText(now)}</div>
-      <div>Página 1 de 1</div>
+      <div>Autenticação: <strong>${resolvedAuthCode}</strong></div>
     </footer>
 
   </div>

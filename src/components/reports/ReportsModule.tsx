@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { 
-  FileSpreadsheet, 
   Printer, 
   Calendar as CalendarIcon, 
   FileText, 
@@ -10,7 +9,6 @@ import {
   DollarSign, 
   Fuel,
   LayoutDashboard,
-  ChevronDown,
   Building2
 } from 'lucide-react';
 import { 
@@ -33,8 +31,14 @@ import { ReportsVendasTab } from './ReportsVendasTab';
 import { ReportsDespesasTab } from './ReportsDespesasTab';
 import { ReportsConsumoTab } from './ReportsConsumoTab';
 import { ReportsAtivoImobilizadoTab } from './ReportsAtivoImobilizadoTab';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { getCompetenceDateRange } from '../financial/CompetenceSelector';
+import {
+  buildDashboardConsolidatedReport,
+  ReportPrintConfig,
+  ReportSubTabId,
+  resolveReportSegmentContext,
+  STANDARD_REPORT_SIGNATURES,
+} from './reportPrintBuilders';
 
 export interface ReportsModuleProps {
   expenses: Expense[];
@@ -47,6 +51,17 @@ export interface ReportsModuleProps {
   seasons?: CropSeason[];
 }
 
+const PRINT_BUTTON_LABELS: Record<ReportSubTabId, string> = {
+  dashboard: 'Imprimir Relatório Consolidado',
+  resumo: 'Imprimir DRE Gerencial',
+  imobilizado: 'Imprimir Inventário & IPVA',
+  cortes: 'Imprimir Relatório de Serviços',
+  vendas: 'Imprimir Relatório de Vendas',
+  despesas: 'Imprimir Relatório de Despesas',
+  consumo: 'Imprimir Relatório de Consumo',
+  exportar: 'Imprimir Relatório Consolidado',
+};
+
 export const ReportsModule: React.FC<ReportsModuleProps> = ({
   expenses,
   orders,
@@ -57,17 +72,17 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   machineries = [],
   seasons = [],
 }) => {
+  const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
+
   // Navigation Subtabs
-  const [activeSubTab, setActiveSubTab] = useState<
-    'dashboard' | 'resumo' | 'exportar' | 'cortes' | 'vendas' | 'despesas' | 'consumo' | 'imobilizado'
-  >('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<ReportSubTabId>('dashboard');
 
   // Month & Year state
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth()); // 0-indexed (8 = September)
-  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear()); // 2026
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
 
-  // Filter Period Pill Selection
+  // Filter Period Selection
   const [quickPeriod, setQuickPeriod] = useState<'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses'>('mes_atual');
 
   // Custom Date range
@@ -82,22 +97,59 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     return `${pad(selectedMonth + 1)}/${selectedYear}`;
   }, [selectedMonth, selectedYear]);
 
-  const handleCompetenceChange = (newComp: string) => {
+  const handleCompetenceChange = useCallback((newComp: string) => {
     const range = getCompetenceDateRange(newComp);
     const [mStr, yStr] = newComp.split('/');
     const m = parseInt(mStr, 10);
     const y = parseInt(yStr, 10);
-    if (!isNaN(m)) setSelectedMonth(m - 1);
+    if (!isNaN(m) && m >= 1 && m <= 12) setSelectedMonth(m - 1);
     if (!isNaN(y)) setSelectedYear(y);
     setStartDate(range.start);
     setEndDate(range.end);
     setQuickPeriod('mes_atual');
-  };
+  }, []);
 
-  // Print Preview Modal State
+  const handleStartDateChange = useCallback((newStart: string) => {
+    setStartDate(newStart);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(newStart)) {
+      const [yStr, mStr] = newStart.split('-');
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10);
+      if (!isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+        setSelectedYear(y);
+        setSelectedMonth(m - 1);
+      }
+    }
+  }, []);
+
+  // Print Preview Modal & Dynamic Active Tab Getter Registry
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-  const [customPrintHtml, setCustomPrintHtml] = useState<string | null>(null);
-  const [customWhatsAppText, setCustomWhatsAppText] = useState<string | null>(null);
+  const [activePrintConfig, setActivePrintConfig] = useState<ReportPrintConfig | null>(null);
+  const tabPrintGettersRef = useRef<Partial<Record<ReportSubTabId, () => ReportPrintConfig>>>({});
+
+  const registerPrintGetter = useMemo(
+    () => ({
+      resumo: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.resumo = getter;
+      },
+      imobilizado: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.imobilizado = getter;
+      },
+      cortes: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.cortes = getter;
+      },
+      vendas: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.vendas = getter;
+      },
+      despesas: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.despesas = getter;
+      },
+      consumo: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.consumo = getter;
+      },
+    }),
+    []
+  );
 
   const monthsList = [
     'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -134,136 +186,57 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       startD.setMonth(today.getMonth() - 12);
     }
 
-    setStartDate(`${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-${pad(startD.getDate())}`);
+    const nextStart = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-${pad(startD.getDate())}`;
+    setStartDate(nextStart);
     setEndDate(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
   };
 
-  // General Consolidated Print HTML
-  const generalPrintHtml = useMemo(() => {
-    const periodOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
-    const periodServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
-    const periodExpenses = (expenses || []).filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate);
-    const periodFuel = (fuelLogs || []).filter(f => f?.date && f.date >= startDate && f.date <= endDate);
+  // Consolidated Print Fallback (used on Dashboard Consolidado & Exportar tabs)
+  const consolidatedPrintConfig = useMemo(
+    () =>
+      buildDashboardConsolidatedReport({
+        companyProfile,
+        orders,
+        services,
+        expenses,
+        fuelLogs,
+        startDate,
+        endDate,
+        competence,
+      }),
+    [companyProfile, orders, services, expenses, fuelLogs, startDate, endDate, competence]
+  );
 
-    const ordersRev = periodOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const servicesRev = periodServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-    const totalRev = ordersRev + servicesRev;
-    const totalExp = periodExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const net = totalRev - totalExp;
+  const handleOpenPrintModal = useCallback(
+    (explicitConfig?: ReportPrintConfig) => {
+      if (explicitConfig && typeof explicitConfig.contentHtml === 'string') {
+        setActivePrintConfig(explicitConfig);
+      } else {
+        const getter = tabPrintGettersRef.current[activeSubTab];
+        const resolved = getter ? getter() : consolidatedPrintConfig;
+        setActivePrintConfig(resolved);
+      }
+      setIsPrintModalOpen(true);
+    },
+    [activeSubTab, consolidatedPrintConfig]
+  );
 
-    const totalTonsSilage = periodOrders.reduce((sum, o) => sum + (o.tons || 0), 0);
-    const totalHectares = periodServices.reduce((sum, s) => sum + (s.areaHectares || 0), 0);
-    const totalDieselLiters = periodFuel.reduce((sum, f) => sum + (f.liters || 0), 0);
-
-    return `
-      <div style="margin-bottom: 20px;">
-        <h3 style="font-size: 14pt; font-weight: bold; color: #0f172a; margin-bottom: 4px;">
-          RELATÓRIO CONSOLIDADO EXECUTIVO DA SAFRA
-        </h3>
-        <p style="font-size: 10pt; color: #64748b; margin-top: 0;">
-          Período Contábil e Operacional: <strong>${formatDateBR(startDate)}</strong> a <strong>${formatDateBR(endDate)}</strong>
-        </p>
-      </div>
-
-      <!-- Resumo Financeiro -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-        <thead>
-          <tr style="background: #0f172a; color: white;">
-            <th style="padding: 8px 12px; text-align: left;">Indicador Financeiro</th>
-            <th style="padding: 8px 12px; text-align: right;">Total Realizado (R$)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="background: #f0fdf4;">
-            <td style="padding: 8px 12px; font-weight: bold;">(+) Receita com Vendas de Silagem</td>
-            <td style="padding: 8px 12px; text-align: right; color: #047857; font-weight: bold;">${formatCurrencyBRL(ordersRev)}</td>
-          </tr>
-          <tr style="background: #f0fdf4;">
-            <td style="padding: 8px 12px; font-weight: bold;">(+) Receita com Serviços de Colheita / Cortes</td>
-            <td style="padding: 8px 12px; text-align: right; color: #047857; font-weight: bold;">${formatCurrencyBRL(servicesRev)}</td>
-          </tr>
-          <tr style="background: #e2e8f0; font-weight: bold;">
-            <td style="padding: 8px 12px;">(=) RECEITA BRUTA TOTAL</td>
-            <td style="padding: 8px 12px; text-align: right; color: #047857; font-size: 11pt;">${formatCurrencyBRL(totalRev)}</td>
-          </tr>
-          <tr style="background: #fff1f2;">
-            <td style="padding: 8px 12px; font-weight: bold;">(-) Despesas e Custos Operacionais</td>
-            <td style="padding: 8px 12px; text-align: right; color: #b91c1c; font-weight: bold;">${formatCurrencyBRL(totalExp)}</td>
-          </tr>
-          <tr style="background: #dcfce7; font-weight: 900; font-size: 12pt; border-top: 2px solid #047857;">
-            <td style="padding: 10px 12px;">(=) RESULTADO LÍQUIDO OPERACIONAL</td>
-            <td style="padding: 10px 12px; text-align: right; color: ${net >= 0 ? '#047857' : '#b91c1c'};">
-              ${formatCurrencyBRL(net)} (${totalRev > 0 ? ((net / totalRev) * 100).toFixed(1) : 0}%)
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Resumo Físico e Operacional -->
-      <h4 style="font-size: 11pt; font-weight: bold; margin-bottom: 8px; color: #1e293b;">
-        MÉTRICAS FÍSICAS DE PRODUÇÃO E COLHEITA
-      </h4>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-        <tr style="background: #f8fafc;">
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">Área Total Colhida / Ensilada:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; text-align: right;">${totalHectares.toFixed(1)} ha</td>
-        </tr>
-        <tr style="background: #ffffff;">
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">Volume Total de Silagem Comercializada:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; text-align: right;">${totalTonsSilage.toFixed(1)} ton</td>
-        </tr>
-        <tr style="background: #f8fafc;">
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">Consumo Total de Diesel / Combustível:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; text-align: right;">${totalDieselLiters.toFixed(1)} Litros</td>
-        </tr>
-      </table>
-    `;
-  }, [orders, services, expenses, fuelLogs, startDate, endDate]);
-
-  const generalWhatsAppText = useMemo(() => {
-    const periodOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
-    const periodServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
-    const periodExpenses = (expenses || []).filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate);
-    const ordersRev = periodOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const servicesRev = periodServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-    const totalRev = ordersRev + servicesRev;
-    const totalExp = periodExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const net = totalRev - totalExp;
-
-    return `📊 *${companyProfile?.tradeName?.toUpperCase() || 'SILAGEM FÁCIL PRO'}*\n` +
-      `📑 *RELATÓRIO GERAL CONSOLIDADO*\n` +
-      `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)}\n\n` +
-      `💰 *Receita Total:* ${formatCurrencyBRL(totalRev)}\n` +
-      `💸 *Despesas Totais:* ${formatCurrencyBRL(totalExp)}\n` +
-      `🟢 *Resultado Líquido:* ${formatCurrencyBRL(net)}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🌱 Gerado automaticamente pelo Silagem Fácil Pro`;
-  }, [companyProfile, orders, services, expenses, startDate, endDate]);
-
-  const handleOpenPrintModal = (html?: string, whatsapp?: string) => {
-    if (html) {
-      setCustomPrintHtml(html);
-      setCustomWhatsAppText(whatsapp || null);
-    } else {
-      setCustomPrintHtml(generalPrintHtml);
-      setCustomWhatsAppText(generalWhatsAppText);
-    }
-    setIsPrintModalOpen(true);
-  };
-
-  const navSubTabs = [
+  const navSubTabs: Array<{ id: ReportSubTabId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'dashboard', label: 'Dashboard Consolidado', icon: LayoutDashboard },
     { id: 'resumo', label: 'Resumo Geral', icon: FileText },
     { id: 'imobilizado', label: '📊 Ativo Imobilizado', icon: Building2 },
     { id: 'exportar', label: 'Exportar Excel', icon: Download },
-    { id: 'cortes', label: 'Cortes', icon: Scissors },
+    { id: 'cortes', label: segmentCtx.servicesTabNavLabel, icon: Scissors },
     { id: 'vendas', label: 'Vendas', icon: ShoppingCart },
     { id: 'despesas', label: 'Despesas', icon: DollarSign },
     { id: 'consumo', label: 'Consumo', icon: Fuel },
   ];
 
+  const printButtonLabel = PRINT_BUTTON_LABELS[activeSubTab] || 'Imprimir Relatório';
+  const modalConfig = activePrintConfig || consolidatedPrintConfig;
+
   return (
-    <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2 overflow-hidden animate-fade-in">
+    <div id="reports-module-root" className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2 overflow-hidden animate-fade-in">
       
       {/* 1. Header do Módulo 3D Slim */}
       <header className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-1.5 shadow-xs">
@@ -273,14 +246,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </h1>
         </div>
 
-        {/* Top-right Actions: Month Picker + Imprimir Geral */}
+        {/* Top-right Actions: Month Picker + Botão Contextual por Aba */}
         <div className="flex flex-wrap items-center gap-2">
           
-          {/* Month Selector Dropdown */}
+          {/* Month Selector Dropdown (Sincronizado bidirecionalmente com Competência MM/AAAA) */}
           <div className="relative">
             <select
               value={selectedMonth}
               onChange={(e) => handleMonthChange(Number(e.target.value))}
+              aria-label="Selecionar mês de competência dos relatórios"
               className="appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-slate-500 shadow-2xs cursor-pointer"
             >
               {monthsList.map((m, idx) => (
@@ -292,14 +266,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <CalendarIcon className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Botão Imprimir Geral 3D Acetinado */}
+          {/* Botão Imprimir Contextual 3D Acetinado */}
           <button
             type="button"
             onClick={() => handleOpenPrintModal()}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-black dark:border-stone-700 bg-[#e0e6f1] hover:bg-[#d2dced] dark:from-stone-800 dark:to-stone-900 dark:text-stone-200 text-black shadow-2xs transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-black dark:border-stone-700 bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-200 text-black shadow-2xs transition cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-black dark:text-stone-300" />
-            <span>Imprimir Geral</span>
+            <span>{printButtonLabel}</span>
           </button>
 
         </div>
@@ -320,7 +294,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveSubTab(tab.id as any)}
+                  onClick={() => setActiveSubTab(tab.id)}
                   style={isActive ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
                   className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
                     isActive
@@ -349,11 +323,12 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               orders={orders}
               services={services}
               fuelLogs={fuelLogs}
+              companyProfile={companyProfile}
               quickPeriod={quickPeriod}
               onQuickPeriodChange={handleQuickPeriodChange}
               startDate={startDate}
               endDate={endDate}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
               selectedMonthName={monthsList[selectedMonth]}
               selectedYear={selectedYear}
@@ -372,9 +347,10 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               endDate={endDate}
               competence={competence}
               onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
-              onOpenPrintModal={(html, whatsapp) => handleOpenPrintModal(html, whatsapp)}
+              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+              onRegisterPrintGetter={registerPrintGetter.resumo}
             />
           )}
 
@@ -386,11 +362,12 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               fuelLogs={fuelLogs}
               clients={clients}
               machineries={machineries}
+              companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
               competence={competence}
               onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
             />
           )}
@@ -400,36 +377,42 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               services={services}
               orders={orders}
               seasons={seasons}
+              companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
               competence={competence}
               onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
+              onRegisterPrintGetter={registerPrintGetter.cortes}
             />
           )}
 
           {activeSubTab === 'vendas' && (
             <ReportsVendasTab
               orders={orders}
+              companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
               competence={competence}
               onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
+              onRegisterPrintGetter={registerPrintGetter.vendas}
             />
           )}
 
           {activeSubTab === 'despesas' && (
             <ReportsDespesasTab
               expenses={expenses}
+              companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
               competence={competence}
               onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
+              onRegisterPrintGetter={registerPrintGetter.despesas}
             />
           )}
 
@@ -437,12 +420,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <ReportsConsumoTab
               fuelLogs={fuelLogs}
               machineries={machineries}
+              companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
               competence={competence}
               onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={setStartDate}
+              onStartDateChange={handleStartDateChange}
               onEndDateChange={setEndDate}
+              onRegisterPrintGetter={registerPrintGetter.consumo}
             />
           )}
 
@@ -452,27 +437,31 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               companyProfile={companyProfile}
               startDate={startDate}
               endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+              onRegisterPrintGetter={registerPrintGetter.imobilizado}
             />
           )}
         </div>
       </div>
 
-      {/* Modal de Impressão e PDF */}
+      {/* Modal de Impressão e PDF Contextual da Aba Ativa */}
       <PrintPreviewModal
         isOpen={isPrintModalOpen}
         onClose={() => {
           setIsPrintModalOpen(false);
-          setCustomPrintHtml(null);
-          setCustomWhatsAppText(null);
+          setActivePrintConfig(null);
         }}
         options={{
-          title: 'Relatório Executivo Consolidado de Silagem',
-          subtitle: `Demonstrativo contábil, operacional e de custos da safra (${formatDateBR(startDate)} a ${formatDateBR(endDate)})`,
-          documentType: 'RELATÓRIO CONSOLIDADO',
+          title: modalConfig.title,
+          subtitle: modalConfig.subtitle,
+          documentType: modalConfig.documentType,
           company: companyProfile,
-          contentHtml: customPrintHtml || generalPrintHtml,
-          signatureLabels: ['Diretoria Financeira / Controladoria', 'Gerência de Operações Agrícolas'],
-          whatsappText: customWhatsAppText || generalWhatsAppText,
+          contentHtml: modalConfig.contentHtml,
+          orientation: modalConfig.orientation || 'portrait',
+          signatureLabels: modalConfig.signatureLabels || STANDARD_REPORT_SIGNATURES,
+          whatsappText: modalConfig.whatsappText,
         }}
       />
 

@@ -32,7 +32,7 @@ import {
   canShareFilesNatively,
   sharePdfNatively
 } from '../../lib/pdfGenerator';
-import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
+import { resolveSubscriberPrintHeader, buildSystemPrintFooterText, SYSTEM_NAME } from '../../lib/printIdentity';
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -69,8 +69,15 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     whatsappText 
   } = options;
 
+  const now = new Date();
+  const authCode = options.authCode || `AC-${now.getTime().toString(36).toUpperCase()}`;
+  const subscriberIdentity = resolveSubscriberPrintHeader(company);
+  const fullAddress = subscriberIdentity.fullAddress;
+  const companyInitials = subscriberIdentity.displayTitle.trim().slice(0, 2).toUpperCase() || 'AC';
+
   const printableOptions: PrintDocumentOptions = {
     ...options,
+    authCode,
     company: {
       ...company,
       logoUrl: resolvedCompanyLogoUrl || company.logoUrl,
@@ -91,14 +98,13 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
   // Generate clean default WhatsApp text if not explicitly provided
   const resolvedWhatsAppText = whatsappText || (() => {
-    const now = new Date();
     const dateStr = formatDateBR(now.toISOString().split('T')[0]);
-    let text = `🚜 *${company.tradeName?.toUpperCase() || 'SILAGEM FÁCIL'}*\n`;
+    let text = `📊 *${subscriberIdentity.displayTitle.toUpperCase()}*\n`;
     text += `📋 *${title.toUpperCase()}*\n`;
     if (subtitle) text += `📌 ${subtitle}\n`;
     text += `📅 *Data de Emissão:* ${dateStr}\n`;
-    if (company.phone) text += `📞 *Contato:* ${company.phone}\n`;
-    text += `\n_Emitido eletronicamente via Silagem Fácil Pro_`;
+    if (subscriberIdentity.phone) text += `📞 *Contato:* ${subscriberIdentity.phone}\n`;
+    text += `\n_Emitido eletronicamente via ${SYSTEM_NAME}_`;
     return text;
   })();
 
@@ -120,7 +126,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     try {
       const { blob, filename } = await generatePdfFromElement(printDocRef.current, {
         title,
-        filename: `${title}_${company.tradeName || 'silagem_facil'}`,
+        filename: `${title}_${subscriberIdentity.displayTitle || 'agrocontrol'}`,
+        orientation: options.orientation,
       });
       downloadPdfBlob(blob, filename);
       setPdfSuccessMessage(`✅ PDF baixado: ${filename}`);
@@ -141,7 +148,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     try {
       const { blob, file, filename } = await generatePdfFromElement(printDocRef.current, {
         title,
-        filename: `${title}_${company.tradeName || 'silagem_facil'}`,
+        filename: `${title}_${subscriberIdentity.displayTitle || 'agrocontrol'}`,
+        orientation: options.orientation,
       });
 
       // 1. If mobile native file sharing is available
@@ -149,7 +157,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       if (hasNativeShare) {
         const shared = await sharePdfNatively(
           file, 
-          `${title} - ${company.tradeName || 'Silagem Fácil'}`,
+          `${title} - ${subscriberIdentity.displayTitle}`,
           `Segue o documento oficial em anexo: ${title}`
         );
         if (shared) {
@@ -163,7 +171,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
       downloadPdfBlob(blob, filename);
       setPdfSuccessMessage(`✅ PDF baixado com sucesso! Abrindo WhatsApp...`);
       
-      const escortText = `🚜 *${company.tradeName || 'SILAGEM FÁCIL'}*\n📄 *${title.toUpperCase()}*\n\nEstou enviando o arquivo em anexo (*${filename}*).`;
+      const escortText = `📊 *${subscriberIdentity.displayTitle}*\n📄 *${title.toUpperCase()}*\n\nEstou enviando o arquivo em anexo (*${filename}*).`;
       sendViaWhatsApp(escortText);
 
     } catch (err) {
@@ -175,12 +183,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     }
   };
 
-  const now = new Date();
   const dateFormatted = formatDateBR(now.toISOString().split('T')[0]);
   const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-  const subscriberIdentity = resolveSubscriberPrintHeader(company);
-  const fullAddress = subscriberIdentity.fullAddress;
 
   const defaultPdfFilename = `${String(title ?? '').toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
@@ -281,7 +285,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="text-xl font-black text-[#0963cb]">SF</span>
+                  <span className="text-xl font-black text-[#0963cb]">{companyInitials}</span>
                 )}
               </div>
 
@@ -310,7 +314,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 </span>
                 <div className="text-[10px] text-stone-500 mt-1.5 space-y-0.5">
                   <div>Emissão: <strong>{dateFormatted} às {timeFormatted}</strong></div>
-                  <div>Sistema: <strong>AgroControl</strong></div>
+                  <div>Autenticação: <strong>{authCode}</strong></div>
                 </div>
               </div>
             </div>
@@ -340,7 +344,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       {lbl}
                     </div>
                     <div className="text-[9px] text-stone-400">
-                      {company.tradeName} • Data: ____/____/________
+                      {subscriberIdentity.displayTitle} • Data: ____/____/________
                     </div>
                   </div>
                 ))}
@@ -350,7 +354,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             {/* Footer */}
             <div className="border-t border-dashed border-stone-300 pt-2 flex items-center justify-between text-[9px] text-gray-700 page-break-inside-avoid break-inside-avoid">
               <span>{buildSystemPrintFooterText(now)}</span>
-              <span>Página 1 de 1</span>
+              <span>Autenticação: <strong>{authCode}</strong> • Página 1 de 1</span>
             </div>
 
           </div>

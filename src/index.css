@@ -1961,3 +1961,28 @@ html div#root div#desktop-outer-frame-container div#desktop-window-mother-frame 
   }
 }
 
+/* ==========================================================================
+   PADRONIZAÇÃO VISUAL DO MÓDULO RELATÓRIOS (#reports-module-root)
+   Garante cards KPI (#e0e6f1) e barras de filtros (#cad4e6) com borda preta
+   no modo claro, imunes às regras genéricas de Focus Mode.
+   ========================================================================== */
+html:not(.dark) div#root div#desktop-outer-frame-container div#desktop-window-mother-frame main#crm-main-content div#reports-module-root .reports-kpi-card,
+html:not(.dark) #reports-module-root .reports-kpi-card {
+  background-color: #e0e6f1 !important;
+  background-image: none !important;
+  border-top: 1px solid #000000 !important;
+  border-right: 1px solid #000000 !important;
+  border-bottom: 1px solid #000000 !important;
+}
+
+html:not(.dark) div#root div#desktop-outer-frame-container div#desktop-window-mother-frame main#crm-main-content div#reports-module-root .reports-kpi-card:not([class*="border-l-"]),
+html:not(.dark) #reports-module-root .reports-kpi-card:not([class*="border-l-"]) {
+  border-left: 1px solid #000000 !important;
+}
+
+html:not(.dark) div#root div#desktop-outer-frame-container div#desktop-window-mother-frame main#crm-main-content div#reports-module-root .reports-filter-bar,
+html:not(.dark) #reports-module-root .reports-filter-bar {
+  background-color: #cad4e6 !important;
+  background-image: none !important;
+  border: 1px solid #000000 !important;
+}

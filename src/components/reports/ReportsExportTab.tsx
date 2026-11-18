@@ -19,14 +19,16 @@ import {
   ServiceOrder, 
   FuelLog, 
   Client, 
-  Machinery 
+  Machinery,
+  CompanyProfile
 } from '../../types';
-import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
+import { formatDateBR } from '../../lib/storage';
 import { 
   CompetenceSelector, 
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
+import { resolveReportSegmentContext } from './reportPrintBuilders';
 
 interface ReportsExportTabProps {
   expenses: Expense[];
@@ -35,6 +37,7 @@ interface ReportsExportTabProps {
   fuelLogs?: FuelLog[];
   clients?: Client[];
   machineries?: Machinery[];
+  companyProfile?: CompanyProfile;
   startDate: string;
   endDate: string;
   competence?: string;
@@ -49,14 +52,13 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
   services,
   fuelLogs = [],
   clients = [],
-  machineries = [],
+  companyProfile,
   startDate,
   endDate,
   competence,
   onCompetenceChange,
-  onStartDateChange,
-  onEndDateChange,
 }) => {
+  const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
     if (startDate && startDate.length >= 7) {
@@ -108,8 +110,8 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
     }
 
     if (selectedModules.orders) {
-      csvContent += '=== VENDAS DE SILAGEM ===\n';
-      csvContent += 'Data_Entrega,Numero_Pedido,Cliente,Fazenda,Produto,Toneladas,Preco_Ton_R$,Total_Faturado_R$,Frete,Status_Pagto\n';
+      csvContent += `=== ${segmentCtx.ordersRevenueLabel.toUpperCase()} ===\n`;
+      csvContent += 'Data_Entrega,Numero_Pedido,Cliente,Local_Fazenda,Produto,Toneladas,Preco_Ton_R$,Total_Faturado_R$,Frete,Status_Pagto\n';
       const filteredOrd = orders.filter(o => o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
       filteredOrd.forEach(o => {
         csvContent += `"${o.deliveryDate}","${o.orderNumber || o.id}","${o.clientName}","${o.farmName || ''}","${o.productType}","${o.tons}","${o.pricePerTon}","${o.totalAmount}","${o.freightType}","${o.paymentStatus}"\n`;
@@ -118,8 +120,8 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
     }
 
     if (selectedModules.services) {
-      csvContent += '=== PRESTACAO DE SERVICOS / CORTES ===\n';
-      csvContent += 'Data_Inicio,Cliente,Fazenda,Servico,Area_Hectares,Toneladas_Estimadas,Maquina,Operador,Total_R$,Status\n';
+      csvContent += '=== PRESTACAO DE SERVICOS ===\n';
+      csvContent += 'Data_Inicio,Cliente,Local_Fazenda,Servico,Area_Hectares,Volume_Estimado,Maquina,Operador,Total_R$,Status\n';
       const filteredServ = services.filter(s => s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
       filteredServ.forEach(s => {
         csvContent += `"${s.startDate}","${s.clientName}","${s.farmName || ''}","${s.serviceType}","${s.areaHectares || 0}","${s.tonsEstimated || 0}","${s.machineryAssigned || ''}","${s.operatorAssigned || ''}","${s.totalAmount}","${s.status}"\n`;
@@ -150,7 +152,7 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `relatorio_consolidado_silagem_${startDate}_a_${endDate}.csv`;
+    link.download = `relatorio_consolidado_${startDate}_a_${endDate}.csv`;
     link.click();
   };
 
@@ -221,7 +223,7 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
             <div className="flex items-center space-x-3">
               <ShoppingCart className="w-4 h-4 text-emerald-600" />
               <div>
-                <div className="text-xs font-bold">Vendas de Silagem</div>
+                <div className="text-xs font-bold">{segmentCtx.isAgroSilage ? 'Vendas de Silagem' : 'Vendas & Faturamento'}</div>
                 <div className="text-[10px] text-stone-400">{orders.length} pedidos</div>
               </div>
             </div>
@@ -243,7 +245,7 @@ export const ReportsExportTab: React.FC<ReportsExportTabProps> = ({
             <div className="flex items-center space-x-3">
               <Tractor className="w-4 h-4 text-teal-600" />
               <div>
-                <div className="text-xs font-bold">Serviços & Cortes</div>
+                <div className="text-xs font-bold">{segmentCtx.servicesTabNavLabel === 'Cortes' ? 'Serviços & Cortes' : 'Prestação de Serviços'}</div>
                 <div className="text-[10px] text-stone-400">{services.length} serviços</div>
               </div>
             </div>

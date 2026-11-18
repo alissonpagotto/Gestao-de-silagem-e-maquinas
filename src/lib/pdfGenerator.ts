@@ -5,6 +5,7 @@ export interface GeneratePdfOptions {
   filename?: string;
   title?: string;
   singlePage?: boolean;
+  orientation?: 'portrait' | 'landscape';
 }
 
 /**
@@ -15,7 +16,7 @@ export async function generatePdfFromElement(
   element: HTMLElement,
   options?: GeneratePdfOptions
 ): Promise<{ blob: Blob; file: File; dataUrl: string; filename: string }> {
-  const filename = String((options?.filename || options?.title || 'documento_silagem_facil') ?? '').toLowerCase()
+  const filename = String((options?.filename || options?.title || 'documento_agrocontrol') ?? '').toLowerCase()
     .replace(/[^a-z0-9]/gi, '_')
     .replace(/_+/g, '_') + '.pdf';
 
@@ -25,20 +26,20 @@ export async function generatePdfFromElement(
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
-    windowWidth: 1024,
+    windowWidth: options?.orientation === 'landscape' ? 1280 : 1024,
   });
 
   const imgData = canvas.toDataURL('image/jpeg', 0.95);
   
   // Calculate A4 dimensions (in mm)
   const pdf = new jsPDF({
-    orientation: 'portrait',
+    orientation: options?.orientation === 'landscape' ? 'landscape' : 'portrait',
     unit: 'mm',
     format: 'a4',
   });
 
-  const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-  const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+  const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm or 297mm
+  const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm or 210mm
 
   const imgProps = pdf.getImageProperties(imgData);
 

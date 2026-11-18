@@ -1,16 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Fuel, 
   Search, 
   Download, 
   Tractor, 
   Truck, 
   Gauge, 
   DollarSign, 
-  Calendar, 
   Droplet 
 } from 'lucide-react';
-import { FuelLog, Machinery } from '../../types';
+import { CompanyProfile, FuelLog, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR, isFictitiousOrZeroFuelLog } from '../../lib/storage';
 import { 
   formatFuelLogEfficiency, 
@@ -25,27 +23,30 @@ import {
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
+import { buildConsumoReport, ReportPrintConfig } from './reportPrintBuilders';
 
 interface ReportsConsumoTabProps {
   fuelLogs: FuelLog[];
   machineries?: Machinery[];
+  companyProfile?: CompanyProfile;
   startDate: string;
   endDate: string;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
   onStartDateChange?: (d: string) => void;
   onEndDateChange?: (d: string) => void;
+  onRegisterPrintGetter?: (getter: () => ReportPrintConfig) => void;
 }
 
 export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   fuelLogs: propFuelLogs = [],
   machineries = [],
+  companyProfile = {} as CompanyProfile,
   startDate,
   endDate,
   competence,
   onCompetenceChange,
-  onStartDateChange,
-  onEndDateChange,
+  onRegisterPrintGetter,
 }) => {
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
@@ -171,6 +172,44 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
     }).sort((a, b) => b.liters - a.liters);
   }, [filteredLogs, machineries]);
 
+  const selectedVehicleLabel = useMemo(() => {
+    if (selectedVehicle === 'todos') return 'todos';
+    const found = machineries.find((m) => m.id === selectedVehicle);
+    return found ? `${found.licensePlateOrSerial ? `[${found.licensePlateOrSerial}] ` : ''}${found.name}` : selectedVehicle;
+  }, [selectedVehicle, machineries]);
+
+  const printConfig = useMemo(
+    () =>
+      buildConsumoReport({
+        companyProfile,
+        filteredLogs,
+        machineryStats,
+        machineries,
+        startDate,
+        endDate,
+        competence: activeCompetence,
+        searchTerm,
+        selectedVehicleLabel,
+        fuelTypeFilter,
+      }),
+    [
+      companyProfile,
+      filteredLogs,
+      machineryStats,
+      machineries,
+      startDate,
+      endDate,
+      activeCompetence,
+      searchTerm,
+      selectedVehicleLabel,
+      fuelTypeFilter,
+    ]
+  );
+
+  useEffect(() => {
+    onRegisterPrintGetter?.(() => printConfig);
+  }, [onRegisterPrintGetter, printConfig]);
+
   const handleExportCsv = () => {
     const headers = 'Data,Maquina_Veiculo,Tipo_Controle,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Leitura_Atual,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
     const rows = filteredLogs.map(l => {
@@ -214,7 +253,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       {/* 1. Cards de Resumo Finos e Compactos */}
       <div className="shrink-0 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
         
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
             <Droplet className="w-3.5 h-3.5" />
           </div>
@@ -233,7 +272,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
             <DollarSign className="w-3.5 h-3.5" />
           </div>
@@ -252,7 +291,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-teal-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-teal-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 flex items-center justify-center shrink-0 border border-black/15">
             <Gauge className="w-3.5 h-3.5" />
           </div>
@@ -275,14 +314,14 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
 
       {/* Top Máquinas por Consumo com Médias Formatadas */}
       {machineryStats.length > 0 && (
-        <div className="shrink-0 bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs max-h-[145px] overflow-y-auto">
+        <div className="reports-kpi-card shrink-0 bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5 shadow-xs max-h-[145px] overflow-y-auto">
           <h4 className="text-xs font-bold text-black dark:text-stone-100 mb-2 flex items-center space-x-1.5">
             <Tractor className="w-3.5 h-3.5 text-stone-600" />
             <span>Consumo Consolidado por Máquina / Trator / Caminhão</span>
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {machineryStats.map(m => (
-              <div key={m.name} className="py-1.5 px-2.5 bg-white/80 dark:bg-stone-800/60 rounded-lg border border-black/30 dark:border-stone-700/60 flex justify-between items-center">
+              <div key={m.name} className="py-1.5 px-2.5 bg-[#cad4e6]/70 dark:bg-stone-800/60 rounded-lg border border-black/40 dark:border-stone-700/60 flex justify-between items-center">
                 <div className="min-w-0 flex-1 pr-2">
                   <div className="flex items-center gap-1.5">
                     {m.isMachine ? (
@@ -318,7 +357,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       )}
 
       {/* 2. Filtros, Busca, Competência e Exportação */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="reports-filter-bar shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input

@@ -1,23 +1,22 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Printer, 
-  MessageCircle, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Percent,
-  CheckCircle2,
-  AlertCircle
+import React, { useEffect, useMemo } from 'react';
+import {
+  FileText,
+  Printer,
+  MessageCircle,
 } from 'lucide-react';
 import { Expense, SilageOrder, ServiceOrder, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { 
-  CompetenceSelector, 
-  getPrevCompetence, 
-  getNextCompetence 
+import {
+  CompetenceSelector,
+  getPrevCompetence,
+  getNextCompetence,
 } from '../financial/CompetenceSelector';
+import {
+  buildResumoDreReport,
+  classifyDreExpenses,
+  ReportPrintConfig,
+  resolveReportSegmentContext,
+} from './reportPrintBuilders';
 
 interface ReportsResumoTabProps {
   expenses: Expense[];
@@ -26,7 +25,8 @@ interface ReportsResumoTabProps {
   companyProfile: CompanyProfile;
   startDate: string;
   endDate: string;
-  onOpenPrintModal: (html: string, whatsappText: string) => void;
+  onOpenPrintModal: (config: ReportPrintConfig) => void;
+  onRegisterPrintGetter?: (getter: () => ReportPrintConfig) => void;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
   onStartDateChange?: (d: string) => void;
@@ -41,12 +41,10 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
   startDate,
   endDate,
   onOpenPrintModal,
+  onRegisterPrintGetter,
   competence,
   onCompetenceChange,
-  onStartDateChange,
-  onEndDateChange,
 }) => {
-  // Active competence
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
     if (startDate && startDate.length >= 7) {
@@ -67,144 +65,81 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
     onCompetenceChange?.(nextComp);
   };
 
-  // Period filter
-  const filteredOrders = (orders || []).filter(o => o?.deliveryDate && o.deliveryDate >= startDate && o.deliveryDate <= endDate && o.status !== 'cancelado');
-  const filteredServices = (services || []).filter(s => s?.startDate && s.startDate >= startDate && s.startDate <= endDate && s.status !== 'cancelado');
-  const filteredExpenses = (expenses || []).filter(e => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate);
+  const segmentCtx = useMemo(
+    () => resolveReportSegmentContext(companyProfile),
+    [companyProfile]
+  );
 
-  // Totals
-  const ordersRevenue = filteredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-  const servicesRevenue = filteredServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+  const filteredOrders = useMemo(
+    () =>
+      (orders || []).filter(
+        (o) =>
+          o?.deliveryDate &&
+          o.deliveryDate >= startDate &&
+          o.deliveryDate <= endDate &&
+          o.status !== 'cancelado'
+      ),
+    [orders, startDate, endDate]
+  );
+
+  const filteredServices = useMemo(
+    () =>
+      (services || []).filter(
+        (s) =>
+          s?.startDate &&
+          s.startDate >= startDate &&
+          s.startDate <= endDate &&
+          s.status !== 'cancelado'
+      ),
+    [services, startDate, endDate]
+  );
+
+  const filteredExpenses = useMemo(
+    () =>
+      (expenses || []).filter(
+        (e) => e?.dueDate && e.dueDate >= startDate && e.dueDate <= endDate
+      ),
+    [expenses, startDate, endDate]
+  );
+
+  const ordersRevenue = useMemo(
+    () => filteredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+    [filteredOrders]
+  );
+  const servicesRevenue = useMemo(
+    () => filteredServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0),
+    [filteredServices]
+  );
   const grossRevenue = ordersRevenue + servicesRevenue;
 
-  // Categories breakdown
-  const fuelExpense = filteredExpenses.filter(e => e.categoryId === 'cat_combustivel' || String(e.categoryName ?? '').toLowerCase().includes('combust') || String(e.categoryName ?? '').toLowerCase().includes('diesel')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const maintenanceExpense = filteredExpenses.filter(e => e.categoryId === 'cat_manutencao' || String(e.categoryName ?? '').toLowerCase().includes('manuten') || String(e.categoryName ?? '').toLowerCase().includes('peça')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const inputsExpense = filteredExpenses.filter(e => e.categoryId === 'cat_insumos' || String(e.categoryName ?? '').toLowerCase().includes('insumo') || String(e.categoryName ?? '').toLowerCase().includes('sement') || String(e.categoryName ?? '').toLowerCase().includes('inocul')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const laborExpense = filteredExpenses.filter(e => e.categoryId === 'cat_mao_de_obra' || String(e.categoryName ?? '').toLowerCase().includes('mão') || String(e.categoryName ?? '').toLowerCase().includes('salár') || String(e.categoryName ?? '').toLowerCase().includes('diária')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const packagingExpense = filteredExpenses.filter(e => e.categoryId === 'cat_lona_embalagem' || String(e.categoryName ?? '').toLowerCase().includes('lona') || String(e.categoryName ?? '').toLowerCase().includes('embalag')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const freightExpense = filteredExpenses.filter(e => e.categoryId === 'cat_frete' || String(e.categoryName ?? '').toLowerCase().includes('frete') || String(e.categoryName ?? '').toLowerCase().includes('transp')).reduce((sum, e) => sum + (e.amount || 0), 0);
-  
-  const categorizedSum = fuelExpense + maintenanceExpense + inputsExpense + laborExpense + packagingExpense + freightExpense;
-  const otherExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0) - categorizedSum;
-  const totalExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const cats = useMemo(
+    () => classifyDreExpenses(filteredExpenses),
+    [filteredExpenses]
+  );
 
-  const netResult = grossRevenue - totalExpenses;
+  const netResult = grossRevenue - cats.total;
   const marginPercent = grossRevenue > 0 ? (netResult / grossRevenue) * 100 : 0;
 
-  // Build Print HTML
-  const dreHtml = useMemo(() => {
-    return `
-      <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:16px; margin-bottom:16px;">
-        <table style="width:100%; border:none; margin:0;">
-          <tr style="background:transparent;">
-            <td style="border:none; padding:4px 8px; font-size:11pt;"><strong>Receita Operacional Bruta:</strong></td>
-            <td style="border:none; padding:4px 8px; text-align:right; color:#047857; font-weight:bold; font-size:12pt;">${formatCurrencyBRL(grossRevenue)}</td>
-          </tr>
-          <tr style="background:transparent;">
-            <td style="border:none; padding:4px 8px; font-size:11pt;"><strong>Despesas Operacionais Totais:</strong></td>
-            <td style="border:none; padding:4px 8px; text-align:right; color:#b91c1c; font-weight:bold; font-size:12pt;">${formatCurrencyBRL(totalExpenses)}</td>
-          </tr>
-          <tr style="background:#e2e8f0; font-weight:bold;">
-            <td style="border:none; padding:8px; font-size:11pt;">Resultado Líquido do Período:</td>
-            <td style="border:none; padding:8px; text-align:right; color:${netResult >= 0 ? '#047857' : '#b91c1c'}; font-size:13pt; font-weight:900;">${formatCurrencyBRL(netResult)} (${marginPercent.toFixed(1)}%)</td>
-          </tr>
-        </table>
-      </div>
+  const drePrintConfig = useMemo(
+    () =>
+      buildResumoDreReport({
+        companyProfile,
+        orders,
+        services,
+        expenses,
+        startDate,
+        endDate,
+        competence: activeCompetence,
+      }),
+    [companyProfile, orders, services, expenses, startDate, endDate, activeCompetence]
+  );
 
-      <table style="width:100%; border-collapse:collapse; margin-top:12px;">
-        <thead>
-          <tr style="background:#0f172a; color:#ffffff;">
-            <th style="padding:8px 12px; text-align:left;">Conta / Descritivo Contábil</th>
-            <th style="padding:8px 12px; text-align:right;">Valor Realizado</th>
-            <th style="padding:8px 12px; text-align:right;">% Rec.</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="font-weight:bold; background:#ecfdf5;">
-            <td style="padding:8px 12px;">(+) RECEITA COM VENDAS DE SILAGEM</td>
-            <td style="padding:8px 12px; text-align:right; color:#047857;">${formatCurrencyBRL(ordersRevenue)}</td>
-            <td style="padding:8px 12px; text-align:right;">${grossRevenue > 0 ? ((ordersRevenue / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr style="font-weight:bold; background:#ecfdf5;">
-            <td style="padding:8px 12px;">(+) RECEITA COM PRESTAÇÃO DE SERVIÇOS (COLHEITA / ENSILAGEM)</td>
-            <td style="padding:8px 12px; text-align:right; color:#047857;">${formatCurrencyBRL(servicesRevenue)}</td>
-            <td style="padding:8px 12px; text-align:right;">${grossRevenue > 0 ? ((servicesRevenue / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr style="font-weight:900; background:#e2e8f0;">
-            <td style="padding:8px 12px;">(=) RECEITA OPERACIONAL BRUTA</td>
-            <td style="padding:8px 12px; text-align:right; color:#047857;">${formatCurrencyBRL(grossRevenue)}</td>
-            <td style="padding:8px 12px; text-align:right;">100.0%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Combustível, Diesel S10 & Arla</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(fuelExpense)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? ((fuelExpense / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Manutenção de Ensiladeiras & Tratores</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(maintenanceExpense)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? ((maintenanceExpense / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Insumos, Inoculantes & Sementes</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(inputsExpense)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? ((inputsExpense / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Mão de Obra, Diárias & Operadores</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(laborExpense)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? ((laborExpense / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Lonas, Embalagens & Fechamento de Silo</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(packagingExpense)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? ((packagingExpense / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Fretes & Logística de Transporte</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(freightExpense)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? ((freightExpense / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px; padding-left:24px;">(-) Outras Despesas Gerais & Administrativas</td>
-            <td style="padding:6px 12px; text-align:right; color:#b91c1c;">${formatCurrencyBRL(otherExpenses > 0 ? otherExpenses : 0)}</td>
-            <td style="padding:6px 12px; text-align:right;">${grossRevenue > 0 ? (((otherExpenses > 0 ? otherExpenses : 0) / grossRevenue) * 100).toFixed(1) : 0}%</td>
-          </tr>
-          <tr style="font-weight:900; background:#dcfce7; font-size:11pt; border-top:2px solid #047857;">
-            <td style="padding:10px 12px;">(=) RESULTADO LÍQUIDO DO EXERCÍCIO (LUCRO OPERACIONAL)</td>
-            <td style="padding:10px 12px; text-align:right; color:${netResult >= 0 ? '#047857' : '#b91c1c'};">${formatCurrencyBRL(netResult)}</td>
-            <td style="padding:10px 12px; text-align:right; color:${netResult >= 0 ? '#047857' : '#b91c1c'};">${marginPercent.toFixed(1)}%</td>
-          </tr>
-        </tbody>
-      </table>
-    `;
-  }, [grossRevenue, totalExpenses, netResult, marginPercent, ordersRevenue, servicesRevenue, fuelExpense, maintenanceExpense, inputsExpense, laborExpense, packagingExpense, freightExpense, otherExpenses]);
-
-  // WhatsApp text
-  const whatsappText = useMemo(() => {
-    let msg = `📊 *${companyProfile?.tradeName?.toUpperCase() || 'SILAGEM FÁCIL PRO'}*\n`;
-    msg += `📑 *RESUMO GERAL / DRE OPERACIONAL*\n`;
-    msg += `📅 *Período:* ${formatDateBR(startDate)} até ${formatDateBR(endDate)}\n\n`;
-    msg += `💰 *RECEITA BRUTA:* ${formatCurrencyBRL(grossRevenue)}\n`;
-    msg += `  • Vendas de Silagem: ${formatCurrencyBRL(ordersRevenue)}\n`;
-    msg += `  • Prestação de Serviços: ${formatCurrencyBRL(servicesRevenue)}\n\n`;
-    msg += `💸 *DESPESAS OPERACIONAIS:* ${formatCurrencyBRL(totalExpenses)}\n`;
-    msg += `  • Diesel / Combustível: ${formatCurrencyBRL(fuelExpense)}\n`;
-    msg += `  • Manutenção & Peças: ${formatCurrencyBRL(maintenanceExpense)}\n`;
-    msg += `  • Insumos / Sementes: ${formatCurrencyBRL(inputsExpense)}\n`;
-    msg += `  • Mão de Obra / Diárias: ${formatCurrencyBRL(laborExpense)}\n`;
-    msg += `  • Outros Custos: ${formatCurrencyBRL(packagingExpense + freightExpense + otherExpenses)}\n\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🟢 *RESULTADO LÍQUIDO:* ${formatCurrencyBRL(netResult)}\n`;
-    msg += `📈 *Margem Líquida:* ${marginPercent.toFixed(1)}%\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    return msg;
-  }, [companyProfile, startDate, endDate, grossRevenue, ordersRevenue, servicesRevenue, totalExpenses, fuelExpense, maintenanceExpense, inputsExpense, laborExpense, packagingExpense, freightExpense, otherExpenses, netResult, marginPercent]);
+  useEffect(() => {
+    onRegisterPrintGetter?.(() => drePrintConfig);
+  }, [onRegisterPrintGetter, drePrintConfig]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      
       {/* Action Header */}
       <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div>
@@ -213,7 +148,7 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
             <span>Demonstrativo do Resultado do Exercício (DRE Sintético e Analítico)</span>
           </h3>
           <p className="text-xs text-stone-500">
-            Período filtrado: {formatDateBR(startDate)} a {formatDateBR(endDate)}
+            Período filtrado: {formatDateBR(startDate)} a {formatDateBR(endDate)} • Competência {activeCompetence}
           </p>
         </div>
 
@@ -226,7 +161,7 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
 
           <button
             type="button"
-            onClick={() => onOpenPrintModal(dreHtml, whatsappText)}
+            onClick={() => onOpenPrintModal(drePrintConfig)}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold text-xs hover:bg-emerald-100 transition cursor-pointer"
           >
             <MessageCircle className="w-3.5 h-3.5" />
@@ -235,7 +170,7 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
 
           <button
             type="button"
-            onClick={() => onOpenPrintModal(dreHtml, whatsappText)}
+            onClick={() => onOpenPrintModal(drePrintConfig)}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-[#009688] hover:bg-[#00796b] text-white font-bold text-xs transition shadow-xs cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -246,14 +181,12 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
 
       {/* DRE Sintética Box */}
       <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-        
         <div className="divide-y divide-stone-100 dark:divide-stone-800 text-xs sm:text-sm">
-          
           {/* Receitas */}
           <div className="py-3 flex justify-between items-center font-bold text-stone-900 dark:text-stone-100">
             <span className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>(+) RECEITA COM VENDAS DE SILAGEM</span>
+              <span>(+) {segmentCtx.ordersRevenueLabel.toUpperCase()}</span>
             </span>
             <span className="text-emerald-600 font-extrabold">{formatCurrencyBRL(ordersRevenue)}</span>
           </div>
@@ -261,7 +194,7 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
           <div className="py-3 flex justify-between items-center font-bold text-stone-900 dark:text-stone-100">
             <span className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>(+) RECEITA COM PRESTAÇÃO DE SERVIÇOS AGRÍCOLAS</span>
+              <span>(+) {segmentCtx.servicesRevenueLabel.toUpperCase()}</span>
             </span>
             <span className="text-emerald-600 font-extrabold">{formatCurrencyBRL(servicesRevenue)}</span>
           </div>
@@ -274,38 +207,38 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
 
           {/* Despesas Discriminadas */}
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Combustível, Diesel S10 & Arla</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(fuelExpense)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.fuel}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.fuel)}</span>
           </div>
 
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Manutenção, Peças & Mecânica</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(maintenanceExpense)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.maintenance}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.maintenance)}</span>
           </div>
 
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Insumos, Inoculantes & Sementes</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(inputsExpense)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.inputs}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.inputs)}</span>
           </div>
 
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Mão de Obra, Operadores & Diárias de Safra</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(laborExpense)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.labor}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.labor)}</span>
           </div>
 
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Lonas, Embalagens & Fechamento de Silo</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(packagingExpense)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.packaging}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.packaging)}</span>
           </div>
 
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Fretes & Logística de Caminhão</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(freightExpense)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.freight}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.freight)}</span>
           </div>
 
           <div className="py-2.5 pl-4 flex justify-between text-stone-600 dark:text-stone-400">
-            <span>(-) Despesas Administrativas e Outros Custos</span>
-            <span className="text-rose-600 font-bold">{formatCurrencyBRL(otherExpenses > 0 ? otherExpenses : 0)}</span>
+            <span>(-) {segmentCtx.dreCategoryLabels.other}</span>
+            <span className="text-rose-600 font-bold">{formatCurrencyBRL(cats.other)}</span>
           </div>
 
           {/* Resultado Líquido */}
@@ -320,11 +253,8 @@ export const ReportsResumoTab: React.FC<ReportsResumoTabProps> = ({
               </span>
             </div>
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 };

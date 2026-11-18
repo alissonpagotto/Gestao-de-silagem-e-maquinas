@@ -1,41 +1,40 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   DollarSign, 
   Search, 
   Download, 
-  PieChart, 
-  Filter, 
-  Calendar, 
-  Building2, 
   CheckCircle2, 
   Clock 
 } from 'lucide-react';
-import { Expense } from '../../types';
+import { CompanyProfile, Expense } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { 
   CompetenceSelector, 
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
+import { buildDespesasReport, ReportPrintConfig } from './reportPrintBuilders';
 
 interface ReportsDespesasTabProps {
   expenses: Expense[];
+  companyProfile?: CompanyProfile;
   startDate: string;
   endDate: string;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
   onStartDateChange?: (d: string) => void;
   onEndDateChange?: (d: string) => void;
+  onRegisterPrintGetter?: (getter: () => ReportPrintConfig) => void;
 }
 
 export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
   expenses,
+  companyProfile = {} as CompanyProfile,
   startDate,
   endDate,
   competence,
   onCompetenceChange,
-  onStartDateChange,
-  onEndDateChange,
+  onRegisterPrintGetter,
 }) => {
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
@@ -90,6 +89,25 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
   const paidAmount = filteredExpenses.filter(e => e.status === 'pago').reduce((sum, e) => sum + e.amount, 0);
   const pendingAmount = filteredExpenses.filter(e => e.status !== 'pago').reduce((sum, e) => sum + e.amount, 0);
 
+  const printConfig = useMemo(
+    () =>
+      buildDespesasReport({
+        companyProfile,
+        filteredExpenses,
+        startDate,
+        endDate,
+        competence: activeCompetence,
+        searchTerm,
+        selectedCategory,
+        selectedStatus,
+      }),
+    [companyProfile, filteredExpenses, startDate, endDate, activeCompetence, searchTerm, selectedCategory, selectedStatus]
+  );
+
+  useEffect(() => {
+    onRegisterPrintGetter?.(() => printConfig);
+  }, [onRegisterPrintGetter, printConfig]);
+
   const handleExportCsv = () => {
     const headers = 'Data_Vencimento,Descricao,Categoria,Fornecedor,Centro_Custo,Maquina,Valor,Status,Data_Pagamento\n';
     const rows = filteredExpenses.map(e => 
@@ -110,7 +128,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
       {/* 1. Cards de Resumo Finos e Compactos */}
       <div className="shrink-0 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
         
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
             <DollarSign className="w-3.5 h-3.5" />
           </div>
@@ -129,7 +147,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
             <CheckCircle2 className="w-3.5 h-3.5" />
           </div>
@@ -148,7 +166,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
             <Clock className="w-3.5 h-3.5" />
           </div>
@@ -170,7 +188,7 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
       </div>
 
       {/* 2. Filtros, Busca, Competência e Exportação */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="reports-filter-bar shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input

@@ -1,47 +1,49 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Scissors, 
   Search, 
   Download, 
-  Printer, 
   Tractor, 
-  Calendar, 
-  MapPin, 
-  Layers, 
   Scale,
   DollarSign
 } from 'lucide-react';
-import { ServiceOrder, SilageOrder, CropSeason } from '../../types';
+import { CompanyProfile, ServiceOrder, SilageOrder, CropSeason } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { 
   CompetenceSelector, 
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
+import {
+  buildCortesServicesReport,
+  ReportPrintConfig,
+  resolveReportSegmentContext,
+} from './reportPrintBuilders';
 
 interface ReportsCortesTabProps {
   services: ServiceOrder[];
   orders: SilageOrder[];
   seasons?: CropSeason[];
+  companyProfile?: CompanyProfile;
   startDate: string;
   endDate: string;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
   onStartDateChange?: (d: string) => void;
   onEndDateChange?: (d: string) => void;
+  onRegisterPrintGetter?: (getter: () => ReportPrintConfig) => void;
 }
 
 export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
   services,
-  orders,
-  seasons = [],
+  companyProfile = {} as CompanyProfile,
   startDate,
   endDate,
   competence,
   onCompetenceChange,
-  onStartDateChange,
-  onEndDateChange,
+  onRegisterPrintGetter,
 }) => {
+  const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
     if (startDate && startDate.length >= 7) {
@@ -87,6 +89,24 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
   const averageTonsPerHa = totalHectares > 0 ? (totalTonsEstimated / totalHectares) : 0;
   const averagePricePerHa = totalHectares > 0 ? (totalServicesRevenue / totalHectares) : 0;
 
+  const printConfig = useMemo(
+    () =>
+      buildCortesServicesReport({
+        companyProfile,
+        filteredServices,
+        startDate,
+        endDate,
+        competence: activeCompetence,
+        searchTerm,
+        filterType,
+      }),
+    [companyProfile, filteredServices, startDate, endDate, activeCompetence, searchTerm, filterType]
+  );
+
+  useEffect(() => {
+    onRegisterPrintGetter?.(() => printConfig);
+  }, [onRegisterPrintGetter, printConfig]);
+
   const handleExportCsv = () => {
     const headers = 'Data,Cliente,Fazenda,Servico,Area_Hectares,Toneladas_Estimadas,Maquina,Operador,Valor_Total,Status\n';
     const rows = filteredServices.map(s => 
@@ -97,7 +117,7 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `relatorio_cortes_silagem_${startDate}_a_${endDate}.csv`;
+    link.download = `relatorio_servicos_${startDate}_a_${endDate}.csv`;
     link.click();
   };
 
@@ -107,7 +127,7 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
       {/* 1. Cards de Resumo Finos e Compactos */}
       <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
         
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-[#009688] shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-[#009688] shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-[#009688] flex items-center justify-center shrink-0 border border-black/15">
             <Scissors className="w-3.5 h-3.5" />
           </div>
@@ -126,7 +146,7 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
             <Scale className="w-3.5 h-3.5" />
           </div>
@@ -145,13 +165,13 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-sky-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-sky-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 flex items-center justify-center shrink-0 border border-black/15">
             <DollarSign className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0 flex-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block leading-tight truncate">
-              Faturamento Cortes
+              Faturamento Serviços
             </span>
             <div className="flex flex-wrap items-baseline justify-between gap-x-1.5">
               <div className="text-sm sm:text-base font-black text-sky-700 dark:text-sky-400 font-['Outfit'] leading-tight truncate">
@@ -164,7 +184,7 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
             <Tractor className="w-3.5 h-3.5" />
           </div>
@@ -186,7 +206,7 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
       </div>
 
       {/* 2. Filtros, Busca, Competência e Exportação */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="reports-filter-bar shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -289,7 +309,7 @@ export const ReportsCortesTab: React.FC<ReportsCortesTabProps> = ({
               ) : (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
-                    Nenhum registro de corte ou serviço de colheita no período filtrado.
+                    {segmentCtx.servicesEmptyText}
                   </td>
                 </tr>
               )}

@@ -1,42 +1,47 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ShoppingCart, 
   Search, 
   Download, 
   Scale, 
   DollarSign, 
   TrendingUp, 
-  Truck, 
   CheckCircle2, 
-  Clock 
 } from 'lucide-react';
-import { SilageOrder } from '../../types';
+import { CompanyProfile, SilageOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { 
   CompetenceSelector, 
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
+import {
+  buildVendasReport,
+  ReportPrintConfig,
+  resolveReportSegmentContext,
+} from './reportPrintBuilders';
 
 interface ReportsVendasTabProps {
   orders: SilageOrder[];
+  companyProfile?: CompanyProfile;
   startDate: string;
   endDate: string;
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
   onStartDateChange?: (d: string) => void;
   onEndDateChange?: (d: string) => void;
+  onRegisterPrintGetter?: (getter: () => ReportPrintConfig) => void;
 }
 
 export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
   orders,
+  companyProfile = {} as CompanyProfile,
   startDate,
   endDate,
   competence,
   onCompetenceChange,
-  onStartDateChange,
-  onEndDateChange,
+  onRegisterPrintGetter,
 }) => {
+  const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
     if (startDate && startDate.length >= 7) {
@@ -80,6 +85,41 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
   const paidCount = filteredOrders.filter(o => o.paymentStatus === 'pago').length;
   const pendingCount = filteredOrders.filter(o => o.paymentStatus !== 'pago').length;
 
+  const productOptions = useMemo(() => {
+    const base = segmentCtx.isAgroSilage
+      ? [
+          'Milho Planta Inteira',
+          'Milho Grão Úmido',
+          'Sorgo Forrageiro',
+          'Capiaçu',
+          'Aveia / Azevém',
+        ]
+      : [];
+    const set = new Set<string>(base);
+    (orders || []).forEach((o) => {
+      if (o?.productType) set.add(o.productType);
+    });
+    return Array.from(set);
+  }, [orders, segmentCtx.isAgroSilage]);
+
+  const printConfig = useMemo(
+    () =>
+      buildVendasReport({
+        companyProfile,
+        filteredOrders,
+        startDate,
+        endDate,
+        competence: activeCompetence,
+        searchTerm,
+        productFilter,
+      }),
+    [companyProfile, filteredOrders, startDate, endDate, activeCompetence, searchTerm, productFilter]
+  );
+
+  useEffect(() => {
+    onRegisterPrintGetter?.(() => printConfig);
+  }, [onRegisterPrintGetter, printConfig]);
+
   const handleExportCsv = () => {
     const headers = 'Numero,Data_Entrega,Cliente,Fazenda,Produto,Toneladas,Preco_Ton,Total_R$,Frete,Status_Pagamento\n';
     const rows = filteredOrders.map(o => 
@@ -90,7 +130,7 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `relatorio_vendas_silagem_${startDate}_a_${endDate}.csv`;
+    link.download = `relatorio_vendas_${startDate}_a_${endDate}.csv`;
     link.click();
   };
 
@@ -100,7 +140,7 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
       {/* 1. Cards de Resumo Finos e Compactos */}
       <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
         
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
             <DollarSign className="w-3.5 h-3.5" />
           </div>
@@ -119,7 +159,7 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-teal-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-teal-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 flex items-center justify-center shrink-0 border border-black/15">
             <Scale className="w-3.5 h-3.5" />
           </div>
@@ -132,13 +172,13 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
                 {totalTons.toFixed(1)} ton
               </div>
               <div className="text-[10px] text-stone-600 leading-tight truncate">
-                Silagem entregue
+                {segmentCtx.isAgroSilage ? 'Silagem entregue' : 'Volume faturado'}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-sky-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-sky-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 flex items-center justify-center shrink-0 border border-black/15">
             <TrendingUp className="w-3.5 h-3.5" />
           </div>
@@ -157,7 +197,7 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+        <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
             <CheckCircle2 className="w-3.5 h-3.5" />
           </div>
@@ -179,12 +219,12 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
       </div>
 
       {/* 2. Filtros, Busca, Competência e Exportação */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
+      <div className="reports-filter-bar shrink-0 bg-[#cad4e6] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar por cliente, pedido ou fazenda..."
+            placeholder="Buscar por cliente, pedido ou local..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
@@ -197,12 +237,10 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
             onChange={(e) => setProductFilter(e.target.value)}
             className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#009688]"
           >
-            <option value="todos">Todos os tipos de silagem</option>
-            <option value="Milho Planta Inteira">Milho Planta Inteira</option>
-            <option value="Milho Grão Úmido">Milho Grão Úmido</option>
-            <option value="Sorgo Forrageiro">Sorgo Forrageiro</option>
-            <option value="Capiaçu">Capiaçu</option>
-            <option value="Aveia / Azevém">Aveia / Azevém</option>
+            <option value="todos">Todos os produtos</option>
+            {productOptions.map((prod) => (
+              <option key={prod} value={prod}>{prod}</option>
+            ))}
           </select>
 
           <CompetenceSelector
@@ -282,7 +320,7 @@ export const ReportsVendasTab: React.FC<ReportsVendasTabProps> = ({
               ) : (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
-                    Nenhuma venda de silagem registrada no período filtrado.
+                    {segmentCtx.ordersEmptyText}
                   </td>
                 </tr>
               )}

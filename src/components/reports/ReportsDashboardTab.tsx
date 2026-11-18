@@ -21,8 +21,9 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts';
-import { Expense, SilageOrder, ServiceOrder, FuelLog } from '../../types';
+import { CompanyProfile, Expense, SilageOrder, ServiceOrder, FuelLog } from '../../types';
 import { formatCurrencyBRL, getLastDayOfMonth } from '../../lib/storage';
+import { resolveReportSegmentContext } from './reportPrintBuilders';
 import { 
   CompetenceSelector, 
   getPrevCompetence, 
@@ -35,6 +36,7 @@ interface ReportsDashboardTabProps {
   orders: SilageOrder[];
   services: ServiceOrder[];
   fuelLogs?: FuelLog[];
+  companyProfile?: CompanyProfile;
   quickPeriod?: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses';
   onQuickPeriodChange?: (p: 'mes_atual' | '1_mes' | '3_meses' | '6_meses' | '12_meses') => void;
   startDate: string;
@@ -52,6 +54,7 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
   orders,
   services,
   fuelLogs = [],
+  companyProfile,
   quickPeriod,
   onQuickPeriodChange,
   startDate,
@@ -63,6 +66,7 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
   competence,
   onCompetenceChange,
 }) => {
+  const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
   // Active competence derivation (from prop, from startDate, or default)
   const activeCompetence = useMemo(() => {
     if (competence) return competence;
@@ -362,12 +366,12 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
         </div>
       </div>
 
-      {/* 4. Gráfico: Entradas (Serviços Silagem) vs Saídas (Despesas) */}
+      {/* 4. Gráfico: Entradas vs Saídas (Adaptado ao Segmento) */}
       <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex items-center space-x-2">
           <Sprout className="w-4 h-4 text-[#009688]" />
           <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100">
-            Entradas (Serviços Silagem) vs Saídas (Despesas)
+            {segmentCtx.chartTitle}
           </h3>
         </div>
 
