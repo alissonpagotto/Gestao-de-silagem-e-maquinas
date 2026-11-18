@@ -13,7 +13,13 @@ import {
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
-import { buildDespesasReport, ReportPrintConfig } from './reportPrintBuilders';
+import {
+  buildDespesasReport,
+  buildSyntheticSummaryRows,
+  ReportPrintConfig,
+  ReportViewMode,
+} from './reportPrintBuilders';
+import { ReportViewModeToggle } from './ReportViewModeToggle';
 
 interface ReportsDespesasTabProps {
   expenses: Expense[];
@@ -58,6 +64,15 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('todas');
   const [selectedStatus, setSelectedStatus] = useState('todos');
+  const [viewMode, setViewMode] = useState<ReportViewMode>('analitico');
+  const [groupBy, setGroupBy] = useState<'categoria' | 'fornecedor' | 'centro_custo' | 'maquina'>('categoria');
+
+  const groupByLabel = useMemo(() => {
+    if (groupBy === 'fornecedor') return 'Fornecedor';
+    if (groupBy === 'centro_custo') return 'Centro de Custo';
+    if (groupBy === 'maquina') return 'Máquina / Veículo';
+    return 'Categoria';
+  }, [groupBy]);
 
   // Categories list
   const categoryOptions = useMemo(() => {
@@ -89,6 +104,23 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
   const paidAmount = filteredExpenses.filter(e => e.status === 'pago').reduce((sum, e) => sum + e.amount, 0);
   const pendingAmount = filteredExpenses.filter(e => e.status !== 'pago').reduce((sum, e) => sum + e.amount, 0);
 
+  const syntheticRows = useMemo(() => {
+    return buildSyntheticSummaryRows(
+      filteredExpenses,
+      (e) => {
+        if (groupBy === 'fornecedor') return e.supplier || 'Fornecedor N/I';
+        if (groupBy === 'centro_custo') return e.costCenterName || 'Sem Centro de Custo';
+        if (groupBy === 'maquina') return e.machineryName || 'Sem Máquina / Frota';
+        return e.categoryName || 'Outras Despesas';
+      },
+      (e) => e.amount || 0,
+      {
+        getPaidAmount: (e) => (e.status === 'pago' ? e.amount || 0 : 0),
+        getPendingAmount: (e) => (e.status !== 'pago' ? e.amount || 0 : 0),
+      }
+    );
+  }, [filteredExpenses, groupBy]);
+
   const printConfig = useMemo(
     () =>
       buildDespesasReport({
@@ -100,8 +132,11 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
         searchTerm,
         selectedCategory,
         selectedStatus,
+        viewMode,
+        groupByLabel,
+        syntheticRows,
       }),
-    [companyProfile, filteredExpenses, startDate, endDate, activeCompetence, searchTerm, selectedCategory, selectedStatus]
+    [companyProfile, filteredExpenses, startDate, endDate, activeCompetence, searchTerm, selectedCategory, selectedStatus, viewMode, groupByLabel, syntheticRows]
   );
 
   useEffect(() => {
@@ -109,6 +144,23 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
   }, [onRegisterPrintGetter, printConfig]);
 
   const handleExportCsv = () => {
+    if (viewMode === 'sintetico') {
+      const headers = `${groupByLabel.replace(/[^a-zA-Z0-9]/g, '_')},Qtd_Lancamentos,Pago_R$,Pendente_R$,Total_R$,Ticket_Medio,Participacao_Pct\n`;
+      const rows = syntheticRows
+        .map(
+          (r) =>
+            `"${r.groupKey}","${r.count}","${(r.paidAmount || 0).toFixed(2)}","${(r.pendingAmount || 0).toFixed(2)}","${r.totalAmount.toFixed(2)}","${r.avgTicket.toFixed(2)}","${r.sharePct.toFixed(1)}%"`
+        )
+        .join('\n');
+      const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio_despesas_sintetico_${startDate}_a_${endDate}.csv`;
+      link.click();
+      return;
+    }
+
     const headers = 'Data_Vencimento,Descricao,Categoria,Fornecedor,Centro_Custo,Maquina,Valor,Status,Data_Pagamento\n';
     const rows = filteredExpenses.map(e => 
       `"${e.dueDate}","${e.description}","${e.categoryName}","${e.supplier || ''}","${e.costCenterName || ''}","${e.machineryName || ''}","${e.amount}","${e.status}","${e.paymentDate || ''}"`
@@ -229,6 +281,19 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
             onNext={handleNext}
           />
 
+          <ReportViewModeToggle
+            viewMode={viewMode}
+            onChange={setViewMode}
+            groupBy={groupBy}
+            groupOptions={[
+              { value: 'categoria', label: 'Categoria' },
+              { value: 'fornecedor', label: 'Fornecedor' },
+              { value: 'centro_custo', label: 'Centro de Custo' },
+              { value: 'maquina', label: 'Máquina / Veículo' },
+            ]}
+            onGroupByChange={(val) => setGroupBy(val as 'categoria' | 'fornecedor' | 'centro_custo' | 'maquina')}
+          />
+
           <button
             type="button"
             onClick={handleExportCsv}
@@ -243,69 +308,119 @@ export const ReportsDespesasTab: React.FC<ReportsDespesasTabProps> = ({
       {/* 3. Tabela */}
       <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg overflow-hidden shadow-xs">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
-              <tr>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Vencimento</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Descrição</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Categoria</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Fornecedor</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Centro Custo / Safra</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Máquina / Veículo</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Valor (R$)</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
-              {filteredExpenses.length > 0 ? (
-                filteredExpenses.map((item) => (
-                  <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
-                    <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
-                      {formatDateBR(item.dueDate)}
-                    </td>
-                    <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
-                      {item.description}
-                    </td>
-                    <td className="py-2.5 px-3.5 font-medium text-stone-800 dark:text-stone-300">
-                      <span className="inline-flex items-center space-x-1">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.categoryColor || '#78716c' }} />
-                        <span>{item.categoryName}</span>
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
-                      {item.supplier || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
-                      {item.costCenterName || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
-                      {item.machineryName || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">
-                      {formatCurrencyBRL(item.amount)}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        item.status === 'pago'
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                          : item.status === 'atrasado'
-                          ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
-                          : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
-                      }`}>
-                        {item.status}
-                      </span>
+          {viewMode === 'sintetico' ? (
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
+                <tr>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">{groupByLabel}</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-center">Qtd. Lanç.</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Pago (R$)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Pendente (R$)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Total (R$)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Ticket Médio</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Partic. (%)</th>
+                </tr>
+              </thead>
+              <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
+                {syntheticRows.length > 0 ? (
+                  syntheticRows.map((row) => (
+                    <tr key={row.groupKey} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
+                      <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">{row.groupKey}</td>
+                      <td className="py-2.5 px-3.5 text-center font-bold text-stone-700 dark:text-stone-300">{row.count}</td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">{formatCurrencyBRL(row.paidAmount || 0)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">{formatCurrencyBRL(row.pendingAmount || 0)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">{formatCurrencyBRL(row.totalAmount)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-stone-700 dark:text-stone-300 whitespace-nowrap">{formatCurrencyBRL(row.avgTicket)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-stone-900 dark:text-stone-100">{row.sharePct.toFixed(1)}%</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
+                      Nenhuma despesa localizada no período e filtros selecionados.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
-                    Nenhuma despesa localizada no período e filtros selecionados.
-                  </td>
-                </tr>
+                )}
+              </tbody>
+              {syntheticRows.length > 0 && (
+                <tfoot className="bg-[#cad4e6] dark:bg-stone-800 font-black text-xs border-t-2 border-black dark:border-stone-700">
+                  <tr>
+                    <td className="py-2.5 px-3.5 uppercase">Total Consolidado ({syntheticRows.length} grupos)</td>
+                    <td className="py-2.5 px-3.5 text-center">{filteredExpenses.length}</td>
+                    <td className="py-2.5 px-3.5 text-right text-emerald-800 dark:text-emerald-300">{formatCurrencyBRL(paidAmount)}</td>
+                    <td className="py-2.5 px-3.5 text-right text-amber-800 dark:text-amber-300">{formatCurrencyBRL(pendingAmount)}</td>
+                    <td className="py-2.5 px-3.5 text-right text-rose-800 dark:text-rose-300">{formatCurrencyBRL(totalAmount)}</td>
+                    <td className="py-2.5 px-3.5 text-right">{formatCurrencyBRL(filteredExpenses.length > 0 ? totalAmount / filteredExpenses.length : 0)}</td>
+                    <td className="py-2.5 px-3.5 text-right">100.0%</td>
+                  </tr>
+                </tfoot>
               )}
-            </tbody>
-          </table>
+            </table>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
+                <tr>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Vencimento</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Descrição</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Categoria</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Fornecedor</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Centro Custo / Safra</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Máquina / Veículo</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Valor (R$)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
+                {filteredExpenses.length > 0 ? (
+                  filteredExpenses.map((item) => (
+                    <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
+                      <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
+                        {formatDateBR(item.dueDate)}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
+                        {item.description}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-medium text-stone-800 dark:text-stone-300">
+                        <span className="inline-flex items-center space-x-1">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.categoryColor || '#78716c' }} />
+                          <span>{item.categoryName}</span>
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
+                        {item.supplier || '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
+                        {item.costCenterName || '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
+                        {item.machineryName || '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">
+                        {formatCurrencyBRL(item.amount)}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          item.status === 'pago'
+                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                            : item.status === 'atrasado'
+                            ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+                            : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
+                      Nenhuma despesa localizada no período e filtros selecionados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

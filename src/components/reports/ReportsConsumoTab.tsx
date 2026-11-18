@@ -23,7 +23,13 @@ import {
   getPrevCompetence, 
   getNextCompetence 
 } from '../financial/CompetenceSelector';
-import { buildConsumoReport, ReportPrintConfig } from './reportPrintBuilders';
+import {
+  buildConsumoReport,
+  buildSyntheticSummaryRows,
+  ReportPrintConfig,
+  ReportViewMode,
+} from './reportPrintBuilders';
+import { ReportViewModeToggle } from './ReportViewModeToggle';
 
 interface ReportsConsumoTabProps {
   fuelLogs: FuelLog[];
@@ -70,6 +76,15 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState('todos');
   const [fuelTypeFilter, setFuelTypeFilter] = useState('todos');
+  const [viewMode, setViewMode] = useState<ReportViewMode>('analitico');
+  const [groupBy, setGroupBy] = useState<'veiculo' | 'combustivel' | 'operador' | 'posto'>('veiculo');
+
+  const groupByLabel = useMemo(() => {
+    if (groupBy === 'combustivel') return 'Combustível';
+    if (groupBy === 'operador') return 'Operador / Motorista';
+    if (groupBy === 'posto') return 'Posto / Local';
+    return 'Veículo / Máquina';
+  }, [groupBy]);
 
   // Sincronização em tempo real unificada via useAbastecimentosRealtime (Realtime + Polling 30s + Foco da Janela)
   const { fuelLogs: localLogs } = useAbastecimentosRealtime(propFuelLogs);
@@ -178,6 +193,23 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
     return found ? `${found.licensePlateOrSerial ? `[${found.licensePlateOrSerial}] ` : ''}${found.name}` : selectedVehicle;
   }, [selectedVehicle, machineries]);
 
+  const syntheticRows = useMemo(() => {
+    return buildSyntheticSummaryRows(
+      filteredLogs,
+      (l) => {
+        if (groupBy === 'combustivel') return l.fuelType || 'Combustível N/I';
+        if (groupBy === 'operador') return l.driverOrOperator || 'Operador N/I';
+        if (groupBy === 'posto') return l.supplierStation || 'Posto N/I';
+        return l.machineryPlateOrName || 'Outro Veículo';
+      },
+      (l) => l.totalAmount || 0,
+      {
+        getSecondarySum: (l) => l.liters || 0,
+        formatSecondary: (liters) => `${liters.toFixed(1)} L`,
+      }
+    );
+  }, [filteredLogs, groupBy]);
+
   const printConfig = useMemo(
     () =>
       buildConsumoReport({
@@ -191,6 +223,9 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
         searchTerm,
         selectedVehicleLabel,
         fuelTypeFilter,
+        viewMode,
+        groupByLabel,
+        syntheticRows,
       }),
     [
       companyProfile,
@@ -203,6 +238,9 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       searchTerm,
       selectedVehicleLabel,
       fuelTypeFilter,
+      viewMode,
+      groupByLabel,
+      syntheticRows,
     ]
   );
 
@@ -211,6 +249,23 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   }, [onRegisterPrintGetter, printConfig]);
 
   const handleExportCsv = () => {
+    if (viewMode === 'sintetico') {
+      const headers = `${groupByLabel.replace(/[^a-zA-Z0-9]/g, '_')},Qtd_Abastecimentos,Litros_Totais,Custo_Total,Ticket_Medio,Participacao_Pct\n`;
+      const rows = syntheticRows
+        .map(
+          (r) =>
+            `"${r.groupKey}","${r.count}","${r.secondaryMetric || '0.0 L'}","${r.totalAmount.toFixed(2)}","${r.avgTicket.toFixed(2)}","${r.sharePct.toFixed(1)}%"`
+        )
+        .join('\n');
+      const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio_consumo_sintetico_${startDate}_a_${endDate}.csv`;
+      link.click();
+      return;
+    }
+
     const headers = 'Data,Maquina_Veiculo,Tipo_Controle,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Leitura_Atual,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
     const rows = filteredLogs.map(l => {
       const vehicle = findVehicleForLog(l, machineries);
@@ -404,6 +459,19 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
             onNext={handleNext}
           />
 
+          <ReportViewModeToggle
+            viewMode={viewMode}
+            onChange={setViewMode}
+            groupBy={groupBy}
+            groupOptions={[
+              { value: 'veiculo', label: 'Veículo / Máquina' },
+              { value: 'combustivel', label: 'Combustível' },
+              { value: 'operador', label: 'Operador / Motorista' },
+              { value: 'posto', label: 'Posto / Local' },
+            ]}
+            onGroupByChange={(val) => setGroupBy(val as 'veiculo' | 'combustivel' | 'operador' | 'posto')}
+          />
+
           <button
             type="button"
             onClick={handleExportCsv}
@@ -418,102 +486,149 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       {/* 3. Tabela */}
       <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg overflow-hidden shadow-xs">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
-              <tr>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Data</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Máquina / Veículo</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Combustível</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Volume (Litros)</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Preço / Litro</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Total (R$)</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Leitura Atual</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Média Consumo</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Operador / Motorista</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Posto / Local</th>
-              </tr>
-            </thead>
-            <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
-              {filteredLogs.length > 0 ? (
-                filteredLogs.map((item) => {
-                  const vehicle = findVehicleForLog(item, machineries);
-                  const readings = getFuelLogReadings(item, vehicle);
-                  const dualEff = formatDualFuelLogEfficiency(item, vehicle);
-
-                  return (
-                    <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
-                      <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
-                        {formatDateBR(item.date)}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
-                        {item.machineryPlateOrName}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-medium text-stone-800 dark:text-stone-300">
-                        {item.fuelType}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right font-black text-stone-900 dark:text-stone-100">
-                        {item.liters.toFixed(1)} L
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right font-semibold text-stone-700 dark:text-stone-400">
-                        {formatCurrencyBRL(item.pricePerLiter)}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">
-                        {formatCurrencyBRL(item.totalAmount)}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right font-mono text-stone-700 dark:text-stone-300 whitespace-nowrap">
-                        {readings.hasBoth ? (
-                          <div className="flex flex-col items-end space-y-0.5">
-                            <span className="font-semibold text-stone-900 dark:text-stone-100">{readings.kmFormatted}</span>
-                            <span className="text-xs text-stone-600 dark:text-stone-400">{readings.hoursFormatted}</span>
-                          </div>
-                        ) : readings.kmFormatted ? (
-                          <span className="font-medium">{readings.kmFormatted}</span>
-                        ) : readings.hoursFormatted ? (
-                          <span className="font-medium">{readings.hoursFormatted}</span>
-                        ) : (
-                          <span className="text-stone-500 dark:text-stone-600">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right font-mono whitespace-nowrap">
-                        {dualEff.hasBoth ? (
-                          <div className="flex flex-col items-end space-y-1">
-                            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 inline-block">
-                              {dualEff.kmPerLiter?.formatted}
-                            </span>
-                            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 inline-block">
-                              {dualEff.litersPerHour?.formatted}
-                            </span>
-                          </div>
-                        ) : dualEff.kmPerLiter ? (
-                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                            {dualEff.kmPerLiter.formatted}
-                          </span>
-                        ) : dualEff.litersPerHour ? (
-                          <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                            {dualEff.litersPerHour.formatted}
-                          </span>
-                        ) : (
-                          <span className="text-stone-500 dark:text-stone-600 text-xs font-normal">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
-                        {item.driverOrOperator || '-'}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
-                        {item.supplierStation || '-'}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
+          {viewMode === 'sintetico' ? (
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
-                    Nenhum registro de abastecimento localizado no período selecionado.
-                  </td>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">{groupByLabel}</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-center">Qtd. Abastec.</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Volume (Litros)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Custo Total (R$)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Ticket Médio</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Partic. (%)</th>
                 </tr>
+              </thead>
+              <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
+                {syntheticRows.length > 0 ? (
+                  syntheticRows.map((row) => (
+                    <tr key={row.groupKey} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
+                      <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">{row.groupKey}</td>
+                      <td className="py-2.5 px-3.5 text-center font-bold text-stone-700 dark:text-stone-300">{row.count}</td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-amber-700 dark:text-amber-400">{row.secondaryMetric || '-'}</td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">{formatCurrencyBRL(row.totalAmount)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-stone-700 dark:text-stone-300 whitespace-nowrap">{formatCurrencyBRL(row.avgTicket)}</td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-stone-900 dark:text-stone-100">{row.sharePct.toFixed(1)}%</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
+                      Nenhum registro de abastecimento localizado no período selecionado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {syntheticRows.length > 0 && (
+                <tfoot className="bg-[#cad4e6] dark:bg-stone-800 font-black text-xs border-t-2 border-black dark:border-stone-700">
+                  <tr>
+                    <td className="py-2.5 px-3.5 uppercase">Total Consolidado ({syntheticRows.length} grupos)</td>
+                    <td className="py-2.5 px-3.5 text-center">{filteredLogs.length}</td>
+                    <td className="py-2.5 px-3.5 text-right text-amber-800 dark:text-amber-300">{totalLiters.toFixed(1)} L</td>
+                    <td className="py-2.5 px-3.5 text-right text-rose-800 dark:text-rose-300">{formatCurrencyBRL(totalAmount)}</td>
+                    <td className="py-2.5 px-3.5 text-right">{formatCurrencyBRL(filteredLogs.length > 0 ? totalAmount / filteredLogs.length : 0)}</td>
+                    <td className="py-2.5 px-3.5 text-right">100.0%</td>
+                  </tr>
+                </tfoot>
               )}
-            </tbody>
-          </table>
+            </table>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
+                <tr>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Data</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Máquina / Veículo</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Combustível</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Volume (Litros)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Preço / Litro</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Total (R$)</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Leitura Atual</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5 text-right">Média Consumo</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Operador / Motorista</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3.5">Posto / Local</th>
+                </tr>
+              </thead>
+              <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
+                {filteredLogs.length > 0 ? (
+                  filteredLogs.map((item) => {
+                    const vehicle = findVehicleForLog(item, machineries);
+                    const readings = getFuelLogReadings(item, vehicle);
+                    const dualEff = formatDualFuelLogEfficiency(item, vehicle);
+
+                    return (
+                      <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
+                        <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
+                          {formatDateBR(item.date)}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
+                          {item.machineryPlateOrName}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-medium text-stone-800 dark:text-stone-300">
+                          {item.fuelType}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-black text-stone-900 dark:text-stone-100">
+                          {item.liters.toFixed(1)} L
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-semibold text-stone-700 dark:text-stone-400">
+                          {formatCurrencyBRL(item.pricePerLiter)}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">
+                          {formatCurrencyBRL(item.totalAmount)}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-mono text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                          {readings.hasBoth ? (
+                            <div className="flex flex-col items-end space-y-0.5">
+                              <span className="font-semibold text-stone-900 dark:text-stone-100">{readings.kmFormatted}</span>
+                              <span className="text-xs text-stone-600 dark:text-stone-400">{readings.hoursFormatted}</span>
+                            </div>
+                          ) : readings.kmFormatted ? (
+                            <span className="font-medium">{readings.kmFormatted}</span>
+                          ) : readings.hoursFormatted ? (
+                            <span className="font-medium">{readings.hoursFormatted}</span>
+                          ) : (
+                            <span className="text-stone-500 dark:text-stone-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-mono whitespace-nowrap">
+                          {dualEff.hasBoth ? (
+                            <div className="flex flex-col items-end space-y-1">
+                              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 inline-block">
+                                {dualEff.kmPerLiter?.formatted}
+                              </span>
+                              <span className="text-xs font-bold text-amber-700 dark:text-amber-400 inline-block">
+                                {dualEff.litersPerHour?.formatted}
+                              </span>
+                            </div>
+                          ) : dualEff.kmPerLiter ? (
+                            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                              {dualEff.kmPerLiter.formatted}
+                            </span>
+                          ) : dualEff.litersPerHour ? (
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                              {dualEff.litersPerHour.formatted}
+                            </span>
+                          ) : (
+                            <span className="text-stone-500 dark:text-stone-600 text-xs font-normal">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
+                          {item.driverOrOperator || '-'}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
+                          {item.supplierStation || '-'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
+                      Nenhum registro de abastecimento localizado no período selecionado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

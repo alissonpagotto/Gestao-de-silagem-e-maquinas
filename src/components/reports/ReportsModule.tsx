@@ -9,7 +9,10 @@ import {
   DollarSign, 
   Fuel,
   LayoutDashboard,
-  Building2
+  Building2,
+  WalletCards,
+  ShieldAlert,
+  SlidersHorizontal
 } from 'lucide-react';
 import { 
   Expense, 
@@ -19,7 +22,12 @@ import {
   FuelLog, 
   Client, 
   Machinery, 
-  CropSeason 
+  CropSeason,
+  Employee,
+  InventoryItem,
+  MaintenanceLog,
+  Supplier,
+  BankAccount
 } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { ReportsDashboardTab } from './ReportsDashboardTab';
@@ -31,6 +39,9 @@ import { ReportsVendasTab } from './ReportsVendasTab';
 import { ReportsDespesasTab } from './ReportsDespesasTab';
 import { ReportsConsumoTab } from './ReportsConsumoTab';
 import { ReportsAtivoImobilizadoTab } from './ReportsAtivoImobilizadoTab';
+import { ReportsFinanceiroTab, FinanceiroSubTab } from './ReportsFinanceiroTab';
+import { ReportsExcecoesTab } from './ReportsExcecoesTab';
+import { ReportsPersonalizadoTab } from './ReportsPersonalizadoTab';
 import { getCompetenceDateRange } from '../financial/CompetenceSelector';
 import {
   buildDashboardConsolidatedReport,
@@ -49,11 +60,19 @@ export interface ReportsModuleProps {
   clients?: Client[];
   machineries?: Machinery[];
   seasons?: CropSeason[];
+  employees?: Employee[];
+  inventory?: InventoryItem[];
+  maintenanceLogs?: MaintenanceLog[];
+  suppliers?: Supplier[];
+  bankAccounts?: BankAccount[];
 }
 
 const PRINT_BUTTON_LABELS: Record<ReportSubTabId, string> = {
   dashboard: 'Imprimir Relatório Consolidado',
   resumo: 'Imprimir DRE Gerencial',
+  financeiro: 'Imprimir Relatório Financeiro',
+  excecoes: 'Imprimir Pauta de Pendências',
+  personalizado: 'Imprimir Relatório Personalizado',
   imobilizado: 'Imprimir Inventário & IPVA',
   cortes: 'Imprimir Relatório de Serviços',
   vendas: 'Imprimir Relatório de Vendas',
@@ -71,11 +90,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   clients = [],
   machineries = [],
   seasons = [],
+  employees = [],
+  inventory = [],
+  maintenanceLogs = [],
 }) => {
   const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
 
   // Navigation Subtabs
   const [activeSubTab, setActiveSubTab] = useState<ReportSubTabId>('dashboard');
+  const [financeiroSubTab, setFinanceiroSubTab] = useState<FinanceiroSubTab>('pagar');
 
   // Month & Year state
   const now = new Date();
@@ -131,6 +154,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     () => ({
       resumo: (getter: () => ReportPrintConfig) => {
         tabPrintGettersRef.current.resumo = getter;
+      },
+      financeiro: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.financeiro = getter;
+      },
+      excecoes: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.excecoes = getter;
+      },
+      personalizado: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.personalizado = getter;
       },
       imobilizado: (getter: () => ReportPrintConfig) => {
         tabPrintGettersRef.current.imobilizado = getter;
@@ -224,6 +256,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const navSubTabs: Array<{ id: ReportSubTabId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'dashboard', label: 'Dashboard Consolidado', icon: LayoutDashboard },
     { id: 'resumo', label: 'Resumo Geral', icon: FileText },
+    { id: 'financeiro', label: '💰 Financeiro', icon: WalletCards },
+    { id: 'excecoes', label: '🚨 Exceções & Alertas', icon: ShieldAlert },
+    { id: 'personalizado', label: '🛠️ Personalizado', icon: SlidersHorizontal },
     { id: 'imobilizado', label: '📊 Ativo Imobilizado', icon: Building2 },
     { id: 'exportar', label: 'Exportar Excel', icon: Download },
     { id: 'cortes', label: segmentCtx.servicesTabNavLabel, icon: Scissors },
@@ -232,7 +267,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     { id: 'consumo', label: 'Consumo', icon: Fuel },
   ];
 
-  const printButtonLabel = PRINT_BUTTON_LABELS[activeSubTab] || 'Imprimir Relatório';
+  const printButtonLabel = useMemo(() => {
+    if (activeSubTab === 'financeiro') {
+      if (financeiroSubTab === 'receber') return 'Imprimir Contas a Receber';
+      if (financeiroSubTab === 'cheques') return 'Imprimir Custódia de Cheques';
+      return 'Imprimir Contas a Pagar';
+    }
+    return PRINT_BUTTON_LABELS[activeSubTab] || 'Imprimir Relatório';
+  }, [activeSubTab, financeiroSubTab]);
   const modalConfig = activePrintConfig || consolidatedPrintConfig;
 
   return (
@@ -312,7 +354,13 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
         <div className={`w-full flex-1 min-h-0 border border-black dark:border-stone-700 rounded-b-lg bg-[#e0e6f1]/40 dark:bg-stone-900 shadow-sm ${
-          activeSubTab === 'cortes' || activeSubTab === 'vendas' || activeSubTab === 'despesas' || activeSubTab === 'consumo'
+          activeSubTab === 'cortes' ||
+          activeSubTab === 'vendas' ||
+          activeSubTab === 'despesas' ||
+          activeSubTab === 'consumo' ||
+          activeSubTab === 'financeiro' ||
+          activeSubTab === 'excecoes' ||
+          activeSubTab === 'personalizado'
             ? 'flex flex-col overflow-hidden p-2.5'
             : 'overflow-y-auto overflow-x-hidden p-3 space-y-3'
         }`}>
@@ -441,6 +489,53 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               onCompetenceChange={handleCompetenceChange}
               onOpenPrintModal={(config) => handleOpenPrintModal(config)}
               onRegisterPrintGetter={registerPrintGetter.imobilizado}
+            />
+          )}
+
+          {activeSubTab === 'financeiro' && (
+            <ReportsFinanceiroTab
+              expenses={expenses}
+              orders={orders}
+              services={services}
+              companyProfile={companyProfile}
+              startDate={startDate}
+              endDate={endDate}
+              competence={competence}
+              onCompetenceChange={handleCompetenceChange}
+              onRegisterPrintGetter={registerPrintGetter.financeiro}
+              onSubTabChange={setFinanceiroSubTab}
+            />
+          )}
+
+          {activeSubTab === 'excecoes' && (
+            <ReportsExcecoesTab
+              expenses={expenses}
+              orders={orders}
+              services={services}
+              inventory={inventory}
+              machineries={machineries}
+              maintenanceLogs={maintenanceLogs}
+              employees={employees}
+              companyProfile={companyProfile}
+              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+              onRegisterPrintGetter={registerPrintGetter.excecoes}
+            />
+          )}
+
+          {activeSubTab === 'personalizado' && (
+            <ReportsPersonalizadoTab
+              expenses={expenses}
+              orders={orders}
+              services={services}
+              inventory={inventory}
+              fuelLogs={fuelLogs}
+              machineries={machineries}
+              employees={employees}
+              companyProfile={companyProfile}
+              startDate={startDate}
+              endDate={endDate}
+              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+              onRegisterPrintGetter={registerPrintGetter.personalizado}
             />
           )}
         </div>

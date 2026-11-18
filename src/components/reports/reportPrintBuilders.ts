@@ -1,6 +1,7 @@
 import {
   CompanyProfile,
   Expense,
+  FinanceiroCheque,
   FuelLog,
   Machinery,
   ServiceOrder,
@@ -23,12 +24,157 @@ import { resolveSubscriberPrintHeader, SYSTEM_NAME } from '../../lib/printIdenti
 export type ReportSubTabId =
   | 'dashboard'
   | 'resumo'
+  | 'financeiro'
+  | 'excecoes'
+  | 'personalizado'
   | 'imobilizado'
   | 'exportar'
   | 'cortes'
   | 'vendas'
   | 'despesas'
   | 'consumo';
+
+export type ReportViewMode = 'analitico' | 'sintetico';
+
+export interface SyntheticSummaryRow {
+  groupKey: string;
+  count: number;
+  totalAmount: number;
+  avgTicket: number;
+  sharePct: number;
+  secondaryMetric?: string;
+  paidAmount?: number;
+  pendingAmount?: number;
+}
+
+export function buildSyntheticSummaryRows<T>(
+  items: T[],
+  getGroupKey: (item: T) => string,
+  getAmount: (item: T) => number,
+  options?: {
+    getPaidAmount?: (item: T) => number;
+    getPendingAmount?: (item: T) => number;
+    getSecondarySum?: (item: T) => number;
+    formatSecondary?: (sum: number, count: number, totalAmount: number) => string;
+  }
+): SyntheticSummaryRow[] {
+  const map = new Map<
+    string,
+    { count: number; totalAmount: number; paidAmount: number; pendingAmount: number; secondarySum: number }
+  >();
+
+  let grandTotal = 0;
+  items.forEach((item) => {
+    const key = (getGroupKey(item) || 'Não informado').trim() || 'Não informado';
+    const amt = Number(getAmount(item)) || 0;
+    grandTotal += amt;
+
+    const curr = map.get(key) || {
+      count: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      pendingAmount: 0,
+      secondarySum: 0,
+    };
+    curr.count += 1;
+    curr.totalAmount += amt;
+    if (options?.getPaidAmount) curr.paidAmount += Number(options.getPaidAmount(item)) || 0;
+    if (options?.getPendingAmount) curr.pendingAmount += Number(options.getPendingAmount(item)) || 0;
+    if (options?.getSecondarySum) curr.secondarySum += Number(options.getSecondarySum(item)) || 0;
+    map.set(key, curr);
+  });
+
+  return Array.from(map.entries())
+    .map(([groupKey, stats]) => ({
+      groupKey,
+      count: stats.count,
+      totalAmount: stats.totalAmount,
+      avgTicket: stats.count > 0 ? stats.totalAmount / stats.count : 0,
+      sharePct: grandTotal > 0 ? (stats.totalAmount / grandTotal) * 100 : 0,
+      secondaryMetric: options?.formatSecondary
+        ? options.formatSecondary(stats.secondarySum, stats.count, stats.totalAmount)
+        : undefined,
+      paidAmount: options?.getPaidAmount ? stats.paidAmount : undefined,
+      pendingAmount: options?.getPendingAmount ? stats.pendingAmount : undefined,
+    }))
+    .sort((a, b) => b.totalAmount - a.totalAmount);
+}
+
+function renderSyntheticTableHtml(params: {
+  groupColumnLabel: string;
+  secondaryColumnLabel?: string;
+  showPaidBreakdown?: boolean;
+  rows: SyntheticSummaryRow[];
+  totalLabel: string;
+  accentColor?: string;
+  emptyText?: string;
+}): string {
+  const {
+    groupColumnLabel,
+    secondaryColumnLabel,
+    showPaidBreakdown = false,
+    rows,
+    totalLabel,
+    accentColor = '#047857',
+    emptyText = 'Nenhum registro localizado para agrupamento no período.',
+  } = params;
+
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  const totalAmount = rows.reduce((s, r) => s + r.totalAmount, 0);
+  const totalPaid = rows.reduce((s, r) => s + (r.paidAmount || 0), 0);
+  const totalPending = rows.reduce((s, r) => s + (r.pendingAmount || 0), 0);
+  const overallAvg = totalCount > 0 ? totalAmount / totalCount : 0;
+
+  const colCount =
+    5 + (secondaryColumnLabel ? 1 : 0) + (showPaidBreakdown ? 2 : 0);
+
+  const bodyRows =
+    rows.length > 0
+      ? rows
+          .map(
+            (r) => `
+          <tr style="font-size:8.5pt;">
+            <td style="font-weight:700;">${escapeHtml(r.groupKey)}</td>
+            <td style="text-align:center;font-weight:700;">${r.count}</td>
+            ${secondaryColumnLabel ? `<td style="text-align:right;font-weight:600;">${escapeHtml(r.secondaryMetric || '-')}</td>` : ''}
+            ${showPaidBreakdown ? `<td style="text-align:right;color:#047857;font-weight:600;">${formatCurrencyBRL(r.paidAmount || 0)}</td><td style="text-align:right;color:#b45309;font-weight:600;">${formatCurrencyBRL(r.pendingAmount || 0)}</td>` : ''}
+            <td style="text-align:right;font-weight:800;color:${accentColor};">${formatCurrencyBRL(r.totalAmount)}</td>
+            <td style="text-align:right;">${formatCurrencyBRL(r.avgTicket)}</td>
+            <td style="text-align:right;font-weight:700;">${r.sharePct.toFixed(1)}%</td>
+          </tr>
+        `
+          )
+          .join('')
+      : `<tr><td colspan="${colCount}" style="text-align:center;padding:16px;color:#64748b;">${escapeHtml(emptyText)}</td></tr>`;
+
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>${escapeHtml(groupColumnLabel)}</th>
+          <th style="text-align:center;width:75px;">Qtd. Lanç.</th>
+          ${secondaryColumnLabel ? `<th style="text-align:right;width:120px;">${escapeHtml(secondaryColumnLabel)}</th>` : ''}
+          ${showPaidBreakdown ? `<th style="text-align:right;width:110px;">Liquidado (R$)</th><th style="text-align:right;width:110px;">Em Aberto (R$)</th>` : ''}
+          <th style="text-align:right;width:120px;">Valor Total (R$)</th>
+          <th style="text-align:right;width:110px;">Ticket Médio</th>
+          <th style="text-align:right;width:75px;">Partic. (%)</th>
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+      <tfoot>
+        <tr style="background:#f1f5f9;border-top:2px solid ${accentColor};font-weight:900;">
+          <td style="text-transform:uppercase;">${escapeHtml(totalLabel)} (${rows.length} grupos)</td>
+          <td style="text-align:center;">${totalCount}</td>
+          ${secondaryColumnLabel ? `<td style="text-align:right;">--</td>` : ''}
+          ${showPaidBreakdown ? `<td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalPaid)}</td><td style="text-align:right;color:#b45309;">${formatCurrencyBRL(totalPending)}</td>` : ''}
+          <td style="text-align:right;color:${accentColor};">${formatCurrencyBRL(totalAmount)}</td>
+          <td style="text-align:right;">${formatCurrencyBRL(overallAvg)}</td>
+          <td style="text-align:right;">100.0%</td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+}
 
 export interface ReportPrintConfig {
   title: string;
@@ -983,6 +1129,9 @@ export function buildCortesServicesReport(params: {
   competence: string;
   searchTerm?: string;
   filterType?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
 }): ReportPrintConfig {
   const {
     companyProfile,
@@ -992,6 +1141,9 @@ export function buildCortesServicesReport(params: {
     competence,
     searchTerm = '',
     filterType = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Cliente / Produtor',
+    syntheticRows,
   } = params;
   const seg = resolveReportSegmentContext(companyProfile);
   const subHeader = resolveSubscriberPrintHeader(companyProfile);
@@ -1002,6 +1154,7 @@ export function buildCortesServicesReport(params: {
   const avgPerHa = totalHectares > 0 ? totalRevenue / totalHectares : 0;
 
   const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
     { label: 'Busca', value: searchTerm.trim() },
     { label: 'Tipo de Serviço', value: filterType },
   ]);
@@ -1033,61 +1186,89 @@ export function buildCortesServicesReport(params: {
     },
   ]);
 
-  const rowsHtml =
-    filteredServices.length > 0
-      ? filteredServices
-          .map(
-            (item) => `
-          <tr style="font-size:8.5pt;">
-            <td style="white-space:nowrap;">${formatDateBR(item.startDate)}</td>
-            <td style="font-weight:700;">${escapeHtml(item.clientName)}</td>
-            <td>${escapeHtml(item.farmName || '-')}</td>
-            <td>${escapeHtml(item.serviceType)}</td>
-            <td style="text-align:right;font-weight:700;">${item.areaHectares ? `${Number(item.areaHectares).toFixed(1)} ha` : '-'}</td>
-            <td style="text-align:right;color:#047857;font-weight:600;">${item.tonsEstimated ? `${Number(item.tonsEstimated).toFixed(1)} t` : '-'}</td>
-            <td>${escapeHtml(item.machineryAssigned || '-')}</td>
-            <td style="text-align:right;font-weight:800;">${formatCurrencyBRL(item.totalAmount || 0)}</td>
-            <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;font-weight:700;">${escapeHtml(item.status)}</td>
-          </tr>
-        `
-          )
-          .join('')
-      : `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">${escapeHtml(seg.servicesEmptyText)}</td></tr>`;
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredServices,
+      (s) => s.clientName || 'Cliente N/I',
+      (s) => s.totalAmount || 0,
+      {
+        getSecondarySum: (s) => s.areaHectares || 0,
+        formatSecondary: (ha) => `${ha.toFixed(1)} ha`,
+      }
+    );
+
+  const tableHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          secondaryColumnLabel: 'Área Total (ha)',
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Consolidado',
+          accentColor: '#047857',
+          emptyText: seg.servicesEmptyText,
+        })
+      : (() => {
+          const rowsHtml =
+            filteredServices.length > 0
+              ? filteredServices
+                  .map(
+                    (item) => `
+                  <tr style="font-size:8.5pt;">
+                    <td style="white-space:nowrap;">${formatDateBR(item.startDate)}</td>
+                    <td style="font-weight:700;">${escapeHtml(item.clientName)}</td>
+                    <td>${escapeHtml(item.farmName || '-')}</td>
+                    <td>${escapeHtml(item.serviceType)}</td>
+                    <td style="text-align:right;font-weight:700;">${item.areaHectares ? `${Number(item.areaHectares).toFixed(1)} ha` : '-'}</td>
+                    <td style="text-align:right;color:#047857;font-weight:600;">${item.tonsEstimated ? `${Number(item.tonsEstimated).toFixed(1)} t` : '-'}</td>
+                    <td>${escapeHtml(item.machineryAssigned || '-')}</td>
+                    <td style="text-align:right;font-weight:800;">${formatCurrencyBRL(item.totalAmount || 0)}</td>
+                    <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;font-weight:700;">${escapeHtml(item.status)}</td>
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">${escapeHtml(seg.servicesEmptyText)}</td></tr>`;
+
+          return `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:80px;">Data</th>
+                  <th>Cliente / Produtor</th>
+                  <th>Local / Fazenda</th>
+                  <th>Serviço</th>
+                  <th style="text-align:right;width:75px;">Área (ha)</th>
+                  <th style="text-align:right;width:85px;">Volume (t)</th>
+                  <th>Máquina / Equip.</th>
+                  <th style="text-align:right;width:105px;">Total (R$)</th>
+                  <th style="text-align:center;width:80px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #0f766e;font-weight:900;">
+                  <td colspan="4" style="text-align:right;text-transform:uppercase;">Totais (${filteredServices.length} serviços):</td>
+                  <td style="text-align:right;">${totalHectares.toFixed(1)} ha</td>
+                  <td style="text-align:right;color:#047857;">${totalTons.toFixed(1)} t</td>
+                  <td>--</td>
+                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalRevenue)}</td>
+                  <td style="text-align:center;">--</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
 
   const contentHtml = `
     ${filtersHtml}
     ${kpiHtml}
-    <table>
-      <thead>
-        <tr>
-          <th style="width:80px;">Data</th>
-          <th>Cliente / Produtor</th>
-          <th>Local / Fazenda</th>
-          <th>Serviço</th>
-          <th style="text-align:right;width:75px;">Área (ha)</th>
-          <th style="text-align:right;width:85px;">Volume (t)</th>
-          <th>Máquina / Equip.</th>
-          <th style="text-align:right;width:105px;">Total (R$)</th>
-          <th style="text-align:center;width:80px;">Status</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot>
-        <tr style="background:#f1f5f9;border-top:2px solid #0f766e;font-weight:900;">
-          <td colspan="4" style="text-align:right;text-transform:uppercase;">Totais (${filteredServices.length} serviços):</td>
-          <td style="text-align:right;">${totalHectares.toFixed(1)} ha</td>
-          <td style="text-align:right;color:#047857;">${totalTons.toFixed(1)} t</td>
-          <td>--</td>
-          <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalRevenue)}</td>
-          <td style="text-align:center;">--</td>
-        </tr>
-      </tfoot>
-    </table>
+    ${tableHtml}
   `;
 
   const whatsappText =
     `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
-    `📑 *RELATÓRIO DE SERVIÇOS EXECUTADOS*\n` +
+    `📑 *RELATÓRIO ${viewMode === 'sintetico' ? 'SINTÉTICO' : 'ANALÍTICO'} DE SERVIÇOS*\n` +
     `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
     `📋 *Ordens Filtradas:* ${filteredServices.length}\n` +
     `🌾 *Área Total:* ${totalHectares.toFixed(1)} ha\n` +
@@ -1095,7 +1276,7 @@ export function buildCortesServicesReport(params: {
     `💰 *Faturamento Total:* ${formatCurrencyBRL(totalRevenue)}`;
 
   return {
-    title: seg.servicesDocTitle,
+    title: `${seg.servicesDocTitle}${viewMode === 'sintetico' ? ' (Sintético)' : ''}`,
     subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
     documentType: 'RELATÓRIO DE SERVIÇOS',
     contentHtml,
@@ -1116,6 +1297,9 @@ export function buildVendasReport(params: {
   competence: string;
   searchTerm?: string;
   productFilter?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
 }): ReportPrintConfig {
   const {
     companyProfile,
@@ -1125,6 +1309,9 @@ export function buildVendasReport(params: {
     competence,
     searchTerm = '',
     productFilter = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Cliente / Produtor',
+    syntheticRows,
   } = params;
   const seg = resolveReportSegmentContext(companyProfile);
   const subHeader = resolveSubscriberPrintHeader(companyProfile);
@@ -1139,6 +1326,7 @@ export function buildVendasReport(params: {
   const pendingAmount = pendingOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
 
   const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
     { label: 'Busca', value: searchTerm.trim() },
     { label: 'Produto', value: productFilter },
   ]);
@@ -1170,64 +1358,95 @@ export function buildVendasReport(params: {
     },
   ]);
 
-  const rowsHtml =
-    filteredOrders.length > 0
-      ? filteredOrders
-          .map(
-            (item) => `
-          <tr style="font-size:8.5pt;">
-            <td style="white-space:nowrap;">${formatDateBR(item.deliveryDate)}</td>
-            <td style="font-family:monospace;">${escapeHtml(item.orderNumber || item.id)}</td>
-            <td>
-              <strong>${escapeHtml(item.clientName)}</strong>
-              ${item.farmName ? `<div style="font-size:7.5pt;color:#64748b;">${escapeHtml(item.farmName)}</div>` : ''}
-            </td>
-            <td>${escapeHtml(item.productType)}</td>
-            <td style="text-align:right;font-weight:700;">${Number(item.tons || 0).toFixed(1)} t</td>
-            <td style="text-align:right;">${formatCurrencyBRL(item.pricePerTon || 0)}</td>
-            <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;">${escapeHtml(item.freightType || '-')}</td>
-            <td style="text-align:right;font-weight:800;color:#047857;">${formatCurrencyBRL(item.totalAmount || 0)}</td>
-            <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;font-weight:700;">${escapeHtml(item.paymentStatus)}</td>
-          </tr>
-        `
-          )
-          .join('')
-      : `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">${escapeHtml(seg.ordersEmptyText)}</td></tr>`;
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredOrders,
+      (o) => o.clientName || 'Cliente N/I',
+      (o) => o.totalAmount || 0,
+      {
+        getSecondarySum: (o) => o.tons || 0,
+        formatSecondary: (t) => `${t.toFixed(1)} t`,
+        getPaidAmount: (o) => (o.paymentStatus === 'pago' ? o.totalAmount || 0 : 0),
+        getPendingAmount: (o) => (o.paymentStatus !== 'pago' ? o.totalAmount || 0 : 0),
+      }
+    );
+
+  const tableHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          secondaryColumnLabel: 'Volume (t)',
+          showPaidBreakdown: true,
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Consolidado de Vendas',
+          accentColor: '#047857',
+          emptyText: seg.ordersEmptyText,
+        })
+      : (() => {
+          const rowsHtml =
+            filteredOrders.length > 0
+              ? filteredOrders
+                  .map(
+                    (item) => `
+                  <tr style="font-size:8.5pt;">
+                    <td style="white-space:nowrap;">${formatDateBR(item.deliveryDate)}</td>
+                    <td style="font-family:monospace;">${escapeHtml(item.orderNumber || item.id)}</td>
+                    <td>
+                      <strong>${escapeHtml(item.clientName)}</strong>
+                      ${item.farmName ? `<div style="font-size:7.5pt;color:#64748b;">${escapeHtml(item.farmName)}</div>` : ''}
+                    </td>
+                    <td>${escapeHtml(item.productType)}</td>
+                    <td style="text-align:right;font-weight:700;">${Number(item.tons || 0).toFixed(1)} t</td>
+                    <td style="text-align:right;">${formatCurrencyBRL(item.pricePerTon || 0)}</td>
+                    <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;">${escapeHtml(item.freightType || '-')}</td>
+                    <td style="text-align:right;font-weight:800;color:#047857;">${formatCurrencyBRL(item.totalAmount || 0)}</td>
+                    <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;font-weight:700;">${escapeHtml(item.paymentStatus)}</td>
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">${escapeHtml(seg.ordersEmptyText)}</td></tr>`;
+
+          return `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:80px;">Entrega</th>
+                  <th style="width:75px;">Pedido</th>
+                  <th>Cliente / Local</th>
+                  <th>${escapeHtml(seg.ordersProductColLabel)}</th>
+                  <th style="text-align:right;width:80px;">Volume (t)</th>
+                  <th style="text-align:right;width:90px;">R$ / Ton</th>
+                  <th style="text-align:center;width:65px;">Frete</th>
+                  <th style="text-align:right;width:110px;">Total Faturado</th>
+                  <th style="text-align:center;width:85px;">Pagto.</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
+                  <td colspan="4" style="text-align:right;text-transform:uppercase;">Totais (${filteredOrders.length} pedidos • Ticket Médio ${formatCurrencyBRL(ticketMedio)}):</td>
+                  <td style="text-align:right;">${totalTons.toFixed(1)} t</td>
+                  <td style="text-align:right;">${formatCurrencyBRL(avgPricePerTon)}</td>
+                  <td style="text-align:center;">--</td>
+                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalRevenue)}</td>
+                  <td style="text-align:center;font-size:7.5pt;">${paidOrders.length}P / ${pendingOrders.length}A</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
 
   const contentHtml = `
     ${filtersHtml}
     ${kpiHtml}
-    <table>
-      <thead>
-        <tr>
-          <th style="width:80px;">Entrega</th>
-          <th style="width:75px;">Pedido</th>
-          <th>Cliente / Local</th>
-          <th>${escapeHtml(seg.ordersProductColLabel)}</th>
-          <th style="text-align:right;width:80px;">Volume (t)</th>
-          <th style="text-align:right;width:90px;">R$ / Ton</th>
-          <th style="text-align:center;width:65px;">Frete</th>
-          <th style="text-align:right;width:110px;">Total Faturado</th>
-          <th style="text-align:center;width:85px;">Pagto.</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot>
-        <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
-          <td colspan="4" style="text-align:right;text-transform:uppercase;">Totais (${filteredOrders.length} pedidos • Ticket Médio ${formatCurrencyBRL(ticketMedio)}):</td>
-          <td style="text-align:right;">${totalTons.toFixed(1)} t</td>
-          <td style="text-align:right;">${formatCurrencyBRL(avgPricePerTon)}</td>
-          <td style="text-align:center;">--</td>
-          <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalRevenue)}</td>
-          <td style="text-align:center;font-size:7.5pt;">${paidOrders.length}P / ${pendingOrders.length}A</td>
-        </tr>
-      </tfoot>
-    </table>
+    ${tableHtml}
   `;
 
   const whatsappText =
     `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
-    `📑 *RELATÓRIO ANALÍTICO DE VENDAS*\n` +
+    `📑 *RELATÓRIO ${viewMode === 'sintetico' ? 'SINTÉTICO' : 'ANALÍTICO'} DE VENDAS*\n` +
     `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
     `🛒 *Pedidos:* ${filteredOrders.length}\n` +
     `⚖️ *Volume Total:* ${totalTons.toFixed(1)} ton\n` +
@@ -1236,7 +1455,10 @@ export function buildVendasReport(params: {
     `✅ *Pago:* ${formatCurrencyBRL(paidAmount)} (${paidOrders.length}) | ⏳ *Pendente:* ${formatCurrencyBRL(pendingAmount)} (${pendingOrders.length})`;
 
   return {
-    title: 'Relatório Analítico de Vendas & Faturamento',
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Vendas & Faturamento (${groupByLabel})`
+        : 'Relatório Analítico de Vendas & Faturamento',
     subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
     documentType: 'RELATÓRIO DE VENDAS',
     contentHtml,
@@ -1258,6 +1480,9 @@ export function buildDespesasReport(params: {
   searchTerm?: string;
   selectedCategory?: string;
   selectedStatus?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
 }): ReportPrintConfig {
   const {
     companyProfile,
@@ -1268,6 +1493,9 @@ export function buildDespesasReport(params: {
     searchTerm = '',
     selectedCategory = 'todas',
     selectedStatus = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Categoria',
+    syntheticRows,
   } = params;
   const subHeader = resolveSubscriberPrintHeader(companyProfile);
 
@@ -1277,20 +1505,8 @@ export function buildDespesasReport(params: {
   const paidAmount = paidItems.reduce((s, e) => s + (e.amount || 0), 0);
   const pendingAmount = pendingItems.reduce((s, e) => s + (e.amount || 0), 0);
 
-  // Category aggregation
-  const catMap = new Map<string, { count: number; paid: number; pending: number; total: number }>();
-  filteredExpenses.forEach((e) => {
-    const key = e.categoryName || 'Outras Despesas';
-    const curr = catMap.get(key) || { count: 0, paid: 0, pending: 0, total: 0 };
-    curr.count += 1;
-    curr.total += e.amount || 0;
-    if (e.status === 'pago') curr.paid += e.amount || 0;
-    else curr.pending += e.amount || 0;
-    catMap.set(key, curr);
-  });
-  const categoryBreakdown = Array.from(catMap.entries()).sort((a, b) => b[1].total - a[1].total);
-
   const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
     { label: 'Busca', value: searchTerm.trim() },
     { label: 'Categoria', value: selectedCategory },
     { label: 'Status', value: selectedStatus },
@@ -1317,107 +1533,137 @@ export function buildDespesasReport(params: {
     },
   ]);
 
-  const catTableHtml =
-    categoryBreakdown.length > 0
-      ? `
-      <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 8px 0 6px 0; text-transform: uppercase;">
-        Resumo por Categoria de Custo
-      </h4>
-      <table>
-        <thead>
-          <tr>
-            <th>Categoria</th>
-            <th style="text-align:center;width:60px;">Qtd</th>
-            <th style="text-align:right;width:120px;">Pago (R$)</th>
-            <th style="text-align:right;width:120px;">Pendente (R$)</th>
-            <th style="text-align:right;width:125px;">Total (R$)</th>
-            <th style="text-align:right;width:70px;">%</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${categoryBreakdown
-            .map(([cat, stats]) => {
-              const pct = totalAmount > 0 ? (stats.total / totalAmount) * 100 : 0;
-              return `
-                <tr style="font-size:8.5pt;">
-                  <td style="font-weight:700;">${escapeHtml(cat)}</td>
-                  <td style="text-align:center;">${stats.count}</td>
-                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(stats.paid)}</td>
-                  <td style="text-align:right;color:#b45309;">${formatCurrencyBRL(stats.pending)}</td>
-                  <td style="text-align:right;font-weight:800;color:#b91c1c;">${formatCurrencyBRL(stats.total)}</td>
-                  <td style="text-align:right;">${pct.toFixed(1)}%</td>
-                </tr>
-              `;
-            })
-            .join('')}
-        </tbody>
-      </table>
-    `
-      : '';
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredExpenses,
+      (e) => e.categoryName || 'Outras Despesas',
+      (e) => e.amount || 0,
+      {
+        getPaidAmount: (e) => (e.status === 'pago' ? e.amount || 0 : 0),
+        getPendingAmount: (e) => (e.status !== 'pago' ? e.amount || 0 : 0),
+      }
+    );
 
-  const rowsHtml =
-    filteredExpenses.length > 0
-      ? filteredExpenses
-          .map(
-            (item) => `
-          <tr style="font-size:8.5pt;">
-            <td style="white-space:nowrap;">${formatDateBR(item.dueDate)}</td>
-            <td style="font-weight:700;">${escapeHtml(item.description)}</td>
-            <td>${escapeHtml(item.categoryName || '-')}</td>
-            <td>${escapeHtml(item.supplier || '-')}</td>
-            <td>${escapeHtml(item.costCenterName || '-')}</td>
-            <td>${escapeHtml(item.machineryName || '-')}</td>
-            <td style="text-align:right;font-weight:800;color:#b91c1c;white-space:nowrap;">${formatCurrencyBRL(item.amount || 0)}</td>
-            <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;font-weight:700;">${escapeHtml(item.status)}</td>
-          </tr>
-        `
-          )
-          .join('')
-      : `<tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Nenhuma despesa localizada no período e filtros selecionados.</td></tr>`;
+  const bodyHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          showPaidBreakdown: true,
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Consolidado de Despesas',
+          accentColor: '#b91c1c',
+          emptyText: 'Nenhuma despesa localizada no período e filtros selecionados.',
+        })
+      : (() => {
+          const catTableHtml =
+            resolvedSynthetic.length > 0
+              ? `
+              <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 8px 0 6px 0; text-transform: uppercase;">
+                Resumo por Categoria de Custo
+              </h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Categoria</th>
+                    <th style="text-align:center;width:60px;">Qtd</th>
+                    <th style="text-align:right;width:120px;">Pago (R$)</th>
+                    <th style="text-align:right;width:120px;">Pendente (R$)</th>
+                    <th style="text-align:right;width:125px;">Total (R$)</th>
+                    <th style="text-align:right;width:70px;">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${resolvedSynthetic
+                    .map(
+                      (stats) => `
+                        <tr style="font-size:8.5pt;">
+                          <td style="font-weight:700;">${escapeHtml(stats.groupKey)}</td>
+                          <td style="text-align:center;">${stats.count}</td>
+                          <td style="text-align:right;color:#047857;">${formatCurrencyBRL(stats.paidAmount || 0)}</td>
+                          <td style="text-align:right;color:#b45309;">${formatCurrencyBRL(stats.pendingAmount || 0)}</td>
+                          <td style="text-align:right;font-weight:800;color:#b91c1c;">${formatCurrencyBRL(stats.totalAmount)}</td>
+                          <td style="text-align:right;">${stats.sharePct.toFixed(1)}%</td>
+                        </tr>
+                      `
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            `
+              : '';
+
+          const rowsHtml =
+            filteredExpenses.length > 0
+              ? filteredExpenses
+                  .map(
+                    (item) => `
+                  <tr style="font-size:8.5pt;">
+                    <td style="white-space:nowrap;">${formatDateBR(item.dueDate)}</td>
+                    <td style="font-weight:700;">${escapeHtml(item.description)}</td>
+                    <td>${escapeHtml(item.categoryName || '-')}</td>
+                    <td>${escapeHtml(item.supplier || '-')}</td>
+                    <td>${escapeHtml(item.costCenterName || '-')}</td>
+                    <td>${escapeHtml(item.machineryName || '-')}</td>
+                    <td style="text-align:right;font-weight:800;color:#b91c1c;white-space:nowrap;">${formatCurrencyBRL(item.amount || 0)}</td>
+                    <td style="text-align:center;text-transform:uppercase;font-size:7.5pt;font-weight:700;">${escapeHtml(item.status)}</td>
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Nenhuma despesa localizada no período e filtros selecionados.</td></tr>`;
+
+          return `
+            ${catTableHtml}
+            <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 12px 0 6px 0; text-transform: uppercase;">
+              Detalhamento dos Lançamentos
+            </h4>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:80px;">Vencimento</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Fornecedor</th>
+                  <th>Centro de Custo</th>
+                  <th>Máquina / Veículo</th>
+                  <th style="text-align:right;width:105px;">Valor (R$)</th>
+                  <th style="text-align:center;width:85px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #b91c1c;font-weight:900;">
+                  <td colspan="6" style="text-align:right;text-transform:uppercase;">
+                    Totais (${filteredExpenses.length} lançamentos • Pago: ${formatCurrencyBRL(paidAmount)} • Pendente: ${formatCurrencyBRL(pendingAmount)}):
+                  </td>
+                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td style="text-align:center;">--</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
 
   const contentHtml = `
     ${filtersHtml}
     ${kpiHtml}
-    ${catTableHtml}
-    <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 12px 0 6px 0; text-transform: uppercase;">
-      Detalhamento dos Lançamentos
-    </h4>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:80px;">Vencimento</th>
-          <th>Descrição</th>
-          <th>Categoria</th>
-          <th>Fornecedor</th>
-          <th>Centro de Custo</th>
-          <th>Máquina / Veículo</th>
-          <th style="text-align:right;width:105px;">Valor (R$)</th>
-          <th style="text-align:center;width:85px;">Status</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot>
-        <tr style="background:#f1f5f9;border-top:2px solid #b91c1c;font-weight:900;">
-          <td colspan="6" style="text-align:right;text-transform:uppercase;">
-            Totais (${filteredExpenses.length} lançamentos • Pago: ${formatCurrencyBRL(paidAmount)} • Pendente: ${formatCurrencyBRL(pendingAmount)}):
-          </td>
-          <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalAmount)}</td>
-          <td style="text-align:center;">--</td>
-        </tr>
-      </tfoot>
-    </table>
+    ${bodyHtml}
   `;
 
   const whatsappText =
     `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
-    `📑 *RELATÓRIO ANALÍTICO DE DESPESAS*\n` +
+    `📑 *RELATÓRIO ${viewMode === 'sintetico' ? 'SINTÉTICO' : 'ANALÍTICO'} DE DESPESAS*\n` +
     `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
     `💸 *Total Geral:* ${formatCurrencyBRL(totalAmount)} (${filteredExpenses.length} lançamentos)\n` +
     `✅ *Total Pago:* ${formatCurrencyBRL(paidAmount)} (${paidItems.length})\n` +
     `⏳ *Total Pendente:* ${formatCurrencyBRL(pendingAmount)} (${pendingItems.length})`;
 
   return {
-    title: 'Relatório Analítico de Despesas & Custos',
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Despesas & Custos (${groupByLabel})`
+        : 'Relatório Analítico de Despesas & Custos',
     subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
     documentType: 'RELATÓRIO DE DESPESAS',
     contentHtml,
@@ -1451,6 +1697,9 @@ export function buildConsumoReport(params: {
   searchTerm?: string;
   selectedVehicleLabel?: string;
   fuelTypeFilter?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
 }): ReportPrintConfig {
   const {
     companyProfile,
@@ -1463,6 +1712,9 @@ export function buildConsumoReport(params: {
     searchTerm = '',
     selectedVehicleLabel = 'todos',
     fuelTypeFilter = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Veículo / Máquina',
+    syntheticRows,
   } = params;
   const subHeader = resolveSubscriberPrintHeader(companyProfile);
 
@@ -1471,6 +1723,7 @@ export function buildConsumoReport(params: {
   const avgPricePerLiter = totalLiters > 0 ? totalAmount / totalLiters : 0;
 
   const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
     { label: 'Busca', value: searchTerm.trim() },
     { label: 'Veículo', value: selectedVehicleLabel },
     { label: 'Combustível', value: fuelTypeFilter },
@@ -1540,86 +1793,120 @@ export function buildConsumoReport(params: {
     `
       : '';
 
-  const rowsHtml =
-    filteredLogs.length > 0
-      ? filteredLogs
-          .map((item) => {
-            const vehicle = findVehicleForLog(item, machineries);
-            const readings = getFuelLogReadings(item, vehicle);
-            const dualEff = formatDualFuelLogEfficiency(item, vehicle);
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredLogs,
+      (l) => l.machineryPlateOrName || 'Veículo N/I',
+      (l) => l.totalAmount || 0,
+      {
+        getSecondarySum: (l) => l.liters || 0,
+        formatSecondary: (lit) => `${lit.toFixed(1)} L`,
+      }
+    );
 
-            const readingText = readings.hasBoth
-              ? `${readings.kmFormatted} / ${readings.hoursFormatted}`
-              : readings.kmFormatted || readings.hoursFormatted || '-';
+  const detailedOrSyntheticHtml =
+    viewMode === 'sintetico'
+      ? `
+        ${summaryByVehicleHtml}
+        <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 12px 0 6px 0; text-transform: uppercase;">
+          Participação Agrupada por ${escapeHtml(groupByLabel)}
+        </h4>
+        ${renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          secondaryColumnLabel: 'Volume (Litros)',
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Consolidado de Consumo',
+          accentColor: '#b91c1c',
+          emptyText: 'Nenhum registro de abastecimento localizado no período selecionado.',
+        })}
+      `
+      : (() => {
+          const rowsHtml =
+            filteredLogs.length > 0
+              ? filteredLogs
+                  .map((item) => {
+                    const vehicle = findVehicleForLog(item, machineries);
+                    const readings = getFuelLogReadings(item, vehicle);
+                    const dualEff = formatDualFuelLogEfficiency(item, vehicle);
 
-            let effText = '-';
-            if (dualEff.hasBoth) {
-              effText = `${dualEff.kmPerLiter?.formatted || ''} / ${dualEff.litersPerHour?.formatted || ''}`;
-            } else if (dualEff.kmPerLiter) {
-              effText = dualEff.kmPerLiter.formatted;
-            } else if (dualEff.litersPerHour) {
-              effText = dualEff.litersPerHour.formatted;
-            } else {
-              const single = formatFuelLogEfficiency(item, vehicle);
-              if (single) effText = single.formatted;
-            }
+                    const readingText = readings.hasBoth
+                      ? `${readings.kmFormatted} / ${readings.hoursFormatted}`
+                      : readings.kmFormatted || readings.hoursFormatted || '-';
 
-            return `
-              <tr style="font-size:8.5pt;">
-                <td style="white-space:nowrap;">${formatDateBR(item.date)}</td>
-                <td style="font-weight:700;">${escapeHtml(item.machineryPlateOrName)}</td>
-                <td>${escapeHtml(item.fuelType)}</td>
-                <td style="text-align:right;font-weight:700;">${Number(item.liters || 0).toFixed(1)} L</td>
-                <td style="text-align:right;">${formatCurrencyBRL(item.pricePerLiter || 0)}</td>
-                <td style="text-align:right;font-weight:800;color:#b91c1c;">${formatCurrencyBRL(item.totalAmount || 0)}</td>
-                <td style="text-align:right;font-family:monospace;">${escapeHtml(readingText)}</td>
-                <td style="text-align:right;font-weight:700;color:#047857;">${escapeHtml(effText)}</td>
-                <td>${escapeHtml(item.driverOrOperator || '-')}</td>
-                <td>${escapeHtml(item.supplierStation || '-')}</td>
-              </tr>
-            `;
-          })
-          .join('')
-      : `<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">Nenhum registro de abastecimento localizado no período selecionado.</td></tr>`;
+                    let effText = '-';
+                    if (dualEff.hasBoth) {
+                      effText = `${dualEff.kmPerLiter?.formatted || ''} / ${dualEff.litersPerHour?.formatted || ''}`;
+                    } else if (dualEff.kmPerLiter) {
+                      effText = dualEff.kmPerLiter.formatted;
+                    } else if (dualEff.litersPerHour) {
+                      effText = dualEff.litersPerHour.formatted;
+                    } else {
+                      const single = formatFuelLogEfficiency(item, vehicle);
+                      if (single) effText = single.formatted;
+                    }
+
+                    return `
+                      <tr style="font-size:8.5pt;">
+                        <td style="white-space:nowrap;">${formatDateBR(item.date)}</td>
+                        <td style="font-weight:700;">${escapeHtml(item.machineryPlateOrName)}</td>
+                        <td>${escapeHtml(item.fuelType)}</td>
+                        <td style="text-align:right;font-weight:700;">${Number(item.liters || 0).toFixed(1)} L</td>
+                        <td style="text-align:right;">${formatCurrencyBRL(item.pricePerLiter || 0)}</td>
+                        <td style="text-align:right;font-weight:800;color:#b91c1c;">${formatCurrencyBRL(item.totalAmount || 0)}</td>
+                        <td style="text-align:right;font-family:monospace;">${escapeHtml(readingText)}</td>
+                        <td style="text-align:right;font-weight:700;color:#047857;">${escapeHtml(effText)}</td>
+                        <td>${escapeHtml(item.driverOrOperator || '-')}</td>
+                        <td>${escapeHtml(item.supplierStation || '-')}</td>
+                      </tr>
+                    `;
+                  })
+                  .join('')
+              : `<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">Nenhum registro de abastecimento localizado no período selecionado.</td></tr>`;
+
+          return `
+            ${summaryByVehicleHtml}
+            <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 12px 0 6px 0; text-transform: uppercase;">
+              Detalhamento de Abastecimentos (${filteredLogs.length} registros)
+            </h4>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:75px;">Data</th>
+                  <th>Máquina / Veículo</th>
+                  <th style="width:90px;">Combustível</th>
+                  <th style="text-align:right;width:75px;">Litros</th>
+                  <th style="text-align:right;width:75px;">R$/Litro</th>
+                  <th style="text-align:right;width:95px;">Total (R$)</th>
+                  <th style="text-align:right;width:105px;">Leitura Atual</th>
+                  <th style="text-align:right;width:85px;">Média</th>
+                  <th>Operador</th>
+                  <th>Posto / Local</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #d97706;font-weight:900;">
+                  <td colspan="3" style="text-align:right;text-transform:uppercase;">Totais (${filteredLogs.length} abastecimentos):</td>
+                  <td style="text-align:right;">${totalLiters.toFixed(1)} L</td>
+                  <td style="text-align:right;">${formatCurrencyBRL(avgPricePerLiter)}</td>
+                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td colspan="4" style="text-align:center;">--</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
 
   const contentHtml = `
     ${filtersHtml}
     ${kpiHtml}
-    ${summaryByVehicleHtml}
-    <h4 style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin: 12px 0 6px 0; text-transform: uppercase;">
-      Detalhamento de Abastecimentos (${filteredLogs.length} registros)
-    </h4>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:75px;">Data</th>
-          <th>Máquina / Veículo</th>
-          <th style="width:90px;">Combustível</th>
-          <th style="text-align:right;width:75px;">Litros</th>
-          <th style="text-align:right;width:75px;">R$/Litro</th>
-          <th style="text-align:right;width:95px;">Total (R$)</th>
-          <th style="text-align:right;width:105px;">Leitura Atual</th>
-          <th style="text-align:right;width:85px;">Média</th>
-          <th>Operador</th>
-          <th>Posto / Local</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot>
-        <tr style="background:#f1f5f9;border-top:2px solid #d97706;font-weight:900;">
-          <td colspan="3" style="text-align:right;text-transform:uppercase;">Totais (${filteredLogs.length} abastecimentos):</td>
-          <td style="text-align:right;">${totalLiters.toFixed(1)} L</td>
-          <td style="text-align:right;">${formatCurrencyBRL(avgPricePerLiter)}</td>
-          <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalAmount)}</td>
-          <td colspan="4" style="text-align:center;">--</td>
-        </tr>
-      </tfoot>
-    </table>
+    ${detailedOrSyntheticHtml}
   `;
 
   const whatsappText =
     `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
-    `📑 *RELATÓRIO DE CONSUMO DE COMBUSTÍVEL*\n` +
+    `📑 *RELATÓRIO ${viewMode === 'sintetico' ? 'SINTÉTICO' : 'ANALÍTICO'} DE CONSUMO DE COMBUSTÍVEL*\n` +
     `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
     `⛽ *Abastecimentos:* ${filteredLogs.length}\n` +
     `💧 *Litros Totais:* ${totalLiters.toFixed(1)} L\n` +
@@ -1627,7 +1914,10 @@ export function buildConsumoReport(params: {
     `💸 *Custo Total:* ${formatCurrencyBRL(totalAmount)}`;
 
   return {
-    title: 'Relatório de Consumo de Combustível & Eficiência',
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Consumo & Eficiência (${groupByLabel})`
+        : 'Relatório de Consumo de Combustível & Eficiência',
     subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
     documentType: 'RELATÓRIO DE CONSUMO',
     contentHtml,
@@ -1636,3 +1926,762 @@ export function buildConsumoReport(params: {
     signatureLabels: STANDARD_REPORT_SIGNATURES,
   };
 }
+
+/**
+ * 8. FINANCEIRO — CONTAS A PAGAR, CONTAS A RECEBER & CHEQUES
+ */
+export interface ReceivableReportRow {
+  id: string;
+  dueDate: string;
+  issueDate: string;
+  clientName: string;
+  originLabel: string;
+  description: string;
+  paymentMethodLabel: string;
+  amount: number;
+  status: 'pago' | 'a_vencer' | 'vencido';
+}
+
+export function buildFinanceiroPagarReport(params: {
+  companyProfile: CompanyProfile;
+  filteredPayables: Expense[];
+  startDate: string;
+  endDate: string;
+  competence: string;
+  todayIso: string;
+  searchTerm?: string;
+  statusFilter?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    filteredPayables,
+    startDate,
+    endDate,
+    competence,
+    todayIso,
+    searchTerm = '',
+    statusFilter = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Categoria',
+    syntheticRows,
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const totalAmount = filteredPayables.reduce((s, e) => s + (e.amount || 0), 0);
+  const paidItems = filteredPayables.filter((e) => e.status === 'pago');
+  const openItems = filteredPayables.filter((e) => e.status !== 'pago' && (!e.dueDate || e.dueDate >= todayIso));
+  const overdueItems = filteredPayables.filter((e) => e.status !== 'pago' && e.dueDate && e.dueDate < todayIso);
+
+  const paidAmount = paidItems.reduce((s, e) => s + (e.amount || 0), 0);
+  const openAmount = openItems.reduce((s, e) => s + (e.amount || 0), 0);
+  const overdueAmount = overdueItems.reduce((s, e) => s + (e.amount || 0), 0);
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
+    { label: 'Busca', value: searchTerm.trim() },
+    { label: 'Status', value: statusFilter },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Total no Período',
+      value: formatCurrencyBRL(totalAmount),
+      sub: `${filteredPayables.length} título(s) a pagar`,
+      color: '#0f172a',
+    },
+    {
+      label: 'Pago / Liquidado',
+      value: formatCurrencyBRL(paidAmount),
+      sub: `${paidItems.length} conta(s) liquidada(s)`,
+      color: '#047857',
+    },
+    {
+      label: 'Em Aberto (A Vencer)',
+      value: formatCurrencyBRL(openAmount),
+      sub: `${openItems.length} título(s) no prazo`,
+      color: '#d97706',
+    },
+    {
+      label: 'Vencido / Em Atraso',
+      value: formatCurrencyBRL(overdueAmount),
+      sub: `${overdueItems.length} título(s) vencido(s)`,
+      color: '#b91c1c',
+    },
+  ]);
+
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredPayables,
+      (e) => e.categoryName || 'Outras Categorias',
+      (e) => e.amount || 0,
+      {
+        getPaidAmount: (e) => (e.status === 'pago' ? e.amount || 0 : 0),
+        getPendingAmount: (e) => (e.status !== 'pago' ? e.amount || 0 : 0),
+      }
+    );
+
+  const tableHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          showPaidBreakdown: true,
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Contas a Pagar',
+          accentColor: '#b91c1c',
+          emptyText: 'Nenhuma conta a pagar encontrada no período e filtros selecionados.',
+        })
+      : (() => {
+          const rowsHtml =
+            filteredPayables.length > 0
+              ? filteredPayables
+                  .map((e) => {
+                    const isOverdue = e.status !== 'pago' && e.dueDate && e.dueDate < todayIso;
+                    const statusText = e.status === 'pago' ? 'PAGO' : isOverdue ? 'VENCIDO' : 'EM ABERTO';
+                    const statusColor = e.status === 'pago' ? '#047857' : isOverdue ? '#b91c1c' : '#b45309';
+                    return `
+                    <tr style="font-size:8.5pt;">
+                      <td style="white-space:nowrap;">${formatDateBR(e.dueDate)}</td>
+                      <td style="font-weight:700;">${escapeHtml(e.supplier || 'Fornecedor N/I')}</td>
+                      <td>${escapeHtml(e.description)}</td>
+                      <td>${escapeHtml(e.categoryName || '-')}</td>
+                      <td style="text-transform:uppercase;font-size:7.5pt;">${escapeHtml(e.paymentMethod || '-')}</td>
+                      <td style="text-align:right;font-weight:800;color:#b91c1c;">${formatCurrencyBRL(e.amount || 0)}</td>
+                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7.5pt;">${statusText}</td>
+                    </tr>
+                  `;
+                  })
+                  .join('')
+              : `<tr><td colspan="7" style="text-align:center;padding:16px;color:#64748b;">Nenhuma conta a pagar encontrada no período e filtros selecionados.</td></tr>`;
+
+          return `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:82px;">Vencimento</th>
+                  <th>Fornecedor</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th style="width:95px;">Forma Pagto.</th>
+                  <th style="text-align:right;width:110px;">Valor (R$)</th>
+                  <th style="text-align:center;width:85px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #b91c1c;font-weight:900;">
+                  <td colspan="5" style="text-align:right;text-transform:uppercase;">
+                    Totais (${filteredPayables.length} títulos • Pago: ${formatCurrencyBRL(paidAmount)} • Aberto/Vencido: ${formatCurrencyBRL(openAmount + overdueAmount)}):
+                  </td>
+                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td style="text-align:center;">--</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
+
+  return {
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Contas a Pagar (${groupByLabel})`
+        : 'Relatório de Contas a Pagar',
+    subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
+    documentType: 'CONTAS A PAGAR',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `💸 *RELATÓRIO DE CONTAS A PAGAR*\n` +
+      `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
+      `📌 *Total no Período:* ${formatCurrencyBRL(totalAmount)} (${filteredPayables.length} títulos)\n` +
+      `✅ *Pago / Liquidado:* ${formatCurrencyBRL(paidAmount)}\n` +
+      `⏳ *Em Aberto:* ${formatCurrencyBRL(openAmount)}\n` +
+      `🚨 *Vencido / Atraso:* ${formatCurrencyBRL(overdueAmount)}`,
+    orientation: 'landscape',
+    signatureLabels: STANDARD_REPORT_SIGNATURES,
+  };
+}
+
+export function buildFinanceiroReceberReport(params: {
+  companyProfile: CompanyProfile;
+  filteredReceivables: ReceivableReportRow[];
+  startDate: string;
+  endDate: string;
+  competence: string;
+  searchTerm?: string;
+  statusFilter?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    filteredReceivables,
+    startDate,
+    endDate,
+    competence,
+    searchTerm = '',
+    statusFilter = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Cliente',
+    syntheticRows,
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const totalAmount = filteredReceivables.reduce((s, r) => s + (r.amount || 0), 0);
+  const paidItems = filteredReceivables.filter((r) => r.status === 'pago');
+  const openItems = filteredReceivables.filter((r) => r.status === 'a_vencer');
+  const overdueItems = filteredReceivables.filter((r) => r.status === 'vencido');
+
+  const paidAmount = paidItems.reduce((s, r) => s + (r.amount || 0), 0);
+  const openAmount = openItems.reduce((s, r) => s + (r.amount || 0), 0);
+  const overdueAmount = overdueItems.reduce((s, r) => s + (r.amount || 0), 0);
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
+    { label: 'Busca', value: searchTerm.trim() },
+    { label: 'Status', value: statusFilter },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Total a Receber',
+      value: formatCurrencyBRL(totalAmount),
+      sub: `${filteredReceivables.length} título(s) no período`,
+      color: '#0369a1',
+    },
+    {
+      label: 'Recebido (Liquidado)',
+      value: formatCurrencyBRL(paidAmount),
+      sub: `${paidItems.length} título(s) recebido(s)`,
+      color: '#047857',
+    },
+    {
+      label: 'A Vencer (No Prazo)',
+      value: formatCurrencyBRL(openAmount),
+      sub: `${openItems.length} título(s) em aberto`,
+      color: '#d97706',
+    },
+    {
+      label: 'Inadimplente / Vencido',
+      value: formatCurrencyBRL(overdueAmount),
+      sub: `${overdueItems.length} título(s) em atraso`,
+      color: '#b91c1c',
+    },
+  ]);
+
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredReceivables,
+      (r) => r.clientName || 'Cliente N/I',
+      (r) => r.amount || 0,
+      {
+        getPaidAmount: (r) => (r.status === 'pago' ? r.amount || 0 : 0),
+        getPendingAmount: (r) => (r.status !== 'pago' ? r.amount || 0 : 0),
+      }
+    );
+
+  const tableHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          showPaidBreakdown: true,
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Contas a Receber',
+          accentColor: '#047857',
+          emptyText: 'Nenhum título a receber localizado no período e filtros selecionados.',
+        })
+      : (() => {
+          const rowsHtml =
+            filteredReceivables.length > 0
+              ? filteredReceivables
+                  .map((r) => {
+                    const statusText = r.status === 'pago' ? 'RECEBIDO' : r.status === 'vencido' ? 'VENCIDO' : 'A VENCER';
+                    const statusColor = r.status === 'pago' ? '#047857' : r.status === 'vencido' ? '#b91c1c' : '#b45309';
+                    return `
+                    <tr style="font-size:8.5pt;">
+                      <td style="white-space:nowrap;">${formatDateBR(r.dueDate)}</td>
+                      <td style="font-weight:700;">${escapeHtml(r.clientName)}</td>
+                      <td>${escapeHtml(r.originLabel)}</td>
+                      <td>${escapeHtml(r.description)}</td>
+                      <td style="text-transform:uppercase;font-size:7.5pt;">${escapeHtml(r.paymentMethodLabel)}</td>
+                      <td style="text-align:right;font-weight:800;color:#047857;">${formatCurrencyBRL(r.amount || 0)}</td>
+                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7.5pt;">${statusText}</td>
+                    </tr>
+                  `;
+                  })
+                  .join('')
+              : `<tr><td colspan="7" style="text-align:center;padding:16px;color:#64748b;">Nenhum título a receber localizado no período e filtros selecionados.</td></tr>`;
+
+          return `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:82px;">Vencimento</th>
+                  <th>Cliente / Tomador</th>
+                  <th style="width:125px;">Origem</th>
+                  <th>Referência / Descrição</th>
+                  <th style="width:95px;">Forma Pagto.</th>
+                  <th style="text-align:right;width:110px;">Valor (R$)</th>
+                  <th style="text-align:center;width:85px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
+                  <td colspan="5" style="text-align:right;text-transform:uppercase;">
+                    Totais (${filteredReceivables.length} títulos • Recebido: ${formatCurrencyBRL(paidAmount)} • A Receber: ${formatCurrencyBRL(openAmount + overdueAmount)}):
+                  </td>
+                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td style="text-align:center;">--</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
+
+  return {
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Contas a Receber (${groupByLabel})`
+        : 'Relatório de Contas a Receber',
+    subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
+    documentType: 'CONTAS A RECEBER',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `💰 *RELATÓRIO DE CONTAS A RECEBER*\n` +
+      `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
+      `📌 *Total a Receber:* ${formatCurrencyBRL(totalAmount)} (${filteredReceivables.length} títulos)\n` +
+      `✅ *Recebido:* ${formatCurrencyBRL(paidAmount)}\n` +
+      `⏳ *A Vencer:* ${formatCurrencyBRL(openAmount)}\n` +
+      `🚨 *Inadimplente / Vencido:* ${formatCurrencyBRL(overdueAmount)}`,
+    orientation: 'landscape',
+    signatureLabels: STANDARD_REPORT_SIGNATURES,
+  };
+}
+
+export function buildFinanceiroChequesReport(params: {
+  companyProfile: CompanyProfile;
+  filteredCheques: FinanceiroCheque[];
+  startDate: string;
+  endDate: string;
+  competence: string;
+  searchTerm?: string;
+  statusFilter?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    filteredCheques,
+    startDate,
+    endDate,
+    competence,
+    searchTerm = '',
+    statusFilter = 'todos',
+    viewMode = 'analitico',
+    groupByLabel = 'Banco / Instituição',
+    syntheticRows,
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const getChqDate = (c: FinanceiroCheque) => c.data_vencimento || c.dataVencimento || '';
+  const getChqNum = (c: FinanceiroCheque) => c.numero_cheque || c.numeroCheque || '-';
+  const getChqEmitente = (c: FinanceiroCheque) => c.emitente_nome || c.emitenteNome || c.cliente_nome || c.clienteNome || 'N/I';
+
+  const totalAmount = filteredCheques.reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const emPoder = filteredCheques.filter((c) => c.status === 'EM_NOSSO_PODER');
+  const compensados = filteredCheques.filter((c) => c.status === 'COMPENSADO');
+  const devolvidos = filteredCheques.filter((c) => c.status === 'DEVOLVIDO');
+
+  const emPoderAmt = emPoder.reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const compAmt = compensados.reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const devAmt = devolvidos.reduce((s, c) => s + (Number(c.valor) || 0), 0);
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
+    { label: 'Busca', value: searchTerm.trim() },
+    { label: 'Status', value: statusFilter },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Total em Custódia / Carteira',
+      value: formatCurrencyBRL(totalAmount),
+      sub: `${filteredCheques.length} cheque(s) listado(s)`,
+      color: '#0369a1',
+    },
+    {
+      label: 'A Compensar (Em Poder)',
+      value: formatCurrencyBRL(emPoderAmt),
+      sub: `${emPoder.length} cheque(s) em custódia`,
+      color: '#d97706',
+    },
+    {
+      label: 'Compensados',
+      value: formatCurrencyBRL(compAmt),
+      sub: `${compensados.length} cheque(s) compensado(s)`,
+      color: '#047857',
+    },
+    {
+      label: 'Devolvidos',
+      value: formatCurrencyBRL(devAmt),
+      sub: `${devolvidos.length} ocorrência(s)`,
+      color: '#b91c1c',
+    },
+  ]);
+
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      filteredCheques,
+      (c) => c.banco || 'Banco N/I',
+      (c) => Number(c.valor) || 0
+    );
+
+  const tableHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Custódia de Cheques',
+          accentColor: '#0369a1',
+          emptyText: 'Nenhum cheque localizado no período e filtros selecionados.',
+        })
+      : (() => {
+          const rowsHtml =
+            filteredCheques.length > 0
+              ? filteredCheques
+                  .map((c) => {
+                    const statusColor =
+                      c.status === 'COMPENSADO'
+                        ? '#047857'
+                        : c.status === 'DEVOLVIDO'
+                        ? '#b91c1c'
+                        : '#b45309';
+                    return `
+                    <tr style="font-size:8.5pt;">
+                      <td style="font-family:monospace;font-weight:700;">${escapeHtml(getChqNum(c))}</td>
+                      <td>${escapeHtml(c.banco || '-')}</td>
+                      <td style="font-weight:700;">${escapeHtml(getChqEmitente(c))}</td>
+                      <td>${escapeHtml(c.fornecedor_destino || c.fornecedorDestino || c.cliente_nome || c.clienteNome || '-')}</td>
+                      <td style="white-space:nowrap;">${formatDateBR(getChqDate(c))}</td>
+                      <td style="text-align:right;font-weight:800;color:#0369a1;">${formatCurrencyBRL(Number(c.valor) || 0)}</td>
+                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7.5pt;">${escapeHtml(c.status)}</td>
+                    </tr>
+                  `;
+                  })
+                  .join('')
+              : `<tr><td colspan="7" style="text-align:center;padding:16px;color:#64748b;">Nenhum cheque localizado no período e filtros selecionados.</td></tr>`;
+
+          return `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:90px;">Nº Cheque</th>
+                  <th>Banco</th>
+                  <th>Emitente</th>
+                  <th>Cliente / Destino Repasse</th>
+                  <th style="width:90px;">Bom Para</th>
+                  <th style="text-align:right;width:110px;">Valor (R$)</th>
+                  <th style="text-align:center;width:110px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f1f5f9;border-top:2px solid #0369a1;font-weight:900;">
+                  <td colspan="5" style="text-align:right;text-transform:uppercase;">
+                    Totais (${filteredCheques.length} cheques):
+                  </td>
+                  <td style="text-align:right;color:#0369a1;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td style="text-align:center;">--</td>
+                </tr>
+              </tfoot>
+            </table>
+          `;
+        })();
+
+  return {
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Custódia de Cheques (${groupByLabel})`
+        : 'Relatório de Custódia & Controle de Cheques',
+    subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
+    documentType: 'CUSTÓDIA DE CHEQUES',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `🧾 *RELATÓRIO DE CUSTÓDIA DE CHEQUES*\n` +
+      `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
+      `📌 *Total em Custódia:* ${formatCurrencyBRL(totalAmount)} (${filteredCheques.length} cheques)\n` +
+      `⏳ *A Compensar:* ${formatCurrencyBRL(emPoderAmt)}\n` +
+      `✅ *Compensados:* ${formatCurrencyBRL(compAmt)}\n` +
+      `🚨 *Devolvidos:* ${formatCurrencyBRL(devAmt)}`,
+    orientation: 'landscape',
+    signatureLabels: STANDARD_REPORT_SIGNATURES,
+  };
+}
+
+/**
+ * 9. EXCEÇÕES & ALERTAS EM TEMPO REAL
+ */
+export interface ExceptionAlertItem {
+  id: string;
+  area: 'financeiro' | 'estoque' | 'frota_rh';
+  areaLabel: string;
+  severity: 'critico' | 'alto' | 'atencao';
+  category: string;
+  title: string;
+  detail: string;
+  referenceDate?: string;
+  amountOrMetric?: string;
+}
+
+export function buildExcecoesAlertasReport(params: {
+  companyProfile: CompanyProfile;
+  alerts: ExceptionAlertItem[];
+  areaFilter?: string;
+  severityFilter?: string;
+  searchTerm?: string;
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    alerts,
+    areaFilter = 'todas',
+    severityFilter = 'todas',
+    searchTerm = '',
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const critCount = alerts.filter((a) => a.severity === 'critico').length;
+  const finCount = alerts.filter((a) => a.area === 'financeiro').length;
+  const estCount = alerts.filter((a) => a.area === 'estoque').length;
+  const frotaRhCount = alerts.filter((a) => a.area === 'frota_rh').length;
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Área', value: areaFilter },
+    { label: 'Criticidade', value: severityFilter },
+    { label: 'Busca', value: searchTerm.trim() },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Total de Exceções',
+      value: `${alerts.length} alerta(s)`,
+      sub: `${critCount} ocorrência(s) crítica(s)`,
+      color: '#b91c1c',
+    },
+    {
+      label: 'Pendências Financeiras',
+      value: `${finCount}`,
+      sub: 'Vencidos, cheques e inadimplência',
+      color: '#d97706',
+    },
+    {
+      label: 'Alertas de Estoque',
+      value: `${estCount}`,
+      sub: 'Saldo zerado ou abaixo do mínimo',
+      color: '#0369a1',
+    },
+    {
+      label: 'Frota & RH',
+      value: `${frotaRhCount}`,
+      sub: 'Revisões, IPVA/Licenc. e CNH',
+      color: '#7c3aed',
+    },
+  ]);
+
+  const rowsHtml =
+    alerts.length > 0
+      ? alerts
+          .map((a) => {
+            const sevColor =
+              a.severity === 'critico' ? '#b91c1c' : a.severity === 'alto' ? '#d97706' : '#0369a1';
+            const sevLabel =
+              a.severity === 'critico' ? 'CRÍTICO' : a.severity === 'alto' ? 'ALTO' : 'ATENÇÃO';
+            return `
+              <tr style="font-size:8.5pt;">
+                <td style="text-align:center;font-weight:800;color:${sevColor};font-size:7.5pt;">${sevLabel}</td>
+                <td style="font-weight:700;">${escapeHtml(a.areaLabel)}</td>
+                <td>${escapeHtml(a.category)}</td>
+                <td>
+                  <strong>${escapeHtml(a.title)}</strong>
+                  <div style="font-size:7.5pt;color:#475569;">${escapeHtml(a.detail)}</div>
+                </td>
+                <td style="white-space:nowrap;">${a.referenceDate ? formatDateBR(a.referenceDate) : '-'}</td>
+                <td style="text-align:right;font-weight:800;color:${sevColor};">${escapeHtml(a.amountOrMetric || '-')}</td>
+              </tr>
+            `;
+          })
+          .join('')
+      : `<tr><td colspan="6" style="text-align:center;padding:18px;color:#047857;font-weight:700;">Nenhuma exceção ou alerta crítico detectado no momento. Operação em conformidade.</td></tr>`;
+
+  return {
+    title: 'Pauta de Exceções & Alertas Operacionais (Tempo Real)',
+    subtitle: `Auditoria automática de pendências financeiras, estoque mínimo, frota e CNH • Emitido em ${new Date().toLocaleDateString('pt-BR')}`,
+    documentType: 'PAUTA DE PENDÊNCIAS',
+    contentHtml: `
+      ${filtersHtml}
+      ${kpiHtml}
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:center;width:78px;">Severidade</th>
+            <th style="width:115px;">Área</th>
+            <th style="width:145px;">Tipo de Alerta</th>
+            <th>Ocorrência / Ação Recomendada</th>
+            <th style="width:85px;">Data Ref.</th>
+            <th style="text-align:right;width:115px;">Valor / Saldo</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    `,
+    whatsappText:
+      `🚨 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `📋 *PAUTA DE EXCEÇÕES & ALERTAS (TEMPO REAL)*\n\n` +
+      `🔴 *Críticos:* ${critCount} | 📌 *Total:* ${alerts.length}\n` +
+      `💰 *Financeiro:* ${finCount}\n` +
+      `📦 *Estoque:* ${estCount}\n` +
+      `🚜 *Frota & RH:* ${frotaRhCount}`,
+    orientation: 'landscape',
+    signatureLabels: STANDARD_REPORT_SIGNATURES,
+  };
+}
+
+/**
+ * 10. CONSTRUTOR PERSONALIZADO (AD-HOC)
+ */
+export interface AdHocColumnDef {
+  key: string;
+  label: string;
+  align?: 'left' | 'right' | 'center';
+  format?: 'currency' | 'date' | 'number' | 'text';
+  summable?: boolean;
+}
+
+export function buildAdHocCustomReport(params: {
+  companyProfile: CompanyProfile;
+  datasetLabel: string;
+  columns: AdHocColumnDef[];
+  rows: Array<Record<string, unknown>>;
+  startDate?: string;
+  endDate?: string;
+  statusFilter?: string;
+  searchTerm?: string;
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    datasetLabel,
+    columns,
+    rows,
+    startDate = '',
+    endDate = '',
+    statusFilter = 'todos',
+    searchTerm = '',
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Base', value: datasetLabel },
+    { label: 'Período', value: startDate && endDate ? `${formatDateBR(startDate)} a ${formatDateBR(endDate)}` : '' },
+    { label: 'Status', value: statusFilter },
+    { label: 'Busca', value: searchTerm.trim() },
+    { label: 'Colunas', value: `${columns.length} selecionada(s)` },
+  ]);
+
+  const formatCell = (val: unknown, col: AdHocColumnDef): string => {
+    if (val === null || val === undefined || val === '') return '-';
+    if (col.format === 'currency') return formatCurrencyBRL(Number(val) || 0);
+    if (col.format === 'date') return formatDateBR(String(val));
+    if (col.format === 'number') return Number(val).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+    return escapeHtml(String(val));
+  };
+
+  const bodyHtml =
+    columns.length === 0
+      ? '<p style="padding:16px;text-align:center;color:#64748b;">Nenhuma coluna selecionada para exibição.</p>'
+      : `
+      <table>
+        <thead>
+          <tr>
+            ${columns
+              .map(
+                (col) =>
+                  `<th style="text-align:${col.align || 'left'};">${escapeHtml(col.label)}</th>`
+              )
+              .join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            rows.length > 0
+              ? rows
+                  .map(
+                    (row) => `
+                  <tr style="font-size:8.5pt;">
+                    ${columns
+                      .map((col) => {
+                        const align = col.align || 'left';
+                        const weight = col.format === 'currency' ? 'font-weight:700;' : '';
+                        return `<td style="text-align:${align};${weight}">${formatCell(row[col.key], col)}</td>`;
+                      })
+                      .join('')}
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="${columns.length}" style="text-align:center;padding:16px;color:#64748b;">Nenhum registro encontrado com os filtros aplicados.</td></tr>`
+          }
+        </tbody>
+        ${
+          rows.length > 0 && columns.some((c) => c.summable)
+            ? `
+          <tfoot>
+            <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
+              ${columns
+                .map((col, idx) => {
+                  if (idx === 0 && !col.summable) {
+                    return `<td>TOTAIS (${rows.length} registros)</td>`;
+                  }
+                  if (col.summable) {
+                    const sum = rows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
+                    return `<td style="text-align:${col.align || 'right'};color:#047857;">${
+                      col.format === 'currency'
+                        ? formatCurrencyBRL(sum)
+                        : sum.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+                    }</td>`;
+                  }
+                  return `<td></td>`;
+                })
+                .join('')}
+            </tr>
+          </tfoot>
+        `
+            : ''
+        }
+      </table>
+    `;
+
+  return {
+    title: `Relatório Personalizado — ${datasetLabel}`,
+    subtitle: `${rows.length} registro(s) • ${columns.length} coluna(s) selecionada(s)${
+      startDate && endDate ? ` • ${formatDateBR(startDate)} a ${formatDateBR(endDate)}` : ''
+    }`,
+    documentType: 'RELATÓRIO AD-HOC',
+    contentHtml: `${filtersHtml}${bodyHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `🛠️ *RELATÓRIO PERSONALIZADO: ${datasetLabel.toUpperCase()}*\n` +
+      `📋 *Registros:* ${rows.length} | *Colunas:* ${columns.length}`,
+    orientation: columns.length > 5 ? 'landscape' : 'portrait',
+    signatureLabels: STANDARD_REPORT_SIGNATURES,
+  };
+}
+
