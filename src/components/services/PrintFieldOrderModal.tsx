@@ -354,7 +354,7 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
                         {appointment.primaryMachineryModel || 'Forrageira'}
                       </td>
                       <td className="p-1.5 border border-stone-300 font-bold">
-                        {appointment.assignedTeam.find(t => t.role.toLowerCase().includes('forrageira') || t.role.toLowerCase().includes('principal'))?.employeeName || 'A definir'}
+                        {appointment.assignedTeam.find(t => String(t.role ?? '').toLowerCase().includes('forrageira') || String(t.role ?? '').toLowerCase().includes('principal'))?.employeeName || 'A definir'}
                       </td>
                     </tr>
                   )}

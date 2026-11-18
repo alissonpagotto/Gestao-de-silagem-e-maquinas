@@ -717,9 +717,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
 
     if (!editingFuelLog && origin === 'Tanque Interno (Fazenda)') {
-      const isArlaGalao = fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
-      const isArlaGranel = !isArlaGalao && (fuelLog.tanque_id?.toLowerCase().includes('arla') || fuelLog.fuelType?.toLowerCase().includes('arla'));
-      const isS500 = !isArlaGalao && !isArlaGranel && (fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500'));
+      const isArlaGalao = String(fuelLog.fuelType ?? '').toLowerCase().includes('galão') || String(fuelLog.fuelType ?? '').toLowerCase().includes('galao');
+      const isArlaGranel = !isArlaGalao && (String(fuelLog.tanque_id ?? '').toLowerCase().includes('arla') || String(fuelLog.fuelType ?? '').toLowerCase().includes('arla'));
+      const isS500 = !isArlaGalao && !isArlaGranel && (String(fuelLog.tanque_id ?? '').toLowerCase().includes('s500') || String(fuelLog.fuelType ?? '').toLowerCase().includes('s500'));
 
       // Baixa direta no tanque de combustível da fazenda (tabela tanques_combustivel)
       // IMPORTANTE: NÃO subtrai do tanque de 1.000L se for Arla em Galão (Almoxarifado)!
@@ -734,7 +734,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
       const fuelItem = currentInventory.find(i => {
         if (fuelLog.produto_id && i.id === fuelLog.produto_id) return true;
-        const nm = (i.nome_comercial || i.name || '').toLowerCase();
+        const nm = String(i.nome_comercial ?? i.name ?? '').toLowerCase();
         if (isArlaGalao) return nm.includes('arla') && (nm.includes('galão') || nm.includes('galao'));
         if (isArlaGranel) return nm.includes('arla') && (nm.includes('granel') || (!nm.includes('galão') && !nm.includes('galao')));
         if (isS500) return nm.includes('s500') || nm.includes('comum');
@@ -774,7 +774,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       const machName = rawMachName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
 
       if (origin === 'Tanque Interno (Fazenda)') {
-        const isArlaGalao = fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+        const isArlaGalao = String(fuelLog.fuelType ?? '').toLowerCase().includes('galão') || String(fuelLog.fuelType ?? '').toLowerCase().includes('galao');
 
         // 3. Envia o custo para o DRE do veículo e registra no financeiro como compensado pelo estoque
         onAddExpense({
@@ -866,7 +866,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         }
 
         // 3. Vinculando o custo ao DRE do veículo e registrando lançamento liquidado 'Pago'
-        const rawPayment = (fuelLog.paymentMethod || '').toLowerCase();
+        const rawPayment = String(fuelLog.paymentMethod ?? '').toLowerCase();
         const mappedPayment = rawPayment.includes('cart') ? 'cartao_debito' : (rawPayment.includes('dinh') ? 'dinheiro' : 'pix');
 
         onAddExpense({
@@ -993,7 +993,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           const matchedInv = latestInventory.find(
             (inv) =>
               (p.inventoryItemId && inv.id === p.inventoryItemId) ||
-              (inv.name && p.description && inv.name.trim().toLowerCase() === p.description.trim().toLowerCase())
+              (inv.name && p.description && String(inv.name ?? '').trim().toLowerCase() === String(p.description ?? '').trim().toLowerCase())
           );
           if (matchedInv) {
             upsertEstoqueItem(matchedInv).catch((err) =>
@@ -1083,9 +1083,10 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         // Inicia rigorosamente a partir da Linha 1 (Item 1 / Parcela 1) com índice 0
         const installmentExpenses = cond.installments.map((inst, idx) => {
           const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
-          const methodKey = (inst.paymentMethodLabel?.toLowerCase().includes('pix') ? 'pix' :
-                            inst.paymentMethodLabel?.toLowerCase().includes('cart') ? 'cartao_credito' :
-                            inst.paymentMethodLabel?.toLowerCase().includes('dinheiro') ? 'dinheiro' :
+          const payLabelLower = String(inst.paymentMethodLabel ?? '').toLowerCase();
+          const methodKey = (payLabelLower.includes('pix') ? 'pix' :
+                            payLabelLower.includes('cart') ? 'cartao_credito' :
+                            payLabelLower.includes('dinheiro') ? 'dinheiro' :
                             cond.paymentMethod || 'boleto') as any;
 
           const desc = totalLines > 1

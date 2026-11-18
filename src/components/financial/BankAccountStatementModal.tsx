@@ -138,13 +138,13 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
       if (typeFilter !== 'todas' && m.type !== typeFilter) return false;
 
       // Filtro por Busca de Texto
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const descMatch = m.description.toLowerCase().includes(query);
-        const catMatch = m.category?.toLowerCase().includes(query);
-        const empMatch = m.paidByEmployeeName?.toLowerCase().includes(query);
-        const docMatch = m.documentNumber?.toLowerCase().includes(query);
-        const accMatch = m.bankAccountName?.toLowerCase().includes(query);
+      if (String(searchTerm ?? '').trim()) {
+        const query = String(searchTerm ?? '').toLowerCase();
+        const descMatch = String(m?.description ?? '').toLowerCase().includes(query);
+        const catMatch = String(m?.category ?? '').toLowerCase().includes(query);
+        const empMatch = String(m?.paidByEmployeeName ?? '').toLowerCase().includes(query);
+        const docMatch = String(m?.documentNumber ?? '').toLowerCase().includes(query);
+        const accMatch = String(m?.bankAccountName ?? '').toLowerCase().includes(query);
         if (!descMatch && !catMatch && !empMatch && !docMatch && !accMatch) {
           return false;
         }

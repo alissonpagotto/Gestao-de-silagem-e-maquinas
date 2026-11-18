@@ -5582,8 +5582,8 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
     for (const fuel of fuelsConfig) {
       let tank = tanksList.find(t =>
         t.id === fuel.idTank ||
-        (t.tipo_combustivel && t.tipo_combustivel.toLowerCase().includes(fuel.key)) ||
-        (t.nome && t.nome.toLowerCase().includes(fuel.key))
+        (t.tipo_combustivel && String(t.tipo_combustivel).toLowerCase().includes(fuel.key)) ||
+        (t.nome && String(t.nome).toLowerCase().includes(fuel.key))
       );
 
       let prod = prodsList.find(p => {
@@ -5844,21 +5844,21 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
       }
 
       // Garante que Diesel S10, Diesel S500, Arla 32 (Granel/Litro) e Arla 32 (Galão 20L) constem na lista
-      const hasS10 = mapped.some(m => (m.nome_comercial || m.name || '').toLowerCase().includes('s10'));
-      const hasS500 = mapped.some(m => (m.nome_comercial || m.name || '').toLowerCase().includes('s500') || (m.nome_comercial || m.name || '').toLowerCase().includes('comum'));
+      const hasS10 = mapped.some(m => String(m.nome_comercial || m.name || '').toLowerCase().includes('s10'));
+      const hasS500 = mapped.some(m => String(m.nome_comercial || m.name || '').toLowerCase().includes('s500') || String(m.nome_comercial || m.name || '').toLowerCase().includes('comum'));
       const hasArlaGranel = mapped.some(m => {
-        const n = (m.nome_comercial || m.name || '').toLowerCase();
+        const n = String(m.nome_comercial || m.name || '').toLowerCase();
         return n.includes('arla') && (n.includes('granel') || (!n.includes('galão') && !n.includes('galao')));
       });
       const hasArlaGalao = mapped.some(m => {
-        const n = (m.nome_comercial || m.name || '').toLowerCase();
+        const n = String(m.nome_comercial || m.name || '').toLowerCase();
         return n.includes('arla') && (n.includes('galão') || n.includes('galao'));
       });
 
       const tanks = getStoredTanquesCombustivel();
-      const s10Tank = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S10 || t.tipo_combustivel?.toLowerCase().includes('s10'));
-      const s500Tank = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S500 || t.tipo_combustivel?.toLowerCase().includes('s500'));
-      const arlaTank = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.ARLA || t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla'));
+      const s10Tank = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S10 || String(t.tipo_combustivel ?? '').toLowerCase().includes('s10'));
+      const s500Tank = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S500 || String(t.tipo_combustivel ?? '').toLowerCase().includes('s500'));
+      const arlaTank = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.ARLA || String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(t.nome ?? '').toLowerCase().includes('arla'));
 
       if (!hasS10) {
         mapped.unshift({
@@ -6100,7 +6100,7 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
 
         if (!prodId || isLinkedToGalaoByMistake) {
           const matchingProd = fuelProds.find(p => {
-            const pName = (p.nome_comercial || p.name).toLowerCase();
+            const pName = String(p.nome_comercial || p.name || '').toLowerCase();
             const isGal = pName.includes('galão') || pName.includes('galao') || String(p.unidade_medida || p.unit || '').toLowerCase() === 'un';
             if (isGal) return false;
             if (isS500 && pName.includes('diesel') && (pName.includes('s500') || pName.includes('comum'))) return true;
@@ -6144,12 +6144,12 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
       // Garante que o tanque de Arla 32 sempre conste na lista com UUID válido
       const hasArlaTank = mapped.some(t =>
         t.id === CANONICAL_TANK_UUIDS.ARLA ||
-        t.tipo_combustivel?.toLowerCase().includes('arla') ||
-        t.nome?.toLowerCase().includes('arla')
+        String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') ||
+        String(t.nome ?? '').toLowerCase().includes('arla')
       );
       if (!hasArlaTank) {
         const arlaProd = fuelProds.find(p => {
-          const n = (p.nome_comercial || p.name).toLowerCase();
+          const n = String(p.nome_comercial || p.name || '').toLowerCase();
           return n.includes('arla') && !n.includes('galão') && !n.includes('galao') && String(p.unidade_medida || p.unit || '').toLowerCase() !== 'un';
         });
         const arlaQty = Number(arlaProd?.quantidade_atual ?? arlaProd?.quantity ?? 0);
@@ -6291,7 +6291,7 @@ export async function sincronizarEntradaCombustivelSupabase(params: {
   }
 
   const activeCompanyId = companyId || getActiveCompanyId();
-  const descLower = descricao.toLowerCase();
+  const descLower = String(descricao ?? '').toLowerCase();
   const isS500 = descLower.includes('s500') || descLower.includes('comum');
   const isArla = descLower.includes('arla');
   const isS10 = !isS500 && !isArla;
@@ -6301,8 +6301,8 @@ export async function sincronizarEntradaCombustivelSupabase(params: {
   let resolvedProdId = produtoId;
   let targetProduct = currentInventory.find(p => 
     (resolvedProdId && p.id === resolvedProdId) ||
-    (p.nome_comercial && p.nome_comercial.toLowerCase() === descLower) ||
-    p.name.toLowerCase() === descLower
+    (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase() === descLower) ||
+    String(p.name ?? '').toLowerCase() === descLower
   );
 
   if (!resolvedProdId) {
@@ -6320,8 +6320,8 @@ export async function sincronizarEntradaCombustivelSupabase(params: {
   const updatedInventory = currentInventory.map(item => {
     const isTarget = item.id === resolvedProdId ||
       toValidUUID(item.id) === resolvedProdId ||
-      (item.nome_comercial && item.nome_comercial.toLowerCase() === descLower) ||
-      item.name.toLowerCase() === descLower;
+      (item.nome_comercial && String(item.nome_comercial ?? '').toLowerCase() === descLower) ||
+      String(item.name ?? '').toLowerCase() === descLower;
     if (isTarget) {
       novoSaldoEstoqueLocal = Number(((Number(item.quantidade_atual ?? item.quantity) || 0) + quantidadeLitros).toFixed(2));
       return {
@@ -6344,9 +6344,9 @@ export async function sincronizarEntradaCombustivelSupabase(params: {
   let novoSaldoTanqueLocal = 0;
   const updatedTanks = currentTanks.map(t => {
     const matchesProd = (t.produto_id && t.produto_id === resolvedProdId) ||
-      (isS500 && (t.id === CANONICAL_TANK_UUIDS.S500 || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
-      (isS10 && (t.id === CANONICAL_TANK_UUIDS.S10 || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
-      (isArla && (t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla') || t.id === CANONICAL_TANK_UUIDS.ARLA));
+      (isS500 && (t.id === CANONICAL_TANK_UUIDS.S500 || String(t.tipo_combustivel ?? '').toLowerCase().includes('s500'))) ||
+      (isS10 && (t.id === CANONICAL_TANK_UUIDS.S10 || String(t.tipo_combustivel ?? '').toLowerCase().includes('s10'))) ||
+      (isArla && (String(t.nome ?? '').toLowerCase().includes('arla') || String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || t.id === CANONICAL_TANK_UUIDS.ARLA));
     
     if (matchesProd && !resolvedTankId) {
       resolvedTankId = normalizeTankIdToUUID(t.id, t.tipo_combustivel);
@@ -6462,8 +6462,8 @@ export async function sincronizarEntradaCombustivelSupabase(params: {
       targetDbTank = allTanks.find(t =>
         (dbProdId && t.produto_id === dbProdId) ||
         t.id === fallbackTankUuid ||
-        (t.tipo_combustivel && t.tipo_combustivel.toLowerCase().includes(searchPattern)) ||
-        (t.nome && t.nome.toLowerCase().includes(searchPattern))
+        (t.tipo_combustivel && String(t.tipo_combustivel).toLowerCase().includes(searchPattern)) ||
+        (t.nome && String(t.nome).toLowerCase().includes(searchPattern))
       ) || allTanks[0];
     }
 
@@ -6560,20 +6560,20 @@ export async function subtrairCombustivelTanque(
   const validTankUuid = normalizeTankIdToUUID(tanqueId);
   const targetTank = currentList.find(t => t.id === tanqueId || t.id === validTankUuid);
   const isArla = targetTank
-    ? (targetTank.tipo_combustivel?.toLowerCase().includes('arla') || targetTank.nome?.toLowerCase().includes('arla'))
-    : tanqueId.toLowerCase().includes('arla');
+    ? (String(targetTank.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(targetTank.nome ?? '').toLowerCase().includes('arla'))
+    : String(tanqueId ?? '').toLowerCase().includes('arla');
   const isS500 = !isArla && (targetTank 
-    ? (targetTank.tipo_combustivel?.toLowerCase().includes('s500') || targetTank.nome?.toLowerCase().includes('s500'))
-    : tanqueId.toLowerCase().includes('s500'));
+    ? (String(targetTank.tipo_combustivel ?? '').toLowerCase().includes('s500') || String(targetTank.nome ?? '').toLowerCase().includes('s500'))
+    : String(tanqueId ?? '').toLowerCase().includes('s500'));
   const prodSearch = isArla ? 'Arla 32' : (isS500 ? 'Diesel S500' : 'Diesel S10');
 
   // 2. Atualização imediata no storage local dos tanques (tanques_combustivel)
   let novaQtdLocalTanque = 0;
   const updatedList = currentList.map(t => {
     const isTarget = t.id === validTankUuid || 
-      (isArla && (t.id === CANONICAL_TANK_UUIDS.ARLA || t.tipo_combustivel?.toLowerCase().includes('arla'))) ||
-      (isS500 && (t.id === CANONICAL_TANK_UUIDS.S500 || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
-      (!isArla && !isS500 && (t.id === CANONICAL_TANK_UUIDS.S10 || t.tipo_combustivel?.toLowerCase().includes('s10')));
+      (isArla && (t.id === CANONICAL_TANK_UUIDS.ARLA || String(t.tipo_combustivel ?? '').toLowerCase().includes('arla'))) ||
+      (isS500 && (t.id === CANONICAL_TANK_UUIDS.S500 || String(t.tipo_combustivel ?? '').toLowerCase().includes('s500'))) ||
+      (!isArla && !isS500 && (t.id === CANONICAL_TANK_UUIDS.S10 || String(t.tipo_combustivel ?? '').toLowerCase().includes('s10')));
     if (isTarget) {
       novaQtdLocalTanque = Math.max(0, Number(((t.quantidade_atual || 0) - litrosSubtrair).toFixed(2)));
       return { ...t, id: normalizeTankIdToUUID(t.id, t.tipo_combustivel), quantidade_atual: novaQtdLocalTanque, updated_at: new Date().toISOString() };
@@ -7739,7 +7739,7 @@ export type PlanSelectedKey = 'essencial' | 'pro' | 'enterprise';
 
 export function normalizeSubscriberPlanKey(plan?: string): PlanSelectedKey {
   if (!plan) return 'pro';
-  const clean = plan.toLowerCase().trim();
+  const clean = String(plan ?? '').toLowerCase().trim();
   if (clean === 'essencial' || clean.includes('essen') || clean.includes('starter')) return 'essencial';
   if (clean === 'enterprise' || clean.includes('enter') || clean.includes('business')) return 'enterprise';
   return 'pro';
@@ -7763,7 +7763,7 @@ export function getSubscriberPlanDisplayName(plan: PlanSelectedKey): string {
 
 export function normalizeSubscriberStatus(status?: string): 'ativa' | 'trial' | 'cancelada' {
   if (!status) return 'trial';
-  const clean = status.toLowerCase().trim();
+  const clean = String(status ?? '').toLowerCase().trim();
   if (clean === 'ativa' || clean === 'ativo') return 'ativa';
   if (clean === 'cancelada' || clean === 'cancelado' || clean === 'suspensa' || clean === 'inadimplente') return 'cancelada';
   return 'trial';
@@ -7937,7 +7937,7 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 
               const targets = Array.from(mergedMap.values()).filter(s => 
                 (s.id && s.id === pId) || 
-                (pEmail && s.responsibleEmail && s.responsibleEmail.toLowerCase() === pEmail) ||
+                (pEmail && s.responsibleEmail && String(s.responsibleEmail ?? '').toLowerCase() === pEmail) ||
                 (pDoc && (s.cpfCnpj || '').replace(/\D/g, '') === pDoc)
               );
 
@@ -7993,8 +7993,8 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
     // 1. Gravação prioritária na tabela 'assinantes' com a tipagem e nomes solicitados
     const payloadAssinantes: Record<string, any> = {
       id: validId,
-      nome: sub.name.trim(),
-      email: sub.responsibleEmail.trim().toLowerCase(),
+      nome: String(sub.name ?? '').trim(),
+      email: String(sub.responsibleEmail ?? '').trim().toLowerCase(),
       plano_nome: planDisplayName,
       plano_selecionado: planKey,
       valor_mensal: valorMensal,
@@ -8033,8 +8033,8 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
       try {
         const payloadSubscribers = {
           id: validId,
-          name: sub.name.trim(),
-          email: sub.responsibleEmail.trim().toLowerCase(),
+          name: String(sub.name ?? '').trim(),
+          email: String(sub.responsibleEmail ?? '').trim().toLowerCase(),
           phone: sub.phone || '',
           document: sub.cpfCnpj || '',
           plan_name: planDisplayName,
@@ -8058,14 +8058,14 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
     try {
       const profilePayload: CompanyProfile = {
         id: validId,
-        corporateName: sub.name.trim(),
-        tradeName: sub.name.trim(),
-        name: sub.name.trim(),
+        corporateName: String(sub.name ?? '').trim(),
+        tradeName: String(sub.name ?? '').trim(),
+        name: String(sub.name ?? '').trim(),
         cnpjCpf: sub.cpfCnpj || '',
         stateRegistration: sub.stateRegistration || '',
         phone: sub.phone || '',
-        email: sub.responsibleEmail.trim().toLowerCase(),
-        loginEmail: sub.responsibleEmail.trim().toLowerCase(),
+        email: String(sub.responsibleEmail ?? '').trim().toLowerCase(),
+        loginEmail: String(sub.responsibleEmail ?? '').trim().toLowerCase(),
         zipCode: sub.cep || '',
         address: sub.street || '',
         number: sub.number || '',
@@ -8437,7 +8437,7 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
   if (!isSupabaseConfigured) return false;
   try {
     const derived = toValidUUID(id);
-    const cleanEmail = email && email.trim() !== '-' ? email.trim().toLowerCase() : undefined;
+    const cleanEmail = email && String(email).trim() !== '-' ? String(email).trim().toLowerCase() : undefined;
 
     // 1. Exclusão direta na tabela oficial 'assinantes' pelo ID exato
     await supabase.from('assinantes').delete().eq('id', id);
@@ -8445,7 +8445,7 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
     // Se o ID for formato UUID ou puder ser normalizado
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(id)) {
-      await supabase.from('assinantes').delete().eq('id', id.toLowerCase());
+      await supabase.from('assinantes').delete().eq('id', String(id ?? '').toLowerCase());
     } else if (derived && derived !== id) {
       try {
         await supabase.from('assinantes').delete().eq('id', derived);
@@ -8806,9 +8806,9 @@ export async function checkSubscriberAccessStatus(identifier: {
     }
 
     // Normaliza campos entre as duas tabelas
-    const rawStatus = (row.status || '').toLowerCase().trim();
+    const rawStatus = String(row.status || '').toLowerCase().trim();
     const subName = row.nome || row.name || 'Assinante';
-    const subEmail = (row.email || row.responsible_email || targetEmail).toLowerCase().trim();
+    const subEmail = String(row.email || row.responsible_email || targetEmail || '').toLowerCase().trim();
     let planName = row.plano_nome || row.plano_selecionado || row.plan_name || 'Produtor Essencial';
     let planPrice = row.valor_mensal !== undefined && row.valor_mensal !== null ? Number(row.valor_mensal) : undefined;
     const trialDateStr = row.trial_ate || row.trial_ends_at || row.trial_until;
@@ -13378,8 +13378,8 @@ export async function baixarEstoqueProdutosDefinitivoOS(
         const itId = it.produto_id || it.inventoryItemId;
         if (itId && (inv.id === itId || toValidUUID(inv.id) === toValidUUID(itId))) return true;
         if (it.produto_codigo && (inv.code === it.produto_codigo || (inv as any).codigo_produto === it.produto_codigo)) return true;
-        if (it.description && inv.name && inv.name.trim().toLowerCase() === it.description.trim().toLowerCase()) return true;
-        if (it.description && inv.nome_comercial && inv.nome_comercial.trim().toLowerCase() === it.description.trim().toLowerCase()) return true;
+        if (it.description && inv.name && String(inv.name).trim().toLowerCase() === String(it.description).trim().toLowerCase()) return true;
+        if (it.description && inv.nome_comercial && String(inv.nome_comercial).trim().toLowerCase() === String(it.description).trim().toLowerCase()) return true;
         return false;
       });
 

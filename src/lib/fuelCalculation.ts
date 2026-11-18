@@ -226,7 +226,7 @@ export function findVehicleForLog(log: any, machineries: any[] = []): any | null
   const cleanSearch = search.replace(/[^a-z0-9]/gi, '');
 
   return machineries.find(m => {
-    if (m.id && search === m.id.toLowerCase()) return true;
+    if (m?.id && search === String(m.id ?? '').toLowerCase()) return true;
     const plate = String(m.licensePlateOrSerial || m.plate || m.plateOrSerial || '').toLowerCase().trim();
     const cleanPlate = plate.replace(/[^a-z0-9]/gi, '');
     if (plate && (search.includes(plate) || (cleanPlate && cleanSearch.includes(cleanPlate)))) return true;
@@ -338,7 +338,7 @@ export function isVehicleHoursControlled(
 
   // 4. Identificação pelo texto do Registro / Placa
   const textToCheck = typeof logOrName === 'string'
-    ? logOrName.toLowerCase()
+    ? String(logOrName ?? '').toLowerCase()
     : String(logOrName?.machineryPlateOrName || logOrName?.vehicleName || '').toLowerCase();
 
   if (
@@ -450,7 +450,7 @@ export function getFuelLogReadings(
   if (!isNaN(fallbackVal) && fallbackVal > 0) {
     if (kmVal === null && hoursVal === null) {
       const isHours = vehicle?.controla_por
-        ? (vehicle.controla_por.toLowerCase() === 'horas')
+        ? (String(vehicle.controla_por ?? '').toLowerCase() === 'horas')
         : isVehicleHoursControlled(vehicle, log);
       if (isHours) {
         hoursVal = fallbackVal;
@@ -509,7 +509,7 @@ export function formatDualFuelLogEfficiency(
       };
     } else {
       // Fallback: se não for máquina pura e houver averageCalculated
-      const isPureHours = vehicle?.controla_por?.toLowerCase() === 'horas';
+      const isPureHours = String(vehicle?.controla_por ?? '').toLowerCase() === 'horas';
       if (!isPureHours) {
         const avgCalc = Number(log.averageCalculated);
         if (!isNaN(avgCalc) && avgCalc > 0 && !log.currentHourMeter && !log.media_lh) {

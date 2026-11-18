@@ -1275,12 +1275,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
   // Itens filtrados para sugestão de autocomplete
   const suggestedProducts = useMemo(() => {
-    if (!inputBusca.trim()) return [];
-    const q = inputBusca.toLowerCase().trim();
+    if (!String(inputBusca ?? '').trim()) return [];
+    const q = String(inputBusca ?? '').toLowerCase().trim();
     return productCatalog.filter(p => 
-      p.name.toLowerCase().includes(q) ||
-      p.code.toLowerCase().includes(q) ||
-      p.barcode.toLowerCase().includes(q)
+      String(p?.name ?? '').toLowerCase().includes(q) ||
+      String(p?.code ?? '').toLowerCase().includes(q) ||
+      String(p?.barcode ?? '').toLowerCase().includes(q)
     ).slice(0, 8);
   }, [inputBusca, productCatalog]);
 
@@ -1397,13 +1397,13 @@ export const PdvView: React.FC<PdvViewProps> = ({
     }
 
     // 4. Se houver texto digitado no campo de busca ou código ou leitor de código de barras
-    const q = (inputBusca || inputCodigo || inputDescricao).trim().toLowerCase();
+    const q = String(inputBusca || inputCodigo || inputDescricao || '').trim().toLowerCase();
     if (q) {
       const match = productCatalog.find(p => 
-        p.code.toLowerCase() === q ||
-        p.barcode.toLowerCase() === q ||
-        p.name.toLowerCase() === q ||
-        p.name.toLowerCase().includes(q)
+        String(p?.code ?? '').toLowerCase() === q ||
+        String(p?.barcode ?? '').toLowerCase() === q ||
+        String(p?.name ?? '').toLowerCase() === q ||
+        String(p?.name ?? '').toLowerCase().includes(q)
       );
       if (match) return match;
     }
@@ -1729,12 +1729,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
     // Se já houver um produto selecionado na barra de inserção, recalcula e reflete instantaneamente
     let target = selectedProduct;
     if (!target) {
-      const q = (inputDescricao || inputBusca || inputCodigo).trim().toLowerCase();
+      const q = String(inputDescricao || inputBusca || inputCodigo || '').trim().toLowerCase();
       if (q) {
         target = productCatalog.find(p => 
-          p.code.toLowerCase() === q ||
-          p.barcode.toLowerCase() === q ||
-          p.name.toLowerCase() === q
+          String(p?.code ?? '').toLowerCase() === q ||
+          String(p?.barcode ?? '').toLowerCase() === q ||
+          String(p?.name ?? '').toLowerCase() === q
         ) || (suggestedProducts.length > 0 ? suggestedProducts[0] : null);
       }
     }
@@ -1760,11 +1760,11 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     // Se o preço for 0 ou código não estiver preenchido, resolve produto do catálogo por código de barras, código ou nome
     if (preco <= 0 || !cod) {
-      const q = (inputBusca || descResolved).trim().toLowerCase();
+      const q = String(inputBusca || descResolved || '').trim().toLowerCase();
       const matched = productCatalog.find(p => 
-        p.barcode.toLowerCase() === q ||
-        p.code.toLowerCase() === q ||
-        p.name.toLowerCase() === q
+        String(p?.barcode ?? '').toLowerCase() === q ||
+        String(p?.code ?? '').toLowerCase() === q ||
+        String(p?.name ?? '').toLowerCase() === q
       ) || (suggestedProducts.length === 1 ? suggestedProducts[0] : null);
 
       if (matched) {
@@ -1784,20 +1784,21 @@ export const PdvView: React.FC<PdvViewProps> = ({
 
     const resolvedProductId = selectedProduct?.id || (
       (() => {
-        const q = (inputBusca || descResolved).trim().toLowerCase();
+        const q = String(inputBusca || descResolved || '').trim().toLowerCase();
+        const descLower = String(descResolved ?? '').trim().toLowerCase();
         const matched = productCatalog.find(p => 
-          p.barcode.toLowerCase() === q ||
-          p.code.toLowerCase() === q ||
-          p.name.toLowerCase() === q ||
-          (descResolved && p.name.trim().toLowerCase() === descResolved.trim().toLowerCase())
+          String(p?.barcode ?? '').toLowerCase() === q ||
+          String(p?.code ?? '').toLowerCase() === q ||
+          String(p?.name ?? '').toLowerCase() === q ||
+          (descLower && String(p?.name ?? '').trim().toLowerCase() === descLower)
         ) || (suggestedProducts.length === 1 ? suggestedProducts[0] : null) ||
         stockItems.find((p: any) => 
-          (p.codigo && String(p.codigo).toLowerCase() === q) ||
-          (p.code && String(p.code).toLowerCase() === q) ||
-          (p.nome_comercial && String(p.nome_comercial).toLowerCase() === q) ||
-          (p.name && String(p.name).toLowerCase() === q) ||
-          (p.item && String(p.item).toLowerCase() === q) ||
-          (descResolved && (p.nome_comercial || p.name || p.item || '').trim().toLowerCase() === descResolved.trim().toLowerCase())
+          (p.codigo && String(p.codigo ?? '').toLowerCase() === q) ||
+          (p.code && String(p.code ?? '').toLowerCase() === q) ||
+          (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase() === q) ||
+          (p.name && String(p.name ?? '').toLowerCase() === q) ||
+          (p.item && String(p.item ?? '').toLowerCase() === q) ||
+          (descLower && String(p.nome_comercial ?? p.name ?? p.item ?? '').trim().toLowerCase() === descLower)
         );
         return matched?.id;
       })()

@@ -100,12 +100,12 @@ export const BankStatementView: React.FC<BankStatementViewProps> = ({
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
 
       // Busca textual
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const matchesDesc = m.description.toLowerCase().includes(q);
-        const matchesCat = m.category && m.category.toLowerCase().includes(q);
-        const matchesDoc = m.documentNumber && m.documentNumber.toLowerCase().includes(q);
-        const matchesResp = m.responsibleEmployee && m.responsibleEmployee.toLowerCase().includes(q);
+      if (String(searchTerm ?? '').trim()) {
+        const q = String(searchTerm ?? '').toLowerCase();
+        const matchesDesc = String(m?.description ?? '').toLowerCase().includes(q);
+        const matchesCat = String(m?.category ?? '').toLowerCase().includes(q);
+        const matchesDoc = String(m?.documentNumber ?? '').toLowerCase().includes(q);
+        const matchesResp = String(m?.responsibleEmployee ?? '').toLowerCase().includes(q);
         if (!matchesDesc && !matchesCat && !matchesDoc && !matchesResp) return false;
       }
 

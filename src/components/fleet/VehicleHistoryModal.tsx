@@ -124,7 +124,11 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
     return employees.filter(emp => {
       if (emp.machineryId === vehicle.id) return true;
       if (vehicle.assignedDriverIds && vehicle.assignedDriverIds.includes(emp.id)) return true;
-      if (assignedDriverNames.some(name => emp.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(emp.name.toLowerCase()))) {
+      const empNameLower = String(emp?.name ?? '').toLowerCase();
+      if (assignedDriverNames.some(name => {
+        const nLow = String(name ?? '').toLowerCase();
+        return (nLow && empNameLower.includes(nLow)) || (empNameLower && nLow.includes(empNameLower));
+      })) {
         return true;
       }
       return false;
@@ -133,30 +137,39 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
   // --- 2. Filter Fuel Logs for Vehicle ---
   const vehicleFuelLogs = useMemo(() => {
+    const plateLower = String(vehicle.licensePlateOrSerial ?? '').toLowerCase();
+    const vehNameLower = String(vehicle.name ?? '').toLowerCase();
     return fuelLogs.filter(log => {
       if (log.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && log.machineryPlateOrName?.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.name && log.machineryPlateOrName?.toLowerCase().includes(vehicle.name.toLowerCase())) return true;
+      const logPlateLower = String(log.machineryPlateOrName ?? '').toLowerCase();
+      if (plateLower && logPlateLower.includes(plateLower)) return true;
+      if (vehNameLower && logPlateLower.includes(vehNameLower)) return true;
       return false;
     });
   }, [fuelLogs, vehicle]);
 
   // --- 3. Filter Maintenance Logs for Vehicle ---
   const vehicleMaintenanceLogs = useMemo(() => {
+    const plateLower = String(vehicle.licensePlateOrSerial ?? '').toLowerCase();
+    const vehNameLower = String(vehicle.name ?? '').toLowerCase();
     return maintenanceLogs.filter(log => {
       if (log.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && log.machineryPlateOrName?.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.name && log.machineryPlateOrName?.toLowerCase().includes(vehicle.name.toLowerCase())) return true;
+      const logPlateLower = String(log.machineryPlateOrName ?? '').toLowerCase();
+      if (plateLower && logPlateLower.includes(plateLower)) return true;
+      if (vehNameLower && logPlateLower.includes(vehNameLower)) return true;
       return false;
     });
   }, [maintenanceLogs, vehicle]);
 
   // --- 4. Filter General Expenses Directly Assigned to Vehicle ---
   const vehicleDirectExpenses = useMemo(() => {
+    const plateLower = String(vehicle.licensePlateOrSerial ?? '').toLowerCase();
+    const vehNameLower = String(vehicle.name ?? '').toLowerCase();
     return expenses.filter(exp => {
       if (exp.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && exp.description.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.name && exp.description.toLowerCase().includes(vehicle.name.toLowerCase())) return true;
+      const expDescLower = String(exp.description ?? '').toLowerCase();
+      if (plateLower && expDescLower.includes(plateLower)) return true;
+      if (vehNameLower && expDescLower.includes(vehNameLower)) return true;
       return false;
     });
   }, [expenses, vehicle]);
@@ -222,17 +235,19 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
       // Check if linked to assigned drivers
       if (exp.employeeId && assignedDriverObjs.some(d => d.id === exp.employeeId)) return true;
-      if (exp.employeeName && assignedDriverNames.some(name => exp.employeeName?.toLowerCase().includes(name.toLowerCase()))) return true;
+      const expEmpLower = String(exp.employeeName ?? '').toLowerCase();
+      if (expEmpLower && assignedDriverNames.some(name => expEmpLower.includes(String(name ?? '').toLowerCase()))) return true;
       
       // Check if description mentions driver name
+      const expDescLower = String(exp.description ?? '').toLowerCase();
       const mentionsDriver = assignedDriverNames.some(name => 
-        name.length > 2 && exp.description.toLowerCase().includes(name.toLowerCase())
+        String(name ?? '').length > 2 && expDescLower.includes(String(name ?? '').toLowerCase())
       );
       if (mentionsDriver) return true;
 
       // Check if category relates to food / personnel and belongs to the vehicle's context
-      const catLower = (exp.categoryName || '').toLowerCase();
-      const descLower = (exp.description || '').toLowerCase();
+      const catLower = String(exp.categoryName ?? '').toLowerCase();
+      const descLower = String(exp.description ?? '').toLowerCase();
       const isPersonnel = Boolean(exp.isVacationExpense) ||
                           Boolean(exp.dreGrossAmount) ||
                           exp.categoryId === 'cat_pessoal' ||
@@ -255,7 +270,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
                           descLower.includes('férias') ||
                           descLower.includes('ferias');
 
-      if (isPersonnel && (exp.machineryId === vehicle.id || (vehicle.licensePlateOrSerial && descLower.includes(vehicle.licensePlateOrSerial.toLowerCase())))) {
+      if (isPersonnel && (exp.machineryId === vehicle.id || (vehicle.licensePlateOrSerial && descLower.includes(String(vehicle.licensePlateOrSerial ?? '').toLowerCase())))) {
         return true;
       }
 
@@ -265,22 +280,31 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
   // --- 6. Services & Silage Orders (Proventos / Revenue Generated by Vehicle) ---
   const vehicleServices = useMemo(() => {
+    const plateLower = String(vehicle.licensePlateOrSerial ?? '').toLowerCase();
+    const vehNameLower = String(vehicle.name ?? '').toLowerCase();
+    const vehModelLower = String(vehicle.model ?? '').toLowerCase();
     return services.filter(srv => {
       if (srv.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && srv.machineryAssigned?.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.name && srv.machineryAssigned?.toLowerCase().includes(vehicle.name.toLowerCase())) return true;
-      if (vehicle.model && srv.machineryAssigned?.toLowerCase().includes(vehicle.model.toLowerCase())) return true;
-      if (assignedDriverNames.some(name => name.length > 2 && srv.operatorAssigned?.toLowerCase().includes(name.toLowerCase()))) return true;
+      const srvMachLower = String(srv.machineryAssigned ?? '').toLowerCase();
+      const srvOpLower = String(srv.operatorAssigned ?? '').toLowerCase();
+      if (plateLower && srvMachLower.includes(plateLower)) return true;
+      if (vehNameLower && srvMachLower.includes(vehNameLower)) return true;
+      if (vehModelLower && srvMachLower.includes(vehModelLower)) return true;
+      if (assignedDriverNames.some(name => String(name ?? '').length > 2 && srvOpLower.includes(String(name ?? '').toLowerCase()))) return true;
       return false;
     });
   }, [services, vehicle, assignedDriverNames]);
 
   const vehicleSilageOrders = useMemo(() => {
+    const plateLower = String(vehicle.licensePlateOrSerial ?? '').toLowerCase();
+    const vehNameLower = String(vehicle.name ?? '').toLowerCase();
     return orders.filter(ord => {
       if (ord.machineryId === vehicle.id) return true;
-      if (vehicle.licensePlateOrSerial && ord.machineryPlateOrName?.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())) return true;
-      if (vehicle.name && ord.machineryPlateOrName?.toLowerCase().includes(vehicle.name.toLowerCase())) return true;
-      if (assignedDriverNames.some(name => name.length > 2 && ord.driverName?.toLowerCase().includes(name.toLowerCase()))) return true;
+      const ordMachLower = String(ord.machineryPlateOrName ?? '').toLowerCase();
+      const ordDriverLower = String(ord.driverName ?? '').toLowerCase();
+      if (plateLower && ordMachLower.includes(plateLower)) return true;
+      if (vehNameLower && ordMachLower.includes(vehNameLower)) return true;
+      if (assignedDriverNames.some(name => String(name ?? '').length > 2 && ordDriverLower.includes(String(name ?? '').toLowerCase()))) return true;
       return false;
     });
   }, [orders, vehicle, assignedDriverNames]);
@@ -473,12 +497,13 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
   // Filtered orders list by search
   const filteredOrders = useMemo(() => {
+    const q = String(searchTerm ?? '').toLowerCase();
     return unifiedOrders.filter(ord => {
-      const matchesSearch = 
-        ord.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ord.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ord.farmName && ord.farmName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        ord.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = !q ||
+        String(ord?.orderNumber ?? '').toLowerCase().includes(q) ||
+        String(ord?.clientName ?? '').toLowerCase().includes(q) ||
+        String(ord?.farmName ?? '').toLowerCase().includes(q) ||
+        String(ord?.description ?? '').toLowerCase().includes(q);
       
       const matchesStatus = statusFilter === 'todos' || ord.status === statusFilter;
 
@@ -529,7 +554,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
     e.preventDefault();
     if (!expenseDesc.trim() || !expenseAmount) return;
 
-    const matchedEmp = employees.find(emp => emp.name.toLowerCase().includes(expenseDriver.toLowerCase()));
+    const matchedEmp = employees.find(emp => String(emp?.name ?? '').toLowerCase().includes(String(expenseDriver ?? '').toLowerCase()));
 
     const categoryMapping = {
       alimentacao: { id: 'cat_alimentacao', name: 'Alimentação & Campo', color: '#ea580c' },

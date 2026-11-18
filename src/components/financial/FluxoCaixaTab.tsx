@@ -276,12 +276,12 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({
       if (filtroExtrato === 'sangrias' && item.tipo !== 'SANGRIA') return false;
 
       // 3. Filtro de Busca Textual
-      if (buscaExtrato.trim()) {
-        const query = buscaExtrato.toLowerCase();
+      if (String(buscaExtrato ?? '').trim()) {
+        const query = String(buscaExtrato ?? '').toLowerCase();
         return (
-          item.descricao.toLowerCase().includes(query) ||
-          item.formaPagamento.toLowerCase().includes(query) ||
-          item.dataHora.toLowerCase().includes(query)
+          String(item?.descricao ?? '').toLowerCase().includes(query) ||
+          String(item?.formaPagamento ?? '').toLowerCase().includes(query) ||
+          String(item?.dataHora ?? '').toLowerCase().includes(query)
         );
       }
       return true;

@@ -95,16 +95,16 @@ export const TrocasDevolucoesTab: React.FC<TrocasDevolucoesTabProps> = ({
 
   // Filtros aplicados na tabela
   const filteredRecords = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     return monthRecords.filter((rec) => {
       if (tipoFilter !== 'todos' && rec.tipoOperacao !== tipoFilter) return false;
       if (!q) return true;
-      const matchesProto = (rec.protocolo || '').toLowerCase().includes(q);
-      const matchesName = (rec.envolvidoNome || '').toLowerCase().includes(q);
-      const matchesOrig = (rec.numeroVendaOuNotaOrigem || '').toLowerCase().includes(q);
+      const matchesProto = String(rec?.protocolo ?? '').toLowerCase().includes(q);
+      const matchesName = String(rec?.envolvidoNome ?? '').toLowerCase().includes(q);
+      const matchesOrig = String(rec?.numeroVendaOuNotaOrigem ?? '').toLowerCase().includes(q);
       const matchesProd =
-        rec.itensDevolvidos.some((i) => i.productName.toLowerCase().includes(q)) ||
-        rec.itensLevados.some((i) => i.productName.toLowerCase().includes(q));
+        (Array.isArray(rec.itensDevolvidos) && rec.itensDevolvidos.some((i) => String(i?.productName ?? '').toLowerCase().includes(q))) ||
+        (Array.isArray(rec.itensLevados) && rec.itensLevados.some((i) => String(i?.productName ?? '').toLowerCase().includes(q)));
       return matchesProto || matchesName || matchesOrig || matchesProd;
     });
   }, [monthRecords, tipoFilter, searchTerm]);

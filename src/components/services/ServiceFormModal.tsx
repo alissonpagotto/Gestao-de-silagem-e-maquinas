@@ -124,7 +124,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       return editRecord.serviceTab as ServiceTabType;
     }
     if (editRecord?.serviceType) {
-      const t = editRecord.serviceType.toLowerCase();
+      const t = String(editRecord.serviceType ?? '').toLowerCase();
       if (t.includes('colheita')) return 'colheita';
       if (t.includes('frete') || t.includes('transporte') || editRecord.equipmentCategory === 'caminhoes' || !!editRecord.truckBillingMode) return 'frete';
       if (t.includes('trator') || t.includes('preparo') || t.includes('plantio')) return 'trator';
@@ -222,9 +222,9 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       const found = employees.find((e) => e.id === empId);
       if (found) return found;
     }
-    if (empName && empName.trim()) {
-      const clean = empName.toLowerCase().trim();
-      return employees.find((e) => e.name.toLowerCase().trim() === clean);
+    if (empName && String(empName).trim()) {
+      const clean = String(empName ?? '').toLowerCase().trim();
+      return employees.find((e) => String(e?.name ?? '').toLowerCase().trim() === clean);
     }
     return undefined;
   };
@@ -386,21 +386,25 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   // Lista de caminhões da frota disponíveis para serviços de transporte (Aba 1)
   const frotasCaminhoesDisponiveis = useMemo(() => {
     const list = machineries.filter(
-      (m) =>
-        m.categoryType === 'caminhao' ||
-        m.compositionType === 'cavalo' ||
-        (m.name && m.name.toLowerCase().includes('caminh')) ||
-        (m.model && m.model.toLowerCase().includes('caminh')) ||
-        (m.model &&
-          (m.model.toLowerCase().includes('scania') ||
-            m.model.toLowerCase().includes('volvo') ||
-            m.model.toLowerCase().includes('mercedes') ||
-            m.model.toLowerCase().includes('iveco') ||
-            m.model.toLowerCase().includes('vw') ||
-            m.model.toLowerCase().includes('constellation') ||
-            m.model.toLowerCase().includes('axor') ||
-            m.model.toLowerCase().includes('actros') ||
-            m.model.toLowerCase().includes('fh')))
+      (m) => {
+        const mNameLower = String(m?.name ?? '').toLowerCase();
+        const mModelLower = String(m?.model ?? '').toLowerCase();
+        return (
+          m.categoryType === 'caminhao' ||
+          m.compositionType === 'cavalo' ||
+          mNameLower.includes('caminh') ||
+          mModelLower.includes('caminh') ||
+          mModelLower.includes('scania') ||
+          mModelLower.includes('volvo') ||
+          mModelLower.includes('mercedes') ||
+          mModelLower.includes('iveco') ||
+          mModelLower.includes('vw') ||
+          mModelLower.includes('constellation') ||
+          mModelLower.includes('axor') ||
+          mModelLower.includes('actros') ||
+          mModelLower.includes('fh')
+        );
+      }
     );
     return list.length > 0 ? list : machineries;
   }, [machineries]);
@@ -2024,9 +2028,10 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
         })();
 
-        const baseVal = (brokerCommissionType || '').toLowerCase().includes('produção') || (brokerCommissionType || '').toLowerCase().includes('producao')
+        const brokerCommLower = String(brokerCommissionType ?? '').toLowerCase();
+        const baseVal = brokerCommLower.includes('produção') || brokerCommLower.includes('producao')
           ? estimativaToneladas
-          : (brokerCommissionType || '').toLowerCase().includes('fixo')
+          : brokerCommLower.includes('fixo')
           ? brokerCommissionAmount
           : valorBaseArea;
 
@@ -2106,7 +2111,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         // Identifica maquinário e funcionário vinculados (se houver)
         const mach = machineries.find((m) => m.id === t.machineryId);
         const emp = employees.find(
-          (e) => e.id === t.primaryDriverId || e.name.toLowerCase() === (t.primaryDriverName || '').toLowerCase()
+          (e) => e.id === t.primaryDriverId || String(e?.name ?? '').toLowerCase() === String(t.primaryDriverName ?? '').toLowerCase()
         );
 
         // Identificador do veículo (ex: Transp. MTU ou Modelo/Placa)

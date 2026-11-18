@@ -219,15 +219,15 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       (statusFilter === 'pendente' && (s.status === 'pendente' || s.status === 'parcial')) ||
       (statusFilter === 'pago' && s.status === 'pago');
 
-    const q = searchTerm.toLowerCase();
+    const q = String(searchTerm ?? '').toLowerCase();
     const matchesSearch =
       !q ||
-      s.thirdPartyName.toLowerCase().includes(q) ||
-      s.role.toLowerCase().includes(q) ||
-      s.description.toLowerCase().includes(q) ||
-      (s.orderNumber && s.orderNumber.toLowerCase().includes(q)) ||
-      (s.orderClientName && s.orderClientName.toLowerCase().includes(q)) ||
-      (s.machineryPlateOrName && s.machineryPlateOrName.toLowerCase().includes(q));
+      String(s?.thirdPartyName ?? '').toLowerCase().includes(q) ||
+      String(s?.role ?? '').toLowerCase().includes(q) ||
+      String(s?.description ?? '').toLowerCase().includes(q) ||
+      String(s?.orderNumber ?? '').toLowerCase().includes(q) ||
+      String(s?.orderClientName ?? '').toLowerCase().includes(q) ||
+      String(s?.machineryPlateOrName ?? '').toLowerCase().includes(q);
 
     return matchesStatus && matchesSearch;
   });

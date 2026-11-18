@@ -87,9 +87,9 @@ export const isColheitadeira = (m: Machinery): boolean => {
 };
 
 export const isTrator = (m: Machinery): boolean => {
-  const cat = (m.categoryType || '').toLowerCase();
-  const name = (m.name || '').toLowerCase();
-  const model = (m.model || '').toLowerCase();
+  const cat = String(m?.categoryType ?? '').toLowerCase();
+  const name = String(m?.name ?? '').toLowerCase();
+  const model = String(m?.model ?? '').toLowerCase();
   if (cat.includes('caminhao') || cat.includes('caminhão') || cat.includes('forrageira') || cat.includes('ensiladeira')) return false;
   return (
     cat.includes('trator') ||
@@ -104,9 +104,9 @@ export const isTrator = (m: Machinery): boolean => {
 };
 
 export const isCaminhao = (m: Machinery): boolean => {
-  const cat = (m.categoryType || '').toLowerCase();
-  const name = (m.name || '').toLowerCase();
-  const model = (m.model || '').toLowerCase();
+  const cat = String(m?.categoryType ?? '').toLowerCase();
+  const name = String(m?.name ?? '').toLowerCase();
+  const model = String(m?.model ?? '').toLowerCase();
   if (cat.includes('trator') || cat.includes('forrageira') || cat.includes('ensiladeira')) return false;
   return (
     cat.includes('caminhao') ||
@@ -134,8 +134,8 @@ export const findLinkedOperator = (m: Machinery | undefined | null, employees: E
   if (Array.isArray(m.assignedDrivers) && m.assignedDrivers.length > 0) {
     for (const dName of m.assignedDrivers) {
       if (dName && typeof dName === 'string' && dName.trim()) {
-        const cleanName = dName.trim();
-        const emp = employees.find((e) => e.name.toLowerCase() === cleanName.toLowerCase());
+        const cleanName = String(dName ?? '').trim();
+        const emp = employees.find((e) => String(e?.name ?? '').toLowerCase() === cleanName.toLowerCase());
         if (emp) return { id: emp.id, name: emp.name };
         return { id: '', name: cleanName };
       }
@@ -146,12 +146,18 @@ export const findLinkedOperator = (m: Machinery | undefined | null, employees: E
   if (m.operatorOrDriver && typeof m.operatorOrDriver === 'string' && m.operatorOrDriver.trim()) {
     const raw = m.operatorOrDriver.trim();
     const primaryName = raw.split(/[,;/]/)[0].trim();
+    const rawLower = String(raw ?? '').toLowerCase();
+    const primaryLower = String(primaryName ?? '').toLowerCase();
     const emp = employees.find(
-      (e) =>
-        e.name.toLowerCase() === raw.toLowerCase() ||
-        e.name.toLowerCase() === primaryName.toLowerCase() ||
-        raw.toLowerCase().includes(e.name.toLowerCase()) ||
-        e.name.toLowerCase().includes(raw.toLowerCase())
+      (e) => {
+        const eNameLower = String(e?.name ?? '').toLowerCase();
+        return (
+          eNameLower === rawLower ||
+          eNameLower === primaryLower ||
+          (eNameLower && rawLower.includes(eNameLower)) ||
+          (rawLower && eNameLower.includes(rawLower))
+        );
+      }
     );
     if (emp) return { id: emp.id, name: emp.name };
     return { id: '', name: primaryName || raw };
@@ -200,7 +206,7 @@ export const formatTruckOptionLabel = (m: Machinery): string => {
   const nameOrModel = (m.name || m.model || 'Caminhão').toUpperCase();
   const brand = m.brand ? ` (${m.brand.toUpperCase()})` : '';
   const cap = m.capacityM3 && m.capacityM3 > 0 ? ` [${m.capacityM3} m³]` : '';
-  const ownLower = (m.ownership || '').toLowerCase();
+  const ownLower = String(m?.ownership ?? '').toLowerCase();
   const ownBadge = (ownLower === 'terceirizado' || ownLower.includes('terceir') || ownLower.includes('terceiro'))
     ? ' [DE TERCEIRO]'
     : '';
@@ -218,7 +224,7 @@ export const isThirdPartyTruck = (
   if (!truck) return false;
 
   // 1. Verificação explícita da propriedade gravada no caminhão
-  const ownDirect = ((truck as any).ownership || '').toLowerCase().trim();
+  const ownDirect = String((truck as any).ownership ?? '').toLowerCase().trim();
   if (ownDirect === 'terceirizado' || ownDirect.includes('terceir') || ownDirect.includes('terceiro')) {
     return true;
   }
@@ -226,14 +232,14 @@ export const isThirdPartyTruck = (
   // 2. Busca na frota / maquinários cadastrados
   const mach = machineries.find((m) => m.id === truck.machineryId);
   if (mach) {
-    const machOwn = (mach.ownership || '').toLowerCase().trim();
+    const machOwn = String(mach.ownership ?? '').toLowerCase().trim();
     if (machOwn === 'terceirizado' || machOwn.includes('terceir') || machOwn.includes('terceiro')) {
       return true;
     }
-    const machName = (mach.name || '').toLowerCase();
-    const machModel = (mach.model || '').toLowerCase();
-    const machNotes = (mach.notes || '').toLowerCase();
-    const machOwner = (mach.ownerName || '').toLowerCase();
+    const machName = String(mach.name ?? '').toLowerCase();
+    const machModel = String(mach.model ?? '').toLowerCase();
+    const machNotes = String(mach.notes ?? '').toLowerCase();
+    const machOwner = String(mach.ownerName ?? '').toLowerCase();
     if (
       machName.includes('terceir') ||
       machModel.includes('terceir') ||
@@ -245,19 +251,19 @@ export const isThirdPartyTruck = (
   }
 
   // 3. Nome do caminhão digitado ou selecionado
-  const nameToCheck = (truck.truckName || '').toLowerCase();
+  const nameToCheck = String(truck.truckName ?? '').toLowerCase();
   if (nameToCheck.includes('terceir') || nameToCheck.includes('terceiro')) {
     return true;
   }
 
   // 4. Motorista vinculado (se for colaborador classificado como terceirizado ou freteiro)
   const driver = employees.find(
-    (e) => e.id === truck.primaryDriverId || e.name.toLowerCase() === (truck.primaryDriverName || '').toLowerCase()
+    (e) => e.id === truck.primaryDriverId || String(e?.name ?? '').toLowerCase() === String(truck.primaryDriverName ?? '').toLowerCase()
   );
   if (driver) {
-    const contract = (driver.contractType || '').toLowerCase().trim();
-    const regType = (driver.registrationType || '').toLowerCase().trim();
-    const role = (driver.role || '').toLowerCase().trim();
+    const contract = String(driver.contractType ?? '').toLowerCase().trim();
+    const regType = String(driver.registrationType ?? '').toLowerCase().trim();
+    const role = String(driver.role ?? '').toLowerCase().trim();
     if (
       contract.includes('terceir') ||
       regType.includes('terceir') ||
@@ -268,7 +274,7 @@ export const isThirdPartyTruck = (
     }
   }
 
-  const driverName = (truck.primaryDriverName || '').toLowerCase();
+  const driverName = String(truck.primaryDriverName ?? '').toLowerCase();
   if (driverName.includes('terceir') || driverName.includes('freteiro')) {
     return true;
   }
@@ -278,9 +284,9 @@ export const isThirdPartyTruck = (
 
 export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
-  const roleStr = (emp.role || '').toLowerCase();
-  const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => r.toLowerCase()) : [];
-  const regTypeStr = (emp.registrationType || '').toLowerCase();
+  const roleStr = String(emp.role ?? '').toLowerCase();
+  const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => String(r ?? '').toLowerCase()) : [];
+  const regTypeStr = String(emp.registrationType ?? '').toLowerCase();
   return roleStr.includes('agenciador') || rolesList.some(r => r.includes('agenciador')) || regTypeStr.includes('agenciador');
 };
 

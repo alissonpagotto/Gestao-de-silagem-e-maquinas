@@ -240,49 +240,49 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
 
   const supplierMatchesSearch = (sup: Supplier, q: string): boolean => {
     if (!q) return true;
-    const supCode = (sup.code || sup.codigo || '').toLowerCase();
+    const supCode = String(sup.code || sup.codigo || '').toLowerCase();
     if (
       supCode.includes(q) ||
-      (sup.name || '').toLowerCase().includes(q) ||
-      (sup.category || '').toLowerCase().includes(q) ||
-      (sup.tradeName && sup.tradeName.toLowerCase().includes(q)) ||
-      (sup.city && sup.city.toLowerCase().includes(q)) ||
-      (sup.cnpjOrCpf && sup.cnpjOrCpf.toLowerCase().includes(q)) ||
-      (sup.stateRegistration && sup.stateRegistration.toLowerCase().includes(q)) ||
-      (sup.municipalRegistration && sup.municipalRegistration.toLowerCase().includes(q))
+      String(sup.name || '').toLowerCase().includes(q) ||
+      String(sup.category || '').toLowerCase().includes(q) ||
+      (sup.tradeName && String(sup.tradeName).toLowerCase().includes(q)) ||
+      (sup.city && String(sup.city).toLowerCase().includes(q)) ||
+      (sup.cnpjOrCpf && String(sup.cnpjOrCpf).toLowerCase().includes(q)) ||
+      (sup.stateRegistration && String(sup.stateRegistration).toLowerCase().includes(q)) ||
+      (sup.municipalRegistration && String(sup.municipalRegistration).toLowerCase().includes(q))
     ) {
       return true;
     }
     const linked = getCarrierPlatesForSupplier(sup);
     return linked.some(
       (p) =>
-        p.placa.toLowerCase().includes(q) ||
-        (p.modeloVeiculo || '').toLowerCase().includes(q) ||
-        (p.motoristaNome || '').toLowerCase().includes(q) ||
-        (p.uf || '').toLowerCase().includes(q)
+        String(p.placa ?? '').toLowerCase().includes(q) ||
+        String(p.modeloVeiculo || '').toLowerCase().includes(q) ||
+        String(p.motoristaNome || '').toLowerCase().includes(q) ||
+        String(p.uf || '').toLowerCase().includes(q)
     );
   };
 
   const filteredSuppliers = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     return generalSuppliers.filter((sup) => supplierMatchesSearch(sup, q));
   }, [generalSuppliers, searchTerm]);
 
   const filteredCarriers = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     return carrierSuppliers.filter((sup) => supplierMatchesSearch(sup, q));
   }, [carrierSuppliers, searchTerm, thirdPartyPlates]);
 
   const filteredUnlinkedPlates = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     if (!q) return unlinkedPlates;
     return unlinkedPlates.filter(
       (p) =>
-        p.placa.toLowerCase().includes(q) ||
-        (p.uf || '').toLowerCase().includes(q) ||
-        (p.modeloVeiculo || '').toLowerCase().includes(q) ||
-        (p.motoristaNome || '').toLowerCase().includes(q) ||
-        (p.transportadoraNome || '').toLowerCase().includes(q)
+        String(p.placa ?? '').toLowerCase().includes(q) ||
+        String(p.uf || '').toLowerCase().includes(q) ||
+        String(p.modeloVeiculo || '').toLowerCase().includes(q) ||
+        String(p.motoristaNome || '').toLowerCase().includes(q) ||
+        String(p.transportadoraNome || '').toLowerCase().includes(q)
     );
   }, [unlinkedPlates, searchTerm]);
 

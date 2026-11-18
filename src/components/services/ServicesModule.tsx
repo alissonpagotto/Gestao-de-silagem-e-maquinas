@@ -413,9 +413,9 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   // Sanitização de consistência: restaura abas operacionais se algum registro tiver ficado com serviceTab: 'faturamento' ou vazio
   const sanitizedServices = useMemo(() => {
     return localServices.map((srv) => {
-      const tabStr = (srv.serviceTab || '').toLowerCase();
+      const tabStr = String(srv.serviceTab ?? '').toLowerCase();
       if (!srv.serviceTab || tabStr === 'faturamento' || tabStr === 'agenda' || tabStr === 'formularios') {
-        const typeStr = (srv.serviceType || '').toLowerCase();
+        const typeStr = String(srv.serviceType ?? '').toLowerCase();
         let restoredTab = 'corte';
         if (typeStr.includes('colheita')) restoredTab = 'colheita';
         else if (typeStr.includes('frete') || typeStr.includes('transporte') || srv.equipmentCategory === 'caminhoes' || !!srv.truckBillingMode) restoredTab = 'frete';
@@ -435,8 +435,8 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   // Filtragem dos registros da aba ativa (Corte, Colheita, Trator, Máquina, Frete, Orçamento)
   const filteredServices = useMemo(() => {
     return sanitizedServices.filter((srv) => {
-      const typeStr = (srv.serviceType || '').toLowerCase();
-      const tabStr = (srv.serviceTab || '').toLowerCase();
+      const typeStr = String(srv.serviceType ?? '').toLowerCase();
+      const tabStr = String(srv.serviceTab ?? '').toLowerCase();
       const isFreight = tabStr === 'frete' || typeStr.includes('frete') || typeStr.includes('transporte') || srv.equipmentCategory === 'caminhoes' || !!srv.truckBillingMode;
 
       let matchesTab = false;
@@ -470,12 +470,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       }
 
       // Filtro por texto
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const matchesClient = (srv.clientName || '').toLowerCase().includes(query);
-        const matchesFarm = (srv.farmName || '').toLowerCase().includes(query);
-        const matchesNumber = (srv.orderNumber || srv.id || '').toLowerCase().includes(query);
-        const matchesRoute = ((srv.freightOrigin || '') + ' ' + (srv.freightDestination || '')).toLowerCase().includes(query);
+      if (String(searchTerm ?? '').trim()) {
+        const query = String(searchTerm ?? '').toLowerCase();
+        const matchesClient = String(srv.clientName ?? '').toLowerCase().includes(query);
+        const matchesFarm = String(srv.farmName ?? '').toLowerCase().includes(query);
+        const matchesNumber = String(srv.orderNumber ?? srv.id ?? '').toLowerCase().includes(query);
+        const matchesRoute = String(`${srv.freightOrigin ?? ''} ${srv.freightDestination ?? ''}`).toLowerCase().includes(query);
         if (!matchesClient && !matchesFarm && !matchesNumber && !matchesRoute) return false;
       }
 
@@ -497,7 +497,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       if (editRecord.serviceTab && ['corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento', 'venda'].includes(editRecord.serviceTab)) {
         return editRecord.serviceTab as ServiceTabType;
       }
-      const typeStr = (editRecord.serviceType || '').toLowerCase();
+      const typeStr = String(editRecord.serviceType ?? '').toLowerCase();
       if (typeStr.includes('colheita')) return 'colheita';
       if (typeStr.includes('frete') || typeStr.includes('transporte') || editRecord.equipmentCategory === 'caminhoes' || !!editRecord.truckBillingMode) return 'frete';
       if (typeStr.includes('trator') || typeStr.includes('preparo') || typeStr.includes('plantio')) return 'trator';
@@ -563,7 +563,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   // Puxar o cliente agendado e preencher o novo corte automaticamente
   const handleExecuteAppointmentFromAgenda = (appointment: ServiceAppointment) => {
     const matchingClient = clients.find(
-      (c) => c.id === appointment.clientId || c.name.toLowerCase() === appointment.clientName.toLowerCase()
+      (c) => c.id === appointment.clientId || String(c?.name ?? '').toLowerCase() === String(appointment?.clientName ?? '').toLowerCase()
     );
 
     // Converte veículos escalados para o formato de caminhões do serviço
@@ -582,7 +582,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
     const tractor = (appointment.assignedVehicles || []).find((v) => v.category === 'trator');
     const forageOp = appointment.assignedTeam?.find(
-      (t) => t.role.toLowerCase().includes('forrageira') || t.role.toLowerCase().includes('principal')
+      (t) => String(t?.role ?? '').toLowerCase().includes('forrageira') || String(t?.role ?? '').toLowerCase().includes('principal')
     );
 
     const draftOrder: Partial<ServiceOrder> = {

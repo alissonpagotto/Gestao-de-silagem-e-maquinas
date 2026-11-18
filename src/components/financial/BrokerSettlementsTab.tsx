@@ -42,8 +42,8 @@ import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../
 
 export const isBrokerEmployee = (emp?: Partial<Employee>): boolean => {
   if (!emp) return false;
-  const roleStr = (emp.role || '').toLowerCase();
-  const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => r.toLowerCase()) : [];
+  const roleStr = String(emp.role ?? '').toLowerCase();
+  const rolesList = Array.isArray(emp.roles) ? emp.roles.map(r => String(r ?? '').toLowerCase()) : [];
   return roleStr.includes('agenciador') || rolesList.some(r => r.includes('agenciador'));
 };
 
@@ -397,12 +397,12 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       }
 
       // Filter by Search Query
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const matchesName = s.brokerName.toLowerCase().includes(q);
-        const matchesDesc = (s.description || '').toLowerCase().includes(q);
-        const matchesClient = (s.orderClientName || '').toLowerCase().includes(q);
-        const matchesRegion = (s.actingRegion || '').toLowerCase().includes(q);
+      if (String(searchTerm ?? '').trim()) {
+        const q = String(searchTerm ?? '').toLowerCase();
+        const matchesName = String(s?.brokerName ?? '').toLowerCase().includes(q);
+        const matchesDesc = String(s?.description ?? '').toLowerCase().includes(q);
+        const matchesClient = String(s?.orderClientName ?? '').toLowerCase().includes(q);
+        const matchesRegion = String(s?.actingRegion ?? '').toLowerCase().includes(q);
         if (!matchesName && !matchesDesc && !matchesClient && !matchesRegion) {
           return false;
         }

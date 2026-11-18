@@ -135,11 +135,11 @@ export const ReceiveTitleQuickModal: React.FC<ReceiveTitleQuickModalProps> = ({
 
   // Filtro de títulos a receber
   const filteredPending = useMemo(() => {
-    if (!searchTerm.trim()) return pendingReceivables;
-    const q = searchTerm.toLowerCase();
+    if (!String(searchTerm ?? '').trim()) return pendingReceivables;
+    const q = String(searchTerm ?? '').toLowerCase();
     return pendingReceivables.filter((r) =>
-      r.clientName.toLowerCase().includes(q) ||
-      r.description.toLowerCase().includes(q)
+      String(r?.clientName ?? '').toLowerCase().includes(q) ||
+      String(r?.description ?? '').toLowerCase().includes(q)
     );
   }, [pendingReceivables, searchTerm]);
 

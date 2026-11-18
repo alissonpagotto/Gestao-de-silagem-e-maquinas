@@ -380,8 +380,10 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     name: 'Despesas e Lançamentos Financeiros',
     categoryIndex: 6,
     keys: [
+      'agrocontrol_expenses',
       'agrocontrol_financeiro', 
       'agrocontrol_despesas',
+      'agrocontrol_contas_a_pagar',
       'colaca_silagem_despesas',
       'silagem_facil_clean_v1_expenses'
     ],

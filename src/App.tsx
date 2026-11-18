@@ -1218,9 +1218,9 @@ export default function App() {
                   : undefined;
 
                 const cleanSup = (v?: string) => {
-                  const s = String(v || '').trim();
+                  const s = String(v ?? '').trim();
                   if (!s) return '';
-                  const low = s.toLowerCase();
+                  const low = String(s ?? '').toLowerCase();
                   if (low === 'fornecedor' || low === 'fornecedor n/i' || low === 'n/i') return '';
                   return s;
                 };
@@ -1691,7 +1691,7 @@ export default function App() {
       if (urlTab) {
         return urlTab;
       }
-      const rawPath = (window.location.pathname || '').replace(/^\//, '').toLowerCase().trim();
+      const rawPath = String(window.location.pathname ?? '').replace(/^\//, '').toLowerCase().trim();
       const pathSegment = rawPath.split('/')[0];
       if (pathSegment === 'home' || pathSegment === 'agrocontrol') {
         return 'home';
@@ -2347,24 +2347,27 @@ export default function App() {
     setAdvances(nextAdvances);
   };
 
-  // Expense Handlers (Multi-Tenant Persistência no Supabase)
+  // Expense Handlers (Local-First Síncrono + Multi-Tenant Persistência no Supabase)
   const handleSaveExpense = (newOrUpdated: Expense | Expense[]) => {
     const rawItems = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
     const todayIso = new Date().toISOString().split('T')[0];
     const items: Expense[] = rawItems.map(exp => ({
       ...exp,
+      id: String(exp.id || `exp_${Date.now()}`),
       companyId: exp.companyId || activeTenantId,
-      supplier: exp.supplier || (exp as any).fornecedor || 'Fornecedor N/I',
+      supplier: String(exp.supplier || (exp as any).fornecedor || 'Fornecedor N/I').trim() || 'Fornecedor N/I',
       dueDate: exp.dueDate || (exp as any).data_vencimento || (exp as any).date || todayIso,
       amount: Number(exp.amount ?? (exp as any).valor_parcela ?? 0),
     }));
     let latestAccounts = bankAccounts;
 
+    const currentBaseExpenses = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
+
     items.forEach(exp => {
       // Sincroniza efeito em cartões corporativos e extrato/saldo bancário
       const prevExp = editingExpense && editingExpense.id === exp.id 
         ? editingExpense 
-        : expenses.find(e => e.id === exp.id || toValidUUID(e.id) === toValidUUID(exp.id));
+        : currentBaseExpenses.find(e => e.id === exp.id || toValidUUID(e.id) === toValidUUID(exp.id));
       const syncRes = syncExpenseWithCardsAndBank(exp, prevExp, latestAccounts);
       if (syncRes.updatedAccounts) {
         latestAccounts = syncRes.updatedAccounts;
@@ -2397,8 +2400,8 @@ export default function App() {
       }
     }
 
-    if (Array.isArray(newOrUpdated)) {
-      setExpenses((prev) => {
+    const computeNextExpenses = (prevList: Expense[]): Expense[] => {
+      if (Array.isArray(newOrUpdated)) {
         const newIds = new Set(items.map((n) => n.id));
         const newUuids = new Set(items.map((n) => toValidUUID(n.id)));
         const payrollIds = new Set(items.map((n: any) => n.payrollId || '').filter(Boolean));
@@ -2407,56 +2410,69 @@ export default function App() {
             .map((n: any) => n.notaId || n.documento_entrada_id || '')
             .filter(Boolean)
         );
-        // Coleta identificadores base das parcelas para substituir com segurança versões antigas da mesma OS ou NF-e
         const baseKeys = new Set(
           items
             .map((n) => {
-              if (n.id && n.id.includes('_parc_')) {
-                return n.id.split('_parc_')[0];
+              const nid = String(n?.id ?? '');
+              if (nid && nid.includes('_parc_')) {
+                return nid.split('_parc_')[0];
               }
               return '';
             })
             .filter(Boolean)
         );
 
-        const filtered = prev.filter((e: any) => {
-          if (newIds.has(e.id) || newUuids.has(toValidUUID(e.id))) return false;
+        const filtered = prevList.filter((e: any) => {
+          const eid = String(e?.id ?? '');
+          if (newIds.has(eid) || newUuids.has(toValidUUID(eid))) return false;
           if (payrollIds.size > 0 && e.payrollId && payrollIds.has(e.payrollId)) return false;
           if (baseKeys.size > 0) {
-            const eBase = e.id.includes('_parc_') ? e.id.split('_parc_')[0] : e.id;
+            const eBase = eid.includes('_parc_') ? eid.split('_parc_')[0] : eid;
             if (baseKeys.has(eBase)) return false;
           }
           if (notaIds.size > 0) {
             if (e.notaId && notaIds.has(e.notaId)) return false;
             if (e.documento_entrada_id && notaIds.has(e.documento_entrada_id)) return false;
-            if (typeof e.id === 'string') {
+            if (eid) {
               for (const nId of notaIds) {
-                if (e.id.includes(nId)) return false;
+                if (eid.includes(String(nId))) return false;
               }
             }
           }
           return true;
         });
 
-        const nextList = [...items, ...filtered];
-        saveStoredExpenses(nextList);
-        return nextList;
-      });
-    } else {
+        return [...items, ...filtered];
+      }
+
       const single = items[0];
-      setExpenses((prev) => {
-        const singleUuid = toValidUUID(single.id);
-        const index = prev.findIndex((e) => e.id === single.id || toValidUUID(e.id) === singleUuid);
-        let nextList: Expense[];
-        if (index >= 0) {
-          nextList = [...prev];
-          nextList[index] = single;
-        } else {
-          nextList = [single, ...prev];
-        }
-        saveStoredExpenses(nextList);
-        return nextList;
-      });
+      const singleUuid = toValidUUID(single.id);
+      const index = prevList.findIndex((e) => e.id === single.id || toValidUUID(e.id) === singleUuid);
+      if (index >= 0) {
+        const copy = [...prevList];
+        copy[index] = single;
+        return copy;
+      }
+      return [single, ...prevList];
+    };
+
+    // Gravação síncrona imediata em localStorage (agrocontrol_expenses, agrocontrol_despesas e empresa ativa)
+    const syncNextList = computeNextExpenses(currentBaseExpenses);
+    saveStoredExpenses(syncNextList);
+    saveCompanyDespesas(syncNextList, activeTenantId);
+
+    setExpenses((prev) => {
+      const nextList = computeNextExpenses(prev);
+      saveStoredExpenses(nextList);
+      saveCompanyDespesas(nextList, activeTenantId);
+      return nextList;
+    });
+
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE && activeTenantId) {
+      lastSyncedState.current.expenses = JSON.stringify(syncNextList);
+      saveCloudExpenses(syncNextList, activeTenantId).catch(err =>
+        console.warn('Supabase saveCloudExpenses notice:', err)
+      );
     }
 
     syncSalaryAdvancesFromExpenses(items);
@@ -2471,6 +2487,7 @@ export default function App() {
         return true;
       });
       saveStoredExpenses(next);
+      saveCompanyDespesas(next, activeTenantId);
       return next;
     });
     deleteContaAPagar(payableId, activeTenantId).catch(err =>
@@ -2487,7 +2504,8 @@ export default function App() {
       variant: 'danger',
     });
     if (isConfirmed) {
-      const expToDelete = expenses.find((e) => e.id === id);
+      const targetUuid = toValidUUID(id);
+      const expToDelete = expenses.find((e) => e.id === id || toValidUUID(e.id) === targetUuid);
       if (expToDelete) {
         const revertRes = revertExpenseCardsAndBank(expToDelete, bankAccounts);
         if (revertRes.updatedAccounts) {
@@ -2507,18 +2525,29 @@ export default function App() {
         saveStoredSalaryAdvances(filteredAdvances);
         setAdvances(filteredAdvances);
       }
+      const baseList = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
+      const syncNextList = baseList.filter((e) => e.id !== id && toValidUUID(e.id) !== targetUuid);
+      saveStoredExpenses(syncNextList);
+      saveCompanyDespesas(syncNextList, activeTenantId);
       setExpenses((prev) => {
-        const nextList = prev.filter((e) => e.id !== id);
+        const nextList = prev.filter((e) => e.id !== id && toValidUUID(e.id) !== targetUuid);
         saveStoredExpenses(nextList);
+        saveCompanyDespesas(nextList, activeTenantId);
         return nextList;
       });
+      if (!IS_OFFLINE_LOCAL_STORAGE_MODE && activeTenantId) {
+        lastSyncedState.current.expenses = JSON.stringify(syncNextList);
+        saveCloudExpenses(syncNextList, activeTenantId).catch(err =>
+          console.warn('Supabase saveCloudExpenses delete notice:', err)
+        );
+      }
     }
   };
 
   const handleToggleExpenseStatus = (id: string, newStatus?: ExpenseStatus) => {
     const today = new Date().toISOString().split('T')[0];
-    setExpenses((prev) =>
-      prev.map((e) => {
+    setExpenses((prev) => {
+      const nextList = prev.map((e) => {
         if (e.id === id) {
           const nextStatus = newStatus || (e.status === 'pago' ? 'pendente' : 'pago');
           const updated = {
@@ -2537,8 +2566,11 @@ export default function App() {
           return updated;
         }
         return e;
-      })
-    );
+      });
+      saveStoredExpenses(nextList);
+      saveCompanyDespesas(nextList, activeTenantId);
+      return nextList;
+    });
   };
 
   const handleSettlePayment = (expenseId: string, settlementData: PaymentSettlementData) => {
@@ -2577,6 +2609,7 @@ export default function App() {
         return updated;
       });
       saveStoredExpenses(nextList);
+      saveCompanyDespesas(nextList, activeTenantId);
       return nextList;
     });
 
@@ -2693,7 +2726,7 @@ export default function App() {
     const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
     if (!editingFuelLog && origin === 'Tanque Interno (Fazenda)') {
       const isArlaGalao =
-        fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+        String(fuelLog.fuelType ?? '').toLowerCase().includes('galão') || String(fuelLog.fuelType ?? '').toLowerCase().includes('galao');
       if (!isArlaGalao && (fuelLog.tanque_id || fuelLog.tanqueId)) {
         const tId = fuelLog.tanque_id || fuelLog.tanqueId!;
         subtrairCombustivelTanque(tId, fuelLog.liters).catch((tErr) => console.warn(tErr));
@@ -2709,7 +2742,7 @@ export default function App() {
         : fuelLog.machineryPlateOrName || 'Veículo';
       const machName = rawMachName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
       const isArlaGalao =
-        fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+        String(fuelLog.fuelType ?? '').toLowerCase().includes('galão') || String(fuelLog.fuelType ?? '').toLowerCase().includes('galao');
 
       const newExp: Expense = {
         id: `exp_fuel_${fuelLog.id}`,
@@ -3482,8 +3515,9 @@ export default function App() {
             setExpenses(cloudModules.expenses);
             saveStoredExpenses(cloudModules.expenses);
           } else {
-            setExpenses([]);
-            saveStoredExpenses([]);
+            const localFallback = getCompanyDespesas(targetSub.id);
+            setExpenses(localFallback);
+            saveStoredExpenses(localFallback);
           }
         } else if (cloudModules) {
           if (cloudModules.clients) setClients(cloudModules.clients);
@@ -3587,7 +3621,7 @@ export default function App() {
       return;
     }
 
-    const userEmail = (
+    const userEmail = String(
       currentUser?.email ||
       (typeof localStorage !== 'undefined' ? localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_client_email') : '') ||
       companyProfile?.email ||
@@ -3677,7 +3711,7 @@ export default function App() {
         if (found) return found;
       }
       if (activeEmail) {
-        const found = subs.find(s => s.responsibleEmail?.toLowerCase() === activeEmail.toLowerCase());
+        const found = subs.find(s => String(s?.responsibleEmail ?? '').toLowerCase() === String(activeEmail ?? '').toLowerCase());
         if (found) return found;
       }
       if (subs.length > 0) return subs[0];
@@ -3727,19 +3761,19 @@ export default function App() {
   // Razão Social capturada no banco local da empresa
   const activeCorporateName = useMemo(() => {
     const raw = companyProfile?.corporateName || companyProfile?.companyName;
-    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'silagem fácil' || raw.trim().toUpperCase() === 'COLAÇA SILAGEM LTDA') {
+    if (!raw || String(raw).trim() === '' || String(raw ?? '').trim().toLowerCase() === 'silagem fácil' || String(raw).trim().toUpperCase() === 'COLAÇA SILAGEM LTDA') {
       return 'SUA EMPRESA AQUI';
     }
-    return raw.trim().toUpperCase();
+    return String(raw).trim().toUpperCase();
   }, [companyProfile]);
 
   // Nome Fantasia ativo capturado da empresa
   const activeTradeName = useMemo(() => {
     const raw = companyProfile?.tradeName;
-    if (!raw || raw.trim() === '' || raw.trim().toLowerCase() === 'gestão de silagem' || raw.trim().toLowerCase() === 'silagem fácil' || raw.trim().toUpperCase() === 'COLAÇA SILAGEM') {
+    if (!raw || String(raw).trim() === '' || String(raw ?? '').trim().toLowerCase() === 'gestão de silagem' || String(raw ?? '').trim().toLowerCase() === 'silagem fácil' || String(raw).trim().toUpperCase() === 'COLAÇA SILAGEM') {
       return 'SISTEMA ERP OPERACIONAL';
     }
-    return raw.trim().toUpperCase();
+    return String(raw).trim().toUpperCase();
   }, [companyProfile]);
 
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)

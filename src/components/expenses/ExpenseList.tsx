@@ -85,33 +85,36 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   // Filter logic
   const filteredExpenses = useMemo(() => {
-    const term = (searchTerm || '').toLowerCase().trim();
+    const term = String(searchTerm ?? '').toLowerCase().trim();
     return (expenses || []).filter((exp) => {
       if (!exp) return false;
 
-      // 3. EXPULSÃO DE DADOS FAKES NO CONTAS A PAGAR & DESPESAS:
-      const sup = String(exp.supplier || (exp as any).fornecedor || (exp as any).credor || '').trim().toLowerCase();
+      // Remove apenas placeholders vazios de valor zero (preservando fornecedores como 'Fornecedor N/I')
+      const sup = String(exp.supplier ?? (exp as any).fornecedor ?? (exp as any).credor ?? '').trim().toLowerCase();
+      const desc = String(exp.description ?? (exp as any).title ?? '').trim().toLowerCase();
       const val = typeof exp.amount === 'number' 
         ? exp.amount 
         : (typeof (exp as any).valor === 'number' 
             ? (exp as any).valor 
             : parseFloat(String(exp.amount ?? (exp as any).valor ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
-      const isSettledByReturn = exp.status === 'Liquidado / Abatido por Devolução';
-      if (sup === 'fornecedor' || sup.startsWith('fornecedor') || (val === 0 && !isSettledByReturn) || isNaN(val)) {
+      const isSettledZero =
+        exp.status === 'compensado_estoque' ||
+        exp.status === 'Liquidado / Abatido por Devolução';
+      if (isNaN(val) || (val <= 0 && !isSettledZero) || (sup === 'fornecedor' && desc === 'despesa fornecedor' && val === 0)) {
         return false;
       }
 
       // Search term
       const matchesSearch = !term ||
-        Boolean(exp.description?.toLowerCase().includes(term)) ||
-        Boolean(exp.supplier?.toLowerCase().includes(term)) ||
-        Boolean(exp.invoiceNumber?.toLowerCase().includes(term)) ||
-        Boolean(exp.categoryName?.toLowerCase().includes(term)) ||
-        Boolean(exp.machineryName?.toLowerCase().includes(term)) ||
-        Boolean(exp.employeeName?.toLowerCase().includes(term)) ||
-        Boolean(exp.teamName?.toLowerCase().includes(term)) ||
-        Boolean(exp.expense_items?.some((it) => it.description?.toLowerCase().includes(term))) ||
-        Boolean(exp.items?.some((it) => it.description?.toLowerCase().includes(term)));
+        String(exp.description ?? '').toLowerCase().includes(term) ||
+        String(exp.supplier ?? (exp as any).fornecedor ?? '').toLowerCase().includes(term) ||
+        String(exp.invoiceNumber ?? '').toLowerCase().includes(term) ||
+        String(exp.categoryName ?? exp.category ?? '').toLowerCase().includes(term) ||
+        String(exp.machineryName ?? '').toLowerCase().includes(term) ||
+        String(exp.employeeName ?? '').toLowerCase().includes(term) ||
+        String(exp.teamName ?? '').toLowerCase().includes(term) ||
+        Boolean(Array.isArray(exp.expense_items) && exp.expense_items.some((it) => String(it?.description ?? '').toLowerCase().includes(term))) ||
+        Boolean(Array.isArray(exp.items) && exp.items.some((it) => String(it?.description ?? '').toLowerCase().includes(term)));
 
       if (!matchesSearch) return false;
 

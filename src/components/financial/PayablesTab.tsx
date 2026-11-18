@@ -165,16 +165,16 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     if (startDate && targetDate && targetDate < startDate) matchesDateRange = false;
     if (endDate && targetDate && targetDate > endDate) matchesDateRange = false;
 
-    const q = (searchTerm || '').trim().toLowerCase();
+    const q = String(searchTerm ?? '').trim().toLowerCase();
     if (!q) {
       return matchesStatus && matchesDateRange;
     }
 
-    const desc = (e.description || '').toLowerCase();
-    const supp = (e.supplier || '').toLowerCase();
-    const cat = (e.categoryName || e.category || '').toLowerCase();
-    const paid = (e.paidByEmployeeName || '').toLowerCase();
-    const bank = (e.bankAccountName || '').toLowerCase();
+    const desc = String(e.description ?? '').toLowerCase();
+    const supp = String(e.supplier ?? '').toLowerCase();
+    const cat = String(e.categoryName ?? e.category ?? '').toLowerCase();
+    const paid = String(e.paidByEmployeeName ?? '').toLowerCase();
+    const bank = String(e.bankAccountName ?? '').toLowerCase();
 
     const matchesSearch =
       desc.includes(q) ||

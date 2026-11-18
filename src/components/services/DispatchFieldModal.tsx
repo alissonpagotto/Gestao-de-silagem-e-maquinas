@@ -85,7 +85,7 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
 
   const combinedStaff = [...teamList];
   derivedFromVehicles.forEach(d => {
-    if (!combinedStaff.some(s => s.employeeName.trim().toLowerCase() === d.employeeName.trim().toLowerCase())) {
+    if (!combinedStaff.some(s => String(s.employeeName ?? '').trim().toLowerCase() === String(d.employeeName ?? '').trim().toLowerCase())) {
       combinedStaff.push(d);
     }
   });
@@ -105,7 +105,7 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
       const match = employees.find(e => e.id === empId);
       if (match?.phone) return match.phone;
     }
-    const matchByName = employees.find(e => e.name.trim().toLowerCase() === name.trim().toLowerCase());
+    const matchByName = employees.find(e => String(e.name ?? '').trim().toLowerCase() === String(name ?? '').trim().toLowerCase());
     return matchByName?.phone || '';
   };
 

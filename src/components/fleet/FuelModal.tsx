@@ -174,7 +174,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       const nome = String(item.nome_comercial || item.name || '').toLowerCase();
       return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
     });
-    const s10 = list.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10')) || list[0];
+    const s10 = list.find(p => String(p?.nome_comercial ?? p?.name ?? '').toLowerCase().includes('s10')) || list[0];
     const cost = extractProductUnitPrice(s10);
     return cost > 0 ? cost.toFixed(2) : '5.85';
   });
@@ -248,12 +248,12 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           if (editingLog) {
             const editProd = fuelProds.find(p => 
               ((editingLog as any).produto_id && p.id === (editingLog as any).produto_id) ||
-              (p.nome_comercial || p.name).toLowerCase() === String(editingLog.fuelType || '').toLowerCase()
+              String(p?.nome_comercial ?? p?.name ?? '').toLowerCase() === String(editingLog.fuelType ?? '').toLowerCase()
             );
             if (editProd) chosenId = editProd.id;
           }
           if (!chosenId) {
-            const s10 = fuelProds.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10'));
+            const s10 = fuelProds.find(p => String(p?.nome_comercial ?? p?.name ?? '').toLowerCase().includes('s10'));
             chosenId = s10 ? s10.id : fuelProds[0].id;
           }
           setSelectedFuelProductId(chosenId);
@@ -289,7 +289,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   // Identifica se o combustível atualmente selecionado é o Arla 32 em Galão 20L
   const isArlaGalaoSelected = useMemo(() => {
     const prod = fuelStockProducts.find(p => p.id === selectedFuelProductId);
-    const name = ((prod?.nome_comercial || prod?.name || fuelType) + '').toLowerCase();
+    const name = String(prod?.nome_comercial ?? prod?.name ?? fuelType ?? '').toLowerCase();
     return name.includes('arla') && (name.includes('galão') || name.includes('galao'));
   }, [selectedFuelProductId, fuelStockProducts, fuelType]);
 
@@ -297,10 +297,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const selectedGalaoProduct = useMemo(() => {
     if (!isArlaGalaoSelected) return null;
     return fuelStockProducts.find(p => p.id === selectedFuelProductId) ||
-      getStoredInventory().find(i => 
-        i.id === 'prod_arla_32_galao_20l' ||
-        (i.name && i.name.toLowerCase().includes('arla') && (i.name.toLowerCase().includes('galão') || i.name.toLowerCase().includes('galao')))
-      ) || null;
+      getStoredInventory().find(i => {
+        const iNameLower = String(i?.name ?? '').toLowerCase();
+        return i.id === 'prod_arla_32_galao_20l' ||
+          (iNameLower.includes('arla') && (iNameLower.includes('galão') || iNameLower.includes('galao')));
+      }) || null;
   }, [isArlaGalaoSelected, selectedFuelProductId, fuelStockProducts]);
 
   // Tanque Selecionado (Vinculado dinamicamente ao produto de combustível selecionado)
@@ -311,13 +312,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       if (byProdId) return byProdId;
       const curProd = fuelStockProducts.find(p => p.id === selectedFuelProductId);
       if (curProd) {
-        const pName = (curProd.nome_comercial || curProd.name).toLowerCase();
-        const byType = tanques.find(t => 
-          (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === pName) ||
-          (pName.includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
-          ((pName.includes('s500') || pName.includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
-          (pName.includes('arla') && (t.id === 'tanque_arla_32' || t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla')))
-        );
+        const pName = String(curProd.nome_comercial ?? curProd.name ?? '').toLowerCase();
+        const byType = tanques.find(t => {
+          const tTipoLower = String(t?.tipo_combustivel ?? '').toLowerCase();
+          const tNomeLower = String(t?.nome ?? '').toLowerCase();
+          return (
+            (tTipoLower && tTipoLower === pName) ||
+            (pName.includes('s10') && (t.id === 'tanque_diesel_s10' || tTipoLower.includes('s10'))) ||
+            ((pName.includes('s500') || pName.includes('comum')) && (t.id === 'tanque_diesel_s500' || tTipoLower.includes('s500'))) ||
+            (pName.includes('arla') && (t.id === 'tanque_arla_32' || tNomeLower.includes('arla') || tTipoLower.includes('arla')))
+          );
+        });
         if (byType) return byType;
       }
     }
@@ -326,14 +331,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
   // Filtro de busca para dropdown de veículos
   const filteredVehicles = useMemo(() => {
-    if (!vehicleSearchText.trim()) return availableMachineries;
-    const term = vehicleSearchText.toLowerCase();
+    if (!String(vehicleSearchText ?? '').trim()) return availableMachineries;
+    const term = String(vehicleSearchText ?? '').toLowerCase();
     return availableMachineries.filter(v => 
-      (v.nome || '').toLowerCase().includes(term) ||
-      (v.model || '').toLowerCase().includes(term) ||
-      (v.brand || '').toLowerCase().includes(term) ||
-      (v.licensePlateOrSerial || '').toLowerCase().includes(term) ||
-      (v.operatorOrDriver || '').toLowerCase().includes(term)
+      String(v?.nome ?? '').toLowerCase().includes(term) ||
+      String(v?.model ?? '').toLowerCase().includes(term) ||
+      String(v?.brand ?? '').toLowerCase().includes(term) ||
+      String(v?.licensePlateOrSerial ?? '').toLowerCase().includes(term) ||
+      String(v?.operatorOrDriver ?? '').toLowerCase().includes(term)
     );
   }, [availableMachineries, vehicleSearchText]);
 
@@ -507,10 +512,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setPricePerLiter(String(editingLog.pricePerLiter || '5.85'));
       setTotalAmount(String(editingLog.totalAmount || ''));
       
+      const editStationLower = String(editingLog.supplierStation ?? '').toLowerCase();
       const inferredOrigin: FuelOrigin = editingLog.fuelOrigin || (
-        editingLog.supplierStation?.toLowerCase().includes('viagem') 
+        editStationLower.includes('viagem') 
           ? 'Posto de Viagem (Pago na Hora)' 
-          : (editingLog.supplierStation && !editingLog.supplierStation.toLowerCase().includes('tanque') && !editingLog.supplierStation.toLowerCase().includes('fazenda') 
+          : (editStationLower && !editStationLower.includes('tanque') && !editStationLower.includes('fazenda') 
             ? 'Posto Conveniado (Faturado)' 
             : 'Tanque Interno (Fazenda)')
       );
@@ -539,7 +545,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setBankAccountId(availableBankAccounts[0]?.id || '');
       setDueDate(calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
       const curProd = fuelStockProducts.find(p => p.id === selectedFuelProductId) ||
-        fuelStockProducts.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10')) ||
+        fuelStockProducts.find(p => String(p?.nome_comercial ?? p?.name ?? '').toLowerCase().includes('s10')) ||
         fuelStockProducts[0];
       const prodName = curProd ? (curProd.nome_comercial || curProd.name) : 'Diesel S10';
       setFuelType(prodName as any);
@@ -714,9 +720,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     );
     setFuelType(prodName as any);
 
-    const isGalao = prodName.toLowerCase().includes('arla') && (
-      prodName.toLowerCase().includes('galão') ||
-      prodName.toLowerCase().includes('galao')
+    const prodNameLower = String(prodName ?? '').toLowerCase();
+    const isGalao = prodNameLower.includes('arla') && (
+      prodNameLower.includes('galão') ||
+      prodNameLower.includes('galao')
     );
 
     if (isGalao) {
@@ -725,14 +732,18 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       }
     } else {
       // Localiza o tanque que possui este produto_id ou tipo compatível (Arla Granel -> Tanque Arla 32)
-      const matchingTank = tanques.find(t => 
-        t.produto_id === prodId || 
-        (t as any).produtoId === prodId ||
-        (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === prodName.toLowerCase()) ||
-        (prodName.toLowerCase().includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
-        ((prodName.toLowerCase().includes('s500') || prodName.toLowerCase().includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
-        (prodName.toLowerCase().includes('arla') && (t.id === 'tanque_arla_32' || t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla')))
-      );
+      const matchingTank = tanques.find(t => {
+        const tTipoLower = String(t?.tipo_combustivel ?? '').toLowerCase();
+        const tNomeLower = String(t?.nome ?? '').toLowerCase();
+        return (
+          t.produto_id === prodId || 
+          (t as any).produtoId === prodId ||
+          (tTipoLower && tTipoLower === prodNameLower) ||
+          (prodNameLower.includes('s10') && (t.id === 'tanque_diesel_s10' || tTipoLower.includes('s10'))) ||
+          ((prodNameLower.includes('s500') || prodNameLower.includes('comum')) && (t.id === 'tanque_diesel_s500' || tTipoLower.includes('s500'))) ||
+          (prodNameLower.includes('arla') && (t.id === 'tanque_arla_32' || tNomeLower.includes('arla') || tTipoLower.includes('arla')))
+        );
+      });
 
       if (matchingTank) {
         setSelectedTanqueId(matchingTank.id);

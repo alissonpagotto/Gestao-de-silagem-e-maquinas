@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { PlusCircle, Sparkles, Fuel } from 'lucide-react';
 import { 
   Expense, 
@@ -34,6 +34,51 @@ export interface DespesasModuleProps {
   onOpenAiParser?: () => void;
 }
 
+const matchesExpenseCompetence = (exp: Expense, competenceMonth: string): boolean => {
+  if (!exp) return false;
+  if (!competenceMonth) return true;
+  const parts = competenceMonth.split('/');
+  if (parts.length !== 2) return true;
+  const targetMonth = parts[0].padStart(2, '0');
+  const targetYear = parts[1];
+
+  // 1. Campo de competência explícito se houver
+  if (exp.competenceMonth) {
+    const compRaw = String(exp.competenceMonth).trim();
+    if (compRaw.includes('-')) {
+      const [y, m] = compRaw.split('-');
+      if (y === targetYear && m.padStart(2, '0') === targetMonth) return true;
+    } else if (compRaw.includes('/')) {
+      const [m, y] = compRaw.split('/');
+      if (y === targetYear && m.padStart(2, '0') === targetMonth) return true;
+    }
+  }
+
+  // 2. Data de vencimento (dueDate), data de pagamento (paymentDate) ou data do lançamento (date)
+  const dateCandidates = [exp.dueDate, exp.paymentDate, exp.date, (exp as any).data];
+  for (const d of dateCandidates) {
+    if (!d) continue;
+    const raw = String(d).trim();
+    if (raw.includes('-')) {
+      const p = raw.split('T')[0].split('-');
+      if (p.length >= 2) {
+        const y = p[0];
+        const m = p[1].padStart(2, '0');
+        if (y === targetYear && m === targetMonth) return true;
+      }
+    } else if (raw.includes('/')) {
+      const p = raw.split('/');
+      if (p.length === 3) {
+        const m = p[1].padStart(2, '0');
+        const y = p[2];
+        if (y === targetYear && m === targetMonth) return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 export const DespesasModule: React.FC<DespesasModuleProps> = ({
   expenses = [],
   machineries = [],
@@ -59,8 +104,47 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
     const y = now.getFullYear();
     return `${m}/${y}`;
   });
+  const [periodMode, setPeriodMode] = useState<'competence' | 'todos'>(() => {
+    if (!expenses || expenses.length === 0) return 'competence';
+    const now = new Date();
+    const curComp = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    const hasCurrent = expenses.some((e) => matchesExpenseCompetence(e, curComp));
+    return hasCurrent ? 'competence' : 'todos';
+  });
+
+  const userInteractedFilterRef = useRef(false);
+  const prevExpenseIdsRef = useRef<Set<string>>(new Set((expenses || []).map((e) => String(e?.id ?? ''))));
+
+  // Se novas despesas forem carregadas antes do usuário trocar de filtro e o mês atual estiver vazio, exibe Todos os Períodos
+  // E se uma nova despesa for recém-criada fora do mês selecionado, garante que apareça imediatamente na lista
+  useEffect(() => {
+    const safeList = Array.isArray(expenses) ? expenses : [];
+    const currentIds = new Set(safeList.map((e) => String(e?.id ?? '')));
+    const addedExpenses = safeList.filter((e) => {
+      const eid = String(e?.id ?? '');
+      return eid && !prevExpenseIdsRef.current.has(eid);
+    });
+    prevExpenseIdsRef.current = currentIds;
+
+    if (addedExpenses.length > 0 && periodMode === 'competence') {
+      const hasOutside = addedExpenses.some((e) => !matchesExpenseCompetence(e, competenceMonth));
+      if (hasOutside) {
+        setPeriodMode('todos');
+      }
+      return;
+    }
+
+    if (!userInteractedFilterRef.current && periodMode === 'competence' && safeList.length > 0) {
+      const hasAnyInComp = safeList.some((e) => matchesExpenseCompetence(e, competenceMonth));
+      if (!hasAnyInComp) {
+        setPeriodMode('todos');
+      }
+    }
+  }, [expenses, competenceMonth, periodMode]);
 
   const handlePrevMonth = useCallback(() => {
+    userInteractedFilterRef.current = true;
+    setPeriodMode('competence');
     setCompetenceMonth((prev) => {
       const parts = (prev || '11/2026').split('/');
       let month = Number(parts[0]) || 1;
@@ -76,6 +160,8 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
   }, []);
 
   const handleNextMonth = useCallback(() => {
+    userInteractedFilterRef.current = true;
+    setPeriodMode('competence');
     setCompetenceMonth((prev) => {
       const parts = (prev || '11/2026').split('/');
       let month = Number(parts[0]) || 1;
@@ -90,54 +176,11 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
     });
   }, []);
 
-  // Filtragem dinâmica de despesas pela competência ativa (mês/ano)
+  // Filtragem dinâmica de despesas pela competência ativa ou Todos os Períodos
   const filteredByCompetenceExpenses = useMemo(() => {
-    if (!competenceMonth) return expenses;
-    const parts = competenceMonth.split('/');
-    if (parts.length !== 2) return expenses;
-    const targetMonth = parts[0].padStart(2, '0');
-    const targetYear = parts[1];
-
-    return (expenses || []).filter((exp) => {
-      if (!exp) return false;
-
-      // 1. Campo de competência explícito se houver
-      if (exp.competenceMonth) {
-        const compRaw = String(exp.competenceMonth).trim();
-        if (compRaw.includes('-')) {
-          const [y, m] = compRaw.split('-');
-          if (y === targetYear && m.padStart(2, '0') === targetMonth) return true;
-        } else if (compRaw.includes('/')) {
-          const [m, y] = compRaw.split('/');
-          if (y === targetYear && m.padStart(2, '0') === targetMonth) return true;
-        }
-      }
-
-      // 2. Data de vencimento (dueDate), data de pagamento (paymentDate) ou data do lançamento (date)
-      const dateCandidates = [exp.dueDate, exp.paymentDate, exp.date, (exp as any).data];
-      for (const d of dateCandidates) {
-        if (!d) continue;
-        const raw = String(d).trim();
-        if (raw.includes('-')) {
-          const p = raw.split('-');
-          if (p.length >= 2) {
-            const y = p[0];
-            const m = p[1].padStart(2, '0');
-            if (y === targetYear && m === targetMonth) return true;
-          }
-        } else if (raw.includes('/')) {
-          const p = raw.split('/');
-          if (p.length === 3) {
-            const m = p[1].padStart(2, '0');
-            const y = p[2];
-            if (y === targetYear && m === targetMonth) return true;
-          }
-        }
-      }
-
-      return false;
-    });
-  }, [expenses, competenceMonth]);
+    if (periodMode === 'todos' || !competenceMonth) return expenses || [];
+    return (expenses || []).filter((exp) => matchesExpenseCompetence(exp, competenceMonth));
+  }, [expenses, competenceMonth, periodMode]);
 
   return (
     <div 
@@ -159,6 +202,22 @@ export const DespesasModule: React.FC<DespesasModuleProps> = ({
               onNext={handleNextMonth}
               className="ml-1 sm:ml-4"
             />
+
+            <button
+              type="button"
+              onClick={() => {
+                userInteractedFilterRef.current = true;
+                setPeriodMode((prev) => (prev === 'todos' ? 'competence' : 'todos'));
+              }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                periodMode === 'todos'
+                  ? 'border border-black bg-emerald-700 text-white'
+                  : 'border border-slate-400 bg-white text-slate-800 hover:bg-slate-100'
+              }`}
+              title="Alternar entre a competência selecionada e todos os períodos lançados"
+            >
+              Todos os Períodos
+            </button>
 
             <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
               MÓDULO MESTRE

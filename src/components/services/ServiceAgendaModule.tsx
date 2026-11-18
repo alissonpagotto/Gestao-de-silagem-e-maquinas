@@ -201,20 +201,20 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   const filteredAppointments = useMemo(() => {
     return appointmentsCompetencia.filter(app => {
       // Filtro de Texto
-      const term = searchTerm.toLowerCase();
+      const term = String(searchTerm ?? '').toLowerCase();
       const matchText = 
         !term ||
-        app.appointmentNumber.toLowerCase().includes(term) ||
-        app.clientName.toLowerCase().includes(term) ||
-        (app.farmName && app.farmName.toLowerCase().includes(term)) ||
-        (app.locationCityState && app.locationCityState.toLowerCase().includes(term)) ||
-        (app.primaryMachineryPrefix && app.primaryMachineryPrefix.toLowerCase().includes(term)) ||
-        (app.primaryMachineryPlate && app.primaryMachineryPlate.toLowerCase().includes(term)) ||
-        (app.primaryMachineryModel && app.primaryMachineryModel.toLowerCase().includes(term)) ||
+        String(app.appointmentNumber ?? '').toLowerCase().includes(term) ||
+        String(app.clientName ?? '').toLowerCase().includes(term) ||
+        (app.farmName && String(app.farmName).toLowerCase().includes(term)) ||
+        (app.locationCityState && String(app.locationCityState).toLowerCase().includes(term)) ||
+        (app.primaryMachineryPrefix && String(app.primaryMachineryPrefix).toLowerCase().includes(term)) ||
+        (app.primaryMachineryPlate && String(app.primaryMachineryPlate).toLowerCase().includes(term)) ||
+        (app.primaryMachineryModel && String(app.primaryMachineryModel).toLowerCase().includes(term)) ||
         app.assignedVehicles?.some(v => 
-          v.prefix.toLowerCase().includes(term) || 
-          v.plateOrSerial.toLowerCase().includes(term) ||
-          (v.driverOrOperatorName && v.driverOrOperatorName.toLowerCase().includes(term))
+          String(v.prefix ?? '').toLowerCase().includes(term) || 
+          String(v.plateOrSerial ?? '').toLowerCase().includes(term) ||
+          (v.driverOrOperatorName && String(v.driverOrOperatorName).toLowerCase().includes(term))
         );
 
       // Filtro de Status
@@ -348,12 +348,12 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     // 4. Busca por prefixo / número de frota / placa na lista de máquinas
     if (!matchedMach && cleanPrefix) {
       matchedMach = allMachineries.find(m => {
-        const fn = (m.fleetNumber || '').trim().toLowerCase();
-        const pref = cleanPrefix.toLowerCase();
+        const fn = String(m.fleetNumber ?? '').trim().toLowerCase();
+        const pref = String(cleanPrefix ?? '').toLowerCase();
         if (!fn && !pref) return false;
         if (fn === pref || fn === `maq ${pref}` || fn === `maq-${pref}`) return true;
         if (digitsOnly && fn.replace(/\D/g, '') === digitsOnly && digitsOnly.length > 0) return true;
-        if (m.licensePlateOrSerial && m.licensePlateOrSerial.trim().toLowerCase() === pref) return true;
+        if (m.licensePlateOrSerial && String(m.licensePlateOrSerial).trim().toLowerCase() === pref) return true;
         return false;
       });
     }

@@ -408,8 +408,9 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
 export function getStoredExpenses(): Expense[] {
   try {
     const candidateKeys = [
-      'agrocontrol_contas_a_pagar',
+      'agrocontrol_expenses',
       'agrocontrol_despesas',
+      'agrocontrol_contas_a_pagar',
       'agrocontrol_financeiro',
       'colaca_silagem_despesas',
       STORAGE_KEYS.EXPENSES,
@@ -456,8 +457,9 @@ export function getStoredExpenses(): Expense[] {
 
     if (hasInvalid && cleaned.length !== parsed.length) {
       const cleanedJson = JSON.stringify(cleaned);
-      safeLocalStorageSetItem('agrocontrol_contas_a_pagar', cleanedJson);
+      safeLocalStorageSetItem('agrocontrol_expenses', cleanedJson);
       safeLocalStorageSetItem('agrocontrol_despesas', cleanedJson);
+      safeLocalStorageSetItem('agrocontrol_contas_a_pagar', cleanedJson);
       safeLocalStorageSetItem('agrocontrol_financeiro', cleanedJson);
       safeLocalStorageSetItem('colaca_silagem_despesas', cleanedJson);
       safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, cleanedJson);
@@ -493,10 +495,14 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     });
 
     const json = JSON.stringify(cleaned);
-    if (json === lastSavedExpensesJson) return;
+    const hasPrimaryKeys =
+      localStorage.getItem('agrocontrol_expenses') === json &&
+      localStorage.getItem('agrocontrol_despesas') === json;
+    if (json === lastSavedExpensesJson && hasPrimaryKeys) return;
     lastSavedExpensesJson = json;
-    safeLocalStorageSetItem('agrocontrol_contas_a_pagar', json);
+    safeLocalStorageSetItem('agrocontrol_expenses', json);
     safeLocalStorageSetItem('agrocontrol_despesas', json);
+    safeLocalStorageSetItem('agrocontrol_contas_a_pagar', json);
     safeLocalStorageSetItem('agrocontrol_financeiro', json);
     safeLocalStorageSetItem('colaca_silagem_despesas', json);
     safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, json);
@@ -1922,9 +1928,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     };
   });
   const tanks = getStoredTanquesCombustivel();
-  const tankS10 = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S10 || t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'));
-  const tankS500 = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S500 || t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'));
-  const tankArla = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.ARLA || t.id === 'tanque_arla_32' || t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla'));
+  const tankS10 = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S10 || t.id === 'tanque_diesel_s10' || String(t.tipo_combustivel ?? '').toLowerCase().includes('s10'));
+  const tankS500 = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S500 || t.id === 'tanque_diesel_s500' || String(t.tipo_combustivel ?? '').toLowerCase().includes('s500'));
+  const tankArla = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.ARLA || t.id === 'tanque_arla_32' || String(t.tipo_combustivel ?? '').toLowerCase().includes('arla') || String(t.nome ?? '').toLowerCase().includes('arla'));
 
   // Helper para ler estritamente o saldo do próprio item de estoque (permitindo 0 sem fallback para tanques)
   const extractProductQty = (item: any): number => {
@@ -5190,7 +5196,12 @@ export const getCompanyClientes = (companyId?: string): Client[] => {
 
 export const saveCompanyDespesas = (despesas: Expense[], companyId?: string): void => {
   saveCompanyData('despesas', despesas, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(despesas)); } catch {}
+  try {
+    const json = JSON.stringify(despesas);
+    localStorage.setItem('agrocontrol_expenses', json);
+    localStorage.setItem('agrocontrol_despesas', json);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
+  } catch {}
 };
 export const getCompanyDespesas = (companyId?: string): Expense[] => getCompanyData<Expense>('despesas', getStoredExpenses, companyId);
 

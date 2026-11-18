@@ -574,8 +574,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       const emp = activeEmployees.find((e) => e.id === empId) || (Array.isArray(employees) ? employees.find((e) => e.id === empId) : undefined);
       if (!emp) return undefined;
 
-      const empIdLower = emp.id.toLowerCase();
-      const empNameLower = (emp.name || '').trim().toLowerCase();
+      const empIdLower = String(emp.id ?? '').toLowerCase();
+      const empNameLower = String(emp.name ?? '').trim().toLowerCase();
       const explicitVehId = String(
         emp.machineryId ||
         (emp as any).veiculo_id ||
@@ -586,12 +586,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
       // 1. Vínculo explícito por ID no cadastro do colaborador
       if (explicitVehId) {
+        const explicitVehIdLower = String(explicitVehId ?? '').toLowerCase();
         const found = availableMachineries.find(
           (m) =>
             m.id === explicitVehId ||
-            String(m.id).toLowerCase() === explicitVehId.toLowerCase() ||
-            (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase() === explicitVehId.toLowerCase()) ||
-            (m.plate && m.plate.toLowerCase() === explicitVehId.toLowerCase())
+            String(m.id ?? '').toLowerCase() === explicitVehIdLower ||
+            (m.licensePlateOrSerial && String(m.licensePlateOrSerial ?? '').toLowerCase() === explicitVehIdLower) ||
+            (m.plate && String(m.plate ?? '').toLowerCase() === explicitVehIdLower)
         );
         if (found) return found;
       }
@@ -601,10 +602,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       if (explicitVehName) {
         const found = availableMachineries.find(
           (m) =>
-            (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(explicitVehName)) ||
-            (m.plate && m.plate.toLowerCase().includes(explicitVehName)) ||
-            (m.model && m.model.toLowerCase().includes(explicitVehName)) ||
-            (m.name && m.name.toLowerCase().includes(explicitVehName))
+            (m.licensePlateOrSerial && String(m.licensePlateOrSerial ?? '').toLowerCase().includes(explicitVehName)) ||
+            (m.plate && String(m.plate ?? '').toLowerCase().includes(explicitVehName)) ||
+            (m.model && String(m.model ?? '').toLowerCase().includes(explicitVehName)) ||
+            (m.name && String(m.name ?? '').toLowerCase().includes(explicitVehName))
         );
         if (found) return found;
       }
@@ -612,15 +613,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       // 3. Vínculo no cadastro da Frota (assignedDriverIds, driver_id, operatorOrDriver, assignedDrivers)
       const byDriver = availableMachineries.find((m) => {
         if (m.assignedDriverIds && Array.isArray(m.assignedDriverIds)) {
-          if (m.assignedDriverIds.some((id) => id === emp.id || id.toLowerCase() === empIdLower)) {
+          if (m.assignedDriverIds.some((id) => id === emp.id || String(id ?? '').toLowerCase() === empIdLower)) {
             return true;
           }
         }
-        if ((m as any).driver_id && ((m as any).driver_id === emp.id || String((m as any).driver_id).toLowerCase() === empIdLower)) {
+        if ((m as any).driver_id && ((m as any).driver_id === emp.id || String((m as any).driver_id ?? '').toLowerCase() === empIdLower)) {
           return true;
         }
         if (m.operatorOrDriver) {
-          const parts = m.operatorOrDriver.split(',').map((s) => s.trim().toLowerCase());
+          const parts = String(m.operatorOrDriver ?? '').split(',').map((s) => String(s ?? '').trim().toLowerCase());
           if (parts.includes(empNameLower) || (empNameLower && parts.some((p) => p.includes(empNameLower) || empNameLower.includes(p)))) {
             return true;
           }
@@ -628,10 +629,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         if (m.assignedDrivers && Array.isArray(m.assignedDrivers)) {
           return m.assignedDrivers.some((d: any) => {
             if (typeof d === 'string') {
-              return d.toLowerCase().includes(empNameLower);
+              return String(d ?? '').toLowerCase().includes(empNameLower);
             }
             if (d && typeof d === 'object') {
-              return d.id === emp.id || (d.name && String(d.name).toLowerCase().includes(empNameLower));
+              return d.id === emp.id || (d.name && String(d.name ?? '').toLowerCase().includes(empNameLower));
             }
             return false;
           });
@@ -981,14 +982,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   }, []);
 
   const filteredSuppliers = localSuppliers.filter((s) => {
-    if (!supplier || !supplier.trim()) return true;
-    const q = (supplier || '').toLowerCase().trim();
+    if (!supplier || !String(supplier).trim()) return true;
+    const q = String(supplier ?? '').toLowerCase().trim();
     const cleanQ = q.replace(/\D/g, '');
     return (
-      (s.name && s.name.toLowerCase().includes(q)) ||
-      (s.tradeName && s.tradeName.toLowerCase().includes(q)) ||
-      (s.category && s.category.toLowerCase().includes(q)) ||
-      (cleanQ.length > 0 && s.cnpjOrCpf && s.cnpjOrCpf.replace(/\D/g, '').includes(cleanQ))
+      String(s?.name ?? '').toLowerCase().includes(q) ||
+      String(s?.tradeName ?? '').toLowerCase().includes(q) ||
+      String(s?.category ?? '').toLowerCase().includes(q) ||
+      (cleanQ.length > 0 && s?.cnpjOrCpf && String(s.cnpjOrCpf).replace(/\D/g, '').includes(cleanQ))
     );
   });
 
@@ -1078,16 +1079,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   };
 
   const filteredRateioEmployees = useMemo(() => {
-    const q = employeeRateioSearch.trim().toLowerCase();
+    const q = String(employeeRateioSearch ?? '').trim().toLowerCase();
     if (!q) return activeEmployees;
     return activeEmployees.filter((emp) => {
       const empVeh = getLinkedVehicleForEmployee(emp.id);
       const vehLabel = empVeh
-        ? `${empVeh.licensePlateOrSerial || ''} ${empVeh.plate || ''} ${empVeh.model || ''} ${empVeh.name || ''}`.toLowerCase()
+        ? String(`${empVeh.licensePlateOrSerial || ''} ${empVeh.plate || ''} ${empVeh.model || ''} ${empVeh.name || ''}`).toLowerCase()
         : '';
       return (
-        (emp.name || '').toLowerCase().includes(q) ||
-        (emp.role || '').toLowerCase().includes(q) ||
+        String(emp?.name ?? '').toLowerCase().includes(q) ||
+        String(emp?.role ?? '').toLowerCase().includes(q) ||
         vehLabel.includes(q)
       );
     });
@@ -1112,10 +1113,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       if (tId === 'grupo_operadores') {
         activeEmployees
           .filter(
-            (e) =>
-              e.role?.toLowerCase().includes('ensiladeira') ||
-              e.role?.toLowerCase().includes('operador') ||
-              e.role?.toLowerCase().includes('trator')
+            (e) => {
+              const r = String(e?.role ?? '').toLowerCase();
+              return r.includes('ensiladeira') || r.includes('operador') || r.includes('trator');
+            }
           )
           .forEach((emp) => {
             if (!uniqueEmpIdSet.has(emp.id)) {
@@ -1126,9 +1127,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       } else if (tId === 'grupo_motoristas') {
         activeEmployees
           .filter(
-            (e) =>
-              e.role?.toLowerCase().includes('motorista') ||
-              e.role?.toLowerCase().includes('caminh')
+            (e) => {
+              const r = String(e?.role ?? '').toLowerCase();
+              return r.includes('motorista') || r.includes('caminh');
+            }
           )
           .forEach((emp) => {
             if (!uniqueEmpIdSet.has(emp.id)) {
@@ -1536,7 +1538,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     const selectedCat = safeCategories.find((c) => c.id === categoryId) || safeCategories[0];
 
     const matchedSupplier = localSuppliers.find(
-      (s) => (supplierId && s.id === supplierId) || (s.name && s.name.trim().toLowerCase() === supplier.trim().toLowerCase())
+      (s) => (supplierId && s.id === supplierId) || (s?.name && String(s.name ?? '').trim().toLowerCase() === String(supplier ?? '').trim().toLowerCase())
     );
     const resolvedSupplierId = supplierId || matchedSupplier?.id || undefined;
     const effectiveDesc = supplier.trim() || 

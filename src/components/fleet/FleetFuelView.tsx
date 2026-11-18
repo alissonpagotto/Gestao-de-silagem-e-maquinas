@@ -83,7 +83,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
   // Filtered Fuel Logs (Respeitando a competência ativa)
   const filteredLogs = useMemo(() => {
-    const term = (searchTerm || '').trim().toLowerCase();
+    const term = String(searchTerm ?? '').trim().toLowerCase();
     const { start, end } = competenceRange;
 
     return (localLogs || []).filter((log) => {

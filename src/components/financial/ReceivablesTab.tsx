@@ -234,7 +234,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
   const receivablesFromNotasSaida: ReceivableItem[] = useMemo(() => {
     const mapCond = (cond?: string): PaymentMethod | undefined => {
-      const c = (cond || '').toLowerCase();
+      const c = String(cond ?? '').toLowerCase();
       if (c.includes('pix')) return 'pix';
       if (c.includes('dinheiro')) return 'dinheiro';
       if (c.includes('débito') || c.includes('debito')) return 'cartao_debito';
@@ -249,7 +249,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     return localNotasSaida
       .filter((n) => n.lancarContasReceber && n.status !== 'CANCELADA' && n.status !== 'RASCUNHO')
       .map((n) => {
-        const isCte = (n.tipoDocumento || '').toLowerCase().includes('ct-e') || (n.tipoDocumento || '').toLowerCase().includes('cte');
+        const isCte = String(n.tipoDocumento ?? '').toLowerCase().includes('ct-e') || String(n.tipoDocumento ?? '').toLowerCase().includes('cte');
         let resolvedClientName = n.destinatarioNome || 'Consumidor Avulso';
         let resolvedClientId = n.destinatarioId;
 
@@ -258,7 +258,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             resolvedClientName = n.cteTomadorFinalNome;
             resolvedClientId = n.cteTomadorFinalId;
           } else {
-            const tomadorTipo = (n.cteTomador || 'Remetente').toLowerCase();
+            const tomadorTipo = String(n.cteTomador ?? 'Remetente').toLowerCase();
             if (tomadorTipo.includes('outro') || tomadorTipo.includes('terceiro')) {
               resolvedClientName = n.cteTomadorTerceiroNome || n.destinatarioNome || 'Terceiro Tomador';
               resolvedClientId = n.cteTomadorTerceiroId;
@@ -309,12 +309,12 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const filtered = useMemo(() => {
     return competenceReceivables.filter((r) => {
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-      const q = searchTerm.toLowerCase();
+      const q = String(searchTerm ?? '').toLowerCase();
       const matchesSearch =
         !q ||
-        r.clientName.toLowerCase().includes(q) ||
-        r.type.toLowerCase().includes(q) ||
-        (r.notes || '').toLowerCase().includes(q);
+        String(r?.clientName ?? '').toLowerCase().includes(q) ||
+        String(r?.type ?? '').toLowerCase().includes(q) ||
+        String(r?.notes ?? '').toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
   }, [competenceReceivables, statusFilter, searchTerm]);

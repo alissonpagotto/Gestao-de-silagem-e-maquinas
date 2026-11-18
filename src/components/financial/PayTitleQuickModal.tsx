@@ -87,12 +87,12 @@ export const PayTitleQuickModal: React.FC<PayTitleQuickModalProps> = ({
 
   // Filtro de despesas pendentes
   const filteredPending = useMemo(() => {
-    if (!searchTerm.trim()) return pendingExpenses;
-    const q = searchTerm.toLowerCase();
+    if (!String(searchTerm ?? '').trim()) return pendingExpenses;
+    const q = String(searchTerm ?? '').toLowerCase();
     return pendingExpenses.filter(e => 
-      (e.description || '').toLowerCase().includes(q) ||
-      (e.supplier || '').toLowerCase().includes(q) ||
-      (e.categoryName || '').toLowerCase().includes(q)
+      String(e?.description ?? '').toLowerCase().includes(q) ||
+      String(e?.supplier ?? '').toLowerCase().includes(q) ||
+      String(e?.categoryName ?? '').toLowerCase().includes(q)
     );
   }, [pendingExpenses, searchTerm]);
 

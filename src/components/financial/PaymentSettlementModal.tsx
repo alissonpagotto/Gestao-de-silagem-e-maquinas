@@ -203,13 +203,13 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   // Cheques disponíveis em carteira ("EM_NOSSO_PODER")
   const availableCustodyCheques = useMemo(() => {
     const inWallet = custodyCheques.filter((c) => c.status === 'EM_NOSSO_PODER');
-    const q = chequeSearch.trim().toLowerCase();
+    const q = String(chequeSearch ?? '').trim().toLowerCase();
     if (!q) return inWallet;
     return inWallet.filter((c) => {
-      const num = (c.numero_cheque || c.numeroCheque || '').toLowerCase();
-      const emitente = (c.emitente_nome || c.emitenteNome || '').toLowerCase();
-      const banco = (c.banco || '').toLowerCase();
-      const cliente = (c.cliente_nome || c.clienteNome || '').toLowerCase();
+      const num = String(c?.numero_cheque ?? c?.numeroCheque ?? '').toLowerCase();
+      const emitente = String(c?.emitente_nome ?? c?.emitenteNome ?? '').toLowerCase();
+      const banco = String(c?.banco ?? '').toLowerCase();
+      const cliente = String(c?.cliente_nome ?? c?.clienteNome ?? '').toLowerCase();
       return num.includes(q) || emitente.includes(q) || banco.includes(q) || cliente.includes(q);
     });
   }, [custodyCheques, chequeSearch]);

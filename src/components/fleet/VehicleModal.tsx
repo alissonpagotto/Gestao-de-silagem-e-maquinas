@@ -1122,9 +1122,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       if (editingVehicle.assignedDriverIds && editingVehicle.assignedDriverIds.length > 0) {
         setSelectedDriverIds(editingVehicle.assignedDriverIds);
       } else if (editingVehicle.operatorOrDriver) {
-        const existingNames = editingVehicle.operatorOrDriver.split(',').map(s => s.trim().toLowerCase());
+        const existingNames = String(editingVehicle.operatorOrDriver ?? '').split(',').map(s => String(s ?? '').trim().toLowerCase());
         const matchedIds = poolOfEmployees
-          .filter(emp => existingNames.includes(emp.name.toLowerCase().trim()))
+          .filter(emp => existingNames.includes(String(emp?.name ?? '').toLowerCase().trim()))
           .map(emp => emp.id);
         setSelectedDriverIds(matchedIds.length > 0 ? matchedIds : (editingVehicle.assignedDriverIds || []));
       } else if ((editingVehicle as any).user_id || (editingVehicle as any).driver_id) {
@@ -1297,11 +1297,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
   // Filtered employees by search
   const filteredEmployeeSuggestions = useMemo(() => {
-    if (!driverSearchQuery.trim()) return [];
+    if (!String(driverSearchQuery ?? '').trim()) return [];
+    const q = String(driverSearchQuery ?? '').toLowerCase();
     return activeEmployees.filter(emp => 
       !selectedDriverIds.includes(emp.id) &&
-      (emp.name.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
-       emp.role.toLowerCase().includes(driverSearchQuery.toLowerCase()))
+      (String(emp?.name ?? '').toLowerCase().includes(q) ||
+       String(emp?.role ?? '').toLowerCase().includes(q))
     );
   }, [activeEmployees, selectedDriverIds, driverSearchQuery]);
 

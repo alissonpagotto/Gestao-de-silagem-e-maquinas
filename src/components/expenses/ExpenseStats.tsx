@@ -45,8 +45,8 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
 
   // Gasto com Alimentação (na competência filtrada)
   const foodExpenseItems = expenses.filter((e) => {
-    const catId = (e.categoryId || '').toLowerCase().trim();
-    const catName = (e.categoryName || e.category || '').toLowerCase().trim();
+    const catId = String(e?.categoryId ?? '').toLowerCase().trim();
+    const catName = String(e?.categoryName ?? e?.category ?? '').toLowerCase().trim();
     return (
       catId === 'cat_alimentacao' ||
       catName === 'alimentação' ||

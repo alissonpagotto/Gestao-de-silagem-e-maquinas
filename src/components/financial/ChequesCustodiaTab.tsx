@@ -143,14 +143,14 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       }
 
       // 4. Busca por Texto (Número, Emitente, CPF/CNPJ, Banco)
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const num = (c.numero_cheque || (c as any).numeroCheque || '').toLowerCase();
-        const emitente = (c.emitente_nome || (c as any).emitenteNome || '').toLowerCase();
-        const doc = (c.emitente_documento || (c as any).emitenteDocumento || '').toLowerCase();
-        const banco = (c.banco || '').toLowerCase();
-        const cliente = (c.cliente_nome || (c as any).clienteNome || '').toLowerCase();
-        const fornecedorDestino = (c.fornecedor_destino || c.fornecedorDestino || '').toLowerCase();
+      if (String(searchTerm ?? '').trim()) {
+        const query = String(searchTerm ?? '').toLowerCase();
+        const num = String(c?.numero_cheque ?? (c as any)?.numeroCheque ?? '').toLowerCase();
+        const emitente = String(c?.emitente_nome ?? (c as any)?.emitenteNome ?? '').toLowerCase();
+        const doc = String(c?.emitente_documento ?? (c as any)?.emitenteDocumento ?? '').toLowerCase();
+        const banco = String(c?.banco ?? '').toLowerCase();
+        const cliente = String(c?.cliente_nome ?? (c as any)?.clienteNome ?? '').toLowerCase();
+        const fornecedorDestino = String(c?.fornecedor_destino ?? c?.fornecedorDestino ?? '').toLowerCase();
 
         return (
           num.includes(query) ||

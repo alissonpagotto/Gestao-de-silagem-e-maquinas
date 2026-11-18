@@ -6042,7 +6042,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       recordDeletedNfeKey(docId);
       if (cleanNum) recordDeletedNfeKey(cleanNum);
       if (digits) recordDeletedNfeKey(digits);
-      if (docNum) recordDeletedNfeKey(docNum.toLowerCase().trim());
+      if (docNum) recordDeletedNfeKey(String(docNum).toLowerCase().trim());
 
       await deleteDocumentoEntrada(docId).catch(() => {});
 
@@ -6050,12 +6050,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setDocumentosEntrada(prev => prev.filter(d => 
         d.id !== docId && 
         d.numero !== docNum && 
-        (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+        (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
       ));
       setNotasLancadas(prev => prev.filter(n => 
         n.id !== docId && 
         n.invoiceNumber !== docNum && 
-        (!cleanNum || getCleanInvoiceNumber(n.invoiceNumber).toLowerCase() !== cleanNum)
+        (!cleanNum || String(getCleanInvoiceNumber(n.invoiceNumber) ?? '').toLowerCase() !== cleanNum)
       ));
 
       // Limpeza estrita no armazenamento permanente de registros fiscais
@@ -6063,7 +6063,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const updatedFiscal = storedFiscal.filter(f => 
         f.id !== docId && 
         f.invoiceNumber !== docNum && 
-        (!cleanNum || getCleanInvoiceNumber(f.invoiceNumber).toLowerCase() !== cleanNum)
+        (!cleanNum || String(getCleanInvoiceNumber(f.invoiceNumber) ?? '').toLowerCase() !== cleanNum)
       );
       saveStoredFiscalRecords(updatedFiscal);
 
@@ -6079,7 +6079,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             const filtradas = parsed.filter((d: any) => 
               d.id !== docId && 
               d.numero !== docNum && 
-              (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+              (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
             );
             localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
           }
@@ -6095,7 +6095,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             const filtradasColaca = parsedColaca.filter((d: any) => 
               d.id !== docId && 
               d.numero !== docNum && 
-              (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+              (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
             );
             localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
           }
@@ -6120,7 +6120,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         delete cached[docId];
         if (cleanNum) delete cached[cleanNum];
         if (digits) delete cached[digits];
-        if (docNum) delete cached[docNum.toLowerCase().trim()];
+        if (docNum) delete cached[String(docNum).toLowerCase().trim()];
         localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
       } catch (_) {}
 
@@ -6128,10 +6128,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       try {
         const stored = getStoredExpenses();
         const updatedStored = stored.filter(e => {
-          if (e.id === docId || (docId && e.id.startsWith(docId))) return false;
-          if (e.id.startsWith(`pagar_${docId}`) || e.id.startsWith(`exp_doc_${docId}`)) return false;
+          const eIdStr = String(e.id ?? '');
+          if (eIdStr === docId || (docId && eIdStr.startsWith(docId))) return false;
+          if (eIdStr.startsWith(`pagar_${docId}`) || eIdStr.startsWith(`exp_doc_${docId}`)) return false;
           if ((e as any).notaId === docId || (e as any).documento_entrada_id === docId || (e as any).nota_fiscal_id === docId) return false;
-          const eClean = getCleanInvoiceNumber(e.invoiceNumber).toLowerCase();
+          const eClean = String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase();
           if (cleanNum && eClean === cleanNum) return false;
           return true;
         });
@@ -6616,8 +6617,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
 
       // Desduplica registros idênticos por número de documento + fornecedor + valor
-      const cleanDocDigits = item.documentNumber.replace(/\D/g, '');
-      const supplierNorm = item.supplier.trim().toLowerCase();
+      const cleanDocDigits = String(item.documentNumber ?? '').replace(/\D/g, '');
+      const supplierNorm = String(item.supplier ?? '').trim().toLowerCase();
       if (cleanDocDigits && cleanDocDigits.length >= 3 && supplierNorm) {
         const docSig = `num_${cleanDocDigits}_${supplierNorm}_${item.amount.toFixed(2)}`;
         if (seenDocSignatures.has(docSig)) continue;
@@ -6636,14 +6637,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Filtro de busca se informado
     if (searchNfeNumber && searchNfeNumber.trim()) {
-      const term = searchNfeNumber.toLowerCase().trim();
+      const term = String(searchNfeNumber ?? '').toLowerCase().trim();
       return dedupedList.filter(item => 
-        item.documentNumber.toLowerCase().includes(term) ||
-        item.supplier.toLowerCase().includes(term) ||
-        item.description.toLowerCase().includes(term) ||
-        (item.searchExtra || '').toLowerCase().includes(term) ||
-        item.documentType.toLowerCase().includes(term) ||
-        (item.vehicleLabel || '').toLowerCase().includes(term)
+        String(item.documentNumber ?? '').toLowerCase().includes(term) ||
+        String(item.supplier ?? '').toLowerCase().includes(term) ||
+        String(item.description ?? '').toLowerCase().includes(term) ||
+        String(item.searchExtra || '').toLowerCase().includes(term) ||
+        String(item.documentType ?? '').toLowerCase().includes(term) ||
+        String(item.vehicleLabel || '').toLowerCase().includes(term)
       );
     }
 
@@ -6739,18 +6740,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     });
 
     if (searchNfeNumber && searchNfeNumber.trim()) {
-      const term = searchNfeNumber.toLowerCase().trim();
+      const term = String(searchNfeNumber ?? '').toLowerCase().trim();
       return list.filter(item =>
-        item.documentNumber.toLowerCase().includes(term) ||
-        item.supplier.toLowerCase().includes(term) ||
-        item.description.toLowerCase().includes(term) ||
-        (item.searchExtra || '').toLowerCase().includes(term) ||
-        item.documentType.toLowerCase().includes(term) ||
-        (item.vehicleLabel || '').toLowerCase().includes(term) ||
-        (item.rawNotaSaida?.chaveAcesso || '').toLowerCase().includes(term) ||
-        (item.rawNotaSaida?.cteRemetenteNome || '').toLowerCase().includes(term) ||
-        (item.rawNotaSaida?.destinatarioNome || '').toLowerCase().includes(term) ||
-        (item.rawNotaSaida?.cteTomadorTerceiroNome || '').toLowerCase().includes(term)
+        String(item.documentNumber ?? '').toLowerCase().includes(term) ||
+        String(item.supplier ?? '').toLowerCase().includes(term) ||
+        String(item.description ?? '').toLowerCase().includes(term) ||
+        String(item.searchExtra || '').toLowerCase().includes(term) ||
+        String(item.documentType ?? '').toLowerCase().includes(term) ||
+        String(item.vehicleLabel || '').toLowerCase().includes(term) ||
+        String(item.rawNotaSaida?.chaveAcesso || '').toLowerCase().includes(term) ||
+        String(item.rawNotaSaida?.cteRemetenteNome || '').toLowerCase().includes(term) ||
+        String(item.rawNotaSaida?.destinatarioNome || '').toLowerCase().includes(term) ||
+        String(item.rawNotaSaida?.cteTomadorTerceiroNome || '').toLowerCase().includes(term)
       );
     }
 
@@ -10400,8 +10401,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const targetKey = nota ? getCanonicalNfeKey(nota) : '';
     const docNum = nota?.invoiceNumber || docEntrada?.numero || '';
     const cleanNum = nota 
-      ? getCleanInvoiceNumber(nota.invoiceNumber).toLowerCase()
-      : (docEntrada ? getCleanInvoiceNumber(docEntrada.numero).toLowerCase() : '');
+      ? String(getCleanInvoiceNumber(nota.invoiceNumber) ?? '').toLowerCase()
+      : (docEntrada ? String(getCleanInvoiceNumber(docEntrada.numero) ?? '').toLowerCase() : '');
     const digits = (docNum || '').replace(/\D/g, '');
     const accessKey = (nota as any)?.accessKey || docEntrada?.chave_acesso || '';
 
@@ -10444,7 +10445,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     recordDeletedNfeKey(notaId);
     if (cleanNum) recordDeletedNfeKey(cleanNum);
     if (digits) recordDeletedNfeKey(digits);
-    if (docNum) recordDeletedNfeKey(docNum.toLowerCase().trim());
+    if (docNum) recordDeletedNfeKey(String(docNum).toLowerCase().trim());
     if (accessKey) recordDeletedNfeKey(accessKey);
     if (targetKey) recordDeletedNfeKey(targetKey);
 
@@ -10454,7 +10455,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       delete cached[notaId];
       if (cleanNum) delete cached[cleanNum];
       if (digits) delete cached[digits];
-      if (docNum) delete cached[docNum.toLowerCase().trim()];
+      if (docNum) delete cached[String(docNum).toLowerCase().trim()];
       if (accessKey) delete cached[accessKey];
       if (targetKey) delete cached[targetKey];
       localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
@@ -10464,8 +10465,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNotasLancadas(prev => prev.filter(n => {
       if (n.id === notaId) return false;
       if (targetKey && getCanonicalNfeKey(n) === targetKey) return false;
-      if (cleanNum && getCleanInvoiceNumber(n.invoiceNumber).toLowerCase() === cleanNum) return false;
-      if (digits && (n.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
+      if (cleanNum && String(getCleanInvoiceNumber(n.invoiceNumber) ?? '').toLowerCase() === cleanNum) return false;
+      if (digits && String(n.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
       if (docNum && n.invoiceNumber === docNum) return false;
       return true;
     }));
@@ -10473,8 +10474,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setDocumentosEntrada(prev => prev.filter(d => {
       if (d.id === notaId) return false;
       if (docNum && d.numero === docNum) return false;
-      if (cleanNum && getCleanInvoiceNumber(d.numero).toLowerCase() === cleanNum) return false;
-      if (digits && (d.numero || '').replace(/\D/g, '') === digits) return false;
+      if (cleanNum && String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() === cleanNum) return false;
+      if (digits && String(d.numero || '').replace(/\D/g, '') === digits) return false;
       return true;
     }));
 
@@ -10483,8 +10484,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const updatedFiscal = storedFiscal.filter(f => {
       if (f.id === notaId) return false;
       if (targetKey && getCanonicalNfeKey(f) === targetKey) return false;
-      if (cleanNum && getCleanInvoiceNumber(f.invoiceNumber).toLowerCase() === cleanNum) return false;
-      if (digits && (f.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
+      if (cleanNum && String(getCleanInvoiceNumber(f.invoiceNumber) ?? '').toLowerCase() === cleanNum) return false;
+      if (digits && String(f.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
       if (docNum && f.invoiceNumber === docNum) return false;
       return true;
     });
@@ -10501,7 +10502,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const filtradas = parsed.filter((d: any) => 
             d.id !== notaId && 
             d.numero !== docNum && 
-            (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+            (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
           );
           localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
         }
@@ -10516,7 +10517,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const filtradasColaca = parsedColaca.filter((d: any) => 
             d.id !== notaId && 
             d.numero !== docNum && 
-            (!cleanNum || getCleanInvoiceNumber(d.numero).toLowerCase() !== cleanNum)
+            (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
           );
           localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
         }
@@ -10541,7 +10542,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     idsToRemove.add(`exp_doc_${notaId}`);
 
     expenses.forEach(e => {
-      if (e.id === notaId || (notaId && e.id.startsWith(notaId))) {
+      const eIdStr = String(e.id ?? '');
+      if (eIdStr === notaId || (notaId && eIdStr.startsWith(notaId))) {
         idsToRemove.add(e.id);
         return;
       }
@@ -10553,7 +10555,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         idsToRemove.add(e.id);
         return;
       }
-      const eCleanNum = getCleanInvoiceNumber(e.invoiceNumber).toLowerCase();
+      const eCleanNum = String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase();
       if (cleanNum && eCleanNum === cleanNum) {
         idsToRemove.add(e.id);
       }
@@ -10562,12 +10564,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     try {
       const stored = getStoredExpenses();
       const updatedStored = stored.filter(e => {
+        const eIdStr = String(e.id ?? '');
         if (idsToRemove.has(e.id)) return false;
-        if (e.id === notaId || (notaId && e.id.startsWith(notaId))) return false;
+        if (eIdStr === notaId || (notaId && eIdStr.startsWith(notaId))) return false;
         if ((e as any).notaId === notaId || (e as any).documento_entrada_id === notaId || (e as any).nota_fiscal_id === notaId) return false;
         if (targetKey && getCanonicalNfeKey(e) === targetKey) return false;
-        if (cleanNum && getCleanInvoiceNumber(e.invoiceNumber).toLowerCase() === cleanNum) return false;
-        if (digits && (e.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
+        if (cleanNum && String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase() === cleanNum) return false;
+        if (digits && String(e.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
         return true;
       });
       saveStoredExpenses(updatedStored);
