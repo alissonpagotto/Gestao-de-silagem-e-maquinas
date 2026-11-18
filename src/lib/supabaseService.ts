@@ -113,7 +113,9 @@ import {
   saveCompanyManutencoes,
   getCompanyManutencoes,
   getStoredExpenses,
-  getStoredFiscalRecords
+  getStoredFiscalRecords,
+  sanitizeFuelLogs,
+  isFictitiousOrZeroFuelLog
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -5167,9 +5169,10 @@ export async function saveCloudFuelLogs(logs: FuelLog[], companyId?: string): Pr
     const cId = companyId || getActiveCompanyId();
     if (!cId) return false;
 
+    const cleanLogs = sanitizeFuelLogs(logs);
     const { error } = await supabase.from('site_settings').upsert({
       id: `cloud_fuel_logs_${cId}`,
-      hero_title: JSON.stringify(logs),
+      hero_title: JSON.stringify(cleanLogs),
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' });
 
@@ -5201,7 +5204,7 @@ export async function fetchCloudFuelLogs(companyId?: string): Promise<FuelLog[] 
 
     if (error || !data?.hero_title) return null;
     const parsed = JSON.parse(data.hero_title) as FuelLog[];
-    return Array.isArray(parsed) ? parsed : null;
+    return Array.isArray(parsed) ? sanitizeFuelLogs(parsed) : null;
   } catch {
     return null;
   }
@@ -5376,6 +5379,9 @@ export async function upsertAbastecimento(
   companyId?: string
 ): Promise<{ success: boolean; error?: any; tableName?: string }> {
   try {
+    if (isFictitiousOrZeroFuelLog(log)) {
+      return { success: false, error: 'Registro de abastecimento inválido ou zerado' };
+    }
     const cId = companyId || getActiveCompanyId();
     const cleanId = log.id || toValidUUID();
     const cleanLog: FuelLog = { ...log, id: cleanId };

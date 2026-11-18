@@ -24,7 +24,13 @@
  * - Preserva e espelha os maiores arrays entre chaves correlatas para evitar telas em branco.
  */
 
-import { safeLocalStorageSetItem, isCorruptedOrGhostDocumento, purgeGhostDocumentosEntrada } from './storage';
+import {
+  safeLocalStorageSetItem,
+  isCorruptedOrGhostDocumento,
+  purgeGhostDocumentosEntrada,
+  purgeFictitiousFuelLogsFromStorage,
+  sanitizeFuelLogs,
+} from './storage';
 import { migrateAndCleanLocalStorageMedia, preloadAllMediaFromIndexedDB } from './imageStorage';
 
 export interface StorageAuditResult {
@@ -138,7 +144,16 @@ export function isMockStorageRecord(item: any): boolean {
     'veh_forr_05_2023',
     'veh_colh_02_2022',
     'veh_trator_jd_6110',
-    'veh_evd_2j61'
+    'veh_evd_2j61',
+    'fuel-001',
+    'fuel-002',
+    'fuel-003',
+    'fuel_001',
+    'fuel_002',
+    'fuel_003',
+    'abs_001',
+    'abs_002',
+    'abs_003'
   ].includes(id)) {
     return true;
   }
@@ -567,11 +582,14 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     name: 'Abastecimentos de Combustível',
     categoryIndex: 12,
     keys: [
-      'agrocontrol_combustivel',
+      'agrocontrol_abastecimentos',
+      'agrocontrol_fuel_logs',
       'silagem_facil_clean_v1_fuel_logs',
+      'agrocontrol_combustivel',
       'colaca_silagem_abastecimentos'
     ],
     type: 'array',
+    transform: sanitizeFuelLogs,
   },
   {
     name: 'Tanques de Combustível da Fazenda',
@@ -671,8 +689,9 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
   migrateAndCleanLocalStorageMedia();
   void preloadAllMediaFromIndexedDB();
 
-  // Purga defensiva preliminar de registros fantasmas/corrompidos
+  // Purga defensiva preliminar de registros fantasmas/corrompidos e abastecimentos fictícios zerados
   purgeGhostDocumentosEntrada();
+  purgeFictitiousFuelLogsFromStorage();
 
   const companyId = getActiveCompanyId();
   let synchronizedKeysCount = 0;

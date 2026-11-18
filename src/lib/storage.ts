@@ -2744,11 +2744,121 @@ export function saveStoredAppointments(appointments: ServiceAppointment[]): void
 
 let lastSavedFuelLogsJson = '';
 
+const MOCK_FUEL_LOG_IDS = new Set([
+  'fuel-001',
+  'fuel-002',
+  'fuel-003',
+  'fuel_001',
+  'fuel_002',
+  'fuel_003',
+  'abs_001',
+  'abs_002',
+  'abs_003',
+  CANONICAL_TANK_UUIDS.S10,
+  CANONICAL_TANK_UUIDS.S500,
+  CANONICAL_TANK_UUIDS.ARLA,
+  'tanque_diesel_s10',
+  'tanque_diesel_s500',
+  'tanque_arla_32',
+]);
+
+export function isFictitiousOrZeroFuelLog(log: any): boolean {
+  if (!log || typeof log !== 'object') return true;
+  if (log.capacidade_total !== undefined && log.liters === undefined && log.litros === undefined) {
+    return true;
+  }
+  const id = String(log.id || '').trim().toLowerCase();
+  if (
+    MOCK_FUEL_LOG_IDS.has(id) ||
+    id.startsWith('mock_') ||
+    id.startsWith('demo_') ||
+    id.startsWith('seed_') ||
+    id.startsWith('fake_')
+  ) {
+    return true;
+  }
+  const liters = Number(log.liters ?? log.litros ?? log.quantidade ?? 0);
+  const totalAmount = Number(log.totalAmount ?? log.valor_total ?? log.total ?? 0);
+  if ((isNaN(liters) || liters <= 0) && (isNaN(totalAmount) || totalAmount <= 0)) {
+    return true;
+  }
+  return false;
+}
+
+export function sanitizeFuelLogs(logs: any): FuelLog[] {
+  if (!Array.isArray(logs)) return [];
+  return logs.filter(log => !isFictitiousOrZeroFuelLog(log));
+}
+
+export function purgeFictitiousFuelLogsFromStorage(): number {
+  if (typeof window === 'undefined' || !window.localStorage) return 0;
+  let purgedCount = 0;
+  const fuelKeys = new Set<string>([
+    'agrocontrol_fuel_logs',
+    'agrocontrol_abastecimentos',
+    'agrocontrol_combustivel',
+    'colaca_silagem_abastecimentos',
+    STORAGE_KEYS.FUEL_LOGS,
+  ]);
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (
+        k &&
+        (k.startsWith('agrocontrol_fuel_logs') ||
+          k.startsWith('agrocontrol_abastecimentos') ||
+          k.startsWith('agrocontrol_combustivel') ||
+          k.startsWith('colaca_silagem_abastecimentos') ||
+          k.startsWith(STORAGE_KEYS.FUEL_LOGS))
+      ) {
+        fuelKeys.add(k);
+      }
+    }
+
+    for (const key of fuelKeys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = sanitizeFuelLogs(parsed);
+          if (cleaned.length !== parsed.length) {
+            purgedCount += parsed.length - cleaned.length;
+            safeLocalStorageSetItem(key, JSON.stringify(cleaned));
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+
+  return purgedCount;
+}
+
 export function getStoredFuelLogs(): FuelLog[] {
   try {
-    const raw = localStorage.getItem('agrocontrol_abastecimentos') || localStorage.getItem(STORAGE_KEYS.FUEL_LOGS);
-    if (!raw) return INITIAL_FUEL_LOGS;
-    return JSON.parse(raw);
+    const candidateKeys = [
+      'agrocontrol_abastecimentos',
+      'agrocontrol_fuel_logs',
+      STORAGE_KEYS.FUEL_LOGS,
+      'agrocontrol_combustivel',
+      'colaca_silagem_abastecimentos',
+    ];
+    for (const key of candidateKeys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = sanitizeFuelLogs(parsed);
+          if (cleaned.length !== parsed.length) {
+            purgeFictitiousFuelLogsFromStorage();
+          }
+          return cleaned;
+        }
+      } catch {}
+    }
+    return INITIAL_FUEL_LOGS;
   } catch (e) {
     return INITIAL_FUEL_LOGS;
   }
@@ -2756,13 +2866,16 @@ export function getStoredFuelLogs(): FuelLog[] {
 
 export function saveStoredFuelLogs(logs: FuelLog[]): void {
   try {
-    const json = JSON.stringify(logs);
+    const cleaned = sanitizeFuelLogs(logs);
+    const json = JSON.stringify(cleaned);
     if (json === lastSavedFuelLogsJson) return;
     lastSavedFuelLogsJson = json;
     safeLocalStorageSetItem(STORAGE_KEYS.FUEL_LOGS, json);
     safeLocalStorageSetItem('agrocontrol_abastecimentos', json);
+    safeLocalStorageSetItem('agrocontrol_fuel_logs', json);
+    safeLocalStorageSetItem('agrocontrol_combustivel', json);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_fuel_updated', { detail: logs }));
+      window.dispatchEvent(new CustomEvent('silagem_fuel_updated', { detail: cleaned }));
     }
   } catch (e) {
     console.warn('Aviso não-bloqueante ao salvar fuel logs:', e);
@@ -3515,29 +3628,7 @@ export function getStoredBankAccounts(): BankAccount[] {
   try {
     const normalizeAccounts = (accList: BankAccount[]): BankAccount[] => {
       if (!Array.isArray(accList)) return [];
-      return accList.map(acc => {
-        const isSicredi = (acc.bankName || acc.name || '').toLowerCase().includes('sicredi') || acc.bankCode === '748';
-        if (isSicredi && (!acc.corporateCards || acc.corporateCards.length === 0)) {
-          const defaultCard: CorporateCard = {
-            id: 'card_sicredi_4520',
-            name: 'Mastercard Final 4520',
-            brand: 'mastercard',
-            last4: '4520',
-            responsibleEmployeeId: 'holder_company_colaca',
-            responsibleEmployeeName: 'ELIAS COLAÇA',
-            responsavel_cartao_id: 'holder_company_colaca',
-            titular_nome: 'ELIAS COLAÇA',
-            responsavel_funcao: 'ADMINISTRADOR',
-            totalLimit: 5000,
-            usedLimit: 0,
-            dueDay: 10,
-            closingDay: 3,
-            status: 'ativo',
-          };
-          return { ...acc, corporateCards: [defaultCard] };
-        }
-        return acc;
-      });
+      return accList;
     };
 
     // 1. Chave prioritária oficial AgroControl e espelhos (respeita array vazio explícito se salvo)
@@ -5116,10 +5207,17 @@ export const saveCompanyEstoque = (itens: InventoryItem[], companyId?: string): 
 export const getCompanyEstoque = (companyId?: string): InventoryItem[] => getCompanyData<InventoryItem>('estoque', getStoredInventory, companyId);
 
 export const saveCompanyAbastecimentos = (logs: FuelLog[], companyId?: string): void => {
-  saveCompanyData('abastecimentos', logs, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.FUEL_LOGS, JSON.stringify(logs)); } catch {}
+  const cleaned = sanitizeFuelLogs(logs);
+  saveCompanyData('abastecimentos', cleaned, companyId);
+  try {
+    const json = JSON.stringify(cleaned);
+    localStorage.setItem(STORAGE_KEYS.FUEL_LOGS, json);
+    localStorage.setItem('agrocontrol_abastecimentos', json);
+    localStorage.setItem('agrocontrol_fuel_logs', json);
+  } catch {}
 };
-export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] => getCompanyData<FuelLog>('abastecimentos', getStoredFuelLogs, companyId);
+export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] =>
+  sanitizeFuelLogs(getCompanyData<FuelLog>('abastecimentos', getStoredFuelLogs, companyId));
 
 export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?: string): void => {
   saveCompanyData('manutencoes', manutencoes, companyId);

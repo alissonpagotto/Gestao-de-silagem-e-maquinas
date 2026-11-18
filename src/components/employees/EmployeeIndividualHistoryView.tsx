@@ -127,50 +127,32 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
   const [salariosHistorico, setSalariosHistorico] = useState<SalarioHistoricoRecord[]>([]);
 
   useEffect(() => {
-    if (!selectedEmployee) return;
+    if (!selectedEmployee) {
+      setSalariosHistorico([]);
+      return;
+    }
     try {
       const raw = localStorage.getItem(storageSalariosKey);
       if (raw) {
-        setSalariosHistorico(JSON.parse(raw));
-      } else {
-        // Gera linha do tempo inicial realista com base na admissão
-        const baseSal = Number(selectedEmployee.baseSalary || selectedEmployee.salary) || 2800.00;
-        const initialTimeline: SalarioHistoricoRecord[] = [
-          {
-            id: `sal_adm_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: selectedEmployee.admissionDate || '2024-01-15',
-            tipo: 'ADMISSAO',
-            motivo: 'REGISTRO INICIAL DE ADMISSÃO CLT',
-            salarioAnterior: baseSal * 0.9,
-            novoSalario: baseSal,
-            comissaoHora: selectedEmployee.commissionPerHour || 0,
-            comissaoHectare: selectedEmployee.commissionPerHectare || 0,
-            comissaoAlqueire: selectedEmployee.commissionPerAlqueire || 0,
-            percentualAgenciador: selectedEmployee.brokerCommissionValue || 0,
-            registradoPor: 'SISTEMA RH CENTRAL'
-          }
-        ];
-
-        // Se tem mais de 1 ano, adiciona dissídio recente
-        if (selectedEmployee.admissionDate && new Date(selectedEmployee.admissionDate).getFullYear() < 2026) {
-          initialTimeline.unshift({
-            id: `sal_diss_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-05-01',
-            tipo: 'DISSIDIO',
-            motivo: 'DISSÍDIO COLETIVO CONVENÇÃO AGRÍCOLA (+6,5%)',
-            salarioAnterior: baseSal,
-            novoSalario: Math.round(baseSal * 1.065),
-            comissaoHora: (selectedEmployee.commissionPerHour || 0) * 1.05,
-            comissaoHectare: selectedEmployee.commissionPerHectare || 0,
-            registradoPor: 'OPERADOR RH AGROCONTROL'
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((r: any) => {
+            if (!r || typeof r !== 'object') return false;
+            const idStr = String(r.id || '');
+            const reg = String(r.registradoPor || '');
+            const isSeededDemo =
+              (idStr.startsWith('sal_adm_') || idStr.startsWith('sal_diss_')) &&
+              (reg === 'SISTEMA RH CENTRAL' || reg === 'OPERADOR RH AGROCONTROL');
+            return !isSeededDemo;
           });
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(storageSalariosKey, JSON.stringify(cleaned));
+          }
+          setSalariosHistorico(cleaned);
+          return;
         }
-
-        setSalariosHistorico(initialTimeline);
-        localStorage.setItem(storageSalariosKey, JSON.stringify(initialTimeline));
       }
+      setSalariosHistorico([]);
     } catch {
       setSalariosHistorico([]);
     }
@@ -183,97 +165,43 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
       const raw = localStorage.getItem('colaca_silagem_rh_folhas');
       if (raw) {
         const allFolhas = JSON.parse(raw);
-        const empFolhas = allFolhas.filter((f: any) => f.employeeId === selectedEmployee.id || f.funcionarioId === selectedEmployee.id);
-        if (empFolhas.length > 0) return empFolhas;
+        if (Array.isArray(allFolhas)) {
+          return allFolhas.filter((f: any) => f && (f.employeeId === selectedEmployee.id || f.funcionarioId === selectedEmployee.id));
+        }
       }
     } catch {}
-
-    // Simulação reativa dos últimos 4 meses de holerites para auditoria imediata
-    const base = Number(selectedEmployee.baseSalary || selectedEmployee.salary) || 3200.00;
-    return [
-      {
-        id: `folha_10_2026_${selectedEmployee.id}`,
-        competencia: '10/2026',
-        mesAno: 'OUTUBRO/2026',
-        salarioBase: base,
-        horasExtras: 320.00,
-        comissaoSilagem: (selectedEmployee.commissionPerHour ? selectedEmployee.commissionPerHour * 40 : 450.00),
-        inss: Math.round(base * 0.09),
-        descontoVales: 400.00,
-        salarioLiquido: Math.round(base + 320 + 450 - (base * 0.09) - 400),
-        status: 'FECHADA & EMITIDA'
-      },
-      {
-        id: `folha_09_2026_${selectedEmployee.id}`,
-        competencia: '09/2026',
-        mesAno: 'SETEMBRO/2026',
-        salarioBase: base,
-        horasExtras: 240.00,
-        comissaoSilagem: (selectedEmployee.commissionPerHour ? selectedEmployee.commissionPerHour * 30 : 380.00),
-        inss: Math.round(base * 0.09),
-        descontoVales: 250.00,
-        salarioLiquido: Math.round(base + 240 + 380 - (base * 0.09) - 250),
-        status: 'PAGA (PIX REALIZADO)'
-      },
-      {
-        id: `folha_08_2026_${selectedEmployee.id}`,
-        competencia: '08/2026',
-        mesAno: 'AGOSTO/2026',
-        salarioBase: base,
-        horasExtras: 180.00,
-        comissaoSilagem: 510.00,
-        inss: Math.round(base * 0.09),
-        descontoVales: 0.00,
-        salarioLiquido: Math.round(base + 180 + 510 - (base * 0.09)),
-        status: 'PAGA (PIX REALIZADO)'
-      }
-    ];
+    return [];
   }, [selectedEmployee]);
 
   // 3. OCORRÊNCIAS DE PONTO (Faltas, Atestados, Horas Extras)
   const [ocorrenciasPonto, setOcorrenciasPonto] = useState<OcorrenciaPontoRecord[]>([]);
 
   useEffect(() => {
-    if (!selectedEmployee) return;
+    if (!selectedEmployee) {
+      setOcorrenciasPonto([]);
+      return;
+    }
     try {
       const raw = localStorage.getItem(storagePontoKey);
       if (raw) {
-        setOcorrenciasPonto(JSON.parse(raw));
-      } else {
-        const demoPonto: OcorrenciaPontoRecord[] = [
-          {
-            id: `ponto_1_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-09-18',
-            tipo: 'HORA_EXTRA_50',
-            quantidade: 4.5,
-            unidade: 'HORAS',
-            motivo: 'COLHEITA ESTENDIDA DE SAFRA DE MILHO NOTURNA'
-          },
-          {
-            id: `ponto_2_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-08-10',
-            tipo: 'ATESTADO_MEDICO',
-            quantidade: 2,
-            unidade: 'DIAS',
-            motivo: 'CONSULTA ODONTOLÓGICA E REPOUSO',
-            cid: 'K08.1',
-            medicoOuObs: 'DR. RENATO ALVES - CRO 45892'
-          },
-          {
-            id: `ponto_3_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-07-22',
-            tipo: 'FALTA_JUSTIFICADA',
-            quantidade: 1,
-            unidade: 'DIAS',
-            motivo: 'RENOVAÇÃO DE CNH CATEGORIA D NO DETRAN'
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((p: any) => {
+            if (!p || typeof p !== 'object') return false;
+            const idStr = String(p.id || '');
+            const isDemoPonto =
+              (idStr.startsWith('ponto_1_') || idStr.startsWith('ponto_2_') || idStr.startsWith('ponto_3_')) &&
+              ['COLHEITA ESTENDIDA DE SAFRA DE MILHO NOTURNA', 'CONSULTA ODONTOLÓGICA E REPOUSO', 'RENOVAÇÃO DE CNH CATEGORIA D NO DETRAN'].includes(String(p.motivo || ''));
+            return !isDemoPonto;
+          });
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(storagePontoKey, JSON.stringify(cleaned));
           }
-        ];
-        setOcorrenciasPonto(demoPonto);
-        localStorage.setItem(storagePontoKey, JSON.stringify(demoPonto));
+          setOcorrenciasPonto(cleaned);
+          return;
+        }
       }
+      setOcorrenciasPonto([]);
     } catch {
       setOcorrenciasPonto([]);
     }
@@ -283,50 +211,31 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
   const [valesList, setValesList] = useState<ValeAdiantamentoRecord[]>([]);
 
   useEffect(() => {
-    if (!selectedEmployee) return;
+    if (!selectedEmployee) {
+      setValesList([]);
+      return;
+    }
     try {
       const raw = localStorage.getItem(storageValesKey);
       if (raw) {
-        setValesList(JSON.parse(raw));
-      } else {
-        const demoVales: ValeAdiantamentoRecord[] = [
-          {
-            id: `vale_1_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-10-15',
-            valor: 600.00,
-            tipo: 'QUINZENA',
-            formaPagamento: 'PIX',
-            mesDesconto: '10/2026',
-            status: 'PENDENTE',
-            observacao: 'ADIANTAMENTO QUINZENAL REGULAR 40%'
-          },
-          {
-            id: `vale_2_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-09-15',
-            valor: 600.00,
-            tipo: 'QUINZENA',
-            formaPagamento: 'PIX',
-            mesDesconto: '09/2026',
-            status: 'QUITADO_FOLHA',
-            observacao: 'DESCONTADO NO HOLERITE DE SETEMBRO'
-          },
-          {
-            id: `vale_3_${selectedEmployee.id}`,
-            employeeId: selectedEmployee.id,
-            data: '2026-08-20',
-            valor: 150.00,
-            tipo: 'PECAS_FERRAMENTAS',
-            formaPagamento: 'CONTA',
-            mesDesconto: '08/2026',
-            status: 'QUITADO_FOLHA',
-            observacao: 'RESSARCIMENTO DE REPARO EMERGENCIAL DE PNEU'
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((v: any) => {
+            if (!v || typeof v !== 'object') return false;
+            const idStr = String(v.id || '');
+            const isDemoVale =
+              (idStr.startsWith('vale_1_') || idStr.startsWith('vale_2_') || idStr.startsWith('vale_3_')) &&
+              ['ADIANTAMENTO QUINZENAL REGULAR 40%', 'DESCONTADO NO HOLERITE DE SETEMBRO', 'RESSARCIMENTO DE REPARO EMERGENCIAL DE PNEU'].includes(String(v.observacao || ''));
+            return !isDemoVale;
+          });
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(storageValesKey, JSON.stringify(cleaned));
           }
-        ];
-        setValesList(demoVales);
-        localStorage.setItem(storageValesKey, JSON.stringify(demoVales));
+          setValesList(cleaned);
+          return;
+        }
       }
+      setValesList([]);
     } catch {
       setValesList([]);
     }
@@ -336,14 +245,14 @@ export const EmployeeIndividualHistoryView: React.FC<EmployeeIndividualHistoryVi
   const feriasCalculadas = useMemo(() => {
     if (!selectedEmployee || !selectedEmployee.admissionDate) {
       return {
-        mesesTrabalhados: 12,
-        diasAdquiridos: 30,
+        mesesTrabalhados: 0,
+        diasAdquiridos: 0,
         diasGozados: 0,
-        saldoDias: 30,
-        periodoAquisitivoInicio: '2025-01-01',
-        periodoAquisitivoFim: '2025-12-31',
-        limiteConcessivo: '2026-11-30',
-        valorEstimadoFeriasMaisTerco: ((Number(selectedEmployee?.baseSalary || selectedEmployee?.salary) || 3000) * 1.333)
+        saldoDias: 0,
+        periodoAquisitivoInicio: '',
+        periodoAquisitivoFim: '',
+        limiteConcessivo: '',
+        valorEstimadoFeriasMaisTerco: 0
       };
     }
 

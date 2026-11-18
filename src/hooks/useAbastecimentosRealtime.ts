@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FuelLog, Employee } from '../types';
 import { supabase, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../lib/supabase';
 import { fetchAbastecimentos, isRealtimeWebSocketActive, getAbastecimentosTableName, fetchRhFuncionarios, toValidUUID } from '../lib/supabaseService';
-import { getStoredFuelLogs, saveStoredFuelLogs, getStoredEmployees, saveStoredEmployees } from '../lib/storage';
+import { getStoredFuelLogs, saveStoredFuelLogs, getStoredEmployees, saveStoredEmployees, sanitizeFuelLogs } from '../lib/storage';
 
 export interface UseAbastecimentosRealtimeOptions {
   initialLogs?: FuelLog[];
@@ -47,7 +47,7 @@ export function useAbastecimentosRealtime(
   } = options;
 
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => {
-    if (initialLogs && initialLogs.length > 0) return initialLogs;
+    if (initialLogs && initialLogs.length > 0) return sanitizeFuelLogs(initialLogs);
     return getStoredFuelLogs();
   });
 
@@ -60,11 +60,12 @@ export function useAbastecimentosRealtime(
 
   // Sincroniza se a prop inicial mudar
   useEffect(() => {
-    if (initialLogs && initialLogs.length > 0) {
-      const serialized = JSON.stringify(initialLogs);
+    if (initialLogs) {
+      const cleanInitial = sanitizeFuelLogs(initialLogs);
+      const serialized = JSON.stringify(cleanInitial);
       if (serialized !== lastSyncedState.current) {
         lastSyncedState.current = serialized;
-        setFuelLogs(initialLogs);
+        setFuelLogs(cleanInitial);
       }
     }
   }, [initialLogs]);
@@ -80,16 +81,17 @@ export function useAbastecimentosRealtime(
       setError(null);
       const fresh = await fetchAbastecimentos(companyId);
       if (fresh && Array.isArray(fresh)) {
-        const serialized = JSON.stringify(fresh);
+        const cleanFresh = sanitizeFuelLogs(fresh);
+        const serialized = JSON.stringify(cleanFresh);
         if (serialized !== lastSyncedState.current) {
           lastSyncedState.current = serialized;
-          setFuelLogs(fresh);
-          saveStoredFuelLogs(fresh);
+          setFuelLogs(cleanFresh);
+          saveStoredFuelLogs(cleanFresh);
           if (onUpdateRef.current) {
-            onUpdateRef.current(fresh);
+            onUpdateRef.current(cleanFresh);
           }
         }
-        return fresh;
+        return cleanFresh;
       }
       return [];
     } catch (err: any) {
@@ -112,13 +114,14 @@ export function useAbastecimentosRealtime(
       try {
         const fresh = await fetchAbastecimentos(companyId);
         if (fresh && Array.isArray(fresh) && isMounted) {
-          const serialized = JSON.stringify(fresh);
+          const cleanFresh = sanitizeFuelLogs(fresh);
+          const serialized = JSON.stringify(cleanFresh);
           if (serialized !== lastSyncedState.current) {
             lastSyncedState.current = serialized;
-            setFuelLogs(fresh);
-            saveStoredFuelLogs(fresh);
+            setFuelLogs(cleanFresh);
+            saveStoredFuelLogs(cleanFresh);
             if (onUpdateRef.current) {
-              onUpdateRef.current(fresh);
+              onUpdateRef.current(cleanFresh);
             }
           }
         }

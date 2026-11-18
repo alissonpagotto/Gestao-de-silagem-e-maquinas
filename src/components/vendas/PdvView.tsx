@@ -1119,15 +1119,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
         setVeiculoFreteId(prev => prev || stored[0]?.id || '');
         setVeiculoSearchText(prev => prev || getVehicleIdentificationText(stored[0]));
       } else {
-        // Frota padrão inicial para prontidão operacional imediata
-        const fallbackFleet = [
-          { id: 'frot_caminhao_axor', model: 'MERCEDES-BENZ AXOR 2544', plate: 'BRA-2024', licensePlateOrSerial: 'BRA-2024', brand: 'Mercedes-Benz', categoryType: 'caminhao', fleetNumber: '101' },
-          { id: 'frot_caminhao_volvo', model: 'VOLVO FH 540 6X4 (CAVALO MECÂNICO)', plate: 'AGR-8899', licensePlateOrSerial: 'AGR-8899', brand: 'Volvo', categoryType: 'caminhao', fleetNumber: '102' },
-          { id: 'frot_trator_jd', model: 'TRATOR JOHN DEERE 6110M', plate: 'JD-6110', licensePlateOrSerial: 'JD-6110', brand: 'John Deere', categoryType: 'trator', fleetNumber: '201' },
-        ];
-        setAvailableVehicles(fallbackFleet);
-        setVeiculoFreteId(prev => prev || fallbackFleet[0].id);
-        setVeiculoSearchText(prev => prev || getVehicleIdentificationText(fallbackFleet[0]));
+        setAvailableVehicles([]);
+        setVeiculoFreteId('');
+        setVeiculoSearchText('');
       }
     } catch (err) {
       console.warn('Erro ao carregar veículos de frete:', err);

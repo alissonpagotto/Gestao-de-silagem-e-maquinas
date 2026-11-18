@@ -590,9 +590,9 @@ function buildNfeDataFromExpense(
       invoiceNumber,
       series: '1',
       supplier,
-      supplierCnpj: '12.345.678/0001-95',
-      recipient: companyProfile?.tradeName || companyProfile?.corporateName || 'Agropecuária Silagem Fácil',
-      recipientCnpj: companyProfile?.cnpjCpf || '98.765.432/0001-10',
+      supplierCnpj: '',
+      recipient: companyProfile?.tradeName || companyProfile?.corporateName || '',
+      recipientCnpj: companyProfile?.cnpjCpf || '',
       totalAmount,
       productsAmount: totalAmount,
       issueDate,
@@ -618,9 +618,9 @@ function buildNfeDataFromExpense(
           invoiceNumber,
           series: '1',
           supplier,
-          supplierCnpj: '12.345.678/0001-95',
-          recipient: companyProfile?.tradeName || companyProfile?.corporateName || 'Agropecuária Silagem Fácil',
-          recipientCnpj: companyProfile?.cnpjCpf || '98.765.432/0001-10',
+          supplierCnpj: '',
+          recipient: companyProfile?.tradeName || companyProfile?.corporateName || '',
+          recipientCnpj: companyProfile?.cnpjCpf || '',
           totalAmount,
           productsAmount: totalAmount,
           issueDate,
@@ -649,32 +649,9 @@ function buildNfeDataFromExpense(
     return cachedCandidate;
   }
 
-  // 4. Caso específico da Nota de Teste (EMPRESA TESTE LTDA - 4 produtos: Alfa, Beta, Gama e Delta)
-  const isEmpresaTeste = (supplier && supplier.toUpperCase().includes('EMPRESA TESTE')) ||
-                         (exp.description && exp.description.toUpperCase().includes('EMPRESA TESTE')) ||
-                         (exp.notes && (exp.notes.toUpperCase().includes('ALFA') || exp.notes.includes('4 produto'))) ||
-                         (cleanNum === '1' && totalAmount === 1000);
-
   let items: ParsedNfeItem[] = [];
 
-  if (isEmpresaTeste) {
-    const testItemsData = [
-      { code: '001', description: 'PRODUTO TESTE ALFA', ncm: '84339090', quantity: 1, unit: 'UN', unitPrice: 250.00, totalPrice: 250.00 },
-      { code: '002', description: 'PRODUTO TESTE BETA', ncm: '84339090', quantity: 1, unit: 'UN', unitPrice: 250.00, totalPrice: 250.00 },
-      { code: '003', description: 'PRODUTO TESTE GAMA', ncm: '84339090', quantity: 1, unit: 'UN', unitPrice: 250.00, totalPrice: 250.00 },
-      { code: '004', description: 'PRODUTO TESTE DELTA', ncm: '84339090', quantity: 1, unit: 'UN', unitPrice: 250.00, totalPrice: 250.00 },
-    ];
-    items = testItemsData.map(item => {
-      const linked = inventoryList.find(i => 
-        i.name.toLowerCase().includes(item.description.toLowerCase()) ||
-        i.name.toLowerCase().includes(item.description.replace('PRODUTO TESTE ', '').toLowerCase())
-      );
-      return {
-        ...item,
-        linkedInventoryId: linked?.id
-      };
-    });
-  } else if (exp.quantity && exp.quantity > 0) {
+  if (exp.quantity && exp.quantity > 0) {
     const qty = Number(exp.quantity);
     const unitPrice = Number(exp.unitPrice) || (qty > 0 ? Number((totalAmount / qty).toFixed(2)) : totalAmount);
     let cleanDesc = exp.description ? exp.description.replace(/^Compra\s+NF-e\s*[\w\d]*\s*-\s*/i, '').trim() : '';
@@ -779,9 +756,9 @@ function buildNfeDataFromExpense(
     invoiceNumber,
     series: '1',
     supplier,
-    supplierCnpj: '12.345.678/0001-95',
-    recipient: companyProfile?.tradeName || companyProfile?.corporateName || 'Agropecuária Silagem Fácil',
-    recipientCnpj: companyProfile?.cnpjCpf || '98.765.432/0001-10',
+    supplierCnpj: '',
+    recipient: companyProfile?.tradeName || companyProfile?.corporateName || '',
+    recipientCnpj: companyProfile?.cnpjCpf || '',
     totalAmount,
     productsAmount: totalAmount,
     issueDate,
@@ -8490,51 +8467,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setTimeout(() => {
       setIsSearching(false);
       const cleanNum = query.replace(/\D/g, '') || query;
-      const simulatedKey = cleanNum.length === 44 
-        ? cleanNum 
-        : `352609${cleanNum.padStart(8, '0')}000195550010000${cleanNum.padStart(6, '0')}1837492810`.slice(0, 44);
-
-      const simulatedNfe: ParsedNfeData = {
-        accessKey: simulatedKey,
-        invoiceNumber: `NF-e ${cleanNum}`,
-        series: '1',
-        supplier: existingExpense ? (existingExpense.supplier || 'Fornecedor Local') : 'Distribuidora de Diesel Sul Ltda',
-        supplierCnpj: '12.345.678/0001-95',
-        recipient: companyProfile?.name || 'Agropecuária Silagem Fácil',
-        recipientCnpj: companyProfile?.cnpjCpf || '98.765.432/0001-10',
-        totalAmount: existingExpense ? existingExpense.amount : 3840.00,
-        productsAmount: existingExpense ? existingExpense.amount : 3840.00,
-        issueDate: existingExpense?.dueDate || new Date().toISOString().split('T')[0],
-        itemsSummary: '1 produto identificado via consulta da NF-e',
-        suggestedCategory: 'cat_combustivel',
-        items: [
-          {
-            code: '001',
-            description: 'ÓLEO DIESEL S10 COMUM A GRANEL',
-            ncm: '27101921',
-            quantity: 800,
-            unit: 'LT',
-            unitPrice: 4.80,
-            totalPrice: 3840.00,
-            linkedInventoryId: localInventory.find(i => 
-              i.code === '001' || 
-              i.name.toLowerCase().includes('diesel')
-            )?.id
-          }
-        ]
-      };
-
-      setParsedData(simulatedNfe);
-      setEditingExpenseId(existingExpense ? existingExpense.id : null);
-      saveCachedNfe(simulatedNfe, existingExpense ? existingExpense.id : undefined);
 
       if (existingExpense) {
+        const reconstructed = buildNfeDataFromExpense(existingExpense, companyProfile, localInventory);
+        setParsedData(reconstructed);
+        setEditingExpenseId(existingExpense.id);
         setSuccessMessage(`Nota Fiscal nº ${cleanNum} encontrada nas despesas e carregada com sucesso!`);
-      } else {
-        setSuccessMessage(`Consulta da NF-e nº ${cleanNum} simulada com sucesso! Dados extraídos e prontos para conferência.`);
+        setTimeout(() => setSuccessMessage(''), 5000);
+        return;
       }
 
-      setTimeout(() => setSuccessMessage(''), 5000);
+      setParsedData(null);
+      setEditingExpenseId(null);
+      setErrorMessage(`Nenhuma NF-e encontrada com o número ou chave "${query}". Importe o XML oficial da nota fiscal para lançá-la.`);
     }, 250);
   };
 

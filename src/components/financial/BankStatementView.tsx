@@ -85,26 +85,6 @@ export const BankStatementView: React.FC<BankStatementViewProps> = ({
       });
     });
 
-    // Se nenhuma despesa estiver explicitamente vinculada por bankAccountId ainda,
-    // mostrar despesas gerais pagas como demonstração para o extrato não ficar vazio
-    if (movements.length === 0) {
-      const generalPaid = expenses.filter((e) => e.status === 'pago').slice(0, 8);
-      generalPaid.forEach((exp) => {
-        movements.push({
-          id: `mov_demo_${exp.id}`,
-          date: exp.paymentDate || exp.dueDate || exp.createdAt?.split('T')[0] || '',
-          description: exp.description + (exp.supplier ? ` (${exp.supplier})` : ''),
-          type: 'debito',
-          amount: exp.amount,
-          category: exp.categoryName || 'Despesa',
-          documentNumber: exp.invoiceNumber || exp.id.slice(-6).toUpperCase(),
-          responsibleEmployee: exp.paidByEmployeeName || exp.employeeName || 'Administrador',
-          source: 'despesa',
-          expenseRefId: exp.id,
-        });
-      });
-    }
-
     // Ordenar por data decrescente
     return movements.sort((a, b) => b.date.localeCompare(a.date));
   }, [account, expenses]);
