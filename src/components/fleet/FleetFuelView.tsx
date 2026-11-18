@@ -114,118 +114,119 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
   const avgPrice = totalLiters > 0 ? totalCost / totalLiters : 0;
 
   return (
-    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-in fade-in duration-200">
+    <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2 overflow-hidden animate-in fade-in duration-200">
       
-      {/* Header */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2.5">
-        <div>
+      {/* Painel Externo Unificado e Compacto do Cabeçalho */}
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg p-2 space-y-2 shadow-xs">
+        {/* Linha 1: Título + Botão */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <Fuel className="w-5 h-5 text-[#cc1f2f]" />
-            <h2 className="text-base font-bold text-black dark:text-stone-100 font-['Outfit']">
-              Controle de Combustível & Abastecimentos
+            <Fuel className="w-4 h-4 text-[#cc1f2f] shrink-0" />
+            <h2 className="text-sm sm:text-base font-bold text-black dark:text-stone-100 font-['Outfit'] leading-tight">
+              Controle de Combustível &amp; Abastecimentos
             </h2>
           </div>
+
+          <button
+            onClick={onOpenNewFuel}
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 border border-black/40 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>REGISTRAR ABASTECIMENTO</span>
+          </button>
         </div>
 
-        <button
-          onClick={onOpenNewFuel}
-          className="inline-flex items-center space-x-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 border border-black/40 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition active:scale-95 cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>REGISTRAR ABASTECIMENTO</span>
-        </button>
-      </div>
+        {/* Linha 2: 3 KPI Cards Compactos (#e0e6f1 + border-black) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="px-3 py-1.5 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider leading-tight">
+                Total de Litros
+              </span>
+              <Droplets className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            </div>
+            <div className="text-lg font-black text-amber-800 dark:text-amber-400 mt-0.5 leading-tight font-['Outfit']">
+              {(Number(totalLiters) || 0).toLocaleString('pt-BR')} <span className="text-xs font-semibold">Litros</span>
+            </div>
+            <p className="text-[11px] text-stone-600 leading-tight mt-0.5">Volume abastecido no período</p>
+          </div>
 
-      {/* KPI Cards */}
-      <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div className="p-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
-              Total de Litros
-            </span>
-            <Droplets className="w-4 h-4 text-amber-600" />
+          <div className="px-3 py-1.5 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider leading-tight">
+                Custo Total em Combustível
+              </span>
+              <DollarSign className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            </div>
+            <div className="text-lg font-black text-stone-900 dark:text-stone-100 mt-0.5 leading-tight font-['Outfit']">
+              {formatCurrencyBRL(totalCost)}
+            </div>
+            <p className="text-[11px] text-stone-600 leading-tight mt-0.5">Impacto no custo operacional</p>
           </div>
-          <div className="text-xl font-black text-amber-800 dark:text-amber-400 mt-1 font-['Outfit']">
-            {(Number(totalLiters) || 0).toLocaleString('pt-BR')} <span className="text-sm font-semibold">Litros</span>
+
+          <div className="px-3 py-1.5 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider leading-tight">
+                Preço Médio por Litro
+              </span>
+              <Calculator className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+            </div>
+            <div className="text-lg font-black text-stone-900 dark:text-stone-100 mt-0.5 leading-tight font-['Outfit']">
+              {formatCurrencyBRL(avgPrice)}/L
+            </div>
+            <p className="text-[11px] text-stone-600 leading-tight mt-0.5">Preço médio ponderado</p>
           </div>
-          <p className="text-xs text-stone-600 mt-0.5">Volume abastecido no período</p>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
-              Custo Total em Combustível
-            </span>
-            <DollarSign className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div className="text-xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
-            {formatCurrencyBRL(totalCost)}
-          </div>
-          <p className="text-xs text-stone-600 mt-0.5">Impacto no custo operacional</p>
-        </div>
+        {/* Linha 3: Busca, Competência & Filtros Compactos */}
+        <div className="pt-1.5 border-t border-black/20 dark:border-stone-800 flex flex-col md:flex-row items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto flex-1">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por placa, motorista, posto..."
+                className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
 
-        <div className="p-3 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-stone-700 dark:text-stone-400 uppercase tracking-wider">
-              Preço Médio por Litro
-            </span>
-            <Calculator className="w-4 h-4 text-sky-600" />
-          </div>
-          <div className="text-xl font-black text-stone-900 dark:text-stone-100 mt-1 font-['Outfit']">
-            {formatCurrencyBRL(avgPrice)}/L
-          </div>
-          <p className="text-xs text-stone-600 mt-0.5">Preço médio ponderado</p>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 p-2.5 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto flex-1">
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por placa, motorista, posto..."
-              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            <CompetenceSelector
+              competence={activeCompetence}
+              onPrev={handlePrev}
+              onNext={handleNext}
             />
           </div>
 
-          <CompetenceSelector
-            competence={activeCompetence}
-            onPrev={handlePrev}
-            onNext={handleNext}
-          />
-        </div>
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Vehicle Filter */}
+            <select
+              value={selectedVehicle}
+              onChange={(e) => setSelectedVehicle(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+            >
+              <option value="todos">Todos os Veículos</option>
+              {machineries.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}{m.model || m.name}
+                </option>
+              ))}
+            </select>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          {/* Vehicle Filter */}
-          <select
-            value={selectedVehicle}
-            onChange={(e) => setSelectedVehicle(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-          >
-            <option value="todos">Todos os Veículos</option>
-            {machineries.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}{m.model || m.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Fuel Type Filter */}
-          <select
-            value={selectedFuelType}
-            onChange={(e) => setSelectedFuelType(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-          >
-            <option value="todos">Todos Combustíveis</option>
-            <option value="Diesel S10">Diesel S10</option>
-            <option value="Diesel Comum">Diesel Comum</option>
-            <option value="Arla 32">Arla 32</option>
-            <option value="Gasolina">Gasolina</option>
-          </select>
+            {/* Fuel Type Filter */}
+            <select
+              value={selectedFuelType}
+              onChange={(e) => setSelectedFuelType(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+            >
+              <option value="todos">Todos Combustíveis</option>
+              <option value="Diesel S10">Diesel S10</option>
+              <option value="Diesel Comum">Diesel Comum</option>
+              <option value="Arla 32">Arla 32</option>
+              <option value="Gasolina">Gasolina</option>
+            </select>
+          </div>
         </div>
       </div>
 
