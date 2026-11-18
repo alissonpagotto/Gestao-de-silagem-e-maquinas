@@ -55,6 +55,8 @@ interface ReportsFinanceiroTabProps {
   onCompetenceChange?: (comp: string) => void;
   onRegisterPrintGetter?: (getter: () => ReportPrintConfig) => void;
   onSubTabChange?: (sub: FinanceiroSubTab) => void;
+  controlledSubTab?: FinanceiroSubTab;
+  hideInternalSubPills?: boolean;
 }
 
 export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
@@ -68,6 +70,8 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
   onCompetenceChange,
   onRegisterPrintGetter,
   onSubTabChange,
+  controlledSubTab,
+  hideInternalSubPills = false,
 }) => {
   const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
   const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -85,7 +89,14 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
   const handlePrev = () => onCompetenceChange?.(getPrevCompetence(activeCompetence));
   const handleNext = () => onCompetenceChange?.(getNextCompetence(activeCompetence));
 
-  const [subTab, setSubTab] = useState<FinanceiroSubTab>('pagar');
+  const [subTab, setSubTab] = useState<FinanceiroSubTab>(controlledSubTab || 'pagar');
+  useEffect(() => {
+    if (controlledSubTab && controlledSubTab !== subTab) {
+      setSubTab(controlledSubTab);
+      setStatusFilter('todos');
+      setGroupBy('default');
+    }
+  }, [controlledSubTab]);
   const [viewMode, setViewMode] = useState<ReportViewMode>('analitico');
   const [groupBy, setGroupBy] = useState<string>('default');
   const [searchTerm, setSearchTerm] = useState('');
@@ -521,48 +532,50 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
   return (
     <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-fade-in financial-subtab-clean">
       {/* 0. Sub-pílulas Financeiras */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => handleSwitchSubTab('pagar')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-              subTab === 'pagar'
-                ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
-                : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
-            }`}
-          >
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>Contas a Pagar</span>
-          </button>
+      {!hideInternalSubPills && (
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleSwitchSubTab('pagar')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                subTab === 'pagar'
+                  ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                  : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
+              }`}
+            >
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              <span>Contas a Pagar</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSwitchSubTab('receber')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-              subTab === 'receber'
-                ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
-                : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
-            }`}
-          >
-            <ArrowDownLeft className="w-3.5 h-3.5" />
-            <span>Contas a Receber</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchSubTab('receber')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                subTab === 'receber'
+                  ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                  : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
+              }`}
+            >
+              <ArrowDownLeft className="w-3.5 h-3.5" />
+              <span>Contas a Receber</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleSwitchSubTab('cheques')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-              subTab === 'cheques'
-                ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
-                : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
-            }`}
-          >
-            <WalletCards className="w-3.5 h-3.5" />
-            <span>Controle & Custódia de Cheques</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchSubTab('cheques')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                subTab === 'cheques'
+                  ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                  : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
+              }`}
+            >
+              <WalletCards className="w-3.5 h-3.5" />
+              <span>Controle & Custódia de Cheques</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 1. Cards de Resumo (4 cards por sub-pílula no padrão bg-[#e0e6f1] border border-black) */}
       {subTab === 'pagar' && (

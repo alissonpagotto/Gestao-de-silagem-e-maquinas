@@ -1,33 +1,44 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { 
-  Printer, 
-  Calendar as CalendarIcon, 
-  FileText, 
-  Download, 
-  Scissors, 
-  ShoppingCart, 
-  DollarSign, 
+import {
+  Printer,
+  Calendar as CalendarIcon,
+  FileText,
+  Download,
+  Scissors,
+  ShoppingCart,
+  DollarSign,
   Fuel,
   LayoutDashboard,
   Building2,
   WalletCards,
   ShieldAlert,
-  SlidersHorizontal
+  SlidersHorizontal,
+  TrendingUp,
+  Tractor,
+  Users,
+  Wallet,
+  Package,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from 'lucide-react';
-import { 
-  Expense, 
-  SilageOrder, 
-  ServiceOrder, 
-  CompanyProfile, 
-  FuelLog, 
-  Client, 
-  Machinery, 
+import {
+  Expense,
+  SilageOrder,
+  ServiceOrder,
+  CompanyProfile,
+  FuelLog,
+  Client,
+  Machinery,
   CropSeason,
   Employee,
   InventoryItem,
   MaintenanceLog,
   Supplier,
-  BankAccount
+  BankAccount,
+  PayrollRecord,
+  VacationRecord,
+  SalaryAdvance,
+  LeaveRecord,
 } from '../../types';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { ReportsDashboardTab } from './ReportsDashboardTab';
@@ -42,6 +53,10 @@ import { ReportsAtivoImobilizadoTab } from './ReportsAtivoImobilizadoTab';
 import { ReportsFinanceiroTab, FinanceiroSubTab } from './ReportsFinanceiroTab';
 import { ReportsExcecoesTab } from './ReportsExcecoesTab';
 import { ReportsPersonalizadoTab } from './ReportsPersonalizadoTab';
+import { ReportsCaixaTab } from './ReportsCaixaTab';
+import { ReportsDreVeiculoTab } from './ReportsDreVeiculoTab';
+import { ReportsEstoqueFerramentasTab } from './ReportsEstoqueFerramentasTab';
+import { ReportsRhFolhaTab } from './ReportsRhFolhaTab';
 import { getCompetenceDateRange } from '../financial/CompetenceSelector';
 import {
   buildDashboardConsolidatedReport,
@@ -65,21 +80,75 @@ export interface ReportsModuleProps {
   maintenanceLogs?: MaintenanceLog[];
   suppliers?: Supplier[];
   bankAccounts?: BankAccount[];
+  payrolls?: PayrollRecord[];
+  vacations?: VacationRecord[];
+  advances?: SalaryAdvance[];
+  leaves?: LeaveRecord[];
 }
 
-const PRINT_BUTTON_LABELS: Record<ReportSubTabId, string> = {
+export type ReportPillarId =
+  | 'estrategico'
+  | 'financeiro_caixa'
+  | 'operacional_vendas'
+  | 'frota_estoque'
+  | 'rh_despesas'
+  | 'excecoes'
+  | 'personalizado';
+
+export type ReportViewKey =
+  | Exclude<ReportSubTabId, 'financeiro'>
+  | 'pagar'
+  | 'receber'
+  | 'cheques';
+
+interface SubPillDef {
+  key: ReportViewKey;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface PillarDef {
+  id: ReportPillarId;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  subItems: SubPillDef[];
+}
+
+const PRINT_BUTTON_LABELS: Record<ReportViewKey, string> = {
   dashboard: 'Imprimir Relatório Consolidado',
   resumo: 'Imprimir DRE Gerencial',
-  financeiro: 'Imprimir Relatório Financeiro',
-  excecoes: 'Imprimir Pauta de Pendências',
-  personalizado: 'Imprimir Relatório Personalizado',
-  imobilizado: 'Imprimir Inventário & IPVA',
+  dre_veiculo: 'Imprimir DRE por Veículo',
+  caixa: 'Imprimir Situação de Caixas',
+  pagar: 'Imprimir Contas a Pagar',
+  receber: 'Imprimir Contas a Receber',
+  cheques: 'Imprimir Custódia de Cheques',
   cortes: 'Imprimir Relatório de Serviços',
   vendas: 'Imprimir Relatório de Vendas',
-  despesas: 'Imprimir Relatório de Despesas',
   consumo: 'Imprimir Relatório de Consumo',
+  estoque_ferramentas: 'Imprimir Estoque & Ferramentas',
+  imobilizado: 'Imprimir Inventário & IPVA',
+  despesas: 'Imprimir Relatório de Despesas',
+  rh_folha: 'Imprimir Resumo Folha & RH',
+  excecoes: 'Imprimir Pauta de Pendências',
+  personalizado: 'Imprimir Relatório Personalizado',
   exportar: 'Imprimir Relatório Consolidado',
 };
+
+const FULL_HEIGHT_VIEWS = new Set<ReportViewKey>([
+  'dre_veiculo',
+  'caixa',
+  'pagar',
+  'receber',
+  'cheques',
+  'cortes',
+  'vendas',
+  'consumo',
+  'estoque_ferramentas',
+  'despesas',
+  'rh_folha',
+  'excecoes',
+  'personalizado',
+]);
 
 export const ReportsModule: React.FC<ReportsModuleProps> = ({
   expenses,
@@ -93,12 +162,98 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   employees = [],
   inventory = [],
   maintenanceLogs = [],
+  payrolls = [],
+  vacations = [],
+  advances = [],
 }) => {
   const segmentCtx = useMemo(() => resolveReportSegmentContext(companyProfile), [companyProfile]);
 
-  // Navigation Subtabs
-  const [activeSubTab, setActiveSubTab] = useState<ReportSubTabId>('dashboard');
-  const [financeiroSubTab, setFinanceiroSubTab] = useState<FinanceiroSubTab>('pagar');
+  const pillars = useMemo<PillarDef[]>(
+    () => [
+      {
+        id: 'estrategico',
+        label: '📊 Estratégico & DRE',
+        icon: TrendingUp,
+        subItems: [
+          { key: 'dashboard', label: 'Dashboard Consolidado', icon: LayoutDashboard },
+          { key: 'resumo', label: 'DRE Gerencial Completo', icon: FileText },
+          { key: 'dre_veiculo', label: 'DRE por Veículo / Máquina', icon: Tractor },
+        ],
+      },
+      {
+        id: 'financeiro_caixa',
+        label: '💰 Financeiro & Caixa',
+        icon: WalletCards,
+        subItems: [
+          { key: 'caixa', label: 'Situação de Caixa (Nº Caixa)', icon: Wallet },
+          { key: 'pagar', label: 'Contas a Pagar', icon: ArrowUpRight },
+          { key: 'receber', label: 'Contas a Receber', icon: ArrowDownLeft },
+          { key: 'cheques', label: 'Custódia de Cheques', icon: WalletCards },
+        ],
+      },
+      {
+        id: 'operacional_vendas',
+        label: '🚜 Operacional & Vendas',
+        icon: Scissors,
+        subItems: [
+          { key: 'cortes', label: segmentCtx.servicesTabNavLabel, icon: Scissors },
+          { key: 'vendas', label: 'Relatório de Vendas', icon: ShoppingCart },
+        ],
+      },
+      {
+        id: 'frota_estoque',
+        label: '⛽ Frota, Estoque & Patrimônio',
+        icon: Fuel,
+        subItems: [
+          { key: 'consumo', label: 'Consumo de Combustível', icon: Fuel },
+          { key: 'estoque_ferramentas', label: 'Posição de Estoque & Ferramentas', icon: Package },
+          { key: 'imobilizado', label: 'Ativo Imobilizado & IPVA', icon: Building2 },
+        ],
+      },
+      {
+        id: 'rh_despesas',
+        label: '👥 RH & Despesas',
+        icon: Users,
+        subItems: [
+          { key: 'despesas', label: 'Controle de Despesas', icon: DollarSign },
+          { key: 'rh_folha', label: 'Resumo Folha, Vales & Vencimentos RH', icon: Users },
+        ],
+      },
+      {
+        id: 'excecoes',
+        label: '🚨 Exceções & Alertas',
+        icon: ShieldAlert,
+        subItems: [{ key: 'excecoes', label: 'Pendências Críticas', icon: ShieldAlert }],
+      },
+      {
+        id: 'personalizado',
+        label: '🛠️ Personalizado (Ad-Hoc)',
+        icon: SlidersHorizontal,
+        subItems: [
+          { key: 'personalizado', label: 'Construtor Ad-Hoc', icon: SlidersHorizontal },
+          { key: 'exportar', label: 'Exportar Excel', icon: Download },
+        ],
+      },
+    ],
+    [segmentCtx.servicesTabNavLabel]
+  );
+
+  // Navigation State: 7 Pilares + Sub-visão ativa
+  const [activePillarId, setActivePillarId] = useState<ReportPillarId>('estrategico');
+  const [activeViewKey, setActiveViewKey] = useState<ReportViewKey>('dashboard');
+
+  const activePillar = useMemo(
+    () => pillars.find((p) => p.id === activePillarId) || pillars[0],
+    [pillars, activePillarId]
+  );
+
+  const handleSelectPillar = (pillar: PillarDef) => {
+    setActivePillarId(pillar.id);
+    const belongs = pillar.subItems.some((s) => s.key === activeViewKey);
+    if (!belongs && pillar.subItems.length > 0) {
+      setActiveViewKey(pillar.subItems[0].key);
+    }
+  };
 
   // Month & Year state
   const now = new Date();
@@ -155,6 +310,12 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       resumo: (getter: () => ReportPrintConfig) => {
         tabPrintGettersRef.current.resumo = getter;
       },
+      dre_veiculo: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.dre_veiculo = getter;
+      },
+      caixa: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.caixa = getter;
+      },
       financeiro: (getter: () => ReportPrintConfig) => {
         tabPrintGettersRef.current.financeiro = getter;
       },
@@ -163,6 +324,12 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       },
       personalizado: (getter: () => ReportPrintConfig) => {
         tabPrintGettersRef.current.personalizado = getter;
+      },
+      estoque_ferramentas: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.estoque_ferramentas = getter;
+      },
+      rh_folha: (getter: () => ReportPrintConfig) => {
+        tabPrintGettersRef.current.rh_folha = getter;
       },
       imobilizado: (getter: () => ReportPrintConfig) => {
         tabPrintGettersRef.current.imobilizado = getter;
@@ -244,54 +411,37 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       if (explicitConfig && typeof explicitConfig.contentHtml === 'string') {
         setActivePrintConfig(explicitConfig);
       } else {
-        const getter = tabPrintGettersRef.current[activeSubTab];
+        const getterKey: ReportSubTabId =
+          activeViewKey === 'pagar' || activeViewKey === 'receber' || activeViewKey === 'cheques'
+            ? 'financeiro'
+            : activeViewKey;
+        const getter = tabPrintGettersRef.current[getterKey];
         const resolved = getter ? getter() : consolidatedPrintConfig;
         setActivePrintConfig(resolved);
       }
       setIsPrintModalOpen(true);
     },
-    [activeSubTab, consolidatedPrintConfig]
+    [activeViewKey, consolidatedPrintConfig]
   );
 
-  const navSubTabs: Array<{ id: ReportSubTabId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-    { id: 'dashboard', label: 'Dashboard Consolidado', icon: LayoutDashboard },
-    { id: 'resumo', label: 'Resumo Geral', icon: FileText },
-    { id: 'financeiro', label: '💰 Financeiro', icon: WalletCards },
-    { id: 'excecoes', label: '🚨 Exceções & Alertas', icon: ShieldAlert },
-    { id: 'personalizado', label: '🛠️ Personalizado', icon: SlidersHorizontal },
-    { id: 'imobilizado', label: '📊 Ativo Imobilizado', icon: Building2 },
-    { id: 'exportar', label: 'Exportar Excel', icon: Download },
-    { id: 'cortes', label: segmentCtx.servicesTabNavLabel, icon: Scissors },
-    { id: 'vendas', label: 'Vendas', icon: ShoppingCart },
-    { id: 'despesas', label: 'Despesas', icon: DollarSign },
-    { id: 'consumo', label: 'Consumo', icon: Fuel },
-  ];
-
-  const printButtonLabel = useMemo(() => {
-    if (activeSubTab === 'financeiro') {
-      if (financeiroSubTab === 'receber') return 'Imprimir Contas a Receber';
-      if (financeiroSubTab === 'cheques') return 'Imprimir Custódia de Cheques';
-      return 'Imprimir Contas a Pagar';
-    }
-    return PRINT_BUTTON_LABELS[activeSubTab] || 'Imprimir Relatório';
-  }, [activeSubTab, financeiroSubTab]);
+  const printButtonLabel = PRINT_BUTTON_LABELS[activeViewKey] || 'Imprimir Relatório Atual';
   const modalConfig = activePrintConfig || consolidatedPrintConfig;
+  const isFinanceiroSubView =
+    activeViewKey === 'pagar' || activeViewKey === 'receber' || activeViewKey === 'cheques';
+  const isFullHeight = FULL_HEIGHT_VIEWS.has(activeViewKey);
 
   return (
     <div id="reports-module-root" className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2 overflow-hidden animate-fade-in">
-      
       {/* 1. Header do Módulo 3D Slim */}
       <header className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg px-3 py-1.5 shadow-xs">
-        <div>
+        <div className="flex items-center gap-2">
           <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 tracking-tight font-['Outfit']">
-            Relatórios
+            Central de Relatórios & Inteligência Gerencial
           </h1>
         </div>
 
         {/* Top-right Actions: Month Picker + Botão Contextual por Aba */}
         <div className="flex flex-wrap items-center gap-2">
-          
-          {/* Month Selector Dropdown (Sincronizado bidirecionalmente com Competência MM/AAAA) */}
           <div className="relative">
             <select
               value={selectedMonth}
@@ -308,7 +458,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <CalendarIcon className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Botão Imprimir Contextual 3D Acetinado */}
           <button
             type="button"
             onClick={() => handleOpenPrintModal()}
@@ -317,227 +466,303 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <Printer className="w-3.5 h-3.5 text-black dark:text-stone-300" />
             <span>{printButtonLabel}</span>
           </button>
-
         </div>
       </header>
 
-      {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
+      {/* 2. ESTRUTURA INTEGRADA DE 7 PILARES + SUB-PÍLULAS */}
       <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
-        {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
+        {/* BASE DE FUNDO DOS 7 PILARES: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
         <div className="shrink-0 w-full bg-[#cad4e6] dark:bg-stone-900 border border-b-0 border-black dark:border-stone-700 rounded-t-lg overflow-x-auto scrollbar-none">
-          <nav 
-            aria-label="Abas de Relatórios"
+          <nav
+            aria-label="Pilares de Relatórios"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
           >
-            {navSubTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeSubTab === tab.id;
+            {pillars.map((pillar) => {
+              const isActive = activePillarId === pillar.id;
               return (
                 <button
-                  key={tab.id}
+                  key={pillar.id}
                   type="button"
-                  onClick={() => setActiveSubTab(tab.id)}
+                  onClick={() => handleSelectPillar(pillar)}
                   style={isActive ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
+                  className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 last:border-r-0 ${
                     isActive
-                      ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                      ? 'bg-orange-400/40 text-black font-bold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                       : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{tab.label}</span>
+                  <span>{pillar.label}</span>
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA (SEM VÃO LIVRE) */}
-        <div className={`w-full flex-1 min-h-0 border border-black dark:border-stone-700 rounded-b-lg bg-[#e0e6f1]/40 dark:bg-stone-900 shadow-sm ${
-          activeSubTab === 'cortes' ||
-          activeSubTab === 'vendas' ||
-          activeSubTab === 'despesas' ||
-          activeSubTab === 'consumo' ||
-          activeSubTab === 'financeiro' ||
-          activeSubTab === 'excecoes' ||
-          activeSubTab === 'personalizado'
-            ? 'flex flex-col overflow-hidden p-2.5'
-            : 'overflow-y-auto overflow-x-hidden p-3 space-y-3'
-        }`}>
-          {/* 3. Conteúdo da Aba Ativa */}
-          {activeSubTab === 'dashboard' && (
-            <ReportsDashboardTab
-              expenses={expenses}
-              orders={orders}
-              services={services}
-              fuelLogs={fuelLogs}
-              companyProfile={companyProfile}
-              quickPeriod={quickPeriod}
-              onQuickPeriodChange={handleQuickPeriodChange}
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-              selectedMonthName={monthsList[selectedMonth]}
-              selectedYear={selectedYear}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-            />
+        {/* MOLDURA GERAL INTEGRADA */}
+        <div className="w-full flex-1 min-h-0 border border-black dark:border-stone-700 rounded-b-lg bg-[#e0e6f1]/40 dark:bg-stone-900 shadow-sm flex flex-col overflow-hidden">
+          {/* Sub-pílulas compactas do Pilar Ativo */}
+          {activePillar.subItems.length > 1 && (
+            <div className="shrink-0 bg-[#cad4e6]/80 dark:bg-stone-850 border-b border-black/30 dark:border-stone-700 px-2.5 py-1.5 flex flex-wrap items-center gap-1.5">
+              {activePillar.subItems.map((sub) => {
+                const SubIcon = sub.icon;
+                const isSubActive = activeViewKey === sub.key;
+                return (
+                  <button
+                    key={sub.key}
+                    type="button"
+                    onClick={() => setActiveViewKey(sub.key)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                      isSubActive
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-slate-400 dark:border-stone-700 text-stone-800 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700'
+                    }`}
+                  >
+                    <SubIcon className="w-3.5 h-3.5" />
+                    <span>{sub.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
 
-          {activeSubTab === 'resumo' && (
-            <ReportsResumoTab
-              expenses={expenses}
-              orders={orders}
-              services={services}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
-              onRegisterPrintGetter={registerPrintGetter.resumo}
-            />
-          )}
+          {/* Área de Conteúdo da Sub-Visão Ativa */}
+          <div
+            className={`w-full flex-1 min-h-0 ${
+              isFullHeight
+                ? 'flex flex-col overflow-hidden p-2.5'
+                : 'overflow-y-auto overflow-x-hidden p-3 space-y-3'
+            }`}
+          >
+            {activeViewKey === 'dashboard' && (
+              <ReportsDashboardTab
+                expenses={expenses}
+                orders={orders}
+                services={services}
+                fuelLogs={fuelLogs}
+                companyProfile={companyProfile}
+                quickPeriod={quickPeriod}
+                onQuickPeriodChange={handleQuickPeriodChange}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+                selectedMonthName={monthsList[selectedMonth]}
+                selectedYear={selectedYear}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+              />
+            )}
 
-          {activeSubTab === 'exportar' && (
-            <ReportsExportTab
-              expenses={expenses}
-              orders={orders}
-              services={services}
-              fuelLogs={fuelLogs}
-              clients={clients}
-              machineries={machineries}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-            />
-          )}
+            {activeViewKey === 'resumo' && (
+              <ReportsResumoTab
+                expenses={expenses}
+                orders={orders}
+                services={services}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+                onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+                onRegisterPrintGetter={registerPrintGetter.resumo}
+              />
+            )}
 
-          {activeSubTab === 'cortes' && (
-            <ReportsCortesTab
-              services={services}
-              orders={orders}
-              seasons={seasons}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-              onRegisterPrintGetter={registerPrintGetter.cortes}
-            />
-          )}
+            {activeViewKey === 'dre_veiculo' && (
+              <ReportsDreVeiculoTab
+                machineries={machineries}
+                orders={orders}
+                services={services}
+                expenses={expenses}
+                fuelLogs={fuelLogs}
+                maintenanceLogs={maintenanceLogs}
+                employees={employees}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onRegisterPrintGetter={registerPrintGetter.dre_veiculo}
+              />
+            )}
 
-          {activeSubTab === 'vendas' && (
-            <ReportsVendasTab
-              orders={orders}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-              onRegisterPrintGetter={registerPrintGetter.vendas}
-            />
-          )}
+            {activeViewKey === 'caixa' && (
+              <ReportsCaixaTab
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+                onRegisterPrintGetter={registerPrintGetter.caixa}
+              />
+            )}
 
-          {activeSubTab === 'despesas' && (
-            <ReportsDespesasTab
-              expenses={expenses}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-              onRegisterPrintGetter={registerPrintGetter.despesas}
-            />
-          )}
+            {isFinanceiroSubView && (
+              <ReportsFinanceiroTab
+                expenses={expenses}
+                orders={orders}
+                services={services}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onRegisterPrintGetter={registerPrintGetter.financeiro}
+                controlledSubTab={activeViewKey as FinanceiroSubTab}
+                hideInternalSubPills
+              />
+            )}
 
-          {activeSubTab === 'consumo' && (
-            <ReportsConsumoTab
-              fuelLogs={fuelLogs}
-              machineries={machineries}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={setEndDate}
-              onRegisterPrintGetter={registerPrintGetter.consumo}
-            />
-          )}
+            {activeViewKey === 'cortes' && (
+              <ReportsCortesTab
+                services={services}
+                orders={orders}
+                seasons={seasons}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+                onRegisterPrintGetter={registerPrintGetter.cortes}
+              />
+            )}
 
-          {activeSubTab === 'imobilizado' && (
-            <ReportsAtivoImobilizadoTab
-              machineries={machineries}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
-              onRegisterPrintGetter={registerPrintGetter.imobilizado}
-            />
-          )}
+            {activeViewKey === 'vendas' && (
+              <ReportsVendasTab
+                orders={orders}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+                onRegisterPrintGetter={registerPrintGetter.vendas}
+              />
+            )}
 
-          {activeSubTab === 'financeiro' && (
-            <ReportsFinanceiroTab
-              expenses={expenses}
-              orders={orders}
-              services={services}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              competence={competence}
-              onCompetenceChange={handleCompetenceChange}
-              onRegisterPrintGetter={registerPrintGetter.financeiro}
-              onSubTabChange={setFinanceiroSubTab}
-            />
-          )}
+            {activeViewKey === 'consumo' && (
+              <ReportsConsumoTab
+                fuelLogs={fuelLogs}
+                machineries={machineries}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+                onRegisterPrintGetter={registerPrintGetter.consumo}
+              />
+            )}
 
-          {activeSubTab === 'excecoes' && (
-            <ReportsExcecoesTab
-              expenses={expenses}
-              orders={orders}
-              services={services}
-              inventory={inventory}
-              machineries={machineries}
-              maintenanceLogs={maintenanceLogs}
-              employees={employees}
-              companyProfile={companyProfile}
-              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
-              onRegisterPrintGetter={registerPrintGetter.excecoes}
-            />
-          )}
+            {activeViewKey === 'estoque_ferramentas' && (
+              <ReportsEstoqueFerramentasTab
+                inventory={inventory}
+                machineries={machineries}
+                employees={employees}
+                companyProfile={companyProfile}
+                onRegisterPrintGetter={registerPrintGetter.estoque_ferramentas}
+              />
+            )}
 
-          {activeSubTab === 'personalizado' && (
-            <ReportsPersonalizadoTab
-              expenses={expenses}
-              orders={orders}
-              services={services}
-              inventory={inventory}
-              fuelLogs={fuelLogs}
-              machineries={machineries}
-              employees={employees}
-              companyProfile={companyProfile}
-              startDate={startDate}
-              endDate={endDate}
-              onOpenPrintModal={(config) => handleOpenPrintModal(config)}
-              onRegisterPrintGetter={registerPrintGetter.personalizado}
-            />
-          )}
+            {activeViewKey === 'imobilizado' && (
+              <ReportsAtivoImobilizadoTab
+                machineries={machineries}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+                onRegisterPrintGetter={registerPrintGetter.imobilizado}
+              />
+            )}
+
+            {activeViewKey === 'despesas' && (
+              <ReportsDespesasTab
+                expenses={expenses}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+                onRegisterPrintGetter={registerPrintGetter.despesas}
+              />
+            )}
+
+            {activeViewKey === 'rh_folha' && (
+              <ReportsRhFolhaTab
+                employees={employees}
+                payrolls={payrolls}
+                vacations={vacations}
+                advances={advances}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onRegisterPrintGetter={registerPrintGetter.rh_folha}
+              />
+            )}
+
+            {activeViewKey === 'excecoes' && (
+              <ReportsExcecoesTab
+                expenses={expenses}
+                orders={orders}
+                services={services}
+                inventory={inventory}
+                machineries={machineries}
+                maintenanceLogs={maintenanceLogs}
+                employees={employees}
+                companyProfile={companyProfile}
+                onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+                onRegisterPrintGetter={registerPrintGetter.excecoes}
+              />
+            )}
+
+            {activeViewKey === 'personalizado' && (
+              <ReportsPersonalizadoTab
+                expenses={expenses}
+                orders={orders}
+                services={services}
+                inventory={inventory}
+                fuelLogs={fuelLogs}
+                machineries={machineries}
+                employees={employees}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                onOpenPrintModal={(config) => handleOpenPrintModal(config)}
+                onRegisterPrintGetter={registerPrintGetter.personalizado}
+              />
+            )}
+
+            {activeViewKey === 'exportar' && (
+              <ReportsExportTab
+                expenses={expenses}
+                orders={orders}
+                services={services}
+                fuelLogs={fuelLogs}
+                clients={clients}
+                machineries={machineries}
+                companyProfile={companyProfile}
+                startDate={startDate}
+                endDate={endDate}
+                competence={competence}
+                onCompetenceChange={handleCompetenceChange}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={setEndDate}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -559,7 +784,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           whatsappText: modalConfig.whatsappText,
         }}
       />
-
     </div>
   );
 };

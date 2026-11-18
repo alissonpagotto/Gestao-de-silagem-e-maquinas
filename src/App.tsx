@@ -4483,6 +4483,10 @@ export default function App() {
               maintenanceLogs={maintenanceLogs}
               suppliers={suppliers}
               bankAccounts={bankAccounts}
+              payrolls={payrolls}
+              vacations={vacations}
+              advances={advances}
+              leaves={leaves}
             />
           )}
 

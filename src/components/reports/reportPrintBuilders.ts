@@ -7,6 +7,7 @@ import {
   ServiceOrder,
   SilageOrder,
 } from '../../types';
+import { CaixaOperacional, calcularTotaisCaixa } from '../../lib/caixaStorage';
 import { SubscriberSegmentProfile } from '../../types/masterAdmin';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import {
@@ -24,9 +25,13 @@ import { resolveSubscriberPrintHeader, SYSTEM_NAME } from '../../lib/printIdenti
 export type ReportSubTabId =
   | 'dashboard'
   | 'resumo'
+  | 'dre_veiculo'
+  | 'caixa'
   | 'financeiro'
   | 'excecoes'
   | 'personalizado'
+  | 'estoque_ferramentas'
+  | 'rh_folha'
   | 'imobilizado'
   | 'exportar'
   | 'cortes'
@@ -2684,4 +2689,845 @@ export function buildAdHocCustomReport(params: {
     signatureLabels: STANDARD_REPORT_SIGNATURES,
   };
 }
+
+/**
+ * 11. SITUAÇÃO & FECHAMENTO DE CAIXA (CONSOLIDADO & INDIVIDUAL POR Nº CAIXA)
+ */
+export interface CaixaSessionSummaryRow {
+  caixa: CaixaOperacional;
+  id: string;
+  dataHoraAbertura: string;
+  dataHoraFechamento: string;
+  operador: string;
+  fundoInicial: number;
+  dinheiro: number;
+  pixCartoes: number;
+  suprimentos: number;
+  sangrias: number;
+  totalEntradas: number;
+  saldoFinal: number;
+  diferenca: number;
+  status: 'ABERTO' | 'FECHADO';
+}
+
+export function buildCaixaSessoesReport(params: {
+  companyProfile: CompanyProfile;
+  rows: CaixaSessionSummaryRow[];
+  startDate?: string;
+  endDate?: string;
+  competence: string;
+  selectedCaixaId?: string;
+  statusFilter?: string;
+  searchTerm?: string;
+  viewMode?: ReportViewMode;
+  groupByLabel?: string;
+  syntheticRows?: SyntheticSummaryRow[];
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    rows,
+    startDate = '',
+    endDate = '',
+    competence,
+    selectedCaixaId = 'todos',
+    statusFilter = 'todos',
+    searchTerm = '',
+    viewMode = 'analitico',
+    groupByLabel = 'Operador',
+    syntheticRows,
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const openCount = rows.filter((r) => r.status === 'ABERTO').length;
+  const closedCount = rows.filter((r) => r.status === 'FECHADO').length;
+  const totalEntradas = rows.reduce((s, r) => s + r.totalEntradas, 0);
+  const totalSangrias = rows.reduce((s, r) => s + r.sangrias, 0);
+  const totalSaldo = rows.reduce((s, r) => s + r.saldoFinal, 0);
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
+    { label: 'Nº Caixa', value: selectedCaixaId },
+    { label: 'Status', value: statusFilter },
+    { label: 'Busca', value: searchTerm.trim() },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Caixas no Período',
+      value: `${rows.length} sessão(ões)`,
+      sub: `${openCount} aberto(s) • ${closedCount} fechado(s)`,
+      color: '#1e293b',
+    },
+    {
+      label: 'Total Entradas (Vendas + Supr.)',
+      value: formatCurrencyBRL(totalEntradas),
+      sub: 'Dinheiro, PIX, Cartões e Suprimentos',
+      color: '#047857',
+    },
+    {
+      label: 'Total Sangrias / Saídas',
+      value: formatCurrencyBRL(totalSangrias),
+      sub: 'Retiradas registradas no período',
+      color: '#b91c1c',
+    },
+    {
+      label: 'Saldo Líquido em Caixa',
+      value: formatCurrencyBRL(totalSaldo),
+      sub: 'Soma dos saldos finais das sessões',
+      color: '#0369a1',
+    },
+  ]);
+
+  const resolvedSynthetic =
+    syntheticRows ||
+    buildSyntheticSummaryRows(
+      rows,
+      (r) => r.operador || 'ADMINISTRADOR GERAL',
+      (r) => r.saldoFinal,
+      {
+        getPaidAmount: (r) => r.totalEntradas,
+        getPendingAmount: (r) => r.sangrias,
+      }
+    );
+
+  const tableHtml =
+    viewMode === 'sintetico'
+      ? renderSyntheticTableHtml({
+          groupColumnLabel: groupByLabel,
+          showPaidBreakdown: false,
+          rows: resolvedSynthetic,
+          totalLabel: 'Total Consolidado de Caixas',
+          accentColor: '#0369a1',
+          emptyText: 'Nenhuma sessão de caixa localizada com os filtros aplicados.',
+        })
+      : `
+      <table>
+        <thead>
+          <tr>
+            <th style="width:105px;">Nº Caixa</th>
+            <th style="width:105px;">Abertura</th>
+            <th style="width:105px;">Fechamento</th>
+            <th>Operador</th>
+            <th style="text-align:right;width:85px;">Fundo Inicial</th>
+            <th style="text-align:right;width:85px;">Dinheiro</th>
+            <th style="text-align:right;width:90px;">PIX / Cartões</th>
+            <th style="text-align:right;width:85px;">Sangrias</th>
+            <th style="text-align:right;width:95px;">Saldo Final</th>
+            <th style="text-align:center;width:70px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            rows.length > 0
+              ? rows
+                  .map(
+                    (r) => `
+                  <tr style="font-size:8pt;">
+                    <td style="font-family:monospace;font-weight:800;">${escapeHtml(r.id)}</td>
+                    <td style="white-space:nowrap;">${escapeHtml(r.dataHoraAbertura || '-')}</td>
+                    <td style="white-space:nowrap;">${escapeHtml(r.dataHoraFechamento || '-')}</td>
+                    <td style="font-weight:700;">${escapeHtml(r.operador)}</td>
+                    <td style="text-align:right;">${formatCurrencyBRL(r.fundoInicial)}</td>
+                    <td style="text-align:right;color:#047857;font-weight:600;">${formatCurrencyBRL(r.dinheiro)}</td>
+                    <td style="text-align:right;color:#0369a1;font-weight:600;">${formatCurrencyBRL(r.pixCartoes)}</td>
+                    <td style="text-align:right;color:#b91c1c;font-weight:600;">${formatCurrencyBRL(r.sangrias)}</td>
+                    <td style="text-align:right;font-weight:900;color:#0f172a;">${formatCurrencyBRL(r.saldoFinal)}</td>
+                    <td style="text-align:center;font-weight:800;color:${r.status === 'ABERTO' ? '#047857' : '#475569'};">${escapeHtml(r.status)}</td>
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">Nenhuma sessão de caixa localizada.</td></tr>`
+          }
+        </tbody>
+        ${
+          rows.length > 0
+            ? `
+          <tfoot>
+            <tr style="background:#f1f5f9;border-top:2px solid #0369a1;font-weight:900;">
+              <td colspan="4" style="text-align:right;text-transform:uppercase;">Totais (${rows.length} caixas):</td>
+              <td style="text-align:right;">${formatCurrencyBRL(rows.reduce((s, r) => s + r.fundoInicial, 0))}</td>
+              <td style="text-align:right;color:#047857;">${formatCurrencyBRL(rows.reduce((s, r) => s + r.dinheiro, 0))}</td>
+              <td style="text-align:right;color:#0369a1;">${formatCurrencyBRL(rows.reduce((s, r) => s + r.pixCartoes, 0))}</td>
+              <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalSangrias)}</td>
+              <td style="text-align:right;color:#0369a1;">${formatCurrencyBRL(totalSaldo)}</td>
+              <td style="text-align:center;">--</td>
+            </tr>
+          </tfoot>
+        `
+            : ''
+        }
+      </table>
+    `;
+
+  return {
+    title:
+      viewMode === 'sintetico'
+        ? `Relatório Sintético de Caixas (${groupByLabel})`
+        : 'Relatório de Situação & Fechamento de Caixas',
+    subtitle: `Competência ${competence}${startDate && endDate ? ` • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}` : ''}`,
+    documentType: 'SITUAÇÃO DE CAIXAS',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `💵 *SITUAÇÃO & FECHAMENTO DE CAIXAS*\n` +
+      `📋 *Sessões:* ${rows.length} (${openCount} abertos / ${closedCount} fechados)\n` +
+      `🟢 *Entradas:* ${formatCurrencyBRL(totalEntradas)}\n` +
+      `🔴 *Sangrias:* ${formatCurrencyBRL(totalSangrias)}\n` +
+      `💰 *Saldo Líquido:* ${formatCurrencyBRL(totalSaldo)}`,
+    orientation: 'landscape',
+    signatureLabels: ['Operador / Tesouraria', 'Gerência / Auditoria'],
+  };
+}
+
+export function buildIndividualCaixaPrintConfig(
+  caixa: CaixaOperacional,
+  companyProfile: CompanyProfile
+): ReportPrintConfig {
+  const totais = calcularTotaisCaixa(caixa);
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+  const operadorAb = (caixa.operadorAbertura || caixa.operador || 'ADMINISTRADOR GERAL').toUpperCase();
+  const operadorFe = (caixa.operadorFechamento || caixa.operador || 'ADMINISTRADOR GERAL').toUpperCase();
+  const vendas = Array.isArray(caixa.vendasPdv) ? caixa.vendasPdv : [];
+  const suprimentos = Array.isArray(caixa.suprimentos) ? caixa.suprimentos : [];
+  const sangrias = Array.isArray(caixa.sangrias) ? caixa.sangrias : [];
+  const valorSistema = Number(caixa.valorFechamentoSistema ?? totais.saldoAtualDinheiro);
+  const valorReal = Number(caixa.valorFechamentoReal || 0);
+  const diferenca = Number(caixa.diferenca ?? (caixa.status === 'FECHADO' ? valorReal - valorSistema : 0));
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Fundo Inicial / Troco',
+      value: formatCurrencyBRL(totais.saldoInicial),
+      sub: `Suprimentos: ${formatCurrencyBRL(totais.totalSuprimentos)}`,
+      color: '#1d4ed8',
+    },
+    {
+      label: 'Recebimentos Dinheiro',
+      value: formatCurrencyBRL(totais.vendasDinheiro),
+      sub: `PIX: ${formatCurrencyBRL(totais.vendasPix)} • Cartões: ${formatCurrencyBRL(totais.vendasDebito + totais.vendasCredito)}`,
+      color: '#047857',
+    },
+    {
+      label: 'Sangrias / Retiradas',
+      value: formatCurrencyBRL(totais.totalSangrias),
+      sub: `${sangrias.length} retirada(s) registrada(s)`,
+      color: '#b91c1c',
+    },
+    {
+      label: caixa.status === 'FECHADO' ? 'Saldo Apurado (Físico)' : 'Saldo Esperado (Gaveta)',
+      value: formatCurrencyBRL(caixa.status === 'FECHADO' ? valorReal : valorSistema),
+      sub: caixa.status === 'FECHADO' ? `Sistema: ${formatCurrencyBRL(valorSistema)} • Dif: ${formatCurrencyBRL(diferenca)}` : 'Sessão em andamento',
+      color: '#0369a1',
+    },
+  ]);
+
+  const infoBox = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;font-size:8.5pt;">
+      <div><strong>Nº CAIXA:</strong><br/>${escapeHtml(caixa.id)}</div>
+      <div><strong>ABERTURA:</strong><br/>${escapeHtml(caixa.dataHoraAbertura || caixa.dataAbertura || '-')}</div>
+      <div><strong>FECHAMENTO:</strong><br/>${escapeHtml(caixa.dataHoraFechamento || caixa.dataFechamento || 'Em aberto')}</div>
+      <div><strong>OPERADOR(ES):</strong><br/>Ab: ${escapeHtml(operadorAb)} / Fe: ${escapeHtml(operadorFe)}</div>
+    </div>
+  `;
+
+  const vendasTable = `
+    <h4 style="font-size:9.5pt;font-weight:800;color:#0f172a;margin:10px 0 5px 0;text-transform:uppercase;">
+      1. Movimentações e Vendas Vinculadas ao Caixa (${vendas.length})
+    </h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:110px;">Data / Hora</th>
+          <th style="width:95px;">Pedido</th>
+          <th>Cliente / Origem</th>
+          <th style="width:130px;">Forma Pagto.</th>
+          <th style="text-align:right;width:110px;">Valor (R$)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          vendas.length > 0
+            ? vendas
+                .map(
+                  (v) => `
+                <tr style="font-size:8.5pt;">
+                  <td>${escapeHtml(v.dataHora || '-')}</td>
+                  <td style="font-family:monospace;font-weight:700;">${escapeHtml(v.numeroPedido || v.id)}</td>
+                  <td>${escapeHtml(v.cliente || 'CONSUMIDOR BALCÃO')}</td>
+                  <td style="font-weight:700;">${escapeHtml(v.formaPagamento || '-')}</td>
+                  <td style="text-align:right;font-weight:800;color:#047857;">${formatCurrencyBRL(v.valor || 0)}</td>
+                </tr>
+              `
+                )
+                .join('')
+            : `<tr><td colspan="5" style="text-align:center;padding:12px;color:#64748b;">Nenhuma venda lançada nesta sessão de caixa.</td></tr>`
+        }
+      </tbody>
+    </table>
+  `;
+
+  const movTable =
+    suprimentos.length > 0 || sangrias.length > 0
+      ? `
+      <h4 style="font-size:9.5pt;font-weight:800;color:#0f172a;margin:12px 0 5px 0;text-transform:uppercase;">
+        2. Suprimentos & Sangrias (${suprimentos.length + sangrias.length})
+      </h4>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:115px;">Data / Hora</th>
+            <th style="width:95px;">Tipo</th>
+            <th>Motivo / Destino</th>
+            <th style="text-align:right;width:115px;">Valor (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[...suprimentos, ...sangrias]
+            .map(
+              (m) => `
+              <tr style="font-size:8.5pt;">
+                <td>${escapeHtml(m.dataHora || '-')}</td>
+                <td style="font-weight:800;color:${m.tipo === 'SUPRIMENTO' ? '#047857' : '#b91c1c'};">${escapeHtml(m.tipo)}</td>
+                <td>${escapeHtml(m.motivo)}${m.destino ? ` (${escapeHtml(m.destino)})` : ''}</td>
+                <td style="text-align:right;font-weight:800;color:${m.tipo === 'SUPRIMENTO' ? '#047857' : '#b91c1c'};">${formatCurrencyBRL(m.valor || 0)}</td>
+              </tr>
+            `
+            )
+            .join('')}
+        </tbody>
+      </table>
+    `
+      : '';
+
+  return {
+    title: `Comprovante de Situação / Fechamento — Caixa ${caixa.id}`,
+    subtitle: `Status: ${caixa.status} • Operador: ${operadorFe}`,
+    documentType: 'FECHAMENTO INDIVIDUAL DE CAIXA',
+    contentHtml: `${infoBox}${kpiHtml}${vendasTable}${movTable}${
+      caixa.observacoes
+        ? `<div style="margin-top:10px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:8.5pt;"><strong>Observações:</strong> ${escapeHtml(caixa.observacoes)}</div>`
+        : ''
+    }`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `💵 *FECHAMENTO CAIXA ${caixa.id}* (${caixa.status})\n` +
+      `👤 *Operador:* ${operadorFe}\n` +
+      `🟢 *Fundo + Vendas + Suprimentos:* ${formatCurrencyBRL(totais.saldoInicial + totais.totalVendasPdv + totais.totalSuprimentos)}\n` +
+      `🔴 *Sangrias:* ${formatCurrencyBRL(totais.totalSangrias)}\n` +
+      `💰 *Saldo Gaveta:* ${formatCurrencyBRL(caixa.status === 'FECHADO' ? valorReal : valorSistema)}`,
+    orientation: 'portrait',
+    signatureLabels: [`Operador (${operadorFe})`, 'Conferente / Gerência'],
+  };
+}
+
+/**
+ * 12. DRE COMPARATIVO POR VEÍCULO / MÁQUINA
+ */
+export interface VehicleDreReportRow {
+  machineryId: string;
+  plateOrSerial: string;
+  name: string;
+  category: string;
+  revenue: number;
+  fuelCost: number;
+  maintenanceCost: number;
+  apportionedExpenses: number;
+  totalCosts: number;
+  netResult: number;
+  marginPct: number;
+}
+
+export function buildDreVeiculoReport(params: {
+  companyProfile: CompanyProfile;
+  rows: VehicleDreReportRow[];
+  startDate: string;
+  endDate: string;
+  competence: string;
+  searchTerm?: string;
+  categoryFilter?: string;
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    rows,
+    startDate,
+    endDate,
+    competence,
+    searchTerm = '',
+    categoryFilter = 'todos',
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const totalRev = rows.reduce((s, r) => s + r.revenue, 0);
+  const totalFuel = rows.reduce((s, r) => s + r.fuelCost, 0);
+  const totalMaint = rows.reduce((s, r) => s + r.maintenanceCost, 0);
+  const totalApportioned = rows.reduce((s, r) => s + r.apportionedExpenses, 0);
+  const totalCosts = rows.reduce((s, r) => s + r.totalCosts, 0);
+  const totalNet = totalRev - totalCosts;
+  const overallMargin = totalRev > 0 ? (totalNet / totalRev) * 100 : 0;
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Busca', value: searchTerm.trim() },
+    { label: 'Categoria', value: categoryFilter },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Receita Gerada (Frota)',
+      value: formatCurrencyBRL(totalRev),
+      sub: `${rows.length} veículo(s) / máquina(s)`,
+      color: '#047857',
+    },
+    {
+      label: 'Combustível + Manutenção',
+      value: formatCurrencyBRL(totalFuel + totalMaint),
+      sub: `Comb: ${formatCurrencyBRL(totalFuel)} • Manut: ${formatCurrencyBRL(totalMaint)}`,
+      color: '#b45309',
+    },
+    {
+      label: 'Rateio Despesas / Pessoal',
+      value: formatCurrencyBRL(totalApportioned),
+      sub: 'Salários, férias, taxas e rateios',
+      color: '#b91c1c',
+    },
+    {
+      label: 'Resultado Líquido Frota',
+      value: formatCurrencyBRL(totalNet),
+      sub: `Margem consolidada: ${overallMargin.toFixed(1)}%`,
+      color: totalNet >= 0 ? '#0369a1' : '#b91c1c',
+    },
+  ]);
+
+  const tableHtml = `
+    <table>
+      <thead>
+        <tr>
+          <th style="width:95px;">Placa / Série</th>
+          <th>Veículo / Máquina</th>
+          <th style="text-align:right;width:105px;">Receita Gerada</th>
+          <th style="text-align:right;width:95px;">Combustível</th>
+          <th style="text-align:right;width:100px;">Manutenção/Peças</th>
+          <th style="text-align:right;width:105px;">Rateio Despesas</th>
+          <th style="text-align:right;width:105px;">Resultado Líquido</th>
+          <th style="text-align:right;width:70px;">Margem</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          rows.length > 0
+            ? rows
+                .map(
+                  (r) => `
+                <tr style="font-size:8.5pt;">
+                  <td style="font-family:monospace;font-weight:800;">${escapeHtml(r.plateOrSerial)}</td>
+                  <td>
+                    <strong>${escapeHtml(r.name)}</strong>
+                    <div style="font-size:7pt;color:#64748b;">${escapeHtml(r.category)}</div>
+                  </td>
+                  <td style="text-align:right;color:#047857;font-weight:700;">${formatCurrencyBRL(r.revenue)}</td>
+                  <td style="text-align:right;color:#b45309;">${formatCurrencyBRL(r.fuelCost)}</td>
+                  <td style="text-align:right;color:#b45309;">${formatCurrencyBRL(r.maintenanceCost)}</td>
+                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(r.apportionedExpenses)}</td>
+                  <td style="text-align:right;font-weight:900;color:${r.netResult >= 0 ? '#0369a1' : '#b91c1c'};">${formatCurrencyBRL(r.netResult)}</td>
+                  <td style="text-align:right;font-weight:800;color:${r.marginPct >= 0 ? '#047857' : '#b91c1c'};">${r.marginPct.toFixed(1)}%</td>
+                </tr>
+              `
+                )
+                .join('')
+            : `<tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Nenhum veículo ou máquina encontrado para apuração.</td></tr>`
+        }
+      </tbody>
+      ${
+        rows.length > 0
+          ? `
+        <tfoot>
+          <tr style="background:#f1f5f9;border-top:2px solid #0369a1;font-weight:900;">
+            <td colspan="2" style="text-align:right;text-transform:uppercase;">Totais Consolidados (${rows.length} equipamentos):</td>
+            <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalRev)}</td>
+            <td style="text-align:right;color:#b45309;">${formatCurrencyBRL(totalFuel)}</td>
+            <td style="text-align:right;color:#b45309;">${formatCurrencyBRL(totalMaint)}</td>
+            <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalApportioned)}</td>
+            <td style="text-align:right;color:${totalNet >= 0 ? '#0369a1' : '#b91c1c'};">${formatCurrencyBRL(totalNet)}</td>
+            <td style="text-align:right;color:${overallMargin >= 0 ? '#047857' : '#b91c1c'};">${overallMargin.toFixed(1)}%</td>
+          </tr>
+        </tfoot>
+      `
+          : ''
+      }
+    </table>
+  `;
+
+  return {
+    title: 'DRE Comparativo por Veículo / Máquina',
+    subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
+    documentType: 'DRE POR VEÍCULO / MÁQUINA',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `🚜 *DRE COMPARATIVO POR VEÍCULO / MÁQUINA*\n` +
+      `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)}\n\n` +
+      `🟢 *Receita Gerada:* ${formatCurrencyBRL(totalRev)}\n` +
+      `💸 *Custos Totais:* ${formatCurrencyBRL(totalCosts)}\n` +
+      `💰 *Resultado Líquido:* ${formatCurrencyBRL(totalNet)} (${overallMargin.toFixed(1)}%)`,
+    orientation: 'landscape',
+    signatureLabels: STANDARD_REPORT_SIGNATURES,
+  };
+}
+
+/**
+ * 13. POSIÇÃO DE ESTOQUE & PATRIMÔNIO EMBARCADO EM FERRAMENTAS
+ */
+export interface EstoqueReportRow {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  minQuantity: number;
+  unitCost: number;
+  totalValue: number;
+  location: string;
+}
+
+export interface FerramentaCaixaResumoRow {
+  veiculoId: string;
+  veiculoLabel: string;
+  placa: string;
+  responsavel: string;
+  itensQtd: number;
+  pecasTotais: number;
+  valorTotal: number;
+  divergencias: number;
+  ultimaConferencia: string;
+}
+
+export function buildEstoqueFerramentasReport(params: {
+  companyProfile: CompanyProfile;
+  mode: 'estoque' | 'ferramentas';
+  estoqueRows: EstoqueReportRow[];
+  ferramentaRows: FerramentaCaixaResumoRow[];
+  totalEstoqueValor: number;
+  totalFerramentasValor: number;
+  abaixoMinimoCount: number;
+  searchTerm?: string;
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    mode,
+    estoqueRows,
+    ferramentaRows,
+    totalEstoqueValor,
+    totalFerramentasValor,
+    abaixoMinimoCount,
+    searchTerm = '',
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Visão', value: mode === 'estoque' ? 'Posição de Estoque Geral' : 'Patrimônio de Ferramentas Embarcadas' },
+    { label: 'Busca', value: searchTerm.trim() },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Valor Imobilizado em Estoque',
+      value: formatCurrencyBRL(totalEstoqueValor),
+      sub: `${estoqueRows.length} item(ns) filtrado(s)`,
+      color: '#047857',
+    },
+    {
+      label: 'Patrimônio Caixas Ferramentas',
+      value: formatCurrencyBRL(totalFerramentasValor),
+      sub: `${ferramentaRows.length} veículo(s) equipado(s)`,
+      color: '#0369a1',
+    },
+    {
+      label: 'Patrimônio Total Almoxarifado',
+      value: formatCurrencyBRL(totalEstoqueValor + totalFerramentasValor),
+      sub: 'Estoque Geral + Ferramentas',
+      color: '#0f766e',
+    },
+    {
+      label: 'Itens Abaixo do Mínimo',
+      value: `${abaixoMinimoCount} alerta(s)`,
+      sub: 'Necessidade de reposição',
+      color: abaixoMinimoCount > 0 ? '#b91c1c' : '#047857',
+    },
+  ]);
+
+  const tableHtml =
+    mode === 'estoque'
+      ? `
+      <table>
+        <thead>
+          <tr>
+            <th style="width:75px;">Código</th>
+            <th>Produto / Material</th>
+            <th style="width:110px;">Categoria</th>
+            <th style="text-align:right;width:80px;">Saldo</th>
+            <th style="text-align:right;width:70px;">Mínimo</th>
+            <th style="text-align:right;width:95px;">Custo Unit.</th>
+            <th style="text-align:right;width:110px;">Total Imob. (R$)</th>
+            <th style="width:110px;">Localização</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            estoqueRows.length > 0
+              ? estoqueRows
+                  .map(
+                    (r) => `
+                  <tr style="font-size:8.5pt;">
+                    <td style="font-family:monospace;">${escapeHtml(r.code || '-')}</td>
+                    <td style="font-weight:700;">${escapeHtml(r.name)}</td>
+                    <td>${escapeHtml(r.category)}</td>
+                    <td style="text-align:right;font-weight:800;color:${r.quantity <= r.minQuantity ? '#b91c1c' : '#0f172a'};">${r.quantity.toLocaleString('pt-BR')} ${escapeHtml(r.unit)}</td>
+                    <td style="text-align:right;">${r.minQuantity.toLocaleString('pt-BR')}</td>
+                    <td style="text-align:right;">${formatCurrencyBRL(r.unitCost)}</td>
+                    <td style="text-align:right;font-weight:800;color:#047857;">${formatCurrencyBRL(r.totalValue)}</td>
+                    <td>${escapeHtml(r.location || '-')}</td>
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Nenhum item de estoque localizado.</td></tr>`
+          }
+        </tbody>
+        ${
+          estoqueRows.length > 0
+            ? `
+          <tfoot>
+            <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
+              <td colspan="6" style="text-align:right;text-transform:uppercase;">Total Valorizado (${estoqueRows.length} itens):</td>
+              <td style="text-align:right;color:#047857;">${formatCurrencyBRL(estoqueRows.reduce((s, r) => s + r.totalValue, 0))}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        `
+            : ''
+        }
+      </table>
+    `
+      : `
+      <table>
+        <thead>
+          <tr>
+            <th style="width:95px;">Placa / Prefixo</th>
+            <th>Veículo / Máquina</th>
+            <th>Responsável</th>
+            <th style="text-align:center;width:80px;">Itens</th>
+            <th style="text-align:center;width:85px;">Peças Totais</th>
+            <th style="text-align:center;width:90px;">Divergências</th>
+            <th style="width:95px;">Últ. Conferência</th>
+            <th style="text-align:right;width:115px;">Patrimônio (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            ferramentaRows.length > 0
+              ? ferramentaRows
+                  .map(
+                    (r) => `
+                  <tr style="font-size:8.5pt;">
+                    <td style="font-family:monospace;font-weight:800;">${escapeHtml(r.placa || '-')}</td>
+                    <td style="font-weight:700;">${escapeHtml(r.veiculoLabel)}</td>
+                    <td>${escapeHtml(r.responsavel || '-')}</td>
+                    <td style="text-align:center;font-weight:700;">${r.itensQtd}</td>
+                    <td style="text-align:center;">${r.pecasTotais}</td>
+                    <td style="text-align:center;font-weight:800;color:${r.divergencias > 0 ? '#b91c1c' : '#047857'};">${r.divergencias}</td>
+                    <td>${r.ultimaConferencia ? formatDateBR(r.ultimaConferencia) : 'Não conf.'}</td>
+                    <td style="text-align:right;font-weight:900;color:#0369a1;">${formatCurrencyBRL(r.valorTotal)}</td>
+                  </tr>
+                `
+                  )
+                  .join('')
+              : `<tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Nenhuma caixa de ferramentas embarcada encontrada.</td></tr>`
+          }
+        </tbody>
+        ${
+          ferramentaRows.length > 0
+            ? `
+          <tfoot>
+            <tr style="background:#f1f5f9;border-top:2px solid #0369a1;font-weight:900;">
+              <td colspan="7" style="text-align:right;text-transform:uppercase;">Patrimônio Embarcado Total (${ferramentaRows.length} veículos):</td>
+              <td style="text-align:right;color:#0369a1;">${formatCurrencyBRL(ferramentaRows.reduce((s, r) => s + r.valorTotal, 0))}</td>
+            </tr>
+          </tfoot>
+        `
+            : ''
+        }
+      </table>
+    `;
+
+  return {
+    title:
+      mode === 'estoque'
+        ? 'Posição Consolidada de Estoque & Custos'
+        : 'Patrimônio Embarcado — Caixas de Ferramentas da Frota',
+    subtitle: `Almoxarifado & Frota • ${formatDateBR(new Date().toISOString().split('T')[0])}`,
+    documentType: 'ESTOQUE & FERRAMENTAS',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `📦 *POSIÇÃO DE ESTOQUE & FERRAMENTAS*\n` +
+      `💰 *Estoque Geral:* ${formatCurrencyBRL(totalEstoqueValor)}\n` +
+      `🧰 *Caixas Embarcadas:* ${formatCurrencyBRL(totalFerramentasValor)}\n` +
+      `⚠️ *Itens Abaixo do Mínimo:* ${abaixoMinimoCount}`,
+    orientation: 'landscape',
+    signatureLabels: ['Almoxarife / Suprimentos', 'Diretoria / Controladoria'],
+  };
+}
+
+/**
+ * 14. RESUMO DE FOLHA, VALES & VENCIMENTOS RH
+ */
+export interface RhFolhaReportRow {
+  employeeId: string;
+  employeeName: string;
+  role: string;
+  status: string;
+  baseSalary: number;
+  overtimeAndBonus: number;
+  commissions: number;
+  advancesDiscount: number;
+  otherDiscounts: number;
+  netSalary: number;
+  cnhExpiration?: string;
+  cnhDaysLeft?: number | null;
+  vacationDueStatus: string;
+}
+
+export function buildRhFolhaReport(params: {
+  companyProfile: CompanyProfile;
+  rows: RhFolhaReportRow[];
+  competence: string;
+  statusFilter?: string;
+  searchTerm?: string;
+}): ReportPrintConfig {
+  const {
+    companyProfile,
+    rows,
+    competence,
+    statusFilter = 'todos',
+    searchTerm = '',
+  } = params;
+  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+
+  const totalBase = rows.reduce((s, r) => s + r.baseSalary, 0);
+  const totalVar = rows.reduce((s, r) => s + r.overtimeAndBonus + r.commissions, 0);
+  const totalVales = rows.reduce((s, r) => s + r.advancesDiscount, 0);
+  const totalNet = rows.reduce((s, r) => s + r.netSalary, 0);
+  const cnhAlerts = rows.filter((r) => typeof r.cnhDaysLeft === 'number' && r.cnhDaysLeft <= 30).length;
+
+  const filtersHtml = buildFilterChipsHtml([
+    { label: 'Competência', value: competence },
+    { label: 'Status', value: statusFilter },
+    { label: 'Busca', value: searchTerm.trim() },
+  ]);
+
+  const kpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Salários Base (Equipe)',
+      value: formatCurrencyBRL(totalBase),
+      sub: `${rows.length} colaborador(es) listado(s)`,
+      color: '#1e293b',
+    },
+    {
+      label: 'Horas Extras & Comissões',
+      value: formatCurrencyBRL(totalVar),
+      sub: 'Variáveis apuradas na competência',
+      color: '#0369a1',
+    },
+    {
+      label: 'Vales & Adiantamentos',
+      value: formatCurrencyBRL(totalVales),
+      sub: 'Descontos e consumos particulares',
+      color: '#b45309',
+    },
+    {
+      label: 'Total Líquido Folha / RH',
+      value: formatCurrencyBRL(totalNet),
+      sub: `${cnhAlerts} alerta(s) CNH <= 30d`,
+      color: '#047857',
+    },
+  ]);
+
+  const tableHtml = `
+    <table>
+      <thead>
+        <tr>
+          <th>Colaborador</th>
+          <th>Cargo / Função</th>
+          <th style="text-align:right;width:90px;">Salário Base</th>
+          <th style="text-align:right;width:90px;">H.E. / Bônus</th>
+          <th style="text-align:right;width:90px;">Comissões</th>
+          <th style="text-align:right;width:90px;">Vales / Desc.</th>
+          <th style="text-align:right;width:95px;">Líquido (R$)</th>
+          <th style="text-align:center;width:85px;">Venc. CNH</th>
+          <th style="width:110px;">Situação Férias</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          rows.length > 0
+            ? rows
+                .map(
+                  (r) => `
+                <tr style="font-size:8pt;">
+                  <td style="font-weight:700;">${escapeHtml(r.employeeName)}</td>
+                  <td>${escapeHtml(r.role)}</td>
+                  <td style="text-align:right;">${formatCurrencyBRL(r.baseSalary)}</td>
+                  <td style="text-align:right;color:#0369a1;">${formatCurrencyBRL(r.overtimeAndBonus)}</td>
+                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(r.commissions)}</td>
+                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(r.advancesDiscount + r.otherDiscounts)}</td>
+                  <td style="text-align:right;font-weight:900;color:#0f172a;">${formatCurrencyBRL(r.netSalary)}</td>
+                  <td style="text-align:center;font-weight:700;color:${
+                    typeof r.cnhDaysLeft === 'number' && r.cnhDaysLeft <= 30 ? '#b91c1c' : '#334155'
+                  };">${r.cnhExpiration ? formatDateBR(r.cnhExpiration) : '--'}</td>
+                  <td>${escapeHtml(r.vacationDueStatus)}</td>
+                </tr>
+              `
+                )
+                .join('')
+            : `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">Nenhum colaborador ou folha localizada na competência.</td></tr>`
+        }
+      </tbody>
+      ${
+        rows.length > 0
+          ? `
+        <tfoot>
+          <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
+            <td colspan="2" style="text-align:right;text-transform:uppercase;">Totais (${rows.length} colaboradores):</td>
+            <td style="text-align:right;">${formatCurrencyBRL(totalBase)}</td>
+            <td style="text-align:right;color:#0369a1;">${formatCurrencyBRL(rows.reduce((s, r) => s + r.overtimeAndBonus, 0))}</td>
+            <td style="text-align:right;color:#047857;">${formatCurrencyBRL(rows.reduce((s, r) => s + r.commissions, 0))}</td>
+            <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(rows.reduce((s, r) => s + r.advancesDiscount + r.otherDiscounts, 0))}</td>
+            <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalNet)}</td>
+            <td colspan="2" style="text-align:center;">${cnhAlerts} CNH em atenção</td>
+          </tr>
+        </tfoot>
+      `
+          : ''
+      }
+    </table>
+  `;
+
+  return {
+    title: `Resumo Consolidado de Folha, Vales & Vencimentos RH`,
+    subtitle: `Competência ${competence} • ${rows.length} colaborador(es)`,
+    documentType: 'RELATÓRIO GERENCIAL RH',
+    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    whatsappText:
+      `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
+      `👥 *RESUMO RH (COMP. ${competence})*\n` +
+      `💵 *Salários Base:* ${formatCurrencyBRL(totalBase)}\n` +
+      `📈 *H.E. + Comissões:* ${formatCurrencyBRL(totalVar)}\n` +
+      `🧾 *Vales / Adiantamentos:* ${formatCurrencyBRL(totalVales)}\n` +
+      `💰 *Líquido Folha:* ${formatCurrencyBRL(totalNet)}`,
+    orientation: 'landscape',
+    signatureLabels: ['Recursos Humanos / DP', 'Diretoria Financeira'],
+  };
+}
+
 
