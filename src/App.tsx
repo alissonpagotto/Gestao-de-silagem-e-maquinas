@@ -1977,8 +1977,13 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Sync to localStorage
-  useEffect(() => { saveStoredExpenses(expenses); }, [expenses]);
+  // Sync to localStorage (nunca sobrescreve dados reais gravados antes da carga inicial concluir)
+  useEffect(() => {
+    if (!isInitialLoadDone.current && expenses.length === 0 && getStoredExpenses().length > 0) {
+      return;
+    }
+    saveStoredExpenses(expenses);
+  }, [expenses]);
   useEffect(() => { saveStoredCategories(categories); }, [categories]);
   useEffect(() => { saveStoredCostCenters(costCenters); }, [costCenters]);
   useEffect(() => { saveStoredClients(clients); }, [clients]);
@@ -2411,7 +2416,7 @@ export default function App() {
         const payrollIds = new Set(items.map((n: any) => n.payrollId || '').filter(Boolean));
         const notaIds = new Set(
           items
-            .map((n: any) => n.notaId || n.documento_entrada_id || '')
+            .flatMap((n: any) => [n.notaId, n.documento_entrada_id, n.nota_fiscal_id])
             .filter(Boolean)
         );
         const baseKeys = new Set(
@@ -2437,6 +2442,7 @@ export default function App() {
           if (notaIds.size > 0) {
             if (e.notaId && notaIds.has(e.notaId)) return false;
             if (e.documento_entrada_id && notaIds.has(e.documento_entrada_id)) return false;
+            if (e.nota_fiscal_id && notaIds.has(e.nota_fiscal_id)) return false;
             if (eid) {
               for (const nId of notaIds) {
                 if (eid.includes(String(nId))) return false;
@@ -4405,23 +4411,34 @@ export default function App() {
                     const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
                     const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
                     const resolvedDueDate = newExp.dueDate || newExp.data_vencimento || new Date().toISOString().split('T')[0];
+                    const resolvedIssueDate = newExp.date || newExp.issueDate || resolvedDueDate;
                     const resolvedAmount = Number(newExp.amount ?? newExp.valor_parcela ?? 0);
                     return {
                       ...newExp,
                       id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
+                      notaId: newExp.notaId || newExp.documento_entrada_id || newExp.nota_fiscal_id,
+                      documento_entrada_id: newExp.documento_entrada_id || newExp.notaId || newExp.nota_fiscal_id,
+                      nota_fiscal_id: newExp.nota_fiscal_id || newExp.notaId || newExp.documento_entrada_id,
+                      numero_parcela: newExp.numero_parcela || '01/01',
                       description: newExp.description || 'Despesa Importada via NF-e',
                       amount: resolvedAmount,
                       valor_parcela: resolvedAmount,
                       categoryId: newExp.categoryId || 'cat_combustivel',
                       categoryName: newExp.categoryName || cat?.name || 'Combustível & Arla (Diesel)',
                       categoryColor: newExp.categoryColor || cat?.color || '#d97706',
+                      date: resolvedIssueDate,
+                      issueDate: newExp.issueDate || resolvedIssueDate,
+                      entryDate: newExp.entryDate || resolvedIssueDate,
                       dueDate: resolvedDueDate,
                       data_vencimento: resolvedDueDate,
                       paymentDate: newExp.paymentDate,
                       status: newExp.status || 'pendente',
                       paymentMethod: newExp.paymentMethod || 'boleto',
+                      forma_pagamento: newExp.forma_pagamento || newExp.paymentMethod || 'Boleto',
                       supplier: newExp.supplier || newExp.fornecedor || 'Fornecedor N/I',
+                      fornecedor: newExp.fornecedor || newExp.supplier || 'Fornecedor N/I',
                       invoiceNumber: newExp.invoiceNumber || 'NF-e',
+                      accessKey: newExp.accessKey,
                       costCenterId: newExp.costCenterId || cc?.id,
                       costCenterName: newExp.costCenterName || cc?.name,
                       notes: newExp.notes,
@@ -4429,7 +4446,7 @@ export default function App() {
                       createdAt: newExp.createdAt || new Date().toISOString(),
                     };
                   });
-                  handleSaveExpense(createdList.length === 1 ? createdList[0] : createdList);
+                  handleSaveExpense(createdList);
                 }}
               />
             </div>

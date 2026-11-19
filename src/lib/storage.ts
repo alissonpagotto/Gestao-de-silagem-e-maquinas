@@ -522,7 +522,11 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     const json = JSON.stringify(cleaned);
     const hasPrimaryKeys =
       localStorage.getItem('agrocontrol_expenses') === json &&
-      localStorage.getItem('agrocontrol_despesas') === json;
+      localStorage.getItem('agrocontrol_despesas') === json &&
+      localStorage.getItem('agrocontrol_contas_a_pagar') === json &&
+      localStorage.getItem('agrocontrol_financeiro') === json &&
+      localStorage.getItem('colaca_silagem_despesas') === json &&
+      localStorage.getItem(STORAGE_KEYS.EXPENSES) === json;
     if (json === lastSavedExpensesJson && hasPrimaryKeys) return;
     lastSavedExpensesJson = json;
     safeLocalStorageSetItem('agrocontrol_expenses', json);
@@ -5398,9 +5402,12 @@ export const saveCompanyDespesas = (despesas: Expense[], companyId?: string): vo
   saveCompanyData('despesas', despesas, companyId);
   try {
     const json = JSON.stringify(despesas);
-    localStorage.setItem('agrocontrol_expenses', json);
-    localStorage.setItem('agrocontrol_despesas', json);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
+    safeLocalStorageSetItem('agrocontrol_expenses', json);
+    safeLocalStorageSetItem('agrocontrol_despesas', json);
+    safeLocalStorageSetItem('agrocontrol_contas_a_pagar', json);
+    safeLocalStorageSetItem('agrocontrol_financeiro', json);
+    safeLocalStorageSetItem('colaca_silagem_despesas', json);
+    safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, json);
   } catch {}
 };
 export const getCompanyDespesas = (companyId?: string): Expense[] => getCompanyData<Expense>('despesas', getStoredExpenses, companyId);

@@ -82,6 +82,7 @@ import {
   saveStoredInventory, 
   saveStoredExpenses, 
   getStoredExpenses,
+  saveCompanyDespesas,
   getStoredSuppliers,
   saveStoredSuppliers,
   getStoredCostCenters,
@@ -233,6 +234,11 @@ import {
   normalizeStockServiceName,
   DEFAULT_STOCK_SERVICES
 } from './TireReformOrderView';
+import {
+  normalizeFiscalInvoiceDigits,
+  normalizeSupplierToken,
+  reconcileMissingFiscalPayables,
+} from '../../lib/fiscalPayableSync';
 import { DevolucaoNotasView, getUnifiedFiscalDevolucaoCounts } from './DevolucaoNotasView';
 import { MdfeRecord, getStoredMdfe, saveStoredMdfe } from './MdfeView';
 import { ManifestacaoDestinatarioView, getStoredManifestacoes } from './ManifestacaoDestinatarioView';
@@ -595,7 +601,11 @@ function buildNfeDataFromExpense(
       recipientCnpj: companyProfile?.cnpjCpf || '',
       totalAmount,
       productsAmount: totalAmount,
-      issueDate,
+      issueDate: (exp as any).issueDate || issueDate,
+      dueDate: exp.dueDate,
+      paymentMethod: exp.paymentMethod,
+      costCenterId: exp.costCenterId,
+      costCenterName: exp.costCenterName,
       itemsSummary: `${exp.nfeItems.length} produto(s) registrado(s) na nota`,
       suggestedCategory,
       operationNature: exp.operationNature || undefined,
@@ -623,7 +633,11 @@ function buildNfeDataFromExpense(
           recipientCnpj: companyProfile?.cnpjCpf || '',
           totalAmount,
           productsAmount: totalAmount,
-          issueDate,
+          issueDate: (exp as any).issueDate || issueDate,
+          dueDate: exp.dueDate,
+          paymentMethod: exp.paymentMethod,
+          costCenterId: exp.costCenterId,
+          costCenterName: exp.costCenterName,
           itemsSummary: `${parsedItems.length} produto(s) registrado(s) na nota`,
           suggestedCategory,
           operationNature: exp.operationNature || undefined,
@@ -646,7 +660,13 @@ function buildNfeDataFromExpense(
                           (foundKey && map[foundKey]);
   if (cachedCandidate && isValidItemsList(cachedCandidate.items, supplier)) {
     exp.nfeItems = cachedCandidate.items;
-    return cachedCandidate;
+    return {
+      ...cachedCandidate,
+      dueDate: cachedCandidate.dueDate || exp.dueDate,
+      paymentMethod: cachedCandidate.paymentMethod || exp.paymentMethod,
+      costCenterId: exp.costCenterId || cachedCandidate.costCenterId,
+      costCenterName: exp.costCenterName || cachedCandidate.costCenterName,
+    };
   }
 
   let items: ParsedNfeItem[] = [];
@@ -1649,8 +1669,103 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   });
   const [isSyncingDocs, setIsSyncingDocs] = useState(false);
 
+  const expensesRef = useRef(expenses);
+  expensesRef.current = expenses;
+  const notasLancadasRef = useRef(notasLancadas);
+  notasLancadasRef.current = notasLancadas;
+  const documentosEntradaRef = useRef(documentosEntrada);
+  documentosEntradaRef.current = documentosEntrada;
+  const legacyFiscalDocsRef = useRef(legacyFiscalDocs);
+  legacyFiscalDocsRef.current = legacyFiscalDocs;
+  const costCentersRef = useRef(costCenters);
+  costCentersRef.current = costCenters;
+  const hasAutoReconciledOnMountRef = useRef(false);
+
+  // Reconciliação de Títulos Financeiros Faltantes (FISCAL & NOTAS -> Contas a Pagar)
+  const runFiscalPayablesReconciliation = useCallback(
+    (opts?: { showMessage?: boolean; isAutoOnMount?: boolean; docsOverride?: DocumentoEntradaRecord[] }) => {
+      try {
+        const storedFiscal = getStoredFiscalRecords();
+        const currentNotas = notasLancadasRef.current || [];
+        const fiscalMap = new Map<string, Expense>();
+        [...storedFiscal, ...currentNotas].forEach((f) => {
+          if (f && f.id) fiscalMap.set(f.id, f);
+        });
+
+        const docsEntradaList =
+          opts?.docsOverride && Array.isArray(opts.docsOverride)
+            ? opts.docsOverride
+            : documentosEntradaRef.current && documentosEntradaRef.current.length > 0
+              ? documentosEntradaRef.current
+              : getStoredDocumentosEntrada();
+
+        const legacyList =
+          legacyFiscalDocsRef.current && legacyFiscalDocsRef.current.length > 0
+            ? legacyFiscalDocsRef.current
+            : readLegacyFiscalDocsFromStorage();
+
+        const availableCC =
+          costCentersRef.current && costCentersRef.current.length > 0
+            ? costCentersRef.current
+            : getStoredCostCenters();
+
+        const result = reconcileMissingFiscalPayables({
+          currentExpenses: expensesRef.current,
+          documentosEntrada: docsEntradaList,
+          fiscalRecords: Array.from(fiscalMap.values()),
+          legacyFiscalDocs: legacyList,
+          cachedNfeMap: getCachedNfeMap(),
+          costCenters: availableCC,
+          deletedNfeKeys: getDeletedNfeKeys(),
+          deletedDocIds: getDeletedDocumentoEntradaIds(),
+          isBlockedOperationFn: isFinancialBlockedOperation,
+        });
+
+        if (result.createdPayables.length > 0) {
+          onAddExpenseFromNfe(result.createdPayables);
+
+          if (isSupabaseConfigured) {
+            result.createdPayables.forEach((rec) => {
+              const notaRef = (rec as any).nota_fiscal_id || (rec as any).notaId || null;
+              upsertContaAPagar({
+                id: rec.id,
+                nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+                numero_parcela: (rec as any).numero_parcela || '01/01',
+                valor_parcela: Number(rec.amount) || 0,
+                data_vencimento: rec.dueDate || (rec as any).data_vencimento,
+                forma_pagamento: (rec as any).forma_pagamento || rec.paymentMethod || 'boleto',
+                centro_custo: rec.costCenterName || rec.categoryName || 'Geral',
+                categoria: rec.categoryName || 'Geral',
+                tipo_despesa: rec.categoryName || 'Geral',
+                status_pago: rec.status === 'pago',
+              }).catch((err) => console.warn('Notice reconcile upsertContaAPagar:', err));
+            });
+          }
+
+          if (opts?.showMessage) {
+            setSuccessMessage(
+              `Título financeiro sincronizado em Contas a Pagar! ${result.createdPayables.length} lançamento(s) recuperado(s) automaticamente.`
+            );
+            setTimeout(() => setSuccessMessage(''), 5500);
+          }
+        } else if (opts?.showMessage && !opts?.isAutoOnMount) {
+          setSuccessMessage(
+            'Sincronização concluída! Todas as notas fiscais já estão vinculadas em Contas a Pagar.'
+          );
+          setTimeout(() => setSuccessMessage(''), 4000);
+        }
+
+        return result;
+      } catch (err) {
+        console.warn('Erro ao reconciliar títulos fiscais com Contas a Pagar:', err);
+        return { createdPayables: [], nextExpenses: expensesRef.current, reconciledDocIds: [] };
+      }
+    },
+    [onAddExpenseFromNfe, readLegacyFiscalDocsFromStorage]
+  );
+
   // Carrega e sincroniza entradas manuais do Supabase em tempo real com garantia multi-abas
-  const reloadDocumentosEntrada = useCallback(async (showIndicator = false) => {
+  const reloadDocumentosEntrada = useCallback(async (showIndicator = false): Promise<DocumentoEntradaRecord[] | null> => {
     if (showIndicator) setIsSyncingDocs(true);
     try {
       const activeCompanyId = companyProfile?.companyId || companyProfile?.id || getActiveCompanyId(companyProfile);
@@ -1658,9 +1773,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (data && Array.isArray(data)) {
         const valid = data.filter(d => !isCorruptedOrGhostDocumento(d));
         setDocumentosEntrada(valid);
+        return valid;
       }
+      return null;
     } catch (err) {
       console.warn('Erro ao sincronizar documentos de entrada:', err);
+      return null;
     } finally {
       if (showIndicator) {
         setTimeout(() => setIsSyncingDocs(false), 400);
@@ -1668,8 +1786,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   }, [companyProfile?.id, companyProfile?.companyId]);
 
-  const handleManualSync = () => {
-    reloadDocumentosEntrada(true);
+  const handleManualSync = async () => {
+    setIsSyncingDocs(true);
+    try {
+      const refreshedDocs = await reloadDocumentosEntrada(false);
+      const refreshedLegacy = readLegacyFiscalDocsFromStorage();
+      setLegacyFiscalDocs(refreshedLegacy);
+      legacyFiscalDocsRef.current = refreshedLegacy;
+      const baseExp = expensesRef.current && expensesRef.current.length > 0 ? expensesRef.current : getStoredExpenses();
+      const rebuilt = buildUnifiedFiscalRecords(baseExp);
+      setNotasLancadas(rebuilt);
+      notasLancadasRef.current = rebuilt;
+      runFiscalPayablesReconciliation({
+        showMessage: true,
+        isAutoOnMount: false,
+        docsOverride: refreshedDocs || getStoredDocumentosEntrada(),
+      });
+    } finally {
+      setTimeout(() => setIsSyncingDocs(false), 350);
+    }
   };
 
   const nfeDebounceTimerRef = useRef<any>(null);
@@ -1685,7 +1820,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     let isMounted = true;
     // Purga imediata de registros fantasmas antes de qualquer render
     purgeGhostDocumentosEntrada();
-    reloadDocumentosEntrada(false);
+
+    // Executa reconciliação imediata com os dados locais e novamente após fetch inicial da nuvem
+    if (!hasAutoReconciledOnMountRef.current) {
+      hasAutoReconciledOnMountRef.current = true;
+      runFiscalPayablesReconciliation({
+        showMessage: true,
+        isAutoOnMount: true,
+      });
+    }
+
+    void reloadDocumentosEntrada(false).then((refreshedDocs) => {
+      if (!isMounted) return;
+      runFiscalPayablesReconciliation({
+        showMessage: true,
+        isAutoOnMount: true,
+        docsOverride: refreshedDocs || undefined,
+      });
+    });
 
     // 1. Canal Supabase Realtime dedicado com tópico estável e fechamento obrigatório
     let channel: any = null;
@@ -4689,8 +4841,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setIsLoadingDocItems(true);
     try {
       const items = await fetchDocumentosEntradaItens(doc.id);
+      const fallbackItems =
+        items && items.length > 0
+          ? items
+          : Array.isArray(doc.itens) && doc.itens.length > 0
+            ? doc.itens
+            : getStoredDocumentosEntradaItens().filter(i => i.documento_entrada_id === doc.id);
       const seen = new Set<string>();
-      const unique = (items || []).filter(i => {
+      const unique = (fallbackItems || []).filter(i => {
         if (!i.id) return true;
         if (seen.has(i.id)) return false;
         seen.add(i.id);
@@ -4699,7 +4857,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setManualDocItems(unique);
     } catch (err) {
       console.warn('Erro ao carregar itens da entrada para edição:', err);
-      setManualDocItems([]);
+      const localFallback =
+        Array.isArray(doc.itens) && doc.itens.length > 0
+          ? doc.itens
+          : getStoredDocumentosEntradaItens().filter(i => i.documento_entrada_id === doc.id);
+      setManualDocItems(localFallback);
     } finally {
       setIsLoadingDocItems(false);
     }
@@ -5789,7 +5951,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const instId = totalParcs === 1 ? `pagar_${activeDocId}` : `pagar_${activeDocId}_parc_${idx + 1}`;
         const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
         const plateTag = linkedVehicle?.licensePlateOrSerial ? ` [${linkedVehicle.licensePlateOrSerial}]` : '';
-        const docDescricao = `ENTRADA MANUAL REF. ${manualDocumentType}${suffix} - ${trimmedSupplier}${plateTag}`.toUpperCase();
+        const docDescricao = `ENTRADA REF. ${docNumero || manualDocumentType}${suffix} - ${trimmedSupplier}${plateTag}`.toUpperCase();
         const dueResolved = inst.dueDate || firstDueDate;
 
         return {
@@ -5797,6 +5959,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           companyId: getActiveCompanyId() || 'default',
           notaId: activeDocId,
           documento_entrada_id: activeDocId,
+          nota_fiscal_id: activeDocId,
           description: docDescricao,
           amount: Number(inst.amount) || 0,
           valor_parcela: Number(inst.amount) || 0,
@@ -5813,6 +5976,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           vehicleId: linkedVehicle?.id || undefined,
           vehiclePlate: linkedVehicle?.licensePlateOrSerial || undefined,
           date: manualDate,
+          issueDate: manualDate,
           dueDate: dueResolved,
           data_vencimento: dueResolved,
           status: 'pendente' as const,
@@ -5821,7 +5985,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           forma_pagamento: inst.paymentMethodLabel || manualPaymentCondition || 'Boleto',
           supplier: trimmedSupplier.toUpperCase(),
           fornecedor: trimmedSupplier.toUpperCase(),
-          invoiceNumber: `${manualDocumentType.toUpperCase()}${suffix}`,
+          invoiceNumber: `${docNumero}${suffix}`,
+          accessKey: currentManualDoc?.chave_acesso || undefined,
           notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}`.toUpperCase() : docDescricao,
           receiptUrl: inst.documentFileUrl,
           receiptName: inst.documentFileName,
@@ -5840,12 +6005,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         }
       } catch (_) {}
 
-      const financeiroLimpo = financeiroAtual.filter((f: any) => 
-        f.notaId !== activeDocId && 
-        f.documento_entrada_id !== activeDocId &&
-        f.nfeId !== activeDocId &&
-        !(typeof f.id === 'string' && f.id.includes(activeDocId))
-      );
+      const docDigits = normalizeFiscalInvoiceDigits(docNumero);
+      const docSupplierTok = normalizeSupplierToken(trimmedSupplier);
+      const financeiroLimpo = financeiroAtual.filter((f: any) => {
+        if (
+          f.notaId === activeDocId ||
+          f.documento_entrada_id === activeDocId ||
+          f.nota_fiscal_id === activeDocId ||
+          f.nfeId === activeDocId ||
+          (typeof f.id === 'string' && f.id.includes(activeDocId))
+        ) {
+          return false;
+        }
+        if (docDigits && docDigits.length >= 3) {
+          const fDigits = normalizeFiscalInvoiceDigits(f.invoiceNumber);
+          const fSupTok = normalizeSupplierToken(f.supplier || f.fornecedor);
+          if (fDigits === docDigits && (!docSupplierTok || !fSupTok || fSupTok === docSupplierTok)) {
+            return false;
+          }
+        }
+        return true;
+      });
 
       // Agora insere os novos registros únicos sem risco de duplicar
       const financeiroAtualizado = [...novosLancamentosFinanceiros, ...financeiroLimpo];
@@ -5853,12 +6033,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // Sincroniza também no armazenamento de despesas principal do sistema
       const storedExpenses = getStoredExpenses();
-      const storedExpensesLimpo = storedExpenses.filter(e => 
-        (e as any).notaId !== activeDocId &&
-        (e as any).documento_entrada_id !== activeDocId &&
-        !(typeof e.id === 'string' && e.id.includes(activeDocId))
-      );
-      saveStoredExpenses([...novosLancamentosFinanceiros, ...storedExpensesLimpo]);
+      const storedExpensesLimpo = storedExpenses.filter((e: any) => {
+        if (
+          e.notaId === activeDocId ||
+          e.documento_entrada_id === activeDocId ||
+          e.nota_fiscal_id === activeDocId ||
+          (typeof e.id === 'string' && e.id.includes(activeDocId))
+        ) {
+          return false;
+        }
+        if (docDigits && docDigits.length >= 3) {
+          const eDigits = normalizeFiscalInvoiceDigits(e.invoiceNumber);
+          const eSupTok = normalizeSupplierToken(e.supplier || e.fornecedor);
+          if (eDigits === docDigits && (!docSupplierTok || !eSupTok || eSupTok === docSupplierTok)) {
+            return false;
+          }
+        }
+        return true;
+      });
+      const nextManualStoredExpenses = [...novosLancamentosFinanceiros, ...storedExpensesLimpo];
+      saveStoredExpenses(nextManualStoredExpenses);
+      saveCompanyDespesas(nextManualStoredExpenses, getActiveCompanyId(companyProfile));
 
       // Atualiza custo acumulado do veículo/máquina no DRE da Frota (quando vinculado)
       if (linkedVehicle && finalAmount > 0) {
@@ -5968,7 +6163,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
 
       setSuccessMessage(
-        `Entrada manual concluída com sucesso! ${totalParcs} parcela(s) lançada(s) no Contas a Pagar (${formatCurrencyBRL(finalAmount)}).`
+        `Título financeiro sincronizado em Contas a Pagar! Documento ${docNumero} salvo com ${totalParcs} parcela(s) (${formatCurrencyBRL(finalAmount)}).`
       );
       setTimeout(() => setSuccessMessage(''), 5000);
 
@@ -9327,12 +9522,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Bloqueio de Nota Duplicada (ignora a própria nota e suas parcelas em modo de edição)
     const cleanCurrentNum = String((parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
+    const currentDigits = normalizeFiscalInvoiceDigits(parsedData.invoiceNumber);
+    const editBaseId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : '';
+    const editRoot = editBaseId.replace(/^(nfe_fisc_|exp_nfe_|exp_sync_|pagar_)/, '');
     const listToCheck = editingExpenseId 
-      ? expenses.filter(e => {
-          if (e.id === editingExpenseId) return false;
-          if (editingExpenseId && e.id.startsWith(editingExpenseId)) return false;
+      ? expenses.filter((e: any) => {
+          if (e.id === editingExpenseId || (editBaseId && String(e.id || '').startsWith(editBaseId))) return false;
+          if (e.notaId === editingExpenseId || e.documento_entrada_id === editingExpenseId || e.nota_fiscal_id === editingExpenseId) return false;
+          if (editRoot && editRoot.length >= 3 && String(e.id || '').includes(editRoot)) return false;
           const eCleanNum = String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
           if (cleanCurrentNum && eCleanNum && eCleanNum === cleanCurrentNum) return false;
+          const eDigits = normalizeFiscalInvoiceDigits(e.invoiceNumber);
+          if (currentDigits && currentDigits.length >= 3 && eDigits === currentDigits) return false;
           return true;
         }) 
       : expenses;
@@ -9767,8 +9968,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return;
     }
 
-    // BLOQUEIO OBRIGATÓRIO DE CENTRO DE CUSTO PARA OPERAÇÕES FINANCEIRAS ATIVAS (ex: Retorno de Conserto, Compra de Mercadoria, etc.)
-    if (!selectedCostCenterId) {
+    // BLOQUEIO OBRIGATÓRIO DE CENTRO DE CUSTO PARA NOVAS OPERAÇÕES FINANCEIRAS ATIVAS
+    let resolvedCostCenterId = selectedCostCenterId;
+    if (!resolvedCostCenterId && editingExpenseId && localCostCenters.length > 0) {
+      const defaultCC =
+        localCostCenters.find(c => String(c.name || '').toLowerCase() === 'geral') ||
+        localCostCenters[0];
+      if (defaultCC?.id) {
+        resolvedCostCenterId = defaultCC.id;
+        setSelectedCostCenterId(defaultCC.id);
+      }
+    }
+
+    if (!resolvedCostCenterId) {
       setCostCenterError(true);
       setErrorMessage('Bloqueio de Validação: Selecione obrigatoriamente a qual Centro de Custo esta despesa pertence.');
       const selectEl = document.getElementById('select-centro-de-custo-nfe');
@@ -9781,12 +9993,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Bloqueio de Nota Duplicada (ignora a própria nota e suas parcelas em modo de edição)
     const cleanCurrentNum = String((parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
+    const currentDigits = normalizeFiscalInvoiceDigits(parsedData.invoiceNumber);
+    const editBaseId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : '';
+    const editRoot = editBaseId.replace(/^(nfe_fisc_|exp_nfe_|exp_sync_|pagar_)/, '');
     const listToCheck = editingExpenseId 
-      ? expenses.filter(e => {
-          if (e.id === editingExpenseId) return false;
-          if (editingExpenseId && e.id.startsWith(editingExpenseId)) return false;
+      ? expenses.filter((e: any) => {
+          if (e.id === editingExpenseId || (editBaseId && String(e.id || '').startsWith(editBaseId))) return false;
+          if (e.notaId === editingExpenseId || e.documento_entrada_id === editingExpenseId || e.nota_fiscal_id === editingExpenseId) return false;
+          if (editRoot && editRoot.length >= 3 && String(e.id || '').includes(editRoot)) return false;
           const eCleanNum = String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase();
           if (cleanCurrentNum && eCleanNum && eCleanNum === cleanCurrentNum) return false;
+          const eDigits = normalizeFiscalInvoiceDigits(e.invoiceNumber);
+          if (currentDigits && currentDigits.length >= 3 && eDigits === currentDigits) return false;
           return true;
         }) 
       : expenses;
@@ -9953,14 +10171,43 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     });
 
     // AUTOMAÇÃO FINANCEIRA: Gravação Individual das Parcelas no Contas a Pagar
-    const selectedCC = localCostCenters.find(c => c.id === selectedCostCenterId);
+    const selectedCC =
+      localCostCenters.find(c => c.id === selectedCostCenterId) ||
+      localCostCenters.find(c => String(c.name || '').toLowerCase() === 'geral') ||
+      localCostCenters[0];
     const stockNote = updatedSummary.length > 0
       ? ` Entrada de estoque registrada: ${updatedSummary.join(', ')}.`
       : '';
 
     const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
-    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
-    const expenseId = editingExpenseId || `exp_nfe_${Date.now()}`;
+    const cleanDigitsOnly = cleanInvoiceNumber.replace(/\D/g, '');
+    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanDigitsOnly || Date.now()}`;
+    const targetCanonicalKey = getCanonicalNfeKey({
+      invoiceNumber: cleanInvoiceNumber,
+      accessKey: parsedData.accessKey,
+      supplier: parsedData.supplier,
+      id: fiscalRecordId,
+    });
+
+    const knownExpenses = [...expenses, ...getStoredExpenses()];
+    const existingPayableMatch = knownExpenses.find((e: any) => {
+      if (!e || !e.id) return false;
+      if (String(e.id).startsWith('nfe_fisc_') && e.id === fiscalRecordId) return false;
+      return (
+        e.notaId === fiscalRecordId ||
+        e.documento_entrada_id === fiscalRecordId ||
+        e.nota_fiscal_id === fiscalRecordId ||
+        (editingExpenseId && !editingExpenseId.startsWith('nfe_fisc_') && (e.id === editingExpenseId || String(e.id).startsWith(`${editingExpenseId.split('_parc_')[0]}_parc_`))) ||
+        getCanonicalNfeKey(e) === targetCanonicalKey
+      );
+    });
+
+    const rawBaseKey = fiscalRecordId.replace(/^nfe_fisc_/, '');
+    const expenseId = existingPayableMatch
+      ? String(existingPayableMatch.id).split('_parc_')[0]
+      : (editingExpenseId && !editingExpenseId.startsWith('nfe_fisc_')
+          ? editingExpenseId.split('_parc_')[0]
+          : `exp_nfe_${rawBaseKey || Date.now()}`);
     const issueDateFinal = parsedData.issueDate || parsedData.entryDate || new Date().toISOString().split('T')[0];
     const entryDateFinal = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
     const dueDateFinal = detailedInstallments[0]?.dueDate || parsedData.dueDate || calculateDefaultDueDate(issueDateFinal);
@@ -10000,6 +10247,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
       const dueResolved = inst.dueDate || dueDateFinal;
 
+      const prevMatchedInst = knownExpenses.find((e: any) =>
+        e.id === instId ||
+        (totalParcs === 1 && e.id === expenseId) ||
+        ((e.notaId === fiscalRecordId || getCanonicalNfeKey(e) === targetCanonicalKey) &&
+          e.numero_parcela === (totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01'))
+      );
+      const preservedStatus = prevMatchedInst?.status === 'pago' ? ('pago' as const) : ('pendente' as const);
+
       const contabNote = ` [Contábil - Crédito: ${inst.creditAccount || 'N/A'} | Débito: ${inst.debitAccount || 'N/A'}]`;
       const obsNote = inst.observations ? ` Obs: ${inst.observations}.` : '';
 
@@ -10021,34 +10276,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         entryDate: entryDateFinal,
         dueDate: dueResolved,
         data_vencimento: dueResolved,
+        paymentDate: preservedStatus === 'pago' ? prevMatchedInst?.paymentDate : undefined,
         supplier: parsedData.supplier,
         invoiceNumber: `${cleanInvoiceNumber}${suffix}`,
-        status: 'pendente' as const,
+        status: preservedStatus,
         paymentMethod: mapPayCode(inst.paymentMethodCode),
         forma_pagamento: inst.paymentMethodLabel || 'Boleto',
         costCenterId: selectedCC?.id,
         costCenterName: selectedCC?.name || primaryCategory,
+        accessKey: parsedData.accessKey || undefined,
         notes: `Lançamento de parcela via NF-e XML. Parcela ${parcelNum}/${totalParcs}. Prazo: ${inst.daysInterval} dias.${contabNote}${obsNote} Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`,
         receiptUrl: inst.documentFileUrl,
         receiptName: inst.documentFileName,
         nfeItems: parsedData.items,
         operationNature: parsedData.transactionType || parsedData.operationNature,
         transactionType: parsedData.transactionType,
-        createdAt: new Date().toISOString(),
+        createdAt: prevMatchedInst?.createdAt || new Date().toISOString(),
       } as Expense;
     });
 
-    // Sincroniza imediatamente com o armazenamento local antes mesmo da nuvem para refletir instantaneamente em "A Pagar"
+    // Sincroniza imediatamente e de forma síncrona com o armazenamento local antes mesmo da nuvem para refletir instantaneamente em "A Pagar"
     try {
       const currentStoredExp = getStoredExpenses();
       const baseExpId = expenseId.split('_parc_')[0];
       const cleanedStored = currentStoredExp.filter((e: any) => {
-        if (e.notaId === fiscalRecordId || e.documento_entrada_id === fiscalRecordId) return false;
+        if (e.notaId === fiscalRecordId || e.documento_entrada_id === fiscalRecordId || e.nota_fiscal_id === fiscalRecordId) return false;
         const eBase = typeof e.id === 'string' && e.id.includes('_parc_') ? e.id.split('_parc_')[0] : e.id;
-        if (eBase === baseExpId) return false;
+        if (eBase === baseExpId || eBase === fiscalRecordId) return false;
+        if (targetCanonicalKey && !targetCanonicalKey.startsWith('id_') && getCanonicalNfeKey(e) === targetCanonicalKey) return false;
         return true;
       });
-      saveStoredExpenses([...installmentRecords, ...cleanedStored]);
+      const nextStoredExpenses = [...installmentRecords, ...cleanedStored];
+      saveStoredExpenses(nextStoredExpenses);
+      saveCompanyDespesas(nextStoredExpenses, getActiveCompanyId(companyProfile));
     } catch (e) {
       console.warn('Aviso ao sincronizar parcelas no armazenamento local:', e);
     }
@@ -10219,8 +10479,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setErrorMessage('');
     setSuccessMessage(
       isEdit 
-        ? `Nota Fiscal ${cleanInvoiceNumber} atualizada com sucesso! Registro consolidado mantido no Fiscal e ${totalParcs} parcela(s) no Contas a Pagar.`
-        : `Nota Fiscal ${cleanInvoiceNumber} importada com sucesso! Registro único gravado no Histórico Fiscal (${formatCurrencyBRL(parsedData.totalAmount)}) e ${totalParcs} parcela(s) gerada(s) em Contas a Pagar.`
+        ? `Nota Fiscal ${cleanInvoiceNumber} atualizada! Título financeiro sincronizado em Contas a Pagar (${totalParcs} parcela(s)).`
+        : `Nota Fiscal ${cleanInvoiceNumber} importada! Título financeiro sincronizado em Contas a Pagar (${totalParcs} parcela(s) - ${formatCurrencyBRL(parsedData.totalAmount)}).`
     );
 
     // Pergunta se o usuário deseja imprimir as etiquetas correspondentes aos produtos que deram entrada na NF-e
@@ -10342,38 +10602,83 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const targetKey = getCanonicalNfeKey(exp);
     const cleanNum = getCleanInvoiceNumber(exp.invoiceNumber);
     const cleanNumLower = String(cleanNum ?? '').toLowerCase();
-    
-    // Identifica todas as parcelas vinculadas a essa nota no Contas a Pagar
-    const relatedExpenses = expenses.filter(e => {
+    const expDigits = normalizeFiscalInvoiceDigits(cleanNum);
+
+    // Identifica todas as parcelas vinculadas a essa nota no Contas a Pagar (memória + localStorage)
+    const combinedExpensesMap = new Map<string, Expense>();
+    [...getStoredExpenses(), ...expenses].forEach(e => {
+      if (e && e.id) combinedExpensesMap.set(e.id, e);
+    });
+    const combinedExpenses = Array.from(combinedExpensesMap.values());
+
+    const relatedExpenses = combinedExpenses.filter((e: any) => {
       if (getCanonicalNfeKey(e) === targetKey) return true;
       const eNum = String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase();
       if (eNum && cleanNumLower && eNum === cleanNumLower) return true;
-      if (exp.id && e.id.startsWith(exp.id)) return true;
+      const eDigits = normalizeFiscalInvoiceDigits(e.invoiceNumber);
+      if (expDigits && expDigits.length >= 3 && eDigits === expDigits) return true;
+      if (exp.id && (e.id.startsWith(exp.id) || e.notaId === exp.id || e.documento_entrada_id === exp.id || e.nota_fiscal_id === exp.id)) return true;
       if (e.notes && exp.notes && exp.notes.includes('Chave:') && e.notes.includes(exp.notes.slice(0, 30))) return true;
       return false;
     });
 
+    const totalAmountResolved = Number(exp.amount || nfeData.totalAmount || 0);
     let existingInstallments = nfeData.installments;
     if ((!existingInstallments || existingInstallments.length <= 1) && relatedExpenses.length > 1) {
       existingInstallments = relatedExpenses.map((re, idx) => ({
         number: String(idx + 1).padStart(2, '0'),
         dueDate: re.dueDate,
-        amount: re.amount,
+        amount: Number(re.amount) || 0,
       }));
     }
+
+    // Valida consistência das parcelas existentes para nunca travar o modal ao editar/recriar título ausente
+    const validInstallments = (existingInstallments || []).filter(
+      inst => Number(inst?.amount || 0) > 0 && Boolean(inst?.dueDate)
+    );
+    const instSum = validInstallments.reduce((acc, inst) => acc + Number(inst.amount || 0), 0);
+    if (
+      validInstallments.length === 0 ||
+      (totalAmountResolved > 0 && Math.abs(instSum - totalAmountResolved) > 0.1)
+    ) {
+      const fallbackDue =
+        exp.dueDate ||
+        nfeData.dueDate ||
+        calculateDefaultDueDate(exp.issueDate || nfeData.issueDate);
+      existingInstallments =
+        totalAmountResolved > 0
+          ? [{ number: '01', dueDate: fallbackDue, amount: totalAmountResolved }]
+          : [];
+    } else {
+      existingInstallments = validInstallments;
+    }
+
+    const availableCC =
+      localCostCenters && localCostCenters.length > 0
+        ? localCostCenters
+        : getStoredCostCenters();
+    const resolvedCostCenter =
+      availableCC.find(c => c.id === (exp.costCenterId || nfeData.costCenterId)) ||
+      availableCC.find(
+        c =>
+          String(c.name || '').toLowerCase() ===
+          String(exp.costCenterName || nfeData.costCenterName || '').toLowerCase()
+      ) ||
+      availableCC.find(c => String(c.name || '').toLowerCase() === 'geral') ||
+      availableCC[0];
 
     setParsedData({
       ...nfeData,
       invoiceNumber: cleanNum || nfeData.invoiceNumber,
-      totalAmount: exp.amount || nfeData.totalAmount, // Garante o valor consolidado bruto cheio
+      totalAmount: totalAmountResolved, // Garante o valor consolidado bruto cheio
       items: nfeData.items || [],
       installments: existingInstallments,
-      costCenterId: exp.costCenterId,
-      costCenterName: exp.costCenterName
+      costCenterId: resolvedCostCenter?.id || exp.costCenterId || nfeData.costCenterId,
+      costCenterName: resolvedCostCenter?.name || exp.costCenterName || nfeData.costCenterName,
     });
 
-    setUserInstallmentCount(existingInstallments && existingInstallments.length > 0 ? existingInstallments.length : 1);
-    setSelectedCostCenterId(exp.costCenterId || '');
+    setUserInstallmentCount(existingInstallments.length > 0 ? existingInstallments.length : 1);
+    setSelectedCostCenterId(resolvedCostCenter?.id || exp.costCenterId || '');
     setCostCenterError(false);
     setEditingExpenseId(exp.id);
     setSuccessMessage(`Nota ${cleanNum || 'selecionada'} aberta para edição com ${nfeData.items?.length || 0} produto(s).`);
