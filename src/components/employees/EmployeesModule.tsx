@@ -3407,8 +3407,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={() => setEmployeesSubView('listagem')}
           className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
             employeesSubView === 'listagem'
-              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
-              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+              ? 'border-black bg-slate-900 text-white shadow-xs'
+              : 'text-slate-800 border-black/50 bg-[#e0e6f1] hover:bg-[#d2dced] dark:text-stone-200 dark:border-stone-600 dark:bg-stone-800'
           }`}
         >
           <span>📋 LISTAGEM GERAL DO OPERADOR</span>
@@ -3419,8 +3419,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={() => setEmployeesSubView('historico')}
           className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
             employeesSubView === 'historico'
-              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
-              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+              ? 'border-black bg-slate-900 text-white shadow-xs'
+              : 'text-slate-800 border-black/50 bg-[#e0e6f1] hover:bg-[#d2dced] dark:text-stone-200 dark:border-stone-600 dark:bg-stone-800'
           }`}
         >
           <span>📜 HISTÓRICO INDIVIDUAL DO COLABORADOR</span>
@@ -3431,8 +3431,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={() => setEmployeesSubView('demitidos')}
           className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
             employeesSubView === 'demitidos'
-              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
-              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+              ? 'border-black bg-slate-900 text-white shadow-xs'
+              : 'text-slate-800 border-black/50 bg-[#e0e6f1] hover:bg-[#d2dced] dark:text-stone-200 dark:border-stone-600 dark:bg-stone-800'
           }`}
         >
           <span>🗂️ EX-COLABORADORES / HISTÓRICO</span>
@@ -3443,8 +3443,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={() => setEmployeesSubView('escalas')}
           className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded border transition-all cursor-pointer ${
             employeesSubView === 'escalas'
-              ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
-              : 'text-slate-600 border-slate-300 bg-white hover:bg-slate-100'
+              ? 'border-black bg-slate-900 text-white shadow-xs'
+              : 'text-slate-800 border-black/50 bg-[#e0e6f1] hover:bg-[#d2dced] dark:text-stone-200 dark:border-stone-600 dark:bg-stone-800'
           }`}
         >
           <span>⏰ ESCALAS &amp; HORÁRIOS DE TRABALHO</span>
@@ -3468,12 +3468,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       ) : employeesSubView === 'demitidos' ? (
         <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
           {/* Barra de Filtro e Totalizador Slim */}
-          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-white dark:bg-stone-850 p-2 rounded border border-slate-300/80 dark:border-stone-700/80 shadow-xs">
+          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-[#cad4e6] dark:bg-stone-900 p-2 rounded-lg border border-black dark:border-stone-700 shadow-xs">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase text-slate-800 dark:text-stone-200 tracking-wide flex items-center gap-1.5">
+              <span className="text-[11px] font-black uppercase text-black dark:text-stone-100 tracking-wide flex items-center gap-1.5">
                 <span>🗂️ QUADRO DE EX-COLABORADORES / DESLIGADOS / AFASTADOS</span>
               </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-300 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
                 {exEmployeesList.length} REGISTRO{exEmployeesList.length === 1 ? '' : 'S'}
               </span>
             </div>
@@ -3485,7 +3485,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   value={exEmployeesSearchTerm}
                   onChange={(e) => setExEmployeesSearchTerm(e.target.value)}
                   placeholder="Buscar por nome, cargo ou CPF..."
-                  className="w-full text-xs py-1 pl-2.5 pr-7 border border-slate-300 dark:border-stone-700 rounded bg-white dark:bg-stone-900 text-slate-800 dark:text-stone-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                  className="w-full text-xs py-1 pl-2.5 pr-7 border border-slate-400 dark:border-stone-600 rounded bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-600"
                 />
                 {exEmployeesSearchTerm && (
                   <button
@@ -3501,23 +3501,23 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </div>
 
           {/* Tabela Slim (py-1) de Ex-Colaboradores */}
-          <div className="flex-1 min-h-0 flex flex-col border border-slate-300 dark:border-stone-700/80 rounded-lg bg-white dark:bg-stone-900 shadow-xs overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 shadow-xs overflow-hidden">
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
+                <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-white uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
                   <tr>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Ex-Colaborador / Contato</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Último Cargo / Regime</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Último Salário Base</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Status Trabalhista</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Data Desligamento</th>
-                    <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right whitespace-nowrap">Ações / Auditoria</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Ex-Colaborador / Contato</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Último Cargo / Regime</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Último Salário Base</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Status Trabalhista</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Data Desligamento</th>
+                    <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 text-right whitespace-nowrap">Ações / Auditoria</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
+                <tbody className="divide-y divide-black/20 dark:divide-stone-800 bg-[#e0e6f1] dark:bg-stone-900 text-zinc-900 dark:text-white">
                   {filteredExEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
+                      <td colSpan={6} className="py-8 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold whitespace-nowrap">
                         {exEmployeesSearchTerm
                           ? 'Nenhum ex-colaborador encontrado com os termos pesquisados.'
                           : 'Nenhum ex-colaborador, demitido ou inativo sazonal registrado no LocalStorage.'}
@@ -3539,7 +3539,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       return (
                         <tr
                           key={emp.id}
-                          className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800"
+                          className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-black/20 dark:border-stone-800"
                         >
                           <td className="py-1 px-3 align-middle whitespace-nowrap">
                             <div className="flex items-center space-x-2.5 whitespace-nowrap">
@@ -3651,8 +3651,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       ) : (
         <>
           {/* CNH Alert, Vacation Alert & Staff Summary Cards (Moldura Unificada Slim Design Pro) */}
-          <div className="shrink-0 border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 p-2 shadow-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-stone-700">
+          <div className="shrink-0 border border-black dark:border-stone-700 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 p-2 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 divide-y sm:divide-y-0 sm:divide-x divide-black/20 dark:divide-stone-700">
           <div className="px-2 py-1 flex items-center justify-between text-black dark:text-stone-100">
             <div>
               <span className="text-[11px] font-semibold text-rose-700 uppercase">
@@ -3756,17 +3756,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       </div>
 
       {/* CONTAINER UNIFICADO DA TABELA E BUSCA (SLIM DESIGN PRO) */}
-      <div className="flex-1 min-h-0 flex flex-col border border-slate-300/80 dark:border-stone-700/80 rounded bg-white dark:bg-stone-850 overflow-hidden shadow-2xs">
+      <div className="flex-1 min-h-0 flex flex-col border border-black dark:border-stone-700 rounded-lg bg-[#e0e6f1] dark:bg-stone-900 overflow-hidden shadow-2xs">
         {/* Search Bar & Quick Vacation Alert Filter Badges */}
-        <div className="shrink-0 p-2 border-b border-slate-200 dark:border-stone-700/80 bg-slate-50/60 dark:bg-stone-800/40 space-y-2">
+        <div className="shrink-0 p-2 border-b border-black dark:border-stone-700 bg-[#cad4e6] dark:bg-stone-800/80 space-y-2">
           <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Buscar por nome, cargo, CPF ou número de CNH..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 rounded-md text-xs focus:ring-1 focus:ring-sky-500 outline-none"
+              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-md text-xs text-slate-900 dark:text-white focus:ring-1 focus:ring-sky-500 outline-none"
             />
           </div>
 
@@ -3831,20 +3831,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         {/* Employees Table */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden w-full">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700 text-black dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 text-black dark:text-white uppercase text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Nome & Contato</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Cargo / Regime</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Salário Base</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">Comissão</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Nome & Contato</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Cargo / Regime</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Salário Base</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">Comissão</th>
                 {showCnhColumn && (
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 whitespace-nowrap">
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 whitespace-nowrap">
                     <div className="flex items-center space-x-1.5 whitespace-nowrap">
                       <span>CNH / STATUS</span>
                       <button
                         type="button"
                         onClick={handleToggleCnhColumn}
-                        className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-slate-200 hover:bg-slate-300 dark:bg-stone-700 dark:hover:bg-stone-600 text-slate-700 dark:text-stone-200 border border-slate-300 dark:border-stone-600 transition cursor-pointer"
+                        className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-white/80 hover:bg-white dark:bg-stone-700 dark:hover:bg-stone-600 text-black dark:text-stone-200 border border-black/40 dark:border-stone-600 transition cursor-pointer"
                         title="ENCOLHER / OCULTAR COLUNA CNH"
                       >
                         OCULTAR
@@ -3852,20 +3852,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </div>
                   </th>
                 )}
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-1.5 px-3 text-right whitespace-nowrap">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 py-1.5 px-3 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
+            <tbody className="divide-y divide-black/20 dark:divide-stone-800 bg-[#e0e6f1] dark:bg-stone-900 text-zinc-900 dark:text-white">
               {displayedEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={showCnhColumn ? 6 : 5} className="py-4 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold whitespace-nowrap uppercase">
+                  <td colSpan={showCnhColumn ? 6 : 5} className="py-4 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold whitespace-nowrap uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
               ) : displayedEmployees.map((emp) => {
                 const vacAlert = vacationAlertsByEmployeeId[emp.id];
                 return (
-                  <tr key={emp.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-slate-200 dark:border-stone-800">
+                  <tr key={emp.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-black/20 dark:border-stone-800">
                   <td className="py-1 px-3 align-middle whitespace-nowrap">
                     <div className="flex items-center space-x-2.5 whitespace-nowrap">
                       <EmployeeAvatar

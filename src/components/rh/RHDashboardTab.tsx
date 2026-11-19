@@ -78,15 +78,15 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
   return (
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-3 sm:gap-4 overflow-hidden">
       
-      {/* 4 Cards de Métricas Principais (Exatamente como no print) */}
+      {/* 4 Cards de Métricas Principais */}
       <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
         {/* Card 1: Funcionários Ativos */}
         <div 
           onClick={() => onNavigateTab('funcionarios')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:border-blue-300 dark:hover:border-stone-700 transition text-black dark:text-white"
+          className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:bg-[#d2dced] dark:hover:border-stone-600 transition text-black dark:text-white"
         >
-          <div className="w-12 h-12 rounded-xl bg-blue-100/80 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-800 flex items-center justify-center text-blue-800 dark:text-blue-300 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-100/90 dark:bg-blue-950/60 border border-blue-400 dark:border-blue-800 flex items-center justify-center text-blue-800 dark:text-blue-300 shrink-0">
             <Users className="w-6 h-6" />
           </div>
           <div>
@@ -102,9 +102,9 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
         {/* Card 2: Folha Mês Atual (ex: Folha 09/2026) */}
         <div 
           onClick={() => onNavigateTab('folha')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:border-blue-300 dark:hover:border-stone-700 transition text-black dark:text-white"
+          className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:bg-[#d2dced] dark:hover:border-stone-600 transition text-black dark:text-white"
         >
-          <div className="w-12 h-12 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100/90 dark:bg-emerald-950/60 border border-emerald-400 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
@@ -120,9 +120,9 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
         {/* Card 3: Em Férias / Agendado */}
         <div 
           onClick={() => onNavigateTab('ferias')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:border-blue-300 dark:hover:border-stone-700 transition text-black dark:text-white"
+          className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:bg-[#d2dced] dark:hover:border-stone-600 transition text-black dark:text-white"
         >
-          <div className="w-12 h-12 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-900 dark:text-amber-300 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-amber-100/90 dark:bg-amber-950/60 border border-amber-400 dark:border-amber-800 flex items-center justify-center text-amber-900 dark:text-amber-300 shrink-0">
             <Calendar className="w-6 h-6" />
           </div>
           <div>
@@ -149,9 +149,9 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
         {/* Card 4: Afastamentos Ativos */}
         <div 
           onClick={() => onNavigateTab('afastamentos')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:border-blue-300 dark:hover:border-stone-700 transition text-black dark:text-white"
+          className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:bg-[#d2dced] dark:hover:border-stone-600 transition text-black dark:text-white"
         >
-          <div className="w-12 h-12 rounded-xl bg-rose-100/80 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 flex items-center justify-center text-rose-900 dark:text-rose-300 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-rose-100/90 dark:bg-rose-950/60 border border-rose-400 dark:border-rose-800 flex items-center justify-center text-rose-900 dark:text-rose-300 shrink-0">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
@@ -170,8 +170,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
       <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
         
         {/* Painel 1: Férias Próximas / Em Gozo */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col min-h-[140px] max-h-[210px] overflow-hidden text-black dark:text-white">
-          <div className="shrink-0 flex items-center justify-between mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-2.5">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg shadow-xs flex flex-col min-h-[140px] max-h-[210px] overflow-hidden text-black dark:text-white">
+          <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">
             <h3 className="text-sm font-black text-black dark:text-white">
               Férias Próximas / Em Gozo
             </h3>
@@ -186,11 +186,11 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
 
           {activeVacationsList.length > 0 ? (
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-black/20 dark:divide-stone-800 bg-[#e0e6f1] dark:bg-stone-900 px-4 py-1">
               {activeVacationsList.map((vac) => {
                 const isGozo = String(vac.status ?? '').toLowerCase() === 'em_gozo' || String(vac.situacao_execucao).toUpperCase() === 'EM_GOZO';
                 return (
-                  <div key={vac.id} className="pt-2 flex items-center justify-between text-xs">
+                  <div key={vac.id} className="py-2 flex items-center justify-between text-xs hover:bg-[#d2dced]/60 dark:hover:bg-stone-800/60 transition rounded px-1">
                     <div>
                       <span className="font-bold text-black dark:text-white block">
                         {vac.employeeName}
@@ -201,8 +201,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                       isGozo
-                        ? 'bg-indigo-100 border-indigo-300 text-indigo-900'
-                        : 'bg-blue-100 border-blue-300 text-blue-900'
+                        ? 'bg-indigo-100 border-indigo-400 text-indigo-900'
+                        : 'bg-blue-100 border-blue-400 text-blue-900'
                     }`}>
                       {isGozo ? 'Em Gozo' : 'Agendado'}
                     </span>
@@ -211,15 +211,15 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
               })}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-semibold uppercase text-xs py-8">
+            <div className="flex-1 flex items-center justify-center text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 font-semibold uppercase text-xs py-8">
               NENHUM REGISTRO ENCONTRADO
             </div>
           )}
         </div>
 
         {/* Painel 2: Afastamentos Ativos */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col min-h-[140px] max-h-[210px] overflow-hidden text-black dark:text-white">
-          <div className="shrink-0 flex items-center justify-between mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-2.5">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg shadow-xs flex flex-col min-h-[140px] max-h-[210px] overflow-hidden text-black dark:text-white">
+          <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">
             <h3 className="text-sm font-black text-black dark:text-white">
               Afastamentos Ativos
             </h3>
@@ -234,9 +234,9 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
 
           {activeLeaves.length > 0 ? (
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-black/20 dark:divide-stone-800 bg-[#e0e6f1] dark:bg-stone-900 px-4 py-1">
               {activeLeaves.map((leave) => (
-                <div key={leave.id} className="pt-2 flex items-center justify-between text-xs">
+                <div key={leave.id} className="py-2 flex items-center justify-between text-xs hover:bg-[#d2dced]/60 dark:hover:bg-stone-800/60 transition rounded px-1">
                   <div>
                     <span className="font-bold text-black dark:text-white block">
                       {leave.employeeName}
@@ -246,14 +246,14 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
                       {leave.expectedReturnDate && ` (retorno: ${formatDateBR(leave.expectedReturnDate)})`}
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 border border-rose-300 text-rose-900">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 border border-rose-400 text-rose-900">
                     Afastado
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-semibold uppercase text-xs py-8">
+            <div className="flex-1 flex items-center justify-center text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 font-semibold uppercase text-xs py-8">
               NENHUM REGISTRO ENCONTRADO
             </div>
           )}
@@ -262,8 +262,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
       </div>
 
       {/* Painel Inferior: Folhas — Mês Atual (ex: Folhas — Mês Atual (09/2026)) */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col overflow-hidden bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs text-black dark:text-white">
-        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 border-b border-blue-200/60 dark:border-stone-800 pb-3">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg shadow-xs text-black dark:text-white">
+        <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">
           <div>
             <h3 className="text-sm font-black text-black dark:text-white">
               Folhas — Mês Atual ({currentMonthRef})
@@ -277,7 +277,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
             <button
               type="button"
               onClick={onOpenNewPayroll}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-black/40 text-white text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Lançar Folha</span>
@@ -285,7 +285,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab('folha')}
-              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-slate-300 text-black hover:bg-slate-50 text-xs font-bold transition cursor-pointer"
+              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-black dark:border-stone-600 bg-[#e0e6f1] dark:bg-stone-900 text-black dark:text-white hover:bg-[#d2dced] dark:hover:bg-stone-700 text-xs font-bold transition cursor-pointer"
             >
               <span>Gerenciador de Folha</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -294,28 +294,28 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
         </div>
 
         {currentMonthPayrolls.length > 0 ? (
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden border border-slate-300 dark:border-stone-700 rounded-lg">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Status</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Colaborador</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Cargo / Função</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Salário Base</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Horas Extras/Bônus</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Descontos/Vales</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Líquido a Pagar</th>
-                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Holerite</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Status</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Colaborador</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Cargo / Função</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Salário Base</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Horas Extras/Bônus</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Descontos/Vales</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Líquido a Pagar</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Holerite</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800">
+              <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800">
                 {currentMonthPayrolls.map((p) => (
-                  <tr key={p.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={p.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         p.status === 'pago'
-                          ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                          : 'bg-amber-100 border-amber-300 text-amber-900'
+                          ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
+                          : 'bg-amber-100 border-amber-400 text-amber-900'
                       }`}>
                         {p.status === 'pago' ? (
                           <>
@@ -352,7 +352,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onViewPayslip(p)}
-                        className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/50 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                        className="p-1 text-black dark:text-sky-400 hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                         title="Ver / Imprimir Holerite"
                       >
                         <FileText className="w-4 h-4 mx-auto" />
@@ -364,8 +364,8 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
             </table>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center py-8">
-            <p className="text-black/75 dark:text-stone-400 font-semibold uppercase text-xs">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center bg-[#e0e6f1] dark:bg-stone-900 py-8">
+            <p className="text-slate-700 dark:text-stone-400 font-semibold uppercase text-xs">
               NENHUM REGISTRO ENCONTRADO
             </p>
           </div>

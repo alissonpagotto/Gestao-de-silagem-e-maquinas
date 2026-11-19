@@ -603,7 +603,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {/* 2. ESTRUTURA INTEGRADA DE ABAS SUPERIORES E MOLDURA GERAL (PADRÃO OURO) */}
       <div className="w-full flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* BASE DE FUNDO DAS ABAS: MOLDURA MDI TRIDIMENSIONAL ACETINADA */}
-        <div className="w-full shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border-b border-slate-400 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-slate-300 dark:border-stone-700 overflow-x-auto scrollbar-none">
+        <div className="w-full shrink-0 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] rounded-t-lg border border-b-0 border-black dark:border-stone-700 overflow-x-auto scrollbar-none">
           <nav 
             aria-label="Abas do RH"
             className="w-full flex items-center overflow-x-auto whitespace-nowrap scrollbar-none"
@@ -781,7 +781,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         </div>
 
         {/* MOLDURA GERAL INTEGRADA DE PONTA A PONTA */}
-        <div className="w-full flex-1 min-h-0 border border-slate-300 dark:border-stone-700 rounded-b-lg bg-[#edf4ff] dark:bg-stone-900 shadow-sm p-3 flex flex-col overflow-hidden">
+        <div id="rh-module-content-shell" className="w-full flex-1 min-h-0 border border-black dark:border-stone-700 rounded-b-lg bg-[#cad4e6] dark:bg-stone-950 shadow-sm p-3 flex flex-col overflow-hidden">
 
       {/* Renderização do Conteúdo de Cada Aba */}
       {activeTab === 'dashboard' && (

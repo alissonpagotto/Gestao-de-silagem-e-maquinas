@@ -242,9 +242,9 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       
       {/* Top Header & Actions */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         <div className="flex items-center space-x-2">
-          <div className="p-2 rounded-lg bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
+          <div className="p-2 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 text-black dark:text-white">
             <AlertCircle className="w-5 h-5" />
           </div>
           <div>
@@ -260,7 +260,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
         <button
           type="button"
           onClick={() => handleOpenModal()}
-          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 border border-black/40 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Novo Afastamento</span>
@@ -269,25 +269,25 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
 
       {/* KPIs */}
       <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-rose-400 block uppercase">Afastamentos Ativos</span>
           <span className="text-base font-black text-black dark:text-rose-400 font-['Outfit']">
             {activeLeavesCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Atestados Médicos</span>
           <span className="text-base font-black text-black dark:text-white font-['Outfit']">
             {atestadosCount} registro(s)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-amber-400 block uppercase">Acidente Trabalho (CAT)</span>
           <span className="text-base font-black text-black dark:text-amber-400 font-['Outfit']">
             {catCount} registro(s)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-sky-400 block uppercase">Auxílio INSS</span>
           <span className="text-base font-black text-black dark:text-sky-400 font-['Outfit']">
             {inssCount} registro(s)
@@ -296,15 +296,15 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
       </div>
 
       {/* Search Bar & Competence Selector */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
-          <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por colaborador, tipo ou CID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-500 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
         <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
@@ -320,33 +320,33 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
       </div>
 
       {/* Table */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Colaborador</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Motivo / Tipo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Início</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Previsão / Retorno</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Dias</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">CID / Médico</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Motivo / Tipo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Início</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Previsão / Retorno</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Dias</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">CID / Médico</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={item.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(item.id, item.status)}
                         className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
                           item.status === 'ativo'
-                            ? 'bg-rose-100 border-rose-300 text-rose-900'
-                            : 'bg-emerald-100 border-emerald-300 text-emerald-900'
+                            ? 'bg-rose-100 border-rose-400 text-rose-900'
+                            : 'bg-emerald-100 border-emerald-400 text-emerald-900'
                         }`}
                       >
                         {item.status === 'ativo' ? (
@@ -397,7 +397,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                     </td>
 
                     <td className="py-2 px-3 text-black/85 dark:text-stone-300 font-medium text-xs">
-                      {item.cid && <span className="font-mono font-bold bg-blue-100/70 dark:bg-stone-800 border border-blue-300 dark:border-stone-700 px-1 py-0.5 rounded text-[10px] mr-1 text-black dark:text-white">{item.cid}</span>}
+                      {item.cid && <span className="font-mono font-bold bg-[#cad4e6] dark:bg-stone-800 border border-black/30 dark:border-stone-700 px-1 py-0.5 rounded text-[10px] mr-1 text-black dark:text-white">{item.cid}</span>}
                       {item.doctorName && <span>{item.doctorName}</span>}
                       {!item.cid && !item.doctorName && <span>-</span>}
                     </td>
@@ -407,7 +407,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenModal(item)}
-                          className="p-1 text-black/70 dark:text-stone-400 hover:text-black dark:hover:text-[#009688] hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          className="p-1 text-black/70 dark:text-stone-400 hover:text-black dark:hover:text-[#009688] hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Editar Afastamento"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                          className="p-1 text-rose-700 hover:text-rose-800 hover:bg-rose-100/70 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
                           title="Excluir Afastamento"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -426,7 +426,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                  <td colSpan={8} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

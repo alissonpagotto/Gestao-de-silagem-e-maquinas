@@ -1046,7 +1046,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
       {/* 1. KPIs de Resumo Rápido Compactos */}
       <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
           <span className="text-[10px] font-black uppercase text-black dark:text-stone-300 block leading-tight truncate">
             Total de Rescisões
           </span>
@@ -1056,7 +1056,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
           <span className="text-[10px] font-black uppercase text-emerald-950 dark:text-emerald-400 block leading-tight truncate">
             Homologadas / Integradas
           </span>
@@ -1070,7 +1070,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
           <span className="text-[10px] font-black uppercase text-amber-950 dark:text-amber-400 block leading-tight truncate">
             Em Andamento
           </span>
@@ -1082,7 +1082,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl py-2 px-3 shadow-xs text-black dark:text-white flex flex-col justify-center">
           <span className="text-[10px] font-black uppercase text-black dark:text-stone-300 block leading-tight truncate">
             Valor Líquido Total
           </span>
@@ -1095,15 +1095,15 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* 3. Barra de Busca e Filtros de Status */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
-          <Search className="w-3.5 h-3.5 text-black/60 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por colaborador, cargo ou motivo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-emerald-600"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-500 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-emerald-600"
           />
         </div>
 
@@ -1119,10 +1119,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
                 statusFilter === 'all'
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-stone-900'
-                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+                  ? 'bg-slate-900 text-white border-black dark:bg-white dark:text-stone-900'
+                  : 'bg-[#e0e6f1] border-black/40 dark:bg-stone-800 dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
               }`}
             >
               Todos ({totalCount})
@@ -1130,10 +1130,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             <button
               type="button"
               onClick={() => setStatusFilter('homologado')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
                 statusFilter === 'homologado'
-                  ? 'bg-emerald-700 text-white dark:bg-emerald-600'
-                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+                  ? 'bg-emerald-700 text-white border-black dark:bg-emerald-600'
+                  : 'bg-[#e0e6f1] border-black/40 dark:bg-stone-800 dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
               }`}
             >
               Homologados ({homologadosCount + integradosCount})
@@ -1141,10 +1141,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             <button
               type="button"
               onClick={() => setStatusFilter('integrado')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
                 statusFilter === 'integrado'
-                  ? 'bg-blue-700 text-white dark:bg-blue-600'
-                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+                  ? 'bg-blue-700 text-white border-black dark:bg-blue-600'
+                  : 'bg-[#e0e6f1] border-black/40 dark:bg-stone-800 dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
               }`}
             >
               Integrados ({integradosCount})
@@ -1152,10 +1152,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             <button
               type="button"
               onClick={() => setStatusFilter('rascunho')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
                 statusFilter === 'rascunho'
-                  ? 'bg-amber-600 text-white dark:bg-amber-500'
-                  : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+                  ? 'bg-amber-600 text-white border-black dark:bg-amber-500'
+                  : 'bg-[#e0e6f1] border-black/40 dark:bg-stone-800 dark:border-stone-700 text-black dark:text-stone-300 hover:bg-[#d2dced]'
               }`}
             >
               Rascunhos ({rascunhosCount})
@@ -1165,24 +1165,24 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* 4. TABELA DE HISTÓRICO DE RESCISÕES */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700 shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Colaborador (Nome e Cargo)</th>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Data de Admissão</th>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Data de Desligamento</th>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3">Tipo de Rescisão</th>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor Líquido Rescisório (R$)</th>
-                <th className="sticky top-0 z-20 bg-blue-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Colaborador (Nome e Cargo)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Data de Admissão</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Data de Desligamento</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Tipo de Rescisão</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Valor Líquido Rescisório (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-medium">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800 font-medium">
               {filteredTerminations.length === 0 ? (
                 <tr key="empty_terminations_row">
-                  <td colSpan={7} className="py-4 text-center text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase">
+                  <td colSpan={7} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-xs font-semibold text-slate-700 dark:text-stone-300 uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
@@ -1191,25 +1191,25 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   const isRowIntegrated = t.isIntegrated || t.status === 'integrado' || isTerminationInExpenses(t);
                   const effectiveRowStatus = isRowIntegrated ? 'integrado' : t.status;
                   return (
-                  <tr key={t.id || t.employeeId} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={t.id || t.employeeId} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     
                     {/* Status: Integrado / Em Andamento / Homologado */}
                     <td className="py-2.5 px-3 whitespace-nowrap">
                       {effectiveRowStatus === 'integrado' ? (
                         <span
-                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-400 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
                           title="Lançado e integrado ao Contas a Pagar e DRE"
                         >
                           <CheckCircle2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                           <span>Integrado</span>
                         </span>
                       ) : effectiveRowStatus === 'rascunho' ? (
-                        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 shadow-2xs">
+                        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 border border-amber-400 dark:border-amber-700 text-amber-900 dark:text-amber-300 shadow-2xs">
                           <Clock className="w-3 h-3" />
                           <span>Em Andamento</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-300 shadow-2xs">
+                        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-700 text-emerald-900 dark:text-emerald-300 shadow-2xs">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>Homologado</span>
                         </span>
@@ -1289,7 +1289,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenEditTermination(t)}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-white/70 hover:bg-white dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-700 rounded-lg text-[11px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-white hover:bg-[#cad4e6] dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-900 dark:text-stone-200 border border-black/40 dark:border-stone-700 rounded-lg text-[11px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
                           title="Visualizar e Editar Parâmetros da Rescisão"
                         >
                           <Edit2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -1311,7 +1311,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteTermination(t.id, t.employeeName)}
-                          className="p-1 text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-100/60 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+                          className="p-1 text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-100/70 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
                           title="Excluir do Histórico"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

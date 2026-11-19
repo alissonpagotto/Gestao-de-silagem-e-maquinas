@@ -2861,9 +2861,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 w-full max-w-full overflow-hidden">
       
       {/* Top Header & Actions */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         <div className="flex items-center space-x-2">
-          <div className="p-2 rounded-lg bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
+          <div className="p-2 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 text-black dark:text-white">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
@@ -2881,10 +2881,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           <button
             type="button"
             onClick={handleOpenVacationScheduleReport}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-slate-400 dark:border-stone-600 text-slate-800 dark:text-stone-100 hover:text-slate-900 font-semibold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 border border-black dark:border-stone-600 text-slate-900 dark:text-stone-100 hover:text-black font-semibold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:shadow-[inset_1px_1px_0px_rgba(255,255,255,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
             title="Relatório de Programação de Férias (Padrão Contábil Oficial)"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-700 dark:text-stone-300" />
+            <Printer className="w-3.5 h-3.5 text-slate-800 dark:text-stone-300" />
             <span>RELATÓRIO DE PROGRAMAÇÃO</span>
           </button>
 
@@ -2892,7 +2892,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           <button
             type="button"
             onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] border border-emerald-600 text-white font-bold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#059669] hover:bg-[#047857] border border-black/40 text-white font-bold text-xs uppercase rounded-lg shadow-[inset_1px_1px_0px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.1)] transition cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5 text-emerald-100 stroke-[2.5]" />
             <span>+ PROGRAMAR FÉRIAS</span>
@@ -2900,147 +2900,137 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         </div>
       </div>
 
-      {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais com Backgrounds Pastéis) */}
+      {/* Quick Summary KPIs (6 Cards Simétricos com Paleta Oficial + Destaque Lateral) */}
       <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
-        {/* 1. PERÍODOS VENCIDOS (Vermelho claro/pastel #FEF2F2) */}
+        {/* 1. PERÍODOS VENCIDOS */}
         <div
           onClick={() => setStatusFilter('vencido')}
-          className={`bg-red-50 dark:bg-red-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'vencido'
-              ? 'border-red-400 ring-1 ring-red-400/40'
-              : 'border-red-200 dark:border-red-900/60 hover:border-red-300'
+          className={`bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 border-l-4 border-l-rose-600 rounded-xl p-2.5 shadow-xs cursor-pointer hover:bg-[#d2dced] transition flex flex-col justify-between ${
+            statusFilter === 'vencido' ? 'ring-2 ring-rose-600/60' : ''
           }`}
         >
-          <span className="text-[10px] font-black text-red-600 dark:text-red-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-rose-700 dark:text-rose-400 block uppercase tracking-wide">
             Períodos Vencidos
           </span>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-red-600 dark:text-red-400 font-['Outfit']">
+            <span className="text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit']">
               {vencidosCount}
             </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+            <span className="text-xs font-bold text-slate-800 dark:text-stone-300">
               período(s)
             </span>
           </div>
         </div>
 
-        {/* 2. PRÓXIMOS A VENCER (Laranja/Amarelo bem claro #FEF3C7) */}
+        {/* 2. PRÓXIMOS A VENCER */}
         <div
           onClick={() => setStatusFilter('proximo')}
-          className={`bg-amber-50 dark:bg-amber-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'proximo'
-              ? 'border-amber-400 ring-1 ring-amber-400/40'
-              : 'border-amber-200 dark:border-amber-900/60 hover:border-amber-300'
+          className={`bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 border-l-4 border-l-amber-500 rounded-xl p-2.5 shadow-xs cursor-pointer hover:bg-[#d2dced] transition flex flex-col justify-between ${
+            statusFilter === 'proximo' ? 'ring-2 ring-amber-500/60' : ''
           }`}
         >
-          <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-amber-800 dark:text-amber-400 block uppercase tracking-wide">
             Próximos a Vencer
           </span>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-amber-600 dark:text-amber-400 font-['Outfit']">
+            <span className="text-base font-black text-amber-800 dark:text-amber-400 font-['Outfit']">
               {proximosCount}
             </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+            <span className="text-xs font-bold text-slate-800 dark:text-stone-300">
               período(s)
             </span>
           </div>
         </div>
 
-        {/* 3. FÉRIAS PROGRAMADAS (Azul bem claro/pastel #EFF6FF) */}
+        {/* 3. FÉRIAS PROGRAMADAS */}
         <div
           onClick={() => setStatusFilter('programados')}
-          className={`bg-blue-50 dark:bg-blue-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'programados'
-              ? 'border-blue-400 ring-1 ring-blue-400/40'
-              : 'border-blue-200 dark:border-blue-900/60 hover:border-blue-300'
+          className={`bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 border-l-4 border-l-blue-600 rounded-xl p-2.5 shadow-xs cursor-pointer hover:bg-[#d2dced] transition flex flex-col justify-between ${
+            statusFilter === 'programados' ? 'ring-2 ring-blue-600/60' : ''
           }`}
         >
-          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-blue-800 dark:text-blue-400 block uppercase tracking-wide">
             Férias Programadas
           </span>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-blue-600 dark:text-blue-400 font-['Outfit']">
+            <span className="text-base font-black text-blue-800 dark:text-blue-400 font-['Outfit']">
               {programadosCount}
             </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+            <span className="text-xs font-bold text-slate-800 dark:text-stone-300">
               período(s)
             </span>
           </div>
         </div>
 
-        {/* 4. FÉRIAS EM GOZO AGORA (Roxo/Índigo bem claro #EEF2FF) */}
+        {/* 4. FÉRIAS EM GOZO AGORA */}
         <div
           onClick={() => setStatusFilter('em_gozo')}
-          className={`bg-indigo-50 dark:bg-indigo-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'em_gozo'
-              ? 'border-indigo-400 ring-1 ring-indigo-400/40'
-              : 'border-indigo-200 dark:border-indigo-900/60 hover:border-indigo-300'
+          className={`bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 border-l-4 border-l-indigo-600 rounded-xl p-2.5 shadow-xs cursor-pointer hover:bg-[#d2dced] transition flex flex-col justify-between ${
+            statusFilter === 'em_gozo' ? 'ring-2 ring-indigo-600/60' : ''
           }`}
         >
-          <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-indigo-800 dark:text-indigo-400 block uppercase tracking-wide">
             Férias em Gozo Agora
           </span>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-indigo-600 dark:text-indigo-400 font-['Outfit']">
+            <span className="text-base font-black text-indigo-800 dark:text-indigo-400 font-['Outfit']">
               {emGozoCount}
             </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+            <span className="text-xs font-bold text-slate-800 dark:text-stone-300">
               período(s)
             </span>
           </div>
         </div>
 
-        {/* 5. QUITADOS / REGULARES (Verde bem claro/pastel #F0FDF4) */}
+        {/* 5. QUITADOS / REGULARES */}
         <div
           onClick={() => setStatusFilter('quitado')}
-          className={`bg-green-50 dark:bg-green-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'quitado'
-              ? 'border-green-500 ring-1 ring-green-500/40'
-              : 'border-green-200 dark:border-green-900/60 hover:border-green-300'
+          className={`bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 border-l-4 border-l-emerald-600 rounded-xl p-2.5 shadow-xs cursor-pointer hover:bg-[#d2dced] transition flex flex-col justify-between ${
+            statusFilter === 'quitado' ? 'ring-2 ring-emerald-600/60' : ''
           }`}
         >
-          <span className="text-[10px] font-black text-green-600 dark:text-green-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-400 block uppercase tracking-wide">
             Quitados / Regulares
           </span>
           <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-green-600 dark:text-green-400 font-['Outfit']">
+            <span className="text-base font-black text-emerald-800 dark:text-emerald-400 font-['Outfit']">
               {quitadosCount}
             </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+            <span className="text-xs font-bold text-slate-800 dark:text-stone-300">
               período(s)
             </span>
           </div>
         </div>
 
-        {/* 6. TOTAL FÉRIAS LANÇADAS (Cinza neutro bem claro #F8FAFC) */}
-        <div className="bg-slate-50 dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs flex flex-col justify-between">
-          <span className="text-[10px] font-black text-slate-700 dark:text-stone-300 block uppercase tracking-wide">
+        {/* 6. TOTAL FÉRIAS LANÇADAS */}
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 border-l-4 border-l-slate-700 rounded-xl p-2.5 shadow-xs flex flex-col justify-between">
+          <span className="text-[10px] font-black text-black dark:text-stone-300 block uppercase tracking-wide">
             Total Férias Lançadas
           </span>
-          <span className="text-base font-black text-slate-700 dark:text-white font-['Outfit'] mt-1">
+          <span className="text-base font-black text-black dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(totalValorFerias)}
           </span>
         </div>
       </div>
 
       {/* Barra Unificada de Busca e Sub-Abas (Segmented Control) */}
-      <div className="shrink-0 bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-black dark:text-white">
         <div className="relative w-full lg:w-72 shrink-0">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar colaborador ou cargo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
 
-        {/* Segmented Control: 5 Sub-Abas Sequenciais Unificadas */}
+        {/* Segmented Control: 6 Sub-Abas Sequenciais Unificadas */}
         <div
           role="tablist"
           aria-label="Filtros de Férias"
-          className="inline-flex flex-wrap items-center p-1 rounded-xl bg-slate-100 dark:bg-stone-800 border border-slate-200/90 dark:border-stone-700 gap-1 w-full lg:w-auto"
+          className="inline-flex flex-wrap items-center p-1 rounded-xl bg-[#e0e6f1] dark:bg-stone-800 border border-black/40 dark:border-stone-700 gap-1 w-full lg:w-auto"
         >
           <button
             type="button"
@@ -3049,8 +3039,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'all'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+                ? 'bg-slate-900 dark:bg-blue-950/70 text-white dark:text-blue-300 font-black border border-black dark:border-blue-800 shadow-2xs'
+                : 'text-black dark:text-stone-300 hover:bg-[#cad4e6] dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Todos ({periodRows.length})
@@ -3063,8 +3053,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             onClick={() => setStatusFilter('vencido')}
             className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'vencido'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+                ? 'bg-rose-700 dark:bg-rose-950/70 text-white dark:text-rose-300 font-black border border-black dark:border-rose-800 shadow-2xs'
+                : 'text-black dark:text-stone-300 hover:bg-[#cad4e6] dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Vencidos ({vencidosCount})
@@ -3077,8 +3067,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             onClick={() => setStatusFilter('proximo')}
             className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'proximo'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+                ? 'bg-amber-600 dark:bg-amber-950/70 text-white dark:text-amber-300 font-black border border-black dark:border-amber-800 shadow-2xs'
+                : 'text-black dark:text-stone-300 hover:bg-[#cad4e6] dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Próximos a Vencer ({proximosCount})
@@ -3091,8 +3081,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             onClick={() => setStatusFilter('programados')}
             className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'programados'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+                ? 'bg-blue-700 dark:bg-blue-950/70 text-white dark:text-blue-300 font-black border border-black dark:border-blue-800 shadow-2xs'
+                : 'text-black dark:text-stone-300 hover:bg-[#cad4e6] dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Programados ({programadosCount})
@@ -3105,8 +3095,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             onClick={() => setStatusFilter('em_gozo')}
             className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'em_gozo'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+                ? 'bg-indigo-700 dark:bg-indigo-950/70 text-white dark:text-indigo-300 font-black border border-black dark:border-indigo-800 shadow-2xs'
+                : 'text-black dark:text-stone-300 hover:bg-[#cad4e6] dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Em Gozo ({emGozoCount})
@@ -3119,8 +3109,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             onClick={() => setStatusFilter('quitado')}
             className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'quitado'
-                ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-black border border-emerald-300 dark:border-emerald-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+                ? 'bg-emerald-700 dark:bg-emerald-950/70 text-white dark:text-emerald-300 font-black border border-black dark:border-emerald-800 shadow-2xs'
+                : 'text-black dark:text-stone-300 hover:bg-[#cad4e6] dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Quitados / Regulares ({quitadosCount})
@@ -3156,27 +3146,27 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       )}
 
       {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
-      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl shadow-xs text-black dark:text-white overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden rounded-xl">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg shadow-xs text-black dark:text-white overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
           <table className="w-full table-auto text-left text-xs border-separate border-spacing-0">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[10px] font-black text-black dark:text-white uppercase tracking-wider shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[10px] font-black text-black dark:text-white uppercase tracking-wider shadow-sm">
               <tr>
-                <th className="py-1.5 px-2 sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Colaborador</th>
-                <th className="py-1.5 px-2 sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Período Aquisitivo</th>
-                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Dias de Direito</th>
-                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Status</th>
-                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Limite Gozo</th>
-                <th className="py-1.5 px-2 text-right sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 border-b border-slate-300 dark:border-stone-700">Ações</th>
+                <th className="py-1.5 px-2 sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">Colaborador</th>
+                <th className="py-1.5 px-2 sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">Período Aquisitivo</th>
+                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">Dias de Direito</th>
+                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">Status</th>
+                <th className="py-1.5 px-2 text-center sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">Limite Gozo</th>
+                <th className="py-1.5 px-2 text-right sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900">
               {filteredRows.length > 0 ? (
                 filteredRows.map((row) => {
                   const vac = row.vacationRecord;
                   return (
-                    <tr key={row.rowKey} className="group even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition">
+                    <tr key={row.rowKey} className="group bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition">
                       {/* 1. Colaborador (Compacto em 2 linhas para caber 100% na tela) */}
-                      <td className="py-1.5 px-2 border-b border-b-slate-200 dark:border-b-stone-800 group-last:border-b-0 align-middle">
+                      <td className="py-1.5 px-2 border-b border-black/20 dark:border-b-stone-800 group-last:border-b-0 align-middle">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-[10px] shrink-0 select-none">
                             {getColabInitials(row.employee.name)}
@@ -3209,7 +3199,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 2. Período Aquisitivo (Compacto com quebra controlada para evitar corte lateral) */}
-                      <td className="py-1.5 px-2 border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                      <td className="py-1.5 px-2 border-b border-black/20 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <div className="flex flex-col gap-0.5">
                           <div className="flex flex-wrap items-center gap-1">
                             {row.totalCycles > 1 && (
@@ -3253,7 +3243,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 3. Dias de Direito (CLT: Vencidos + Proporcionais em CAIXA ALTA) */}
-                      <td className="py-1.5 px-2 text-center border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                      <td className="py-1.5 px-2 text-center border-b border-black/20 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <div className="inline-flex flex-wrap items-center gap-1 justify-center">
                           <span
                             className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border tracking-tight leading-tight text-center ${
@@ -3282,7 +3272,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 4. Status do Período (Badges CLT compactos) */}
-                      <td className="py-1.5 px-2 text-center border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                      <td className="py-1.5 px-2 text-center border-b border-black/20 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <div className="inline-flex flex-wrap items-center gap-1 justify-center">
                           {row.isEmGozo ? (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-600 text-white shadow-2xs whitespace-nowrap">
@@ -3330,7 +3320,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 5. Limite para Gozo */}
-                      <td className="py-1.5 px-2 text-center whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                      <td className="py-1.5 px-2 text-center whitespace-nowrap border-b border-black/20 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <span
                           className={`inline-flex items-center px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${
                             row.periodStatus === 'vencido'
@@ -3346,7 +3336,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       </td>
 
                       {/* 6. Ações (Botões Horizontais Compactos 100% visíveis) */}
-                      <td className="py-1.5 px-2 text-right whitespace-nowrap border-b border-slate-200 dark:border-stone-800 group-last:border-b-0 align-middle">
+                      <td className="py-1.5 px-2 text-right whitespace-nowrap border-b border-black/20 dark:border-stone-800 group-last:border-b-0 align-middle">
                         <div className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
                           {/* Botão "Efetivar Gozo" (quando programado) */}
                           {row.isProgramado && vac && (
@@ -3402,7 +3392,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDelete(vac.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition cursor-pointer shrink-0"
+                              className="p-1 text-rose-700 hover:text-rose-800 hover:bg-rose-100/70 dark:hover:bg-rose-950/40 rounded transition cursor-pointer shrink-0"
                               title="Excluir programação salva"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -3415,7 +3405,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-slate-500 text-xs font-semibold uppercase">
+                  <td colSpan={6} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

@@ -478,11 +478,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   return (
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden text-black dark:text-white">
       
-      {/* 4 Cards de Métricas (Pink / Rose Theme) */}
+      {/* 4 Cards de Métricas */}
       <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-pink-100/90 dark:bg-pink-950/60 border border-pink-300 dark:border-pink-800 flex items-center justify-center text-pink-700 dark:text-pink-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-pink-100/90 dark:bg-pink-950/60 border border-pink-400 dark:border-pink-800 flex items-center justify-center text-pink-700 dark:text-pink-300 shrink-0">
             <CalendarX2 className="w-5 h-5" />
           </div>
           <div>
@@ -495,8 +495,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-rose-100/80 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 flex items-center justify-center text-rose-700 dark:text-rose-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-rose-100/90 dark:bg-rose-950/60 border border-rose-400 dark:border-rose-800 flex items-center justify-center text-rose-700 dark:text-rose-300 shrink-0">
             <AlertCircle className="w-5 h-5" />
           </div>
           <div>
@@ -509,8 +509,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-emerald-100/90 dark:bg-emerald-950/60 border border-emerald-400 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
@@ -523,8 +523,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-800 dark:text-amber-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-100/90 dark:bg-amber-950/60 border border-amber-400 dark:border-amber-800 flex items-center justify-center text-amber-800 dark:text-amber-300 shrink-0">
             <DollarSign className="w-5 h-5" />
           </div>
           <div>
@@ -540,7 +540,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       </div>
 
       {/* Barra de Filtros & Ações */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         
         <div className="flex flex-wrap items-center gap-2 flex-1">
           {/* Seletor Unificado de Competência com Navegação por Setas */}
@@ -552,13 +552,13 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
           {/* Campo de Busca */}
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="w-4 h-4 text-black/60 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-600 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar colaborador ou motivo..."
-              className="w-full pl-9 pr-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-pink-600 font-medium"
+              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs placeholder:text-slate-500 dark:placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-pink-600 font-medium"
             />
           </div>
 
@@ -566,7 +566,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
+            className="px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
           >
             <option value="todos">Todos os Tipos</option>
             <option value="injustificada">Falta Injustificada</option>
@@ -579,7 +579,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
           <select
             value={discountFilter}
             onChange={(e) => setDiscountFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
+            className="px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
           >
             <option value="todos">Todos os Descontos</option>
             <option value="com_desconto">Com Desconto em Folha</option>
@@ -592,7 +592,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         <button
           type="button"
           onClick={() => handleOpenModal()}
-          className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 shrink-0"
+          className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 border border-black/40 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Registrar Falta</span>
@@ -601,32 +601,32 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       </div>
 
       {/* Tabela de Faltas */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Situação</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Colaborador</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Tipo de Falta</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Data / Período</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Qtd. Dias</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Motivo / Justificativa</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Desconto Estimado</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Situação</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Tipo de Falta</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Data / Período</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Qtd. Dias</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Motivo / Justificativa</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Desconto Estimado</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={item.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         item.status === 'descontada'
-                          ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
+                          ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
                           : item.status === 'abonada'
-                          ? 'bg-blue-100 border-blue-300 text-blue-900'
-                          : 'bg-amber-100 border-amber-300 text-amber-900'
+                          ? 'bg-blue-100 border-blue-400 text-blue-900'
+                          : 'bg-amber-100 border-amber-400 text-amber-900'
                       }`}>
                         {item.status === 'descontada' ? (
                           <>
@@ -664,7 +664,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                           ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-900 dark:text-purple-300'
                           : item.type === 'atraso'
                           ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300'
-                          : 'bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200'
+                          : 'bg-slate-200 dark:bg-stone-800 text-slate-900 dark:text-stone-200'
                       }`}>
                         {item.type === 'injustificada' && 'Falta Injustificada'}
                         {item.type === 'justificada' && 'Falta Justificada'}
@@ -712,7 +712,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                           </span>
                           {item.calculationMemory && (
                             <span 
-                              className="block text-[9px] text-stone-600 dark:text-stone-400 truncate max-w-[170px] ml-auto cursor-help"
+                              className="block text-[9px] text-slate-700 dark:text-stone-400 truncate max-w-[170px] ml-auto cursor-help"
                               title={item.calculationMemory}
                             >
                               {item.calculationMemory}
@@ -720,7 +720,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                           )}
                         </div>
                       ) : (
-                        <span className="text-stone-500 font-medium text-[11px]">
+                        <span className="text-slate-600 dark:text-stone-400 font-medium text-[11px]">
                           Isento (R$ 0,00)
                         </span>
                       )}
@@ -732,7 +732,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handleMarkAsDiscounted(item)}
-                            className="p-1 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100/60 rounded transition cursor-pointer"
+                            className="p-1 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100/70 rounded transition cursor-pointer"
                             title="Marcar como Descontada na Folha"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -741,7 +741,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenModal(item)}
-                          className="p-1 text-black/70 hover:text-black dark:text-stone-400 dark:hover:text-white hover:bg-blue-200/50 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          className="p-1 text-black/70 hover:text-black dark:text-stone-400 dark:hover:text-white hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Editar Registro"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -749,7 +749,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="p-1 text-rose-600 hover:text-rose-700 hover:bg-rose-100/50 dark:hover:bg-rose-950/50 rounded transition cursor-pointer"
+                          className="p-1 text-rose-600 hover:text-rose-700 hover:bg-rose-100/70 dark:hover:bg-rose-950/50 rounded transition cursor-pointer"
                           title="Excluir Registro"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -760,7 +760,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                  <td colSpan={8} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

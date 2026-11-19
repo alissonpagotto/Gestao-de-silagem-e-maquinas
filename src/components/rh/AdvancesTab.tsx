@@ -508,9 +508,9 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       
       {/* Top Header & Actions */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         <div className="flex items-center space-x-2">
-          <div className="p-2 rounded-lg bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
+          <div className="p-2 rounded-lg bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 text-black dark:text-white">
             <DollarSign className="w-5 h-5" />
           </div>
           <div>
@@ -526,7 +526,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
         <button
           type="button"
           onClick={() => handleOpenModal()}
-          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 border border-black/40 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Novo Adiantamento / Vale</span>
@@ -535,25 +535,25 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
 
       {/* KPIs */}
       <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Vales do Mês ({activeCompetence})</span>
           <span className="text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalValesMonth)}
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-amber-400 block uppercase">Pendentes de Desconto</span>
           <span className="text-base font-black text-black dark:text-amber-400 font-['Outfit']">
             {pendentesCount} vale(s)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-emerald-400 block uppercase">Descontados na Folha</span>
           <span className="text-base font-black text-black dark:text-emerald-400 font-['Outfit']">
             {descontadosCount} vale(s)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Total Acumulado</span>
           <span className="text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalGeralVales)}
@@ -562,15 +562,15 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       </div>
 
       {/* Search Bar & Competence Selector */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl px-3 py-2 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
-          <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por colaborador ou motivo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-500 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
         <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
@@ -586,34 +586,34 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       </div>
 
       {/* Table */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Colaborador</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Data do Vale</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Competência</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Forma Pagto.</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Motivo / Descrição</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Comprovante</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-right">Valor (R$)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Data do Vale</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Competência</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Forma Pagto.</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Motivo / Descrição</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Comprovante</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-right border-b border-black dark:border-stone-700">Valor (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={item.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(item.id, item.status)}
                         className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
                           item.status === 'descontado'
-                            ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                            : 'bg-amber-100 border-amber-300 text-amber-900'
+                            ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
+                            : 'bg-amber-100 border-amber-400 text-amber-900'
                         }`}
                       >
                         {item.status === 'descontado' ? (
@@ -636,13 +636,13 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                           {item.employeeName}
                         </span>
                         {item.totalInstallments && item.totalInstallments > 1 && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 text-[#0963cb] text-[10px] font-black border border-blue-300 shrink-0">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 text-[#0963cb] text-[10px] font-black border border-blue-400 shrink-0">
                             {item.installmentNumber || 1}/{item.totalInstallments}
                           </span>
                         )}
                       </div>
                       {item.responsibleUser && (
-                        <div className="text-[10px] text-stone-600 dark:text-stone-400 font-medium flex items-center space-x-1 mt-0.5">
+                        <div className="text-[10px] text-slate-700 dark:text-stone-400 font-medium flex items-center space-x-1 mt-0.5">
                           <ShieldCheck className="w-2.5 h-2.5 text-blue-700 dark:text-blue-400 shrink-0" />
                           <span className="truncate">Auditado por: {item.responsibleUser}</span>
                         </div>
@@ -671,14 +671,14 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                         <button
                           type="button"
                           onClick={() => setViewingReceipt({ url: item.attachmentUrl!, name: item.attachmentName })}
-                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-blue-50 border border-blue-300 text-[#0963cb] rounded-lg text-[11px] font-bold shadow-2xs transition cursor-pointer"
+                          className="inline-flex items-center space-x-1 px-2 py-1 bg-white hover:bg-blue-50 border border-black/40 text-[#0963cb] rounded-lg text-[11px] font-bold shadow-2xs transition cursor-pointer"
                           title={`Ver comprovante: ${item.attachmentName || 'Anexo'}`}
                         >
                           <Paperclip className="w-3 h-3" />
                           <span className="hidden sm:inline">Ver</span>
                         </button>
                       ) : (
-                        <span className="text-stone-500 text-[11px]">-</span>
+                        <span className="text-slate-600 text-[11px]">-</span>
                       )}
                     </td>
 
@@ -691,7 +691,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenModal(item)}
-                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          className="p-1 text-black dark:text-sky-400 hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Editar Vale"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -699,7 +699,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="p-1 text-black/70 dark:text-stone-400 hover:text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                          className="p-1 text-black/70 dark:text-stone-400 hover:text-rose-700 hover:bg-rose-100/70 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
                           title="Excluir Vale"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -710,7 +710,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                  <td colSpan={9} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

@@ -296,11 +296,11 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
   return (
     <div className="w-full max-w-none flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden text-black dark:text-white">
       
-      {/* 4 Cards de Métricas (Pink / Rose Theme) */}
+      {/* 4 Cards de Métricas */}
       <div className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-pink-100/90 dark:bg-pink-950/60 border border-pink-300 dark:border-pink-800 flex items-center justify-center text-pink-700 dark:text-pink-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-pink-100/90 dark:bg-pink-950/60 border border-pink-400 dark:border-pink-800 flex items-center justify-center text-pink-700 dark:text-pink-300 shrink-0">
             <FileHeart className="w-5 h-5" />
           </div>
           <div>
@@ -313,8 +313,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-pink-100/90 dark:bg-pink-950/60 border border-pink-300 dark:border-pink-800 flex items-center justify-center text-pink-700 dark:text-pink-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-pink-100/90 dark:bg-pink-950/60 border border-pink-400 dark:border-pink-800 flex items-center justify-center text-pink-700 dark:text-pink-300 shrink-0">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
@@ -327,8 +327,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-emerald-100/90 dark:bg-emerald-950/60 border border-emerald-400 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
@@ -341,8 +341,8 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-800 dark:text-amber-300 shrink-0">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-4 shadow-xs flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-100/90 dark:bg-amber-950/60 border border-amber-400 dark:border-amber-800 flex items-center justify-center text-amber-800 dark:text-amber-300 shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div>
@@ -358,18 +358,18 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
       </div>
 
       {/* Barra de Filtros & Ações */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         
         <div className="flex flex-wrap items-center gap-2 flex-1">
           {/* Campo de Busca */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-black/60 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-600 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar colaborador, CID, médico ou clínica..."
-              className="w-full pl-9 pr-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-pink-600 font-medium"
+              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs placeholder:text-slate-500 dark:placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-pink-600 font-medium"
             />
           </div>
 
@@ -384,7 +384,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
+            className="px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
           >
             <option value="todos">Todos os Tipos</option>
             {certificateTypeOptions.map((opt) => (
@@ -398,7 +398,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
+            className="px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-600 rounded-lg text-black dark:text-white text-xs font-medium outline-none focus:ring-1 focus:ring-pink-600 cursor-pointer"
           >
             <option value="todos">Todos os Status</option>
             <option value="homologado">Homologados</option>
@@ -410,7 +410,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
         <button
           type="button"
           onClick={() => handleOpenModal()}
-          className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 shrink-0"
+          className="inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 border border-black/40 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Novo Atestado</span>
@@ -419,32 +419,32 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
       </div>
 
       {/* Tabela de Atestados */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Colaborador</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Tipo / Motivo</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Período</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Qtd. Abonada</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">Previsão Retorno</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3">CID & Emissor</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2.5 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Tipo / Motivo</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Período</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Qtd. Abonada</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">Previsão Retorno</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 border-b border-black dark:border-stone-700">CID & Emissor</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2.5 px-3 text-center border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((cert) => (
-                  <tr key={cert.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={cert.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         cert.status === 'homologado'
-                          ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
+                          ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
                           : cert.status === 'em_analise'
-                          ? 'bg-amber-100 border-amber-300 text-amber-900'
-                          : 'bg-rose-100 border-rose-300 text-rose-900'
+                          ? 'bg-amber-100 border-amber-400 text-amber-900'
+                          : 'bg-rose-100 border-rose-400 text-rose-900'
                       }`}>
                         {cert.status === 'homologado' ? (
                           <>
@@ -511,7 +511,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                     <td className="py-2 px-3">
                       <div className="flex items-center space-x-1.5">
                         {cert.cid && (
-                          <span className="px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-700 text-black dark:text-white font-mono font-bold text-[10px]">
+                          <span className="px-1.5 py-0.5 rounded bg-[#cad4e6] dark:bg-stone-700 border border-black/30 dark:border-stone-600 text-black dark:text-white font-mono font-bold text-[10px]">
                             CID {cert.cid}
                           </span>
                         )}
@@ -531,7 +531,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenModal(cert)}
-                          className="p-1 text-black/70 hover:text-black dark:text-stone-400 dark:hover:text-white hover:bg-blue-200/50 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          className="p-1 text-black/70 hover:text-black dark:text-stone-400 dark:hover:text-white hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Editar Atestado"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -539,7 +539,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(cert.id)}
-                          className="p-1 text-rose-600 hover:text-rose-700 hover:bg-rose-100/50 dark:hover:bg-rose-950/50 rounded transition cursor-pointer"
+                          className="p-1 text-rose-600 hover:text-rose-700 hover:bg-rose-100/70 dark:hover:bg-rose-950/50 rounded transition cursor-pointer"
                           title="Excluir Atestado"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -550,7 +550,7 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-4 text-center text-stone-500 dark:text-stone-400 text-xs font-semibold uppercase">
+                  <td colSpan={8} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

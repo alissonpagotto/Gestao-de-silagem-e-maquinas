@@ -3167,7 +3167,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       )}
 
       {/* Month Selector Bar & Action Controls */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         
         {/* Month Selector + Tipo de Folha */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-start shrink-0">
@@ -3177,7 +3177,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             onNext={handleNextMonth}
           />
 
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-blue-300 dark:border-stone-700 bg-white/85 dark:bg-stone-800 text-xs font-bold text-black dark:text-white shadow-2xs">
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-xs font-bold text-black dark:text-white shadow-2xs">
             <span className="text-[11px] font-black uppercase tracking-wide text-black/80 dark:text-stone-300 whitespace-nowrap">
               Tipo de Folha:
             </span>
@@ -3209,7 +3209,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             {isSeasonal13thPeriod && (
               <div
                 role="status"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100/95 dark:bg-amber-950/75 border border-amber-400 dark:border-amber-600 text-amber-950 dark:text-amber-200 text-[11px] font-extrabold leading-tight shadow-2xs animate-pulse"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100/95 dark:bg-amber-950/75 border border-amber-500 dark:border-amber-600 text-amber-950 dark:text-amber-200 text-[11px] font-extrabold leading-tight shadow-2xs animate-pulse"
               >
                 <span>
                   📅 Período de 13° Salário Ativo: Lembre-se de rodar a 1ª parcela até 30/11 e a 2ª parcela até 20/12!
@@ -3222,7 +3222,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 <div
                   role="alert"
                   title={`${missing13thEmployees.length} funcionário(s) ativo(s) sem lançamento: ${missing13thEmployees.map(e => e.name).join(', ')}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 text-[11px] font-black leading-tight shadow-2xs animate-pulse"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/80 border border-rose-500 dark:border-rose-700 text-rose-900 dark:text-rose-200 text-[11px] font-black leading-tight shadow-2xs animate-pulse"
                 >
                   <span>⚠️ Atenção: Existe 13° NÃO gerado para funcionários ativos!</span>
                   <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black">
@@ -3235,7 +3235,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               <div
                 role="alert"
                 title={`${missingMonthlyEmployees.length} funcionário(s) ativo(s) sem folha mensal em ${currentMonthRef}: ${missingMonthlyEmployees.map(e => e.name).join(', ')}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/80 border border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 text-[11px] font-black leading-tight shadow-2xs animate-pulse"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/80 border border-rose-500 dark:border-rose-700 text-rose-900 dark:text-rose-200 text-[11px] font-black leading-tight shadow-2xs animate-pulse"
               >
                 <span>⚠️ Alerta: Existem funcionários sem Folha Mensal gerada neste mês!</span>
                 <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black">
@@ -3251,7 +3251,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           <button
             type="button"
             onClick={handleBatchGenerate}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 border border-emerald-400 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 font-bold text-xs rounded-lg hover:bg-emerald-600 hover:text-white transition cursor-pointer"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 border border-black/50 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 font-bold text-xs rounded-lg hover:bg-emerald-600 hover:text-white transition cursor-pointer"
             title={
               payrollType === '13_first_packet'
                 ? 'Gera adiantamentos da 1ª parcela do 13° salário em lote (50% sem INSS/IRRF)'
@@ -3267,7 +3267,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           <button
             type="button"
             onClick={() => handleOpenModal()}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 border border-black/40 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Lançar Folha</span>
@@ -3278,13 +3278,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       {/* Quick Summary KPIs */}
       <div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Salários Base</span>
           <span className="text-sm sm:text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalBase)}
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Horas Extras/Bônus</span>
           <span className="text-sm sm:text-base font-black text-black dark:text-emerald-400 font-['Outfit']">
             +{formatCurrencyBRL(totalOvertimeBonus)}
@@ -3295,13 +3295,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             </span>
           )}
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Total Deduções</span>
           <span className="text-sm sm:text-base font-black text-black dark:text-rose-400 font-['Outfit']">
             -{formatCurrencyBRL(totalDiscounts)}
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
           <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Total Líquido Folha</span>
           <span className="text-sm sm:text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalNet)}
@@ -3310,7 +3310,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Banner Informativo de Regras de Negócio */}
-      <div className="crm-card shrink-0 bg-blue-100/80 dark:bg-stone-800/80 border border-blue-300 dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+      <div className="shrink-0 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
         <div className="flex items-center space-x-2 text-black dark:text-stone-200">
           <ShieldCheck className="w-4 h-4 text-[#0963cb] shrink-0" />
           {payrollType === '13_first_packet' ? (
@@ -3330,15 +3330,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="crm-card shrink-0 bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
+      <div className="shrink-0 bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
         <div className="relative w-full sm:w-80">
-          <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar colaborador ou função..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-400 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-500 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
         <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
@@ -3353,30 +3353,30 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       </div>
 
       {/* Payroll Table */}
-      <div className="crm-card flex-1 min-h-0 flex flex-col bg-[#87AFE3] dark:bg-stone-900 border border-slate-300 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-300 dark:border-stone-700 shadow-sm">
+      <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#e0e6f1] dark:bg-stone-900">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Colaborador</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3">Cargo / Função</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Salário Base</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Proventos (+)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">INSS (-)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Vales/Desc. (-)</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-right">Líquido a Pagar</th>
-                <th className="sticky top-0 z-20 bg-slate-100 dark:bg-stone-800 py-2 px-3 text-center">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Status</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Colaborador</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Cargo / Função</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-right border-b border-black dark:border-stone-700">Salário Base</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-right border-b border-black dark:border-stone-700">Proventos (+)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-right border-b border-black dark:border-stone-700">INSS (-)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-right border-b border-black dark:border-stone-700">Vales/Desc. (-)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-right border-b border-black dark:border-stone-700">Líquido a Pagar</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 text-center border-b border-black dark:border-stone-700">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+            <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/20 dark:divide-stone-800">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800">
+                  <tr key={item.id} className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
                     <td className="py-2 px-3">
                       {item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated) ? (
                         <span
-                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-400 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
                           title="Lançado e integrado ao Contas a Pagar e DRE"
                         >
                           <CheckCircle2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
@@ -3388,8 +3388,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           onClick={() => handleToggleStatus(item.id)}
                           className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
                             item.status === 'pago'
-                              ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                              : 'bg-amber-100 border-amber-300 text-amber-900'
+                              ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
+                              : 'bg-amber-100 border-amber-400 text-amber-900'
                           }`}
                         >
                           {item.status === 'pago' ? (
@@ -3461,8 +3461,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           disabled={item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated) || integratingId === item.id}
                           className={`p-1 rounded transition ${
                             item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated)
-                              ? 'text-slate-400 dark:text-stone-600 opacity-40 cursor-not-allowed'
-                              : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100/70 dark:hover:bg-stone-800 cursor-pointer active:scale-95'
+                              ? 'text-slate-500 dark:text-stone-600 opacity-40 cursor-not-allowed'
+                              : 'text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:bg-[#cad4e6] dark:hover:bg-stone-800 cursor-pointer active:scale-95'
                           }`}
                           title={
                             item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated)
@@ -3493,7 +3493,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         <button
                           type="button"
                           onClick={() => onViewPayslip(item)}
-                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          className="p-1 text-black dark:text-sky-400 hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Ver / Imprimir Holerite"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -3501,7 +3501,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenModal(item)}
-                          className="p-1 text-black/70 dark:text-stone-400 hover:text-black dark:hover:text-[#009688] hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          className="p-1 text-black/70 dark:text-stone-400 hover:text-black dark:hover:text-[#009688] hover:bg-[#cad4e6] dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Editar Folha"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -3509,7 +3509,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="p-1 text-black/70 dark:text-stone-400 hover:text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                          className="p-1 text-black/70 dark:text-stone-400 hover:text-rose-700 hover:bg-rose-100/70 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
                           title="Excluir Folha"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -3520,7 +3520,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-4 text-center text-black/75 dark:text-stone-400 text-xs font-semibold uppercase">
+                  <td colSpan={9} className="py-6 text-center bg-[#e0e6f1] dark:bg-stone-900 text-slate-700 dark:text-stone-400 text-xs font-semibold uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
