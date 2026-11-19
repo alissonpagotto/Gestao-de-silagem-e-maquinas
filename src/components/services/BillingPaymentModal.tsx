@@ -72,6 +72,7 @@ export interface ReceivableItem {
   type: 'Venda de Silagem' | 'Prestação de Serviço' | string;
   clientName: string;
   date: string;
+  issueDate?: string;
   dueDate: string;
   volume: string;
   totalAmount: number;

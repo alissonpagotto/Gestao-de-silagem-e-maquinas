@@ -187,6 +187,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       'Valor (R$)',
       'Categoria',
       'Status',
+      'Emissao',
       'Vencimento',
       'Data Pagamento',
       'Forma Pagamento',
@@ -203,6 +204,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       (exp.amount || 0).toFixed(2),
       `"${exp.categoryName || ''}"`,
       exp.status || '',
+      exp.issueDate || exp.date || '',
       exp.dueDate || '',
       exp.paymentDate || '',
       exp.paymentMethod || '',
@@ -293,9 +295,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       <table style="width:100%; border-collapse:collapse; font-size:8pt; text-align:left;">
         <thead>
           <tr style="background:#0f172a; color:#ffffff;">
-            <th style="padding:6px 8px; border:1px solid #0f172a;">Vencimento</th>
             <th style="padding:6px 8px; border:1px solid #0f172a;">Descrição</th>
             <th style="padding:6px 8px; border:1px solid #0f172a;">Categoria</th>
+            <th style="padding:6px 8px; border:1px solid #0f172a;">Emissão</th>
+            <th style="padding:6px 8px; border:1px solid #0f172a;">Vencimento</th>
             <th style="padding:6px 8px; border:1px solid #0f172a;">Centro de Custo</th>
             <th style="padding:6px 8px; border:1px solid #0f172a;">Fornecedor</th>
             <th style="padding:6px 8px; border:1px solid #0f172a; text-align:center;">Status</th>
@@ -310,12 +313,14 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       const effectiveStatus = getEffectiveStatus(exp);
       const statusColor = effectiveStatus === 'pago' ? '#059669' : effectiveStatus === 'atrasado' ? '#dc2626' : '#d97706';
       const statusText = effectiveStatus === 'pago' ? 'PAGO' : effectiveStatus === 'atrasado' ? 'VENCIDO' : 'PENDENTE';
+      const issueDateStr = exp.issueDate || exp.date || (exp.createdAt ? String(exp.createdAt).split('T')[0] : '') || exp.dueDate;
 
       html += `
         <tr style="background:${bg}; border-bottom:1px solid #e2e8f0;">
-          <td style="padding:5px 8px;">${formatDateBR(exp.dueDate)}</td>
           <td style="padding:5px 8px; font-weight:bold; color:#0f172a;">${exp.description}</td>
           <td style="padding:5px 8px; color:#475569;">${exp.categoryName}</td>
+          <td style="padding:5px 8px;">${formatDateBR(issueDateStr)}</td>
+          <td style="padding:5px 8px;">${formatDateBR(exp.dueDate)}</td>
           <td style="padding:5px 8px; color:#475569;">${exp.costCenterName || '-'}</td>
           <td style="padding:5px 8px; color:#64748b;">${exp.supplier || '-'}</td>
           <td style="padding:5px 8px; text-align:center; font-weight:bold; color:${statusColor}; font-size:7.5pt;">${statusText}</td>
@@ -328,7 +333,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </tbody>
         <tfoot>
           <tr style="background:#f1f5f9; font-weight:bold; border-top:2px solid #0f172a;">
-            <td colspan="6" style="padding:8px; text-align:right; font-size:9pt;">VALOR TOTAL:</td>
+            <td colspan="7" style="padding:8px; text-align:right; font-size:9pt;">VALOR TOTAL:</td>
             <td style="padding:8px; text-align:right; font-size:9.5pt; color:#0f172a;">${formatCurrencyBRL(totalAmount)}</td>
           </tr>
         </tfoot>
@@ -518,7 +523,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               <tr>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Descrição & Fornecedor</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Categoria</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Vencimento</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700 text-center whitespace-nowrap">Emissão</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700 text-center whitespace-nowrap">Vencimento</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Centro / Máquina</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Valor</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 py-2 px-3 border-b border-black dark:border-stone-700">Status</th>
@@ -528,7 +534,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             <tbody className="font-medium bg-[#e0e6f1] dark:bg-stone-900">
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-xs font-semibold text-slate-700 dark:text-stone-400 uppercase bg-[#e0e6f1] dark:bg-stone-900">
+                  <td colSpan={8} className="py-6 text-center text-xs font-semibold text-slate-700 dark:text-stone-400 uppercase bg-[#e0e6f1] dark:bg-stone-900">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>
@@ -575,16 +581,16 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     </span>
                   </td>
 
-                  {/* Due Date & Payment Date */}
-                  <td className="py-1.5 px-3 whitespace-nowrap">
+                  {/* Emissão */}
+                  <td className="py-1.5 px-3 text-center whitespace-nowrap font-mono text-black/80 dark:text-stone-300">
+                    {formatDateBR(exp.issueDate || exp.date || (exp.createdAt ? String(exp.createdAt).split('T')[0] : '') || exp.dueDate)}
+                  </td>
+
+                  {/* Vencimento & Data de Pagamento */}
+                  <td className="py-1.5 px-3 text-center whitespace-nowrap font-mono">
                     <div className="font-bold text-black dark:text-white leading-snug">{formatDateBR(exp.dueDate)}</div>
-                    {(exp.date || exp.issueDate) && (exp.date || exp.issueDate) !== exp.dueDate && (
-                      <div className="text-[9px] text-slate-600 dark:text-stone-400 font-semibold">
-                        Desp: {formatDateBR(exp.date || exp.issueDate || '')}
-                      </div>
-                    )}
                     {exp.paymentDate && exp.status === 'pago' && (
-                      <div className="text-[9px] text-black dark:text-emerald-400 font-bold">
+                      <div className="text-[9px] text-emerald-800 dark:text-emerald-400 font-bold">
                         Pago: {formatDateBR(exp.paymentDate)}
                       </div>
                     )}
@@ -750,6 +756,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
               <div className="flex items-center justify-between text-xs text-black/80 dark:text-stone-400 pt-1 border-t border-blue-200/60 dark:border-stone-800">
                 <div className="flex items-center space-x-3">
+                  <span>Emissão: <strong className="text-black dark:text-white">{formatDateBR(exp.issueDate || exp.date || (exp.createdAt ? String(exp.createdAt).split('T')[0] : '') || exp.dueDate)}</strong></span>
                   <span>Venc: <strong className="text-black dark:text-white">{formatDateBR(exp.dueDate)}</strong></span>
                   {exp.machineryId && exp.machineryName && (
                     <span className="text-black dark:text-blue-400 font-bold flex items-center gap-1">

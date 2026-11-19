@@ -178,6 +178,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         type: 'Venda de Silagem',
         clientName: o.clientName,
         date: o.date || o.deliveryDate || o.createdAt || '',
+        issueDate: o.date || (o.createdAt ? String(o.createdAt).split('T')[0] : '') || o.deliveryDate || '',
         dueDate: o.dueDate || o.deliveryDate || o.date || o.createdAt || '',
         volume: o.isInstallment && o.installmentNumber
           ? `Parcela ${o.installmentNumber}/${o.totalInstallments} (${o.tons} tons)`
@@ -210,6 +211,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           type: 'Prestação de Serviço',
           clientName: s.clientName,
           date: s.date || s.startDate || (s as any).createdAt || '',
+          issueDate: s.date || ((s as any).createdAt ? String((s as any).createdAt).split('T')[0] : '') || s.startDate || '',
           dueDate: s.dueDate || s.date || s.startDate || (s as any).createdAt || '',
           volume: s.isInstallment && s.installmentNumber
             ? `Parcela ${s.installmentNumber}/${s.totalInstallments} (${s.areaQuantity ? `${s.areaQuantity} ${s.areaUnit || 'UN'}` : (s.serviceType || 'Serviço')})`
@@ -277,6 +279,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           type: 'Nota Fiscal de Saída',
           clientName: resolvedClientName,
           date: n.dataEmissao || n.createdAt || '',
+          issueDate: n.dataEmissao || (n.createdAt ? String(n.createdAt).split('T')[0] : '') || '',
           dueDate: n.dataVencimento || n.dataEmissao || n.createdAt || '',
           volume: `${(n.tipoDocumento || 'NF').split(' ')[0]} Nº ${n.numero}${n.serie ? `/${n.serie}` : ''}`,
           totalAmount: Number(n.valorTotal) || 0,
@@ -305,6 +308,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const totalPending = useMemo(() => pendingList.reduce((acc, r) => acc + r.totalAmount, 0), [pendingList]);
   const totalPaid = useMemo(() => paidList.reduce((acc, r) => acc + r.totalAmount, 0), [paidList]);
   const totalOverall = useMemo(() => competenceReceivables.reduce((acc, r) => acc + r.totalAmount, 0), [competenceReceivables]);
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const filtered = useMemo(() => {
     return competenceReceivables.filter((r) => {
@@ -1320,102 +1324,113 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] border border-black rounded-lg overflow-hidden shadow-xs text-black">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-20 bg-[#cad4e6] text-[11px] font-black text-black uppercase tracking-wider border-b border-black shadow-sm">
+            <thead className="sticky top-0 z-20 bg-[#cad4e6] text-[10px] font-bold text-black uppercase tracking-wider border-b border-black shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Status</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Data</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Cliente / Produtor</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Origem / Tipo</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3">Volume</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3 text-right">Valor Total (R$)</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-2.5 px-3 text-right pr-4">Ações</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">CLIENTE / PRODUTOR</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">ORIGEM / TIPO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">VOLUME / PARCELA</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-center whitespace-nowrap">EMISSÃO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-center whitespace-nowrap">VENCIMENTO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap">VALOR TOTAL (R$)</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap pr-3">STATUS / AÇÕES</th>
               </tr>
             </thead>
             <tbody className="bg-[#e0e6f1] divide-y divide-black/15">
               {filtered.length > 0 ? (
-                filtered.map((item) => (
-                  <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
-                    <td className="py-2 px-3">
-                      <span
-                        className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
-                          item.status === 'pago'
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            : 'bg-sky-50 border-sky-200 text-sky-800'
-                        }`}
-                      >
-                        {item.status === 'pago' ? (
-                          <>
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Recebido</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-3 h-3" />
-                            <span>A Receber</span>
-                          </>
-                        )}
-                      </span>
-                    </td>
+                filtered.map((item) => {
+                  const issueDateVal = item.issueDate || item.date || '';
+                  const dueDateVal = item.dueDate || item.date || '';
+                  const dueIso = dueDateVal ? String(dueDateVal).slice(0, 10) : '';
+                  const isPaid = item.status === 'pago';
+                  const isOverdue = !isPaid && Boolean(dueIso) && dueIso < todayStr;
 
-                    <td className="py-2 px-3 font-bold text-black whitespace-nowrap text-xs">
-                      {formatDateBR(item.date)}
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <div className="font-bold text-black text-xs">
-                        {item.clientName}
-                      </div>
-                      {item.notes && (
-                        <div className="text-[11px] text-black/75 font-medium truncate max-w-xs">
-                          {item.notes}
+                  return (
+                    <tr key={item.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800">
+                      <td className="py-1.5 px-2.5">
+                        <div className="font-bold text-black text-xs uppercase">
+                          {item.clientName}
                         </div>
-                      )}
-                    </td>
+                        {item.notes && (
+                          <div className="text-[10px] text-stone-600 font-medium truncate max-w-xs uppercase">
+                            {item.notes}
+                          </div>
+                        )}
+                      </td>
 
-                    <td className="py-2 px-3">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold border ${
-                        item.type === 'Venda de Silagem' 
-                          ? 'bg-amber-50 border-amber-200 text-amber-900'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      }`}>
-                        {item.type}
-                      </span>
-                    </td>
-
-                    <td className="py-2 px-3 text-black font-medium text-xs">
-                      {item.volume}
-                    </td>
-
-                    <td className="py-2 px-3 text-right font-black text-black whitespace-nowrap text-xs font-['Outfit']">
-                      {formatCurrencyBRL(item.totalAmount)}
-                    </td>
-
-                    {/* Coluna Ações com Botão de Baixa / Quitação */}
-                    <td className="py-2 px-3 text-right whitespace-nowrap pr-4">
-                      {item.status === 'pago' ? (
-                        <span 
-                          id={`badge-recebido-${item.id}`}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-2xs"
-                          title="Faturamento liquidado e recebido"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span>Liquidado</span>
+                      <td className="py-1.5 px-2.5 whitespace-nowrap">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border uppercase ${
+                          item.type === 'Venda de Silagem' 
+                            ? 'bg-amber-50 border-amber-200 text-amber-900'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        }`}>
+                          {item.type}
                         </span>
-                      ) : (
-                        <button
-                          type="button"
-                          id={`btn-baixar-conta-${item.id}`}
-                          onClick={() => setSettlingItem(item)}
-                          className="inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-700 bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs active:scale-95"
-                          title="Efetivar recebimento / quitação desta conta"
-                        >
-                          <DollarSign className="w-3.5 h-3.5" />
-                          <span>Baixar / Receber</span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      <td className="py-1.5 px-2.5 text-black font-medium text-xs">
+                        {item.volume}
+                      </td>
+
+                      <td className="py-1.5 px-2.5 text-center font-medium text-stone-700 whitespace-nowrap text-xs font-mono">
+                        {issueDateVal ? formatDateBR(issueDateVal) : '—'}
+                      </td>
+
+                      <td className="py-1.5 px-2.5 text-center font-bold text-black whitespace-nowrap text-xs font-mono">
+                        {dueDateVal ? formatDateBR(dueDateVal) : '—'}
+                      </td>
+
+                      <td className="py-1.5 px-2.5 text-right font-black text-black whitespace-nowrap text-xs font-mono">
+                        {formatCurrencyBRL(item.totalAmount)}
+                      </td>
+
+                      {/* Coluna Status / Ações */}
+                      <td className="py-1.5 px-2.5 text-right whitespace-nowrap pr-3">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {isPaid ? (
+                            <span
+                              id={`badge-recebido-${item.id}`}
+                              className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 uppercase shadow-2xs"
+                              title="Faturamento liquidado e recebido"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span>RECEBIDO</span>
+                            </span>
+                          ) : (
+                            <>
+                              {isOverdue ? (
+                                <span
+                                  className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-50 border border-rose-300 text-rose-700 uppercase shadow-2xs"
+                                  title="Título com vencimento expirado"
+                                >
+                                  <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span>VENCIDO</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 border border-sky-300 text-sky-800 uppercase shadow-2xs"
+                                  title="Título aguardando recebimento"
+                                >
+                                  <Clock className="w-3 h-3 text-sky-600 shrink-0" />
+                                  <span>A RECEBER</span>
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                id={`btn-baixar-conta-${item.id}`}
+                                onClick={() => setSettlingItem(item)}
+                                className="h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2.5 py-0.5 rounded-md border border-emerald-700 bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs uppercase active:scale-95"
+                                title="Efetivar recebimento / quitação desta conta"
+                              >
+                                <DollarSign className="w-3 h-3" />
+                                <span>Baixar / Receber</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={7} className="py-6 text-center text-stone-600 bg-[#e0e6f1] font-semibold text-xs uppercase">

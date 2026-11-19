@@ -547,21 +547,115 @@ export function saveStoredExpenses(expenses: Expense[]): void {
   }
 }
 
-export function getStoredFiscalRecords(): Expense[] {
+const FISCAL_RECORD_BASE_KEYS = [
+  'silagem_facil_clean_v1_nfe_fiscal_records',
+  'agrocontrol_fiscal_docs',
+  'agrocontrol_nfe_records',
+  'agrocontrol_notas_fiscais',
+] as const;
+
+function getAllFiscalRecordKeys(): string[] {
+  const keys: string[] = [...FISCAL_RECORD_BASE_KEYS];
   try {
-    const raw = localStorage.getItem('silagem_facil_clean_v1_nfe_fiscal_records');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .filter((item: any) => item && typeof item === 'object')
-          .map(sanitizeExpenseRecord);
+    const cId = (getActiveCompanyId() || '').trim();
+    if (cId && cId !== 'default') {
+      for (const base of FISCAL_RECORD_BASE_KEYS) {
+        const scoped = `${base}_${cId}`;
+        if (!keys.includes(scoped)) keys.push(scoped);
       }
     }
+  } catch (_) {}
+  return keys;
+}
+
+function getDeletedFiscalIdsForGuard(): Set<string> {
+  const result = new Set<string>();
+  try {
+    const rawNfe = localStorage.getItem('agrocontrol_deleted_nfe_ids');
+    if (rawNfe) {
+      const arr = JSON.parse(rawNfe);
+      if (Array.isArray(arr)) arr.forEach(s => s && result.add(String(s).trim().toLowerCase()));
+    }
+  } catch (_) {}
+  try {
+    const rawDocs = localStorage.getItem('agrocontrol_deleted_documentos_entrada_ids');
+    if (rawDocs) {
+      const arr = JSON.parse(rawDocs);
+      if (Array.isArray(arr)) arr.forEach(s => s && result.add(String(s).trim().toLowerCase()));
+    }
+  } catch (_) {}
+  return result;
+}
+
+export function getStoredFiscalRecords(): Expense[] {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const deletedIds = getDeletedFiscalIdsForGuard();
+    const map = new Map<string, Expense>();
+
+    for (const key of getAllFiscalRecordKeys()) {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === '[]' || raw === 'null') continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) continue;
+        for (const item of parsed) {
+          if (!item || typeof item !== 'object' || !item.id) continue;
+          const cleanId = String(item.id).trim().toLowerCase();
+          if (deletedIds.has(cleanId)) continue;
+          const numLower = String(item.invoiceNumber || '').trim().toLowerCase();
+          const digits = String(item.invoiceNumber || '').replace(/\D/g, '');
+          const accessKey = String(item.accessKey || '').trim().toLowerCase();
+          if (numLower && deletedIds.has(numLower)) continue;
+          if (digits && deletedIds.has(digits)) continue;
+          if (accessKey && deletedIds.has(accessKey)) continue;
+
+          const sanitized = sanitizeExpenseRecord(item);
+          if (!map.has(sanitized.id)) {
+            map.set(sanitized.id, sanitized);
+          } else {
+            const existing = map.get(sanitized.id)!;
+            map.set(sanitized.id, { ...sanitized, ...existing });
+          }
+        }
+      } catch (_) {}
+    }
+
+    return Array.from(map.values());
   } catch (e) {
     console.warn('Failed to load fiscal records:', e);
   }
   return [];
+}
+
+export function saveStoredFiscalRecords(records: Expense[], allowEmpty = false): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const clean = (Array.isArray(records) ? records : []).filter(
+      (item: any) => item && typeof item === 'object' && item.id
+    );
+
+    if (!allowEmpty && clean.length === 0) {
+      const existing = getStoredFiscalRecords();
+      if (existing.length > 0) {
+        return;
+      }
+    }
+
+    const json = JSON.stringify(clean);
+    for (const key of getAllFiscalRecordKeys()) {
+      safeLocalStorageSetItem(key, json);
+    }
+    if (typeof window !== 'undefined') {
+      queueMicrotask(() => {
+        try {
+          window.dispatchEvent(new CustomEvent('agrocontrol_fiscal_records_updated', { detail: clean }));
+        } catch (_) {}
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to save fiscal records', e);
+  }
 }
 
 export function getStoredCategories(): ExpenseCategory[] {
@@ -4880,6 +4974,7 @@ export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingC
     AGROCONTROL_NOTAS_ENTRADAS_KEY,
     STORAGE_KEY_DOCUMENTOS_ENTRADA,
     LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA,
+    'silagem_facil_clean_v1_documentos_entrada',
   ];
 
   let totalPurged = 0;
@@ -4896,7 +4991,7 @@ export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingC
           totalPurged += (parsed.length - cleaned.length);
           localStorage.setItem(key, JSON.stringify(cleaned));
         }
-        remainingCount = cleaned.length;
+        remainingCount = Math.max(remainingCount, cleaned.length);
       }
     } catch (_) {}
   }
@@ -4906,6 +5001,7 @@ export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingC
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && (k.startsWith('agrocontrol_notas_entradas_') || k.startsWith('colaca_silagem_documentos_entrada_'))) {
+        if (k.startsWith('colaca_silagem_documentos_entrada_itens')) continue;
         const raw = localStorage.getItem(k);
         if (raw) {
           const parsed = JSON.parse(raw);
@@ -4923,13 +5019,25 @@ export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingC
   return { purgedCount: totalPurged, remainingCount };
 }
 
+function getAllDocumentosEntradaKeys(): string[] {
+  const keys = [
+    AGROCONTROL_NOTAS_ENTRADAS_KEY,
+    STORAGE_KEY_DOCUMENTOS_ENTRADA,
+    LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA,
+    'silagem_facil_clean_v1_documentos_entrada',
+  ];
+  try {
+    const cId = (getActiveCompanyId() || '').trim();
+    if (cId && cId !== 'default') {
+      keys.push(`${AGROCONTROL_NOTAS_ENTRADAS_KEY}_${cId}`);
+      keys.push(`${STORAGE_KEY_DOCUMENTOS_ENTRADA}_${cId}`);
+    }
+  } catch (_) {}
+  return keys;
+}
+
 export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
-  // Lê estritamente primeiro da chave agrocontrol_notas_entradas
-  const agro = getStoredList<DocumentoEntradaRecord>(AGROCONTROL_NOTAS_ENTRADAS_KEY, []);
-  let list = agro.length > 0 ? agro : getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
-  if (list.length === 0) {
-    list = getStoredList<DocumentoEntradaRecord>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
-  }
+  if (typeof window === 'undefined' || !window.localStorage) return [];
 
   // Purga defensiva de notas mockadas
   const isMockNota = (d: any) => {
@@ -4947,41 +5055,67 @@ export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
     return false;
   };
 
-  // Filtra mocks, registros corrompidos/fantasmas e IDs deletados
+  const deletedNfeIds = getDeletedFiscalIdsForGuard();
   const seenIds = new Set<string>();
   const cleaned: DocumentoEntradaRecord[] = [];
-  for (const d of list) {
-    if (!d || !d.id) continue;
-    if (seenIds.has(d.id)) continue;
-    if (isMockNota(d) || isCorruptedOrGhostDocumento(d)) continue;
-    seenIds.add(d.id);
-    cleaned.push(d);
+  let rawCountAcrossKeys = 0;
+
+  for (const key of getAllDocumentosEntradaKeys()) {
+    const arr = getStoredList<DocumentoEntradaRecord>(key, []);
+    if (!Array.isArray(arr) || arr.length === 0) continue;
+    rawCountAcrossKeys += arr.length;
+    for (const d of arr) {
+      if (!d || !d.id) continue;
+      if (seenIds.has(d.id)) continue;
+      const dIdLower = String(d.id).trim().toLowerCase();
+      const dNumLower = String(d.numero || d.numero_documento || '').trim().toLowerCase();
+      const dKeyLower = String(d.chave_acesso || '').trim().toLowerCase();
+      if (deletedNfeIds.has(dIdLower)) continue;
+      if (dNumLower && deletedNfeIds.has(dNumLower)) continue;
+      if (dKeyLower && deletedNfeIds.has(dKeyLower)) continue;
+      if (isMockNota(d) || isCorruptedOrGhostDocumento(d)) continue;
+      seenIds.add(d.id);
+      cleaned.push(d);
+    }
   }
 
-  if (cleaned.length !== list.length) {
-    saveStoredDocumentosEntrada(cleaned);
-  }
   return cleaned;
 };
 
-export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[]): void => {
+export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[], allowEmpty = false): void => {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const deletedNfeIds = getDeletedFiscalIdsForGuard();
   // Garante que nenhum fantasma ou registro deletado seja persistido
   const cleanDocs: DocumentoEntradaRecord[] = [];
   const seen = new Set<string>();
   for (const d of docs) {
     if (!d || !d.id) continue;
     if (seen.has(d.id)) continue;
+    if (deletedNfeIds.has(String(d.id).trim().toLowerCase())) continue;
     if (isCorruptedOrGhostDocumento(d)) continue;
     seen.add(d.id);
     cleanDocs.push(d);
   }
 
-  saveStoredList(AGROCONTROL_NOTAS_ENTRADAS_KEY, cleanDocs);
-  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA, cleanDocs);
-  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA, cleanDocs);
+  // Proteção estrita contra sobrescrita vazia acidental
+  if (!allowEmpty && cleanDocs.length === 0) {
+    const existing = getStoredDocumentosEntrada();
+    if (existing.length > 0) {
+      return;
+    }
+  }
+
+  const serialized = JSON.stringify(cleanDocs);
+  for (const key of getAllDocumentosEntradaKeys()) {
+    safeLocalStorageSetItem(key, serialized);
+  }
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated', { detail: cleanDocs }));
-    window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated', { detail: cleanDocs }));
+    queueMicrotask(() => {
+      try {
+        window.dispatchEvent(new CustomEvent('agrocontrol_notas_entradas_updated', { detail: cleanDocs }));
+        window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_updated', { detail: cleanDocs }));
+      } catch (_) {}
+    });
   }
 };
 
@@ -4996,7 +5130,7 @@ export const deleteLocalDocumentoEntrada = (id: string): void => {
   if (!id) return;
   recordDeletedDocumentoEntradaId(id);
   const current = getStoredDocumentosEntrada();
-  saveStoredDocumentosEntrada(current.filter(d => d.id !== id));
+  saveStoredDocumentosEntrada(current.filter(d => d.id !== id), true);
 
   // Também limpa da lista de itens caso haja resíduo cruzado
   try {

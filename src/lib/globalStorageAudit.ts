@@ -411,6 +411,17 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
 
   // 7. NOTAS E ENTRADAS (NF-e, CT-e, NFC-e, NFS-e, MDF-e, Manifestações)
   {
+    name: 'Registros Fiscais Consolidados (NF-e)',
+    categoryIndex: 7,
+    keys: [
+      'silagem_facil_clean_v1_nfe_fiscal_records',
+      'agrocontrol_fiscal_docs',
+      'agrocontrol_nfe_records',
+      'agrocontrol_notas_fiscais',
+    ],
+    type: 'array',
+  },
+  {
     name: 'Documentos Fiscais de Entrada & NF-e',
     categoryIndex: 7,
     keys: [
@@ -824,11 +835,13 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
         try {
           const parsedPrimary = JSON.parse(rawPrimary);
           if (Array.isArray(parsedPrimary)) {
-            hasAuthoritativePrimary = true;
             authoritativePrimaryArray = parsedPrimary.filter(item => !isMockStorageRecord(item));
             if (group.transform) {
               authoritativePrimaryArray = group.transform(authoritativePrimaryArray);
             }
+            // Só considera autoritativa para sobrescrever espelhos se possuir registros reais;
+            // um array vazio '[]' na chave primária NUNCA pode apagar dados existentes nas chaves espelho/empresa.
+            hasAuthoritativePrimary = authoritativePrimaryArray.length > 0;
           }
         } catch {
           hasAuthoritativePrimary = false;

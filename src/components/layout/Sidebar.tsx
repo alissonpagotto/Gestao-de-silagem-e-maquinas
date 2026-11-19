@@ -223,39 +223,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     let isMounted = true;
     const syncCompany = () => {
-      if (isMounted) {
-        setCompanyInfo(resolveCompanyInfo(companyProfile));
-        setLogoError(false);
-      }
+      queueMicrotask(() => {
+        if (isMounted) {
+          setCompanyInfo(resolveCompanyInfo(companyProfile));
+          setLogoError(false);
+        }
+      });
     };
 
     const handleLiveCompanySync = (e: any) => {
-      if (!isMounted) return;
       const detail = e?.detail;
-      if (detail && typeof detail === 'object') {
-        const simulatedProfile = {
-          corporateName: detail.corporateName ?? detail.razaoSocial ?? companyProfile?.corporateName ?? '',
-          tradeName: detail.tradeName ?? detail.nomeFantasia ?? companyProfile?.tradeName ?? '',
-          activitySector: detail.activitySector ?? detail.ramoAtividade ?? detail.setor ?? companyProfile?.activitySector ?? '',
-          logoUrl: detail.logoUrl !== undefined ? detail.logoUrl : companyProfile?.logoUrl,
-        } as CompanyProfile;
-        const explicitLogo = detail.logoUrl !== undefined ? String(detail.logoUrl || '') : undefined;
-        setCompanyInfo(resolveCompanyInfo(simulatedProfile, explicitLogo, true));
-        setLogoError(false);
-      } else {
-        syncCompany();
-      }
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        if (detail && typeof detail === 'object') {
+          const simulatedProfile = {
+            corporateName: detail.corporateName ?? detail.razaoSocial ?? companyProfile?.corporateName ?? '',
+            tradeName: detail.tradeName ?? detail.nomeFantasia ?? companyProfile?.tradeName ?? '',
+            activitySector: detail.activitySector ?? detail.ramoAtividade ?? detail.setor ?? companyProfile?.activitySector ?? '',
+            logoUrl: detail.logoUrl !== undefined ? detail.logoUrl : companyProfile?.logoUrl,
+          } as CompanyProfile;
+          const explicitLogo = detail.logoUrl !== undefined ? String(detail.logoUrl || '') : undefined;
+          setCompanyInfo(resolveCompanyInfo(simulatedProfile, explicitLogo, true));
+          setLogoError(false);
+        } else {
+          setCompanyInfo(resolveCompanyInfo(companyProfile));
+          setLogoError(false);
+        }
+      });
     };
 
     const handleLogoSync = (e: any) => {
-      if (!isMounted) return;
       const detail = e?.detail;
-      if (typeof detail === 'string') {
-        setCompanyInfo(resolveCompanyInfo(companyProfile, detail));
-        setLogoError(false);
-      } else {
-        syncCompany();
-      }
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        if (typeof detail === 'string') {
+          setCompanyInfo(resolveCompanyInfo(companyProfile, detail));
+          setLogoError(false);
+        } else {
+          setCompanyInfo(resolveCompanyInfo(companyProfile));
+          setLogoError(false);
+        }
+      });
     };
 
     window.addEventListener('colaca_company_profile_live_change', handleLiveCompanySync);
@@ -401,11 +409,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     let isMounted = true;
     const syncModules = () => {
-      if (!isMounted) return;
-      setSubscriberModulesConfig(getEffectiveModulesConfig(companyProfile));
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        setSubscriberModulesConfig(getEffectiveModulesConfig(companyProfile));
+      });
     };
 
-    syncModules();
+    if (isMounted) {
+      setSubscriberModulesConfig(getEffectiveModulesConfig(companyProfile));
+    }
 
     const handleStorageModules = (e: StorageEvent) => {
       if (

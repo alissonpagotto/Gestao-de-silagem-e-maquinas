@@ -648,19 +648,19 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                   CLIENTE
                 </th>
                 <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider border-b border-black">
-                  DATA
-                </th>
-                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider border-b border-black">
                   TIPO DE SERVIÇO
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right border-b border-black">
+                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap border-b border-black">
+                  EMISSÃO
+                </th>
+                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap border-b border-black">
+                  DATA SERVIÇO / EXECUÇÃO
+                </th>
+                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap border-b border-black">
                   VALOR ATUAL
                 </th>
-                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-center border-b border-black">
-                  STATUS FATURAMENTO
-                </th>
-                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right border-b border-black">
-                  AÇÕES
+                <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap border-b border-black">
+                  STATUS / AÇÕES
                 </th>
               </tr>
             </thead>
@@ -682,6 +682,14 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                   const service = item.primaryService;
                   const isFaturado = item.isFaturado;
                   const serviceTypeBadge = getServiceTypeBadge(service);
+                  const srvAny = service as any;
+                  const issueDateVal =
+                    srvAny.issueDate ||
+                    service.date ||
+                    (srvAny.createdAt ? String(srvAny.createdAt).split('T')[0] : '') ||
+                    service.startDate ||
+                    '';
+                  const executionDateVal = service.startDate || service.completionDate || service.date || issueDateVal;
 
                   return (
                     <tr
@@ -689,7 +697,7 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                       className="bg-[#e0e6f1] hover:bg-[#d2dced] dark:bg-stone-900 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-black/20 dark:border-stone-800"
                     >
                       {/* Nº Limpo e Unificado */}
-                      <td className="px-2.5 py-1.5 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold">
+                      <td className="px-2.5 py-1.5 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold whitespace-nowrap">
                         {item.cleanOrderNumber}
                       </td>
 
@@ -705,11 +713,6 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                         )}
                       </td>
 
-                      {/* Data */}
-                      <td className="px-2.5 py-1.5 text-xs text-zinc-700 dark:text-stone-300 font-medium">
-                        {service.startDate ? formatDateBR(service.startDate) : '--'}
-                      </td>
-
                       {/* Tipo de Serviço */}
                       <td className="px-2.5 py-1.5">
                         <span
@@ -719,24 +722,31 @@ export const BillingModule: React.FC<BillingModuleProps> = ({
                         </span>
                       </td>
 
+                      {/* Emissão */}
+                      <td className="px-2.5 py-1.5 text-xs text-center text-zinc-600 dark:text-stone-400 font-medium whitespace-nowrap font-mono">
+                        {issueDateVal ? formatDateBR(issueDateVal) : '--'}
+                      </td>
+
+                      {/* Data Serviço / Execução */}
+                      <td className="px-2.5 py-1.5 text-xs text-center text-zinc-900 dark:text-stone-200 font-bold whitespace-nowrap font-mono">
+                        {executionDateVal ? formatDateBR(executionDateVal) : '--'}
+                      </td>
+
                       {/* Valor Atual Consolidado */}
-                      <td className="px-2.5 py-1.5 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap font-mono">
                         {formatCurrencyBRL(item.totalAmount || 0)}
                       </td>
 
-                      {/* Status Interno do Faturamento Unificado */}
-                      <td className="px-2.5 py-1.5 text-center">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase ${item.statusBadge.className}`}
-                        >
-                          <Check className="w-3 h-3 stroke-[3] shrink-0" />
-                          <span>{item.statusBadge.label}</span>
-                        </span>
-                      </td>
+                      {/* Status / Ações */}
+                      <td className="px-2.5 py-1.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black border uppercase ${item.statusBadge.className}`}
+                          >
+                            <Check className="w-3 h-3 stroke-[3] shrink-0" />
+                            <span>{item.statusBadge.label}</span>
+                          </span>
 
-                      {/* Ações */}
-                      <td className="px-2.5 py-1.5 text-right">
-                        <div className="flex items-center justify-end gap-1 flex-wrap">
                           {/* Botão Auditar / Revisar Valores */}
                           <button
                             type="button"

@@ -83,6 +83,8 @@ import {
   saveStoredExpenses, 
   getStoredExpenses,
   saveCompanyDespesas,
+  getStoredFiscalRecords as getStoredFiscalRecordsFromStorage,
+  saveStoredFiscalRecords as saveStoredFiscalRecordsFromStorage,
   getStoredSuppliers,
   saveStoredSuppliers,
   getStoredCostCenters,
@@ -1062,29 +1064,12 @@ export function getStockReversalAnalysis(
   };
 }
 
-// Chave para persistência dedicada e única do Histórico Fiscal de Notas Fiscais
-const NFE_FISCAL_RECORDS_KEY = 'silagem_facil_clean_v1_nfe_fiscal_records';
-
 export function getStoredFiscalRecords(): Expense[] {
-  try {
-    const raw = localStorage.getItem(NFE_FISCAL_RECORDS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {
-    console.error('Failed to load fiscal records', e);
-  }
-  return [];
+  return getStoredFiscalRecordsFromStorage();
 }
 
-export function saveStoredFiscalRecords(records: Expense[]): void {
-  try {
-    localStorage.setItem(NFE_FISCAL_RECORDS_KEY, JSON.stringify(records));
-    window.dispatchEvent(new CustomEvent('agrocontrol_fiscal_records_updated'));
-  } catch (e) {
-    console.error('Failed to save fiscal records', e);
-  }
+export function saveStoredFiscalRecords(records: Expense[], allowEmpty = false): void {
+  saveStoredFiscalRecordsFromStorage(records, allowEmpty);
 }
 
 /**
@@ -1158,38 +1143,96 @@ export function getCanonicalNfeKey(item: {
  */
 export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
   const storedFiscal = getStoredFiscalRecords();
+  const fallbackStoredExpenses = getStoredExpenses();
   const cachedMap = getCachedNfeMap();
   const deletedNfeKeys = getDeletedNfeKeys();
   const deletedDocIds = getDeletedDocumentoEntradaIds();
 
-  // Coleta todos os registros elegíveis de ambas as fontes
+  // Mescla expenses recebidos via prop com fallback do localStorage (evitando perda se prop vier parcial)
+  const mergedExpensesMap = new Map<string, Expense>();
+  [...(fallbackStoredExpenses || []), ...(expensesList || [])].forEach((e) => {
+    if (e && e.id) mergedExpensesMap.set(String(e.id), e);
+  });
+  const combinedExpenses = Array.from(mergedExpensesMap.values());
+
+  const isInvoiceDerivedExpense = (e: Expense): boolean => {
+    if (!e) return false;
+    const eAny = e as any;
+    const num = String(e.invoiceNumber ?? '').toLowerCase().trim();
+    const notes = String(e.notes ?? '').toLowerCase();
+    const desc = String(e.description ?? '').toLowerCase();
+    const id = String(e.id ?? '').toLowerCase();
+
+    if (eAny.notaId || eAny.documento_entrada_id || eAny.nota_fiscal_id || eAny.nfeId) return true;
+    if (e.accessKey && /^\d{44}$/.test(String(e.accessKey).trim())) return true;
+    if (Array.isArray(e.nfeItems) && e.nfeItems.length > 0) return true;
+    if (
+      num.includes('nf') ||
+      num.includes('danfe') ||
+      num.includes('cte') ||
+      num.includes('ct-e') ||
+      num.includes('cupom') ||
+      num.includes('romaneio')
+    ) {
+      return true;
+    }
+    if (
+      notes.includes('nf-e') ||
+      notes.includes('chave:') ||
+      notes.includes('lançamento de parcela via nf-e') ||
+      notes.includes('nfe_items_json') ||
+      notes.includes('entrada ref.') ||
+      notes.includes('entrada manual:')
+    ) {
+      return true;
+    }
+    if (
+      /\b(nf-?e|danfe|ct-?e|nfs-?e)\b/i.test(desc) ||
+      desc.includes('entrada ref.') ||
+      /^compra\s+(nf|nfe|nf-e|nota|\d{3,})/i.test(desc)
+    ) {
+      return true;
+    }
+    if (
+      id.includes('nfe') ||
+      id.startsWith('pagar_') ||
+      id.startsWith('exp_doc_') ||
+      id.startsWith('fiscal_doc_') ||
+      (id.includes('_parc_') && /\d/.test(num))
+    ) {
+      return true;
+    }
+    // Número de NF puramente numérico (>= 3 dígitos) vindo de entrada de compra/parcela
+    const digitsOnly = num.replace(/\D/g, '');
+    if (digitsOnly.length >= 3 && (desc.startsWith('compra ') || Boolean(eAny.numero_parcela))) {
+      return true;
+    }
+    return false;
+  };
+
+  // Coleta todos os registros elegíveis de ambas as fontes sem duplicar o mesmo ID
+  const seenCandidateIds = new Set<string>();
   const allCandidates: Expense[] = [
     ...storedFiscal,
-    ...(expensesList || []).filter(e => {
-      if (!e) return false;
-      const num = String(e.invoiceNumber ?? '').toLowerCase();
-      const notes = String(e.notes ?? '').toLowerCase();
-      const id = String(e.id ?? '').toLowerCase();
-      return (
-        num.includes('nf') || 
-        num.includes('danfe') ||
-        notes.includes('nf-e') || 
-        notes.includes('chave:') || 
-        notes.includes('lançamento de parcela via nf-e') ||
-        id.includes('nfe') || 
-        id.includes('_parc_') ||
-        Boolean(e.nfeItems && e.nfeItems.length > 0)
-      );
-    })
+    ...combinedExpenses.filter(isInvoiceDerivedExpense),
   ].filter(item => {
     if (!item || !item.id) return false;
+    const itemAny = item as any;
     const cleanId = String(item.id ?? '').trim().toLowerCase();
+    if (seenCandidateIds.has(cleanId)) return false;
+    seenCandidateIds.add(cleanId);
+
+    const notaRef = String(itemAny.notaId || itemAny.documento_entrada_id || itemAny.nota_fiscal_id || '').trim();
+    const notaRefLower = notaRef.toLowerCase();
     const cleanNum = String(getCleanInvoiceNumber(item.invoiceNumber) ?? '').toLowerCase();
     const digits = (item.invoiceNumber || '').replace(/\D/g, '');
     const num = String(item.invoiceNumber ?? '').trim().toLowerCase();
     const canonical = String(getCanonicalNfeKey(item) ?? '').toLowerCase();
+    const accKey = String(item.accessKey || '').trim().toLowerCase();
 
     if (deletedNfeKeys.has(cleanId) || deletedDocIds.has(item.id)) return false;
+    if (notaRef && (deletedDocIds.has(notaRef) || deletedNfeKeys.has(notaRefLower))) return false;
+    if (accKey && deletedNfeKeys.has(accKey)) return false;
     if (cleanNum && deletedNfeKeys.has(cleanNum)) return false;
     if (digits && deletedNfeKeys.has(digits)) return false;
     if (num && deletedNfeKeys.has(num)) return false;
@@ -1371,12 +1414,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Competência ativa global sincronizada entre todas as abas
   const [fiscalCompetence, setFiscalCompetence] = useState<string>(() => getCurrentCompetence());
+  const [periodMode, setPeriodMode] = useState<'competence' | 'todos'>(() => {
+    try {
+      const saved = localStorage.getItem('agrocontrol_fiscal_period_mode');
+      if (saved === 'todos' || saved === 'competence') return saved;
+    } catch {}
+    return 'competence';
+  });
+  const userInteractedPeriodRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('agrocontrol_fiscal_period_mode', periodMode);
+    } catch {}
+  }, [periodMode]);
 
   const handlePrevCompetence = () => {
+    userInteractedPeriodRef.current = true;
+    setPeriodMode('competence');
     setFiscalCompetence(prev => getPrevCompetence(prev));
   };
 
   const handleNextCompetence = () => {
+    userInteractedPeriodRef.current = true;
+    setPeriodMode('competence');
     setFiscalCompetence(prev => getNextCompetence(prev));
   };
 
@@ -1434,18 +1495,29 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const pedidosCompraFilteredCount = useMemo(() => {
+    if (periodMode === 'todos') {
+      try {
+        const raw = localStorage.getItem('agrocontrol_pedidos_compra');
+        const list = raw ? JSON.parse(raw) : [];
+        return Array.isArray(list) ? list.length : 0;
+      } catch { return 0; }
+    }
     return getFilteredCountFromStorage('agrocontrol_pedidos_compra', item => item.issueDate || item.createdAt);
-  }, [fiscalCompetence, pedidosCompraCount]);
+  }, [fiscalCompetence, pedidosCompraCount, periodMode]);
 
   const reformOrdersFilteredCount = useMemo(() => {
-    return getStoredReformOrders().filter(o => matchesCompetence(o.createdAt || o.expectedReturnDate, fiscalCompetence)).length;
-  }, [fiscalCompetence, reformOrdersCount]);
+    const all = getStoredReformOrders();
+    if (periodMode === 'todos') return all.length;
+    return all.filter(o => matchesCompetence(o.createdAt || o.expectedReturnDate, fiscalCompetence)).length;
+  }, [fiscalCompetence, reformOrdersCount, periodMode]);
 
   const devolucaoFilteredCount = devolucaoCount;
 
   const manifestacoesFilteredCount = useMemo(() => {
-    return getStoredManifestacoes().filter(m => matchesCompetence(m.dataEmissao || m.createdAt, fiscalCompetence)).length;
-  }, [fiscalCompetence, manifestacoesCount]);
+    const all = getStoredManifestacoes();
+    if (periodMode === 'todos') return all.length;
+    return all.filter(m => matchesCompetence(m.dataEmissao || m.createdAt, fiscalCompetence)).length;
+  }, [fiscalCompetence, manifestacoesCount, periodMode]);
 
   // Escuta gatilho vindo da Gestão de Frotas ('colaca_silagem_abrir_pedido_reforma')
   useEffect(() => {
@@ -1502,14 +1574,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   }, [readLegacyFiscalDocsFromStorage]);
 
   // Estado dedicado reativo para Notas Fiscais Lançadas (NF-e) - Unicidade estrita de 1 linha por NF
+  // Leitura síncrona imediata de todas as fontes locais para jamais iniciar zerado no F5
+  const isInitialMountFiscalRef = useRef(true);
   const [notasLancadas, setNotasLancadas] = useState<Expense[]>(() => {
-    const list = (expenses && expenses.length > 0) ? expenses : getStoredExpenses();
-    return buildUnifiedFiscalRecords(list);
+    const combined = [...(expenses || []), ...getStoredExpenses()];
+    return buildUnifiedFiscalRecords(combined);
   });
 
   useEffect(() => {
-    if (expenses) {
-      const unified = buildUnifiedFiscalRecords(expenses);
+    const combined = [...(expenses || []), ...getStoredExpenses()];
+    const unified = buildUnifiedFiscalRecords(combined);
+    const existingStored = getStoredFiscalRecords();
+
+    if (isInitialMountFiscalRef.current) {
+      isInitialMountFiscalRef.current = false;
+      if (unified.length > 0) {
+        setNotasLancadas(unified);
+        // Só grava na montagem inicial se a reconciliação reversa recuperou notas que não estavam salvas
+        if (unified.length > existingStored.length) {
+          saveStoredFiscalRecords(unified);
+        }
+      } else if (existingStored.length > 0) {
+        setNotasLancadas(existingStored);
+      }
+      return;
+    }
+
+    // Proteção absoluta: nunca sobrescrever com [] se existem registros locais persistidos
+    if (unified.length === 0 && existingStored.length > 0) {
+      setNotasLancadas(existingStored);
+      return;
+    }
+
+    if (unified.length > 0) {
       setNotasLancadas(unified);
       saveStoredFiscalRecords(unified);
     }
@@ -1517,7 +1614,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Lista de Notas Fiscais rigorosamente consolidada para exibição na tabela fiscal (1 linha por documento fiscal com Valor Total Bruto)
   const notasFiscaisExibicao = useMemo(() => {
-    return buildUnifiedFiscalRecords(expenses && expenses.length > 0 ? expenses : notasLancadas);
+    const combined = [...(expenses || []), ...(notasLancadas || []), ...getStoredExpenses()];
+    return buildUnifiedFiscalRecords(combined);
   }, [expenses, notasLancadas]);
 
   const [xmlContent, setXmlContent] = useState(() => {
@@ -1770,10 +1868,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     try {
       const activeCompanyId = companyProfile?.companyId || companyProfile?.id || getActiveCompanyId(companyProfile);
       const data = await fetchDocumentosEntrada(activeCompanyId);
+      const localDocs = getStoredDocumentosEntrada();
       if (data && Array.isArray(data)) {
         const valid = data.filter(d => !isCorruptedOrGhostDocumento(d));
+        // Proteção contra sobrescrita vazia no F5 / modo offline
+        if (valid.length === 0 && localDocs.length > 0) {
+          setDocumentosEntrada(localDocs);
+          return localDocs;
+        }
         setDocumentosEntrada(valid);
         return valid;
+      }
+      if (localDocs.length > 0) {
+        setDocumentosEntrada(localDocs);
+        return localDocs;
       }
       return null;
     } catch (err) {
@@ -1793,14 +1901,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const refreshedLegacy = readLegacyFiscalDocsFromStorage();
       setLegacyFiscalDocs(refreshedLegacy);
       legacyFiscalDocsRef.current = refreshedLegacy;
-      const baseExp = expensesRef.current && expensesRef.current.length > 0 ? expensesRef.current : getStoredExpenses();
+      const baseExp = [...(expensesRef.current || []), ...getStoredExpenses()];
       const rebuilt = buildUnifiedFiscalRecords(baseExp);
-      setNotasLancadas(rebuilt);
-      notasLancadasRef.current = rebuilt;
+      if (rebuilt.length > 0) {
+        setNotasLancadas(rebuilt);
+        notasLancadasRef.current = rebuilt;
+        saveStoredFiscalRecords(rebuilt);
+      }
+      const docsToReconcile = (refreshedDocs && refreshedDocs.length > 0)
+        ? refreshedDocs
+        : getStoredDocumentosEntrada();
+      if (docsToReconcile.length > 0) {
+        setDocumentosEntrada(docsToReconcile);
+      }
       runFiscalPayablesReconciliation({
         showMessage: true,
         isAutoOnMount: false,
-        docsOverride: refreshedDocs || getStoredDocumentosEntrada(),
+        docsOverride: docsToReconcile,
       });
     } finally {
       setTimeout(() => setIsSyncingDocs(false), 350);
@@ -1908,11 +2025,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     };
     const handleCustomSyncEvent = (e?: any) => {
       if (isMounted) {
+        const storedDocs = getStoredDocumentosEntrada();
         if (e?.detail && Array.isArray(e.detail)) {
           const valid = e.detail.filter((d: any) => !isCorruptedOrGhostDocumento(d));
-          setDocumentosEntrada(valid);
-        } else {
-          setDocumentosEntrada(getStoredDocumentosEntrada());
+          if (valid.length === 0 && storedDocs.length > 0) {
+            setDocumentosEntrada(storedDocs);
+          } else {
+            setDocumentosEntrada(valid);
+          }
+        } else if (storedDocs.length > 0) {
+          setDocumentosEntrada(storedDocs);
         }
       }
     };
@@ -6257,7 +6379,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         f.invoiceNumber !== docNum && 
         (!cleanNum || String(getCleanInvoiceNumber(f.invoiceNumber) ?? '').toLowerCase() !== cleanNum)
       );
-      saveStoredFiscalRecords(updatedFiscal);
+      saveStoredFiscalRecords(updatedFiscal, true);
 
       // Limpeza no armazenamento de documentos de entrada
       deleteLocalDocumentoEntrada(docId);
@@ -6607,6 +6729,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       tooltip?: string;
       searchExtra?: string;
       date: string;
+      issueDate: string;
+      entryDate: string;
       amount: number;
       status: string;
       documentType: string;
@@ -6618,10 +6742,47 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       rawMdfeDoc?: MdfeRecord;
     }> = [];
 
-    // 1. Notas Fiscais Eletrônicas via XML
+    const stripFiscalRootId = (rawId?: string): string => {
+      return String(rawId || '')
+        .trim()
+        .toLowerCase()
+        .split('_parc_')[0]
+        .replace(/^nfe_fisc_/, '')
+        .replace(/^pagar_/, '')
+        .replace(/^exp_doc_/, '')
+        .replace(/^exp_nfe_/, '')
+        .replace(/^fiscal_doc_/, '');
+    };
+
+    // Indexa documentos manuais já presentes em documentosEntrada para preservar seu tipo exato (ex: Romaneio, Cupom)
+    const manualNonXmlIds = new Set<string>();
+    documentosEntrada.forEach(doc => {
+      if (!doc || isCorruptedOrGhostDocumento(doc)) return;
+      const tipoLower = String(doc.tipo_documento || '').toLowerCase();
+      const isXmlOrNf = tipoLower === 'nota fiscal' || tipoLower === 'nf-e' || tipoLower === 'xml / nf-e' || tipoLower === 'nfe';
+      if (!isXmlOrNf) {
+        const root = stripFiscalRootId(doc.id);
+        if (root) manualNonXmlIds.add(root);
+      }
+    });
+
+    // 1. Notas Fiscais Eletrônicas via XML e Registros Recuperados de Despesas/Contas a Pagar
     notasFiscaisExibicao.forEach(exp => {
       const expAny = exp as any;
-      const expDate = expAny.issueDate || expAny.entryDate || expAny.data_emissao || expAny.data_entrada || expAny.date || exp.dueDate || exp.createdAt || '';
+      const expRefIds = [
+        stripFiscalRootId(exp.id),
+        stripFiscalRootId(expAny.notaId),
+        stripFiscalRootId(expAny.documento_entrada_id),
+        stripFiscalRootId(expAny.nota_fiscal_id),
+      ].filter(Boolean);
+      // Se já existe um documento manual não-XML correspondente em documentosEntrada, evita duplicar como XML / NF-e
+      if (expRefIds.some(r => manualNonXmlIds.has(r))) {
+        return;
+      }
+
+      const issueDateVal = expAny.issueDate || expAny.data_emissao || expAny.date || expAny.entryDate || expAny.data_entrada || exp.dueDate || exp.createdAt || '';
+      const entryDateVal = expAny.entryDate || expAny.data_entrada || expAny.data || issueDateVal;
+      const expDate = issueDateVal || entryDateVal;
       const vehPlate = expAny.vehiclePlate || expAny.machineryName || (expAny.serviceOrderNumber ? `OS ${expAny.serviceOrderNumber}` : '');
       const itemsCount = Array.isArray(exp.nfeItems) && exp.nfeItems.length > 0
         ? exp.nfeItems.length
@@ -6652,6 +6813,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         tooltip,
         searchExtra: `${exp.description || ''} ${manualObs}`,
         date: expDate,
+        issueDate: issueDateVal,
+        entryDate: entryDateVal,
         amount: Number(exp.amount) || 0,
         status: exp.status || 'pendente',
         documentType: 'XML / NF-e',
@@ -6676,7 +6839,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       else badge = 'stone';
 
       const docNum = doc.numero || doc.numero_documento || docAny.number || (doc.chave_acesso ? doc.chave_acesso.slice(25, 34) : '') || tipo;
-      const docDate = doc.data || doc.data_entrada || doc.data_emissao || docAny.issueDate || doc.created_at || doc.data_vencimento || '';
+      const docIssueDate = doc.data_emissao || docAny.issueDate || doc.data || doc.data_entrada || doc.created_at || doc.data_vencimento || '';
+      const docEntryDate = doc.data_entrada || doc.data || docAny.entryDate || docIssueDate;
+      const docDate = docIssueDate || docEntryDate;
       const docSupplier = doc.fornecedor || doc.fornecedor_nome || docAny.supplierName || 'Fornecedor';
       const docAmount = Number(doc.valor_total ?? docAny.totalAmount) || 0;
       const vehLabel = doc.vehiclePlate || doc.machineryName || doc.vehicleModel || (docAny.serviceOrderNumber ? `OS ${docAny.serviceOrderNumber}` : '') || undefined;
@@ -6707,6 +6872,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         tooltip,
         searchExtra: `${doc.observacoes || ''} ${doc.descricao || ''} ${manualObs}`,
         date: docDate,
+        issueDate: docIssueDate,
+        entryDate: docEntryDate,
         amount: docAmount,
         status: doc.status || 'Finalizado',
         documentType: tipo,
@@ -6737,6 +6904,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         manualObs,
       });
 
+      const legacyIssueDate = fDoc.issueDate || fDoc.createdAt || '';
+      const legacyEntryDate = fDocAny.entryDate || fDocAny.dataEntrada || legacyIssueDate;
+
       list.push({
         id: fDoc.id,
         sourceType: 'legacy_fiscal',
@@ -6746,7 +6916,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         description: summary,
         tooltip,
         searchExtra: `${fDoc.description || ''} ${fDoc.notes || ''}`,
-        date: fDoc.issueDate || fDoc.createdAt || '',
+        date: legacyIssueDate,
+        issueDate: legacyIssueDate,
+        entryDate: legacyEntryDate,
         amount: Number(fDoc.totalAmount) || 0,
         status: fDoc.status || 'CONFIRMADO',
         documentType: fDoc.documentTypeLabel || fDoc.category.toUpperCase(),
@@ -6770,6 +6942,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         manualObs: mDoc.observacoes || undefined,
       });
 
+      const mdfeIssueDate = mDoc.dataEmissao || mDoc.createdAt || '';
+      const mdfeEntryDate = (mDoc as any).dataSaida || (mDoc as any).dataSaidaEntrada || mdfeIssueDate;
+
       list.push({
         id: mDoc.id,
         sourceType: 'mdfe',
@@ -6779,7 +6954,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         description: summary,
         tooltip,
         searchExtra: `${routeDesc} ${mDoc.observacoes || ''}`,
-        date: mDoc.dataEmissao || mDoc.createdAt || '',
+        date: mdfeIssueDate,
+        issueDate: mdfeIssueDate,
+        entryDate: mdfeEntryDate,
         amount: Number(mDoc.valorTotalCarga) || 0,
         status: mDoc.status || 'AUTORIZADO',
         documentType: 'MDF-e',
@@ -6792,13 +6969,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // 5. TRAVA DE UNICIDADE E DESDUPLICAÇÃO NA RENDERIZAÇÃO
     const dedupedList: typeof list = [];
     const seenIds = new Set<string>();
+    const seenRootIds = new Set<string>();
     const seenAccessKeys = new Set<string>();
     const seenDocSignatures = new Set<string>();
 
     for (const item of list) {
       const cleanId = String(item.id || '').trim();
       if (cleanId && seenIds.has(cleanId)) continue;
-      if (cleanId) seenIds.add(cleanId);
+
+      const itemExpAny = item.rawExpense as any;
+      const candidateRoots = [
+        stripFiscalRootId(item.id),
+        stripFiscalRootId(itemExpAny?.notaId),
+        stripFiscalRootId(itemExpAny?.documento_entrada_id),
+        stripFiscalRootId(itemExpAny?.nota_fiscal_id),
+      ].filter(Boolean);
+      if (candidateRoots.some(r => seenRootIds.has(r))) continue;
 
       // Desduplica por chave de acesso quando existente
       const accessKey = item.rawExpense?.accessKey || item.rawManualDoc?.chave_acesso || item.rawMdfeDoc?.chaveAcesso || '';
@@ -6817,6 +7003,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         seenDocSignatures.add(docSig);
       }
 
+      if (cleanId) seenIds.add(cleanId);
+      candidateRoots.forEach(r => seenRootIds.add(r));
       dedupedList.push(item);
     }
 
@@ -6855,6 +7043,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       tooltip?: string;
       searchExtra?: string;
       date: string;
+      issueDate: string;
+      entryDate: string;
       amount: number;
       status: string;
       documentType: string;
@@ -6906,6 +7096,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         manualObs,
       });
 
+      const saidaIssueDate = n.dataEmissao || n.createdAt || '';
+      const saidaEntryDate = (n as any).dataSaidaEntrada || (n as any).dataSaida || (n as any).dataEntrada || saidaIssueDate;
+
       list.push({
         id: n.id,
         sourceType: 'nota_saida',
@@ -6915,7 +7108,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         description: summary,
         tooltip,
         searchExtra: `${n.descricao || ''} ${n.observacoes || ''}`,
-        date: n.dataEmissao || n.createdAt || '',
+        date: saidaIssueDate,
+        issueDate: saidaIssueDate,
+        entryDate: saidaEntryDate,
         amount: Number(n.valorTotal) || 0,
         status: n.status || 'EMITIDA',
         documentType: shortType,
@@ -7429,63 +7624,108 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
-  // Lista filtrada pela competência ativa (MM/AAAA) — ENTRADAS
+  // Lista filtrada pela competência ativa (MM/AAAA) ou Todos os Períodos — ENTRADAS
+  const matchesEntryCompetence = useCallback((item: (typeof unifiedEntries)[number], comp: string): boolean => {
+    if (matchesCompetence(item.date, comp)) return true;
+
+    if (item.rawExpense) {
+      const exp = item.rawExpense;
+      if (matchesCompetence((exp as any).issueDate, comp)) return true;
+      if (matchesCompetence((exp as any).entryDate, comp)) return true;
+      if (matchesCompetence(exp.dueDate, comp)) return true;
+      if (matchesCompetence(exp.paymentDate, comp)) return true;
+      if (matchesCompetence(exp.createdAt, comp)) return true;
+    }
+
+    if (item.rawManualDoc) {
+      const doc = item.rawManualDoc;
+      if (matchesCompetence(doc.data, comp)) return true;
+      if (matchesCompetence(doc.data_entrada, comp)) return true;
+      if (matchesCompetence(doc.data_emissao, comp)) return true;
+      if (matchesCompetence(doc.data_vencimento, comp)) return true;
+      if (matchesCompetence(doc.created_at, comp)) return true;
+    }
+
+    if (item.rawLegacyFiscalDoc) {
+      const fDoc = item.rawLegacyFiscalDoc;
+      if (matchesCompetence(fDoc.issueDate, comp)) return true;
+      if (matchesCompetence(fDoc.createdAt, comp)) return true;
+    }
+
+    if (item.rawMdfeDoc) {
+      const mDoc = item.rawMdfeDoc;
+      if (matchesCompetence(mDoc.dataEmissao, comp)) return true;
+      if (matchesCompetence(mDoc.createdAt, comp)) return true;
+    }
+
+    if (!item.date || item.date.trim() === '') {
+      return true;
+    }
+
+    return false;
+  }, []);
+
+  const matchesSaidaCompetence = useCallback((item: (typeof unifiedSaidaEntries)[number], comp: string): boolean => {
+    if (matchesCompetence(item.date, comp)) return true;
+    if (item.rawNotaSaida) {
+      const ns = item.rawNotaSaida;
+      if (matchesCompetence(ns.dataEmissao, comp)) return true;
+      if (matchesCompetence(ns.dataVencimento, comp)) return true;
+      if (matchesCompetence(ns.createdAt, comp)) return true;
+    }
+    if (!item.date || item.date.trim() === '') return true;
+    return false;
+  }, []);
+
   const competenceFilteredEntries = useMemo(() => {
-    return unifiedEntries.filter(item => {
-      if (matchesCompetence(item.date, fiscalCompetence)) return true;
+    if (periodMode === 'todos' || !fiscalCompetence) return unifiedEntries;
+    return unifiedEntries.filter(item => matchesEntryCompetence(item, fiscalCompetence));
+  }, [unifiedEntries, fiscalCompetence, periodMode, matchesEntryCompetence]);
 
-      if (item.rawExpense) {
-        const exp = item.rawExpense;
-        if (matchesCompetence((exp as any).issueDate, fiscalCompetence)) return true;
-        if (matchesCompetence((exp as any).entryDate, fiscalCompetence)) return true;
-        if (matchesCompetence(exp.dueDate, fiscalCompetence)) return true;
-        if (matchesCompetence(exp.paymentDate, fiscalCompetence)) return true;
-        if (matchesCompetence(exp.createdAt, fiscalCompetence)) return true;
-      }
-
-      if (item.rawManualDoc) {
-        const doc = item.rawManualDoc;
-        if (matchesCompetence(doc.data, fiscalCompetence)) return true;
-        if (matchesCompetence(doc.data_entrada, fiscalCompetence)) return true;
-        if (matchesCompetence(doc.data_emissao, fiscalCompetence)) return true;
-        if (matchesCompetence(doc.data_vencimento, fiscalCompetence)) return true;
-        if (matchesCompetence(doc.created_at, fiscalCompetence)) return true;
-      }
-
-      if (item.rawLegacyFiscalDoc) {
-        const fDoc = item.rawLegacyFiscalDoc;
-        if (matchesCompetence(fDoc.issueDate, fiscalCompetence)) return true;
-        if (matchesCompetence(fDoc.createdAt, fiscalCompetence)) return true;
-      }
-
-      if (item.rawMdfeDoc) {
-        const mDoc = item.rawMdfeDoc;
-        if (matchesCompetence(mDoc.dataEmissao, fiscalCompetence)) return true;
-        if (matchesCompetence(mDoc.createdAt, fiscalCompetence)) return true;
-      }
-
-      if (!item.date || item.date.trim() === '') {
-        return true;
-      }
-
-      return false;
-    });
-  }, [unifiedEntries, fiscalCompetence]);
-
-  // Lista filtrada pela competência ativa (MM/AAAA) — SAÍDAS
+  // Lista filtrada pela competência ativa (MM/AAAA) ou Todos os Períodos — SAÍDAS
   const competenceFilteredSaidaEntries = useMemo(() => {
-    return unifiedSaidaEntries.filter(item => {
-      if (matchesCompetence(item.date, fiscalCompetence)) return true;
-      if (item.rawNotaSaida) {
-        const ns = item.rawNotaSaida;
-        if (matchesCompetence(ns.dataEmissao, fiscalCompetence)) return true;
-        if (matchesCompetence(ns.dataVencimento, fiscalCompetence)) return true;
-        if (matchesCompetence(ns.createdAt, fiscalCompetence)) return true;
+    if (periodMode === 'todos' || !fiscalCompetence) return unifiedSaidaEntries;
+    return unifiedSaidaEntries.filter(item => matchesSaidaCompetence(item, fiscalCompetence));
+  }, [unifiedSaidaEntries, fiscalCompetence, periodMode, matchesSaidaCompetence]);
+
+  // Auto-exibição de 'Todos os Períodos' caso a competência inicial esteja vazia mas existam notas em outros meses,
+  // ou caso uma nova nota seja importada/lançada fora da competência atualmente selecionada
+  const prevFiscalEntryIdsRef = useRef<Set<string>>(new Set([
+    ...unifiedEntries.map(e => `e_${e.id}`),
+    ...unifiedSaidaEntries.map(s => `s_${s.id}`),
+  ]));
+
+  useEffect(() => {
+    const currentIds = new Set<string>([
+      ...unifiedEntries.map(e => `e_${e.id}`),
+      ...unifiedSaidaEntries.map(s => `s_${s.id}`),
+    ]);
+    const addedEntries = unifiedEntries.filter(e => !prevFiscalEntryIdsRef.current.has(`e_${e.id}`));
+    const addedSaidas = unifiedSaidaEntries.filter(s => !prevFiscalEntryIdsRef.current.has(`s_${s.id}`));
+    prevFiscalEntryIdsRef.current = currentIds;
+
+    if ((addedEntries.length > 0 || addedSaidas.length > 0) && periodMode === 'competence') {
+      const hasOutside =
+        addedEntries.some(e => !matchesEntryCompetence(e, fiscalCompetence)) ||
+        addedSaidas.some(s => !matchesSaidaCompetence(s, fiscalCompetence));
+      if (hasOutside) {
+        setPeriodMode('todos');
+        return;
       }
-      if (!item.date || item.date.trim() === '') return true;
-      return false;
-    });
-  }, [unifiedSaidaEntries, fiscalCompetence]);
+    }
+
+    if (!userInteractedPeriodRef.current && periodMode === 'competence') {
+      const totalAll = unifiedEntries.length + unifiedSaidaEntries.length;
+      if (totalAll > 0) {
+        const hasAnyInCurrent =
+          unifiedEntries.some(e => matchesEntryCompetence(e, fiscalCompetence)) ||
+          unifiedSaidaEntries.some(s => matchesSaidaCompetence(s, fiscalCompetence));
+        if (!hasAnyInCurrent) {
+          setPeriodMode('todos');
+        }
+      }
+    }
+  }, [unifiedEntries, unifiedSaidaEntries, fiscalCompetence, periodMode, matchesEntryCompetence, matchesSaidaCompetence]);
 
   // Base ativa de acordo com a direção selecionada (Entrada vs. Saída)
   const activeDirectionEntries = useMemo(() => {
@@ -10791,7 +11031,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (docNum && f.invoiceNumber === docNum) return false;
       return true;
     });
-    saveStoredFiscalRecords(updatedFiscal);
+    saveStoredFiscalRecords(updatedFiscal, true);
 
     // 7. LIMPEZA NO STORAGE DE DOCUMENTOS DE ENTRADA E ITENS
     deleteLocalDocumentoEntrada(notaId);
@@ -11045,6 +11285,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             onPrev={handlePrevCompetence}
             onNext={handleNextCompetence}
           />
+
+          <button
+            type="button"
+            id="btn-fiscal-todos-periodos"
+            onClick={() => {
+              userInteractedPeriodRef.current = true;
+              setPeriodMode((prev) => (prev === 'todos' ? 'competence' : 'todos'));
+            }}
+            className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-black transition cursor-pointer whitespace-nowrap ${
+              periodMode === 'todos'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-[#e0e6f1] text-black hover:bg-[#d2dced] dark:bg-stone-800 dark:text-stone-200 dark:border-stone-700 dark:hover:bg-stone-700'
+            }`}
+            title="Alternar entre a competência selecionada e todos os períodos lançados"
+          >
+            Todos os Períodos
+          </button>
 
           <div className="px-2 py-0.5 rounded-md bg-[#e0e6f1] dark:bg-stone-800 text-[10px] sm:text-[11px] font-bold text-black dark:text-stone-300 border border-black dark:border-stone-700 shadow-2xs">
             {filteredUnifiedEntries.length} registro(s)
@@ -12460,7 +12717,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     {activeDocDirection === 'saida' ? 'DESTINATÁRIO' : 'FORNECEDOR'}
                   </th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 max-w-[165px] whitespace-nowrap">NATUREZA / REF.</th>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">DATA</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">EMISSÃO</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">ENTRADA / SAÍDA</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">VALOR</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">STATUS</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">CONTADOR</th>
@@ -12470,7 +12728,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                 {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={8} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
+                    <td colSpan={9} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
                       {activeDocDirection === 'saida'
                         ? 'NENHUMA NOTA DE SAÍDA REGISTRADA NESTA COMPETÊNCIA. CLIQUE EM "+ LANÇAR NOTA DE SAÍDA" PARA EMITIR/REGISTRAR.'
                         : 'NENHUM REGISTRO ENCONTRADO'}
@@ -12566,7 +12824,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           {(entry.description || '-').toUpperCase()}
                         </td>
                         <td className="py-2 px-2 text-stone-600 dark:text-stone-400 text-center whitespace-nowrap text-xs font-mono">
-                          {formatDateBR(entry.date)}
+                          {formatDateBR(entry.issueDate || entry.date)}
+                        </td>
+                        <td className="py-2 px-2 text-stone-700 dark:text-stone-300 text-center whitespace-nowrap text-xs font-mono font-semibold">
+                          {formatDateBR(entry.entryDate || entry.issueDate || entry.date)}
                         </td>
                         <td className="py-2 px-2 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs">
                           {formatCurrencyBRL(entry.amount)}

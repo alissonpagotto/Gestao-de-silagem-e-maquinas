@@ -405,12 +405,13 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-20 bg-[#cad4e6] text-[10px] font-bold text-black uppercase tracking-wider border-b border-black shadow-sm">
               <tr>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">VENCIMENTO</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">FORNECEDOR / DESCRIÇÃO</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">CATEGORIA</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 whitespace-nowrap">RESPONSÁVEL / BANCO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-center whitespace-nowrap">EMISSÃO</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-center whitespace-nowrap">VENCIMENTO</th>
                 <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap">VALOR (R$)</th>
-                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap pr-3">AÇÕES</th>
+                <th className="sticky top-0 z-20 bg-[#cad4e6] py-1.5 px-2.5 text-right whitespace-nowrap pr-3">STATUS / AÇÕES</th>
               </tr>
             </thead>
             <tbody className="bg-[#e0e6f1] divide-y divide-black/15">
@@ -419,32 +420,16 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                   const isAbatido = exp.status === 'Liquidado / Abatido por Devolução';
                   const isPaid = exp.status === 'pago' || isAbatido;
                   const dueDateVal = exp.dueDate || exp.date || '';
+                  const issueDateVal =
+                    exp.issueDate ||
+                    (exp as any).data_emissao ||
+                    exp.date ||
+                    (exp.createdAt ? String(exp.createdAt).split('T')[0] : '') ||
+                    dueDateVal;
                   const isOverdue = !isPaid && dueDateVal && dueDateVal < todayStr;
 
                   return (
                     <tr key={exp.id} className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition whitespace-nowrap border-b border-black/20 dark:border-stone-800">
-                      {/* Vencimento com Identificação de Atraso */}
-                      <td className="py-1 px-2.5 font-bold text-black whitespace-nowrap text-xs">
-                        <div className="flex items-center space-x-1.5 font-mono">
-                          <span>{dueDateVal ? formatDateBR(dueDateVal) : '—'}</span>
-                          {isOverdue && (
-                            <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded uppercase">
-                              VENCIDA
-                            </span>
-                          )}
-                          {isAbatido && (
-                            <span className="text-[9px] text-teal-800 font-bold bg-teal-50 border border-teal-300 px-1 py-0.2 rounded uppercase">
-                              ABATIDO DEVOLUÇÃO
-                            </span>
-                          )}
-                          {exp.status === 'pago' && exp.paymentDate && (
-                            <span className="text-[9px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded uppercase">
-                              PAGO {formatDateBR(exp.paymentDate)}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                       {/* Fornecedor / Descrição */}
                       <td className="py-1 px-2.5 whitespace-nowrap max-w-[280px]">
                         <div className="font-bold text-black text-xs truncate uppercase" title={exp.supplier || ''}>
@@ -528,16 +513,31 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                         )}
                       </td>
 
+                      {/* Emissão */}
+                      <td className="py-1 px-2.5 text-center font-medium text-stone-700 whitespace-nowrap text-xs font-mono">
+                        {issueDateVal ? formatDateBR(issueDateVal) : '—'}
+                      </td>
+
+                      {/* Vencimento (sem selo VENCIDA duplicado; status exibido uma única vez na coluna STATUS / AÇÕES) */}
+                      <td className="py-1 px-2.5 text-center font-bold text-black whitespace-nowrap text-xs font-mono">
+                        <div>{dueDateVal ? formatDateBR(dueDateVal) : '—'}</div>
+                        {exp.status === 'pago' && exp.paymentDate && (
+                          <div className="text-[9px] text-emerald-800 font-bold uppercase leading-tight">
+                            PAGO {formatDateBR(exp.paymentDate)}
+                          </div>
+                        )}
+                      </td>
+
                       {/* Valor */}
                       <td className="py-1 px-2.5 text-right font-black text-black whitespace-nowrap text-xs font-mono">
                         {formatCurrencyBRL(exp.amount)}
                       </td>
 
-                      {/* Ações (Organizadas à direita, com indicador de Status à esquerda do botão Liquidar) */}
+                      {/* Status / Ações */}
                       <td className="py-1 px-2.5 text-right whitespace-nowrap pr-3">
                         <div className="flex items-center justify-end space-x-1.5">
                           
-                          {/* Indicador de STATUS */}
+                          {/* Indicador Único de STATUS */}
                           {isAbatido ? (
                             <span
                               id={`status-badge-${exp.id}`}
@@ -646,7 +646,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-stone-600 bg-[#e0e6f1] font-semibold text-xs uppercase">
+                  <td colSpan={7} className="py-6 text-center text-stone-600 bg-[#e0e6f1] font-semibold text-xs uppercase">
                     NENHUM REGISTRO ENCONTRADO
                   </td>
                 </tr>

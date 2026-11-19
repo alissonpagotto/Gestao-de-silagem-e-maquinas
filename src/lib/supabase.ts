@@ -122,20 +122,20 @@ function getActiveCompanyIdFallback(): string {
 function getOfflineTableData(entity: string): any[] {
   if (typeof localStorage === 'undefined') return [];
   const cId = getActiveCompanyIdFallback();
-  // 1. Tenta carregar pela chave vinculada à empresa atual
+  // 1. Tenta carregar pela chave vinculada à empresa atual (apenas se não vazia)
   const rawScoped = localStorage.getItem(`colaca_silagem_${entity}_${cId}`);
   if (rawScoped) {
     try {
       const parsed = JSON.parse(rawScoped);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch (_) {}
   }
-  // 2. Tenta carregar pela chave geral
+  // 2. Tenta carregar pela chave geral (apenas se não vazia)
   const rawGlobal = localStorage.getItem(`colaca_silagem_${entity}`);
   if (rawGlobal) {
     try {
       const parsed = JSON.parse(rawGlobal);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch (_) {}
   }
   // 3. Fallbacks para chaves legadas já existentes
@@ -153,6 +153,8 @@ function getOfflineTableData(entity: string): any[] {
     manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
     estoque: 'silagem_facil_clean_v1_inventory',
     financeiro_contas: 'silagem_facil_clean_v1_bank_accounts',
+    documentos_entrada: 'agrocontrol_notas_entradas',
+    documentos_entrada_itens: 'colaca_silagem_documentos_entrada_itens',
   };
   const legKey = legacyKeyMap[entity];
   if (legKey) {
@@ -160,7 +162,7 @@ function getOfflineTableData(entity: string): any[] {
     if (rawLeg) {
       try {
         const parsed = JSON.parse(rawLeg);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (_) {}
     }
   }
@@ -188,6 +190,8 @@ function saveOfflineTableData(entity: string, data: any[]): void {
       manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
       estoque: 'silagem_facil_clean_v1_inventory',
       financeiro_contas: 'silagem_facil_clean_v1_bank_accounts',
+      documentos_entrada: 'agrocontrol_notas_entradas',
+      documentos_entrada_itens: 'colaca_silagem_documentos_entrada_itens',
     };
     const legKey = legacyKeyMap[entity];
     if (legKey) {

@@ -656,6 +656,10 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
 
       const merged = Array.from(localMap.values()).filter(d => !isCorruptedOrGhostDocumento(d));
 
+      if (merged.length === 0 && localList.length > 0) {
+        return localList;
+      }
+
       // Ordena decrescente por data/criação
       merged.sort((a, b) => {
         const tA = a.data ? new Date(a.data).getTime() : 0;
@@ -666,7 +670,7 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
       // Só persiste e notifica se houver alteração real no conjunto de registros locais
       const localIds = localList.map(d => d.id).sort().join(',');
       const mergedIds = merged.map(d => d.id).sort().join(',');
-      if (localIds !== mergedIds || localList.length !== merged.length) {
+      if (merged.length > 0 && (localIds !== mergedIds || localList.length !== merged.length)) {
         saveStoredDocumentosEntrada(merged);
       }
 

@@ -890,20 +890,20 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                         <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider whitespace-nowrap border-b border-black">
                           CLIENTE
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider whitespace-nowrap border-b border-black">
-                          {(tabConfig.dateColumn || 'DATA').toUpperCase()}
-                        </th>
                         <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap border-b border-black">
                           {(tabConfig.quantityColumn || 'ÁREA / UNIDADE').toUpperCase()}
                         </th>
                         <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap border-b border-black">
-                          STATUS
+                          EMISSÃO
+                        </th>
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-center whitespace-nowrap border-b border-black">
+                          {activeTab === 'orcamento' ? 'VALIDADE / PREVISÃO' : 'DATA SERVIÇO / EXECUÇÃO'}
                         </th>
                         <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-3 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap border-b border-black">
-                          TOTAL
+                          VALOR
                         </th>
-                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right w-20 whitespace-nowrap border-b border-black">
-                          <span className="sr-only">AÇÕES</span>
+                        <th scope="col" className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 px-2.5 py-1.5 text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider text-right whitespace-nowrap border-b border-black">
+                          STATUS / AÇÕES
                         </th>
                       </tr>
                     </thead>
@@ -938,6 +938,17 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                           };
 
                           const currentStatus = service.status || 'agendado';
+                          const srvAny = service as any;
+                          const issueDateVal =
+                            srvAny.issueDate ||
+                            service.date ||
+                            (srvAny.createdAt ? String(srvAny.createdAt).split('T')[0] : '') ||
+                            service.startDate ||
+                            '';
+                          const executionDateVal =
+                            activeTab === 'orcamento'
+                              ? (srvAny.validUntil || service.dueDate || service.completionDate || service.startDate || issueDateVal)
+                              : (service.startDate || service.completionDate || service.date || issueDateVal);
 
                           // Quantidade exibida de acordo com a unidade e aba
                           let quantityDisplay = '--';
@@ -1027,61 +1038,64 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                                 )}
                               </td>
 
-                              {/* Data */}
-                              <td className="px-3 py-1 text-xs text-zinc-700 dark:text-stone-300 font-medium whitespace-nowrap">
-                                {service.startDate ? formatDateBR(service.startDate) : '--'}
-                              </td>
-
                               {/* Quantidade / Área */}
                               <td className="px-3 py-1 text-xs text-center text-zinc-800 dark:text-stone-200 font-bold whitespace-nowrap uppercase">
                                 {quantityDisplay}
                               </td>
 
-                              {/* Status */}
-                              <td className="px-3 py-1 text-center whitespace-nowrap">
-                                <span 
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
-                                    statusColors[currentStatus] || 'bg-zinc-100 text-zinc-800 border-zinc-300'
-                                  }`}
-                                >
-                                  {statusLabels[currentStatus] || currentStatus}
-                                </span>
+                              {/* Emissão */}
+                              <td className="px-3 py-1 text-xs text-center text-zinc-600 dark:text-stone-400 font-medium whitespace-nowrap font-mono">
+                                {issueDateVal ? formatDateBR(issueDateVal) : '--'}
                               </td>
 
-                              {/* Total */}
-                              <td className="px-3 py-1 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap">
+                              {/* Data Serviço / Execução (ou Validade / Previsão) */}
+                              <td className="px-3 py-1 text-xs text-center text-zinc-900 dark:text-stone-200 font-bold whitespace-nowrap font-mono">
+                                {executionDateVal ? formatDateBR(executionDateVal) : '--'}
+                              </td>
+
+                              {/* Valor */}
+                              <td className="px-3 py-1 text-right font-black text-zinc-900 dark:text-white text-xs whitespace-nowrap font-mono">
                                 {formatCurrencyBRL(service.totalAmount || 0)}
                               </td>
 
-                              {/* Ações */}
+                              {/* Status / Ações */}
                               <td className="px-2.5 py-1 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {service.status !== 'em_faturamento' && service.status !== 'faturado' && (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <span 
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase ${
+                                      statusColors[currentStatus] || 'bg-zinc-100 text-zinc-800 border-zinc-300'
+                                    }`}
+                                  >
+                                    {statusLabels[currentStatus] || currentStatus}
+                                  </span>
+                                  <div className="flex items-center gap-0.5">
+                                    {service.status !== 'em_faturamento' && service.status !== 'faturado' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendToBilling(service)}
+                                        className="p-1 text-zinc-500 hover:text-blue-700 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer"
+                                        title="Enviar ao Faturamento (Auditoria do Escritório)"
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
-                                      onClick={() => handleSendToBilling(service)}
-                                      className="p-1 text-zinc-500 hover:text-blue-700 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer"
-                                      title="Enviar ao Faturamento (Auditoria do Escritório)"
+                                      onClick={() => handleOpenEdit(service)}
+                                      className="p-1 text-zinc-500 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-md transition-colors cursor-pointer"
+                                      title="Editar serviço"
                                     >
-                                      <Send className="w-3.5 h-3.5" />
+                                      <Pencil className="w-3.5 h-3.5" />
                                     </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(service)}
-                                    className="p-1 text-zinc-500 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-md transition-colors cursor-pointer"
-                                    title="Editar serviço"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteService(service.id, service.clientName)}
-                                    className="p-1 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/30 rounded-md transition-colors cursor-pointer"
-                                    title="Excluir serviço"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteService(service.id, service.clientName)}
+                                      className="p-1 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/30 rounded-md transition-colors cursor-pointer"
+                                      title="Excluir serviço"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
