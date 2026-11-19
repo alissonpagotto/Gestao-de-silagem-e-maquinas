@@ -4116,10 +4116,10 @@ export default function App() {
               className={`flex-1 min-h-0 flex flex-col ${
                 (activeTab === 'rh' || activeTab === 'funcionarios' || activeTab === 'despesas') && !isCurrentTabDenied
                   ? 'overflow-hidden'
-                  : activeTab === 'dashboard' && !isCurrentTabDenied
+                  : (activeTab === 'dashboard' || activeTab === 'home') && !isCurrentTabDenied
                     ? 'overflow-y-auto overflow-x-hidden lg:overflow-hidden'
                     : 'overflow-y-auto overflow-x-hidden'
-              } ${isPdvFullscreen ? 'p-0 pb-0' : activeTab === 'dashboard' ? 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-6'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
+              } ${isPdvFullscreen ? 'p-0 pb-0' : (activeTab === 'dashboard' || activeTab === 'home') ? 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-3' : 'p-2 sm:p-2.5 lg:p-3 pb-20 lg:pb-6'} w-full max-w-none bg-[#edf4ff] dark:bg-stone-950`}
             >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (

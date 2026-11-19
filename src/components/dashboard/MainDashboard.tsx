@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
+  ChevronLeft,
   ChevronRight,
   CheckCircle2,
   BarChart3,
@@ -54,7 +55,6 @@ import {
   getStoredNotasSaida
 } from '../../lib/storage';
 import {
-  CompetenceSelector,
   getCurrentCompetence,
   getPrevCompetence,
   getNextCompetence,
@@ -892,12 +892,36 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <CompetenceSelector
-            competence={activeCompetence}
-            onPrev={() => setActiveCompetence((prev) => getPrevCompetence(prev))}
-            onNext={() => setActiveCompetence((prev) => getNextCompetence(prev))}
+          <div
+            id="dashboard-competence-selector"
+            className="flex items-center gap-1 shrink-0"
             title="Competência exibida nos indicadores do Dashboard"
-          />
+          >
+            <button
+              type="button"
+              onClick={() => setActiveCompetence((prev) => getPrevCompetence(prev))}
+              title="Mês Anterior"
+              aria-label="Mês Anterior"
+              className="p-1.5 rounded-md bg-emerald-700! hover:bg-emerald-800! text-white! border border-black! font-bold transition cursor-pointer select-none active:scale-95"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            </button>
+
+            <div className="bg-emerald-700! text-white! border border-black! font-bold px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 shadow-2xs select-none whitespace-nowrap">
+              <span className="text-white font-bold">Competência:</span>
+              <span className="text-white font-black font-mono tabular-nums">{activeCompetence}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveCompetence((prev) => getNextCompetence(prev))}
+              title="Próximo Mês"
+              aria-label="Próximo Mês"
+              className="p-1.5 rounded-md bg-emerald-700! hover:bg-emerald-800! text-white! border border-black! font-bold transition cursor-pointer select-none active:scale-95"
+            >
+              <ChevronRight className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            </button>
+          </div>
 
           <button
             type="button"
@@ -1209,7 +1233,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       {/* Rodapé Executivo em 3 Colunas (#e0e6f1 + border-black) */}
       <div className="shrink-0 grid grid-cols-1 lg:grid-cols-3 gap-2 lg:h-[214px] xl:h-[228px]">
         {/* Coluna 1: 🚨 Atenção Imediata */}
-        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg p-3 flex flex-col min-h-0 shadow-2xs">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg p-3 flex flex-col min-h-0 overflow-hidden shadow-2xs">
           <div className="shrink-0 flex items-center justify-between gap-2 pb-1.5 mb-1.5 border-b border-black/25 dark:border-stone-700">
             <h3 className="text-xs font-black text-black dark:text-white uppercase tracking-tight flex items-center gap-1.5">
               <span>🚨</span>
@@ -1220,7 +1244,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </span>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col justify-between gap-1.5">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5">
             {/* Contas Vencidas */}
             <button
               type="button"
@@ -1285,19 +1309,19 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               </div>
             </button>
 
-            {/* Manutenções Pendentes */}
+            {/* Fluidos & Peças / Manutenções Preventivas */}
             <button
               type="button"
               onClick={() => onNavigate('manutencoes')}
-              className="w-full px-2 py-1.5 rounded-md bg-white/75 hover:bg-white dark:bg-stone-800/80 dark:hover:bg-stone-800 border border-black/30 dark:border-stone-700 transition flex items-center justify-between gap-2 text-left cursor-pointer group"
+              className="w-full py-1.5 px-2 rounded-md bg-white/75 hover:bg-white dark:bg-stone-800/80 dark:hover:bg-stone-800 border border-black/30 dark:border-stone-700 transition flex items-center justify-between gap-2 text-left cursor-pointer group"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Wrench className={`w-4 h-4 shrink-0 ${immediateAlerts.overdueMaintenanceCount > 0 ? 'text-rose-600' : immediateAlerts.preventiveTotal > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
                 <div className="min-w-0">
-                  <div className="text-[11px] font-bold text-black dark:text-white truncate">Manutenções Pendentes</div>
+                  <div className="text-[11px] font-bold text-black dark:text-white truncate">Fluidos &amp; Peças (Preventivas)</div>
                   <div className="text-[10px] font-semibold text-slate-700 dark:text-stone-400 truncate">
                     {immediateAlerts.preventiveTotal > 0
-                      ? `${immediateAlerts.overdueMaintenanceCount} crítica(s) · ${immediateAlerts.preventiveTotal - immediateAlerts.overdueMaintenanceCount} próx.`
+                      ? `${immediateAlerts.overdueMaintenanceCount} vencida(s) · ${immediateAlerts.preventiveTotal - immediateAlerts.overdueMaintenanceCount} próx.`
                       : 'Preventivas em dia'}
                   </div>
                 </div>

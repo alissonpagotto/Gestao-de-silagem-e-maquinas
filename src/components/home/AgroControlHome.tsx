@@ -1,18 +1,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  CreditCard, 
-  Wallet, 
-  Users, 
-  Package, 
-  Layers, 
-  ShieldCheck, 
-  ChevronRight,
+import {
   TrendingUp,
+  Wallet,
+  Tractor,
+  Package,
+  Users,
+  ChevronRight,
+  ShieldCheck,
   Building2,
-  Image as ImageIcon
+  Calendar,
+  UserCheck,
+  Receipt,
+  ShoppingCart,
+  Wrench,
+  Fuel,
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
-import { getStoredCompanyProfile } from '../../lib/storage';
+import {
+  getStoredCompanyProfile,
+  getStoredExpenses,
+  getStoredOrders,
+  getStoredServices,
+  getStoredNotasSaida,
+  getStoredFinanceiroCheques,
+  getStoredMachineries,
+  getStoredFuelLogs,
+  getStoredMaintenanceLogs,
+  getStoredInventory,
+  getStoredFiscalRecords,
+  getStoredEmployees,
+  getStoredClients,
+  getStoredVacations,
+  checkCnhStatus,
+} from '../../lib/storage';
+import { getActiveUserSession } from '../../lib/cadastrosBaseStorage';
+import { calculatePredictiveMaintenanceAlerts } from '../../lib/predictiveMaintenance';
 import { useResolvedMediaUrl } from '../../lib/imageStorage';
 import { EnsiladeiraVector } from './EnsiladeiraVector';
 
@@ -21,309 +43,556 @@ export interface AgroControlHomeProps {
   companyProfile?: CompanyProfile;
 }
 
-interface IndicatorValues {
+export interface HomeIndicatorValues {
+  // Pilar 1: Contas a Receber
   receberVencidos: number;
   receberHoje: number;
-  receberCheques: number;
-  pagarVencidos: number;
+  receberChequesHoje: number;
+  // Pilar 2: Contas a Pagar
+  pagarVencidas: number;
   pagarHoje: number;
-  pagarCheques: number;
-  clientesAusentes: number;
-  clientesBloqueados: number;
-  clientesAniversariantes: number;
-  produtosEstoqueBaixo: number;
-  produtosVencendoHoje: number;
-  produtosCicloVida: number;
-  outrosEntregas: number;
-  outrosSemVendas: number;
-  outrosCobrancasPrevistas: number;
+  pagarChequesEmitidosHoje: number;
+  // Pilar 3: Frota & Manutenção
+  frotaFluidosVencidos: number;
+  frotaRevisoesProximas: number;
+  frotaEmManutencao: number;
+  // Pilar 4: Estoque & Fiscal
+  estoqueAbaixoMinimo: number;
+  notasPendentes: number;
   monitorFiscalStatus: string;
+  // Pilar 5: RH & Relacionamento
+  cnhVencidas: number;
+  cnhAVencer: number;
+  cnhTotalAlertas: number;
+  feriasAVencer: number;
+  aniversariantesMes: number;
 }
 
-const DEFAULT_INDICATORS: IndicatorValues = {
+const DEFAULT_INDICATORS: HomeIndicatorValues = {
   receberVencidos: 0,
   receberHoje: 0,
-  receberCheques: 0,
-  pagarVencidos: 0,
+  receberChequesHoje: 0,
+  pagarVencidas: 0,
   pagarHoje: 0,
-  pagarCheques: 0,
-  clientesAusentes: 0,
-  clientesBloqueados: 0,
-  clientesAniversariantes: 0,
-  produtosEstoqueBaixo: 0,
-  produtosVencendoHoje: 0,
-  produtosCicloVida: 0,
-  outrosEntregas: 0,
-  outrosSemVendas: 0,
-  outrosCobrancasPrevistas: 0,
-  monitorFiscalStatus: 'ATIVO'
+  pagarChequesEmitidosHoje: 0,
+  frotaFluidosVencidos: 0,
+  frotaRevisoesProximas: 0,
+  frotaEmManutencao: 0,
+  estoqueAbaixoMinimo: 0,
+  notasPendentes: 0,
+  monitorFiscalStatus: 'ATIVO',
+  cnhVencidas: 0,
+  cnhAVencer: 0,
+  cnhTotalAlertas: 0,
+  feriasAVencer: 0,
+  aniversariantesMes: 0,
 };
 
-export function calculateRealIndicators(): IndicatorValues {
-  const todayIso = new Date().toISOString().split('T')[0];
+function getLocalTodayIso(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
-  // 1. CONTAS A RECEBER (DÉBITOS VENCIDOS & DÉB. VENCENDO HOJE)
-  // Diretriz do Contrato Master: Deve ler a chave 'agrocontrol_contas_receber' filtrando por vencidos (STATUS === "PENDENTE" && VENCIMENTO < HOJE). Se estiver vazio, exibe obrigatoriamente "0".
-  let itensReceber: any[] = [];
-  try {
-    const raw = localStorage.getItem('agrocontrol_contas_receber') ||
-                localStorage.getItem('agrocontrol_financeiro_receber') ||
-                localStorage.getItem('agrocontrol_receber');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) itensReceber = parsed;
-    }
-  } catch (e) {
-    itensReceber = [];
+function normalizeIsoDate(raw: unknown): string {
+  if (!raw) return '';
+  let val = String(raw).trim();
+  if (!val) return '';
+
+  if (val.includes('T')) {
+    val = val.split('T')[0];
+  } else if (val.includes(' ')) {
+    val = val.split(' ')[0];
   }
 
-  const receberVencidos = itensReceber.filter((item: any) => {
-    const status = String(item.status || item.STATUS || item.paymentStatus || '').trim().toUpperCase();
-    if (status !== 'PENDENTE') return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    return val;
+  }
 
-    let venc = String(item.vencimento || item.VENCIMENTO || item.data_vencimento || item.dueDate || item.deliveryDate || item.date || '').trim();
-    if (!venc) return false;
-
-    if (venc.includes('/')) {
-      const parts = venc.split('/');
-      if (parts.length === 3) venc = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    } else if (venc.includes('T')) {
-      venc = venc.split('T')[0];
-    }
-
-    return venc < todayIso;
-  }).length;
-
-  const receberHoje = itensReceber.filter((item: any) => {
-    const status = String(item.status || item.STATUS || item.paymentStatus || '').trim().toUpperCase();
-    if (status !== 'PENDENTE') return false;
-
-    let venc = String(item.vencimento || item.VENCIMENTO || item.data_vencimento || item.dueDate || item.deliveryDate || item.date || '').trim();
-    if (!venc) return false;
-
-    if (venc.includes('/')) {
-      const parts = venc.split('/');
-      if (parts.length === 3) venc = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    } else if (venc.includes('T')) {
-      venc = venc.split('T')[0];
-    }
-
-    return venc === todayIso;
-  }).length;
-
-  let receberCheques = 0;
-  try {
-    const rawCheques = localStorage.getItem('silagem_facil_clean_v1_financeiro_cheques') || localStorage.getItem('agrocontrol_cheques');
-    if (rawCheques) {
-      const cheques = JSON.parse(rawCheques);
-      if (Array.isArray(cheques)) {
-        receberCheques = cheques.filter((c: any) => {
-          const st = String(c.status || '').toUpperCase();
-          const isPending = st !== 'COMPENSADO' && st !== 'DEPOSITADO' && st !== 'CANCELADO';
-          let dt = String(c.bomPara || c.dataVencimento || c.vencimento || '').trim();
-          if (dt.includes('/')) {
-            const p = dt.split('/');
-            if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-          } else if (dt.includes('T')) {
-            dt = dt.split('T')[0];
-          }
-          return isPending && dt === todayIso;
-        }).length;
+  if (val.includes('/')) {
+    const parts = val.split('/');
+    if (parts.length === 3) {
+      const [dd, mm, yyyy] = parts;
+      if (yyyy.length === 4) {
+        return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
       }
     }
-  } catch {}
+  }
 
-  // 2. CONTAS A PAGAR
-  let pagarVencidos = 0;
+  return '';
+}
+
+function extractMonthNumber(raw: unknown): number | null {
+  const iso = normalizeIsoDate(raw);
+  if (iso) {
+    const month = Number(iso.slice(5, 7));
+    if (month >= 1 && month <= 12) return month;
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    const dmMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (dmMatch) {
+      const month = Number(dmMatch[2]);
+      if (month >= 1 && month <= 12) return month;
+    }
+  }
+  return null;
+}
+
+function isSettledStatus(raw: unknown): boolean {
+  const st = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return (
+    st === 'pago' ||
+    st === 'paid' ||
+    st === 'recebido' ||
+    st === 'quitado' ||
+    st === 'concluido' ||
+    st === 'liquidado' ||
+    st === 'baixado' ||
+    st === 'cancelado' ||
+    st === 'canceled' ||
+    st === 'estornado'
+  );
+}
+
+export function calculateRealIndicators(): HomeIndicatorValues {
+  if (typeof window === 'undefined') return DEFAULT_INDICATORS;
+
+  const todayIso = getLocalTodayIso();
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+
+  // =========================================================================
+  // 1. CONTAS A RECEBER (Débitos Vencidos, Vencendo Hoje, Cheques Recebidos Hoje)
+  // =========================================================================
+  let receberVencidos = 0;
+  let receberHoje = 0;
+  const seenReceberIds = new Set<string>();
+
+  try {
+    const rawReceber =
+      localStorage.getItem('agrocontrol_contas_receber') ||
+      localStorage.getItem('agrocontrol_financeiro_receber') ||
+      localStorage.getItem('agrocontrol_receber');
+
+    let parsedReceber: any[] = [];
+    if (rawReceber) {
+      const parsed = JSON.parse(rawReceber);
+      if (Array.isArray(parsed)) parsedReceber = parsed;
+    }
+
+    parsedReceber.forEach((item: any, idx: number) => {
+      const idKey = String(item.id || `rec_${idx}`);
+      if (seenReceberIds.has(idKey)) return;
+      seenReceberIds.add(idKey);
+
+      const status = item.status || item.STATUS || item.paymentStatus || '';
+      if (isSettledStatus(status)) return;
+
+      const venc = normalizeIsoDate(
+        item.vencimento ||
+          item.VENCIMENTO ||
+          item.data_vencimento ||
+          item.dueDate ||
+          item.deliveryDate ||
+          item.date
+      );
+      if (!venc) return;
+
+      if (venc < todayIso) receberVencidos++;
+      else if (venc === todayIso) receberHoje++;
+    });
+
+    // Complementa com Pedidos/Vendas, Serviços faturados e Notas de Saída pendentes (sem duplicar IDs)
+    const orders = getStoredOrders();
+    orders.forEach((order: any) => {
+      const idKey = String(order.id || '');
+      if (idKey && seenReceberIds.has(idKey)) return;
+      if (isSettledStatus(order.paymentStatus || order.status)) return;
+      if (String(order.status || '').toLowerCase() === 'cancelado') return;
+      const total = Number(order.totalAmount || order.totalValue || 0);
+      const paid = Number(order.paidAmount || 0);
+      if (total <= 0 || paid >= total) return;
+
+      const venc = normalizeIsoDate(
+        order.dueDate || order.dataVencimento || order.deliveryDate || order.orderDate || order.date
+      );
+      if (!venc) return;
+      if (idKey) seenReceberIds.add(idKey);
+      if (venc < todayIso) receberVencidos++;
+      else if (venc === todayIso) receberHoje++;
+    });
+
+    const services = getStoredServices();
+    services.forEach((srv: any) => {
+      const idKey = String(srv.id || '');
+      if (idKey && seenReceberIds.has(idKey)) return;
+      if (isSettledStatus(srv.paymentStatus)) return;
+      const st = String(srv.status || '').toLowerCase();
+      if (st === 'cancelado' || st === 'orcamento') return;
+      const total = Number(srv.totalValue || srv.totalAmount || 0);
+      const paid = Number(srv.paidAmount || 0);
+      if (total <= 0 || paid >= total) return;
+
+      const venc = normalizeIsoDate(srv.dueDate || srv.dataVencimento || srv.date);
+      if (!venc) return;
+      if (idKey) seenReceberIds.add(idKey);
+      if (venc < todayIso) receberVencidos++;
+      else if (venc === todayIso) receberHoje++;
+    });
+
+    const notasSaida = getStoredNotasSaida();
+    notasSaida.forEach((nf: any) => {
+      if (!nf.lancarContasReceber) return;
+      const idKey = String(nf.id || '');
+      if (idKey && seenReceberIds.has(idKey)) return;
+      if (isSettledStatus(nf.paymentStatus || nf.statusFinanceiro || nf.status)) return;
+      const st = String(nf.status || '').toUpperCase();
+      if (st === 'CANCELADA' || st === 'CANCELADO') return;
+
+      const venc = normalizeIsoDate(nf.dataVencimento || nf.dataEmissao);
+      if (!venc) return;
+      if (idKey) seenReceberIds.add(idKey);
+      if (venc < todayIso) receberVencidos++;
+      else if (venc === todayIso) receberHoje++;
+    });
+  } catch {
+    // Mantém zero em caso de falha de leitura
+  }
+
+  let receberChequesHoje = 0;
+  let pagarChequesEmitidosHoje = 0;
+  try {
+    const storedCheques = getStoredFinanceiroCheques();
+    let fallbackCheques: any[] = [];
+    if (storedCheques.length === 0) {
+      const rawFallback = localStorage.getItem('agrocontrol_cheques');
+      if (rawFallback) {
+        const parsed = JSON.parse(rawFallback);
+        if (Array.isArray(parsed)) fallbackCheques = parsed;
+      }
+    }
+    const allCheques: any[] = storedCheques.length > 0 ? storedCheques : fallbackCheques;
+
+    allCheques.forEach((c: any) => {
+      const st = String(c.status || '').toUpperCase();
+      if (
+        st === 'COMPENSADO' ||
+        st === 'DEPOSITADO' ||
+        st === 'CANCELADO' ||
+        st === 'DEVOLVIDO' ||
+        st === 'PAGO'
+      ) {
+        return;
+      }
+
+      const dt = normalizeIsoDate(
+        c.bom_para || c.bomPara || c.data_vencimento || c.dataVencimento || c.vencimento || c.data_emissao
+      );
+      if (dt !== todayIso) return;
+
+      const tipo = String(c.tipo || c.natureza || c.direcao || c.origem || '')
+        .trim()
+        .toLowerCase();
+      const isEmitido =
+        tipo.includes('emitido') || tipo.includes('pagar') || tipo.includes('saida') || tipo.includes('despesa');
+
+      if (isEmitido) {
+        pagarChequesEmitidosHoje++;
+      } else {
+        receberChequesHoje++;
+      }
+    });
+  } catch {
+    // Mantém zero
+  }
+
+  // =========================================================================
+  // 2. CONTAS A PAGAR (Contas Vencidas, Vencendo Hoje, Cheques Emitidos Hoje)
+  // =========================================================================
+  let pagarVencidas = 0;
   let pagarHoje = 0;
   try {
-    const rawDesp = localStorage.getItem('silagem_facil_clean_v1_expenses') ||
-                    localStorage.getItem('agrocontrol_despesas') ||
-                    localStorage.getItem('agrocontrol_contas_pagar');
-    if (rawDesp) {
-      const despesas = JSON.parse(rawDesp);
-      if (Array.isArray(despesas)) {
-        pagarVencidos = despesas.filter((d: any) => {
-          const st = String(d.status || '').toLowerCase();
-          if (st === 'pago' || st === 'concluido') return false;
-          let dt = String(d.dueDate || d.vencimento || d.data_vencimento || '').trim();
-          if (dt.includes('/')) {
-            const p = dt.split('/');
-            if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-          } else if (dt.includes('T')) {
-            dt = dt.split('T')[0];
-          }
-          return dt !== '' && dt < todayIso;
-        }).length;
+    const expenses = getStoredExpenses();
+    const seenPagarIds = new Set<string>();
 
-        pagarHoje = despesas.filter((d: any) => {
-          const st = String(d.status || '').toLowerCase();
-          if (st === 'pago' || st === 'concluido') return false;
-          let dt = String(d.dueDate || d.vencimento || d.data_vencimento || '').trim();
-          if (dt.includes('/')) {
-            const p = dt.split('/');
-            if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-          } else if (dt.includes('T')) {
-            dt = dt.split('T')[0];
-          }
-          return dt === todayIso;
-        }).length;
+    expenses.forEach((exp: any) => {
+      const idKey = String(exp.id || '');
+      if (idKey) seenPagarIds.add(idKey);
+      if (isSettledStatus(exp.status)) return;
+
+      const due = normalizeIsoDate(exp.dueDate || exp.vencimento || exp.data_vencimento || exp.date);
+      if (!due) return;
+
+      if (due < todayIso) {
+        pagarVencidas++;
+      } else if (due === todayIso) {
+        pagarHoje++;
+        const payMethod = String(exp.paymentMethod || exp.formaPagamento || '').toLowerCase();
+        if (payMethod.includes('cheque')) {
+          pagarChequesEmitidosHoje++;
+        }
       }
-    }
-  } catch {}
+    });
 
-  // 3. CLIENTES
-  let clientesAusentes = 0;
-  let clientesBloqueados = 0;
-  let clientesAniversariantes = 0;
-  try {
-    const rawCli = localStorage.getItem('agrocontrol_clientes') ||
-                   localStorage.getItem('colaca_silagem_clientes') ||
-                   localStorage.getItem('silagem_facil_clean_v1_clients');
-    if (rawCli) {
-      const clientes = JSON.parse(rawCli);
-      if (Array.isArray(clientes)) {
-        const todayMonthDay = todayIso.slice(5);
-        clientes.forEach((c: any) => {
-          const st = String(c.status || '').toLowerCase();
-          if (st === 'ausente' || st === 'inativo') clientesAusentes++;
-          if (st === 'bloqueado' || c.isBlocked || c.bloqueado) clientesBloqueados++;
-
-          let bDate = String(c.birthDate || c.dataNascimento || c.data_nascimento || '').trim();
-          if (bDate.includes('/')) {
-            const p = bDate.split('/');
-            if (p.length >= 2) bDate = `${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-          } else if (bDate.includes('-')) {
-            bDate = bDate.slice(5, 10);
-          }
-          if (bDate && bDate === todayMonthDay) clientesAniversariantes++;
+    // Fallback complementar se existir chave legada 'agrocontrol_contas_pagar'
+    const rawExtraPagar = localStorage.getItem('agrocontrol_contas_pagar');
+    if (rawExtraPagar) {
+      const parsed = JSON.parse(rawExtraPagar);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((item: any) => {
+          const idKey = String(item.id || '');
+          if (idKey && seenPagarIds.has(idKey)) return;
+          if (isSettledStatus(item.status)) return;
+          const due = normalizeIsoDate(item.dueDate || item.vencimento || item.data_vencimento || item.date);
+          if (!due) return;
+          if (due < todayIso) pagarVencidas++;
+          else if (due === todayIso) pagarHoje++;
         });
       }
     }
-  } catch {}
+  } catch {
+    // Mantém zero
+  }
 
-  // 4. PRODUTOS (ESTOQUE BAIXO)
-  // Diretriz do Contrato Master: Deve ler a chave 'agrocontrol_produtos' e contar reativamente apenas os itens onde
-  // (QUANTIDADE_ATUAL <= QUANTIDADE_MINIMA). Se as quantidades estão zeradas e não há mínimo configurado, exibe obrigatoriamente "0".
-  let prodsList: any[] = [];
+  // =========================================================================
+  // 3. FROTA & MANUTENÇÃO (Fluidos/Peças Vencidas, Revisões Próximas, Em Manutenção)
+  // =========================================================================
+  let frotaFluidosVencidos = 0;
+  let frotaRevisoesProximas = 0;
+  let frotaEmManutencao = 0;
   try {
-    const rawProds = localStorage.getItem('agrocontrol_produtos') ||
-                    localStorage.getItem('colaca_silagem_estoque_produtos') ||
-                    localStorage.getItem('silagem_facil_clean_v1_inventory');
-    if (rawProds) {
-      const parsed = JSON.parse(rawProds);
-      if (Array.isArray(parsed)) prodsList = parsed;
-    }
-  } catch {}
+    const machineries = getStoredMachineries();
+    const fuelLogs = getStoredFuelLogs();
+    const maintenanceLogs = getStoredMaintenanceLogs();
 
-  const produtosEstoqueBaixo = prodsList.filter((item: any) => {
-    const min = Number(item.QUANTIDADE_MINIMA ?? item.minQuantity ?? item.quantidade_minima ?? item.estoque_minimo ?? 0);
-    // Se não há mínimo configurado (min <= 0), NUNCA considera como estoque baixo
-    if (min <= 0) return false;
-    const current = Number(item.QUANTIDADE_ATUAL ?? item.quantity ?? item.quantidade_atual ?? item.quantidade ?? 0);
-    return current <= min;
-  }).length;
+    const predictiveAlerts = calculatePredictiveMaintenanceAlerts(machineries, fuelLogs, maintenanceLogs);
+    frotaFluidosVencidos = predictiveAlerts.filter((a) => a.isOverdue).length;
+    frotaRevisoesProximas = predictiveAlerts.filter((a) => !a.isOverdue).length;
 
-  const produtosVencendoHoje = prodsList.filter((item: any) => {
-    let dt = String(item.data_validade || item.validade || item.expirationDate || '').trim();
-    if (dt.includes('/')) {
-      const p = dt.split('/');
-      if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-    } else if (dt.includes('T')) {
-      dt = dt.split('T')[0];
-    }
-    return dt === todayIso;
-  }).length;
+    frotaEmManutencao = machineries.filter((m: any) => {
+      const st = String(m.status || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      return st === 'manutencao' || st === 'em_manutencao' || st === 'parado' || st === 'oficina';
+    }).length;
+  } catch {
+    // Mantém zero
+  }
 
-  // 5. OUTROS (PRODUTOS SEM VENDAS, ENTREGAS, COBRANÇAS PREVISTAS)
-  // Cruzamento do array de produtos com o de vendas para PRODUTOS SEM VENDAS
-  let vendasList: any[] = [];
+  // =========================================================================
+  // 4. ESTOQUE & FISCAL (Estoque Abaixo do Mínimo, Notas/Lançamentos Pendentes, Monitor Fiscal)
+  // =========================================================================
+  let estoqueAbaixoMinimo = 0;
   try {
-    const rawVendas = localStorage.getItem('agrocontrol_vendas') ||
-                      localStorage.getItem('agrocontrol_pdv_vendas') ||
-                      localStorage.getItem('colaca_silagem_vendas_pdv');
-    if (rawVendas) {
-      const parsed = JSON.parse(rawVendas);
-      if (Array.isArray(parsed)) vendasList = parsed;
+    const inventory = getStoredInventory();
+    let itemsToCheck: any[] = inventory;
+    if (itemsToCheck.length === 0) {
+      const rawInv =
+        localStorage.getItem('agrocontrol_produtos') ||
+        localStorage.getItem('colaca_silagem_estoque_produtos');
+      if (rawInv) {
+        const parsed = JSON.parse(rawInv);
+        if (Array.isArray(parsed)) itemsToCheck = parsed;
+      }
     }
-  } catch {}
 
+    estoqueAbaixoMinimo = itemsToCheck.filter((item: any) => {
+      const qty = Number(item.quantity ?? item.quantidade ?? item.estoque_atual ?? 0);
+      const min = Number(item.minQuantity ?? item.min_quantity ?? item.estoque_minimo ?? 0);
+      return min > 0 && qty <= min;
+    }).length;
+  } catch {
+    // Mantém zero
+  }
+
+  let notasPendentes = 0;
   try {
-    const rawOrders = localStorage.getItem('agrocontrol_pedidos') || localStorage.getItem('silagem_facil_clean_v1_orders');
-    if (rawOrders) {
-      const parsed = JSON.parse(rawOrders);
-      if (Array.isArray(parsed)) vendasList = [...vendasList, ...parsed];
-    }
-  } catch {}
+    const seenFiscalIds = new Set<string>();
+    const isPendingDoc = (stRaw: unknown): boolean => {
+      const st = String(stRaw || '')
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      return (
+        st === 'PENDENTE' ||
+        st === 'RASCUNHO' ||
+        st === 'AGUARDANDO' ||
+        st === 'EM_PROCESSAMENTO' ||
+        st === 'EM_DIGITACAO' ||
+        st === 'VENCIDO' ||
+        st === 'REJEITADA' ||
+        st === 'ERRO'
+      );
+    };
 
-  const soldProductKeys = new Set<string>();
-  vendasList.forEach((v: any) => {
-    const items = Array.isArray(v.itens) ? v.itens : Array.isArray(v.items) ? v.items : Array.isArray(v.carrinho) ? v.carrinho : [];
-    items.forEach((it: any) => {
-      if (it.id) soldProductKeys.add(String(it.id ?? '').trim().toLowerCase());
-      if (it.productId) soldProductKeys.add(String(it.productId ?? '').trim().toLowerCase());
-      if (it.codigo) soldProductKeys.add(String(it.codigo ?? '').trim().toLowerCase());
-      if (it.code) soldProductKeys.add(String(it.code ?? '').trim().toLowerCase());
-      if (it.descricao) soldProductKeys.add(String(it.descricao ?? '').trim().toLowerCase());
-      if (it.name) soldProductKeys.add(String(it.name ?? '').trim().toLowerCase());
-      if (it.nome) soldProductKeys.add(String(it.nome ?? '').trim().toLowerCase());
+    const notasSaida = getStoredNotasSaida();
+    notasSaida.forEach((nf: any) => {
+      const key = `ns_${nf.id || ''}`;
+      if (nf.id && seenFiscalIds.has(key)) return;
+      if (isPendingDoc(nf.status)) {
+        if (nf.id) seenFiscalIds.add(key);
+        notasPendentes++;
+      }
     });
-    if (v.productType) soldProductKeys.add(String(v.productType ?? '').trim().toLowerCase());
-    if (v.product_name) soldProductKeys.add(String(v.product_name ?? '').trim().toLowerCase());
-  });
 
-  const outrosSemVendas = prodsList.length === 0 ? 0 : prodsList.filter((p: any) => {
-    const pId = p.id ? String(p.id ?? '').trim().toLowerCase() : '';
-    const pCode = (p.code || p.codigo || p.codigo_produto) ? String((p.code || p.codigo || p.codigo_produto) ?? '').trim().toLowerCase() : '';
-    const pName = (p.name || p.nome_comercial || p.item || p.descricao) ? String((p.name || p.nome_comercial || p.item || p.descricao) ?? '').trim().toLowerCase() : '';
+    const fiscalRecords = getStoredFiscalRecords();
+    fiscalRecords.forEach((rec: any) => {
+      const key = `fr_${rec.id || ''}`;
+      if (rec.id && seenFiscalIds.has(key)) return;
+      if (isPendingDoc(rec.status || rec.fiscalStatus)) {
+        if (rec.id) seenFiscalIds.add(key);
+        notasPendentes++;
+      }
+    });
 
-    const hasSold = 
-      (pId && soldProductKeys.has(pId)) ||
-      (pCode && soldProductKeys.has(pCode)) ||
-      (pName && soldProductKeys.has(pName));
-
-    return !hasSold;
-  }).length;
-
-  const outrosEntregas = vendasList.filter((v: any) => {
-    let dt = String(v.deliveryDate || v.dataEntrega || v.data_entrega || '').trim();
-    if (dt.includes('/')) {
-      const p = dt.split('/');
-      if (p.length === 3) dt = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-    } else if (dt.includes('T')) {
-      dt = dt.split('T')[0];
+    const rawDocsEntrada =
+      localStorage.getItem('silagem_facil_clean_v1_documentos_entrada') ||
+      localStorage.getItem('agrocontrol_documentos_entrada');
+    if (rawDocsEntrada) {
+      const docs = JSON.parse(rawDocsEntrada);
+      if (Array.isArray(docs)) {
+        docs.forEach((doc: any) => {
+          const key = `de_${doc.id || ''}`;
+          if (doc.id && seenFiscalIds.has(key)) return;
+          if (isPendingDoc(doc.status || doc.situacao)) {
+            if (doc.id) seenFiscalIds.add(key);
+            notasPendentes++;
+          }
+        });
+      }
     }
-    const st = String(v.status || '').toLowerCase();
-    return dt === todayIso || st === 'em_entrega';
-  }).length;
+  } catch {
+    // Mantém zero
+  }
 
-  const outrosCobrancasPrevistas = itensReceber
-    .filter((item: any) => {
-      const status = String(item.status || item.STATUS || item.paymentStatus || '').trim().toUpperCase();
-      return status === 'PENDENTE' || status === 'EM_ANDAMENTO' || status === 'AGENDADO';
-    })
-    .reduce((acc: number, item: any) => {
-      const val = Number(item.totalAmount ?? item.totalLiquido ?? item.valor ?? item.amount ?? item.valorLiquido ?? 0);
-      return acc + (isNaN(val) ? 0 : val);
-    }, 0);
+  // =========================================================================
+  // 5. RH & RELACIONAMENTO (CNHs Vencidas/A Vencer, Férias a Vencer, Aniversariantes do Mês)
+  // =========================================================================
+  let cnhVencidas = 0;
+  let cnhAVencer = 0;
+  let feriasAVencer = 0;
+  let aniversariantesMes = 0;
+
+  try {
+    const employees = getStoredEmployees().filter((e: any) => {
+      const st = String(e.status || 'ativo').toLowerCase();
+      return st !== 'inativo' && st !== 'desligado' && st !== 'demitido';
+    });
+
+    const cnhReport = checkCnhStatus(employees);
+    cnhVencidas = cnhReport.expiredCount;
+    cnhAVencer = cnhReport.expiringIn60DaysCount;
+
+    // Férias a vencer: combina férias programadas/pendentes + colaboradores próximos de 12 meses de período aquisitivo
+    const vacations = getStoredVacations();
+    const employeesWithVacationAlert = new Set<string>();
+    const in60Days = new Date(now);
+    in60Days.setDate(now.getDate() + 60);
+    const in60DaysIso = `${in60Days.getFullYear()}-${String(in60Days.getMonth() + 1).padStart(2, '0')}-${String(in60Days.getDate()).padStart(2, '0')}`;
+
+    const employeesWithRecentCompletedVacation = new Set<string>();
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(now.getFullYear() - 1);
+    const oneYearAgoIso = `${oneYearAgo.getFullYear()}-${String(oneYearAgo.getMonth() + 1).padStart(2, '0')}-${String(oneYearAgo.getDate()).padStart(2, '0')}`;
+
+    vacations.forEach((vac: any) => {
+      const st = String(vac.status || '').toLowerCase();
+      const startIso = normalizeIsoDate(vac.startDate);
+      const empId = String(vac.employeeId || vac.id || '');
+
+      if (st === 'concluida' || st === 'gozada' || st === 'paga') {
+        if (startIso && startIso >= oneYearAgoIso && vac.employeeId) {
+          employeesWithRecentCompletedVacation.add(String(vac.employeeId));
+        }
+        return;
+      }
+
+      if (st === 'cancelada') return;
+
+      if (startIso && startIso <= in60DaysIso) {
+        employeesWithVacationAlert.add(empId || `vac_${vac.id}`);
+      }
+    });
+
+    employees.forEach((emp: any) => {
+      const empId = String(emp.id || '');
+      if (!empId || employeesWithVacationAlert.has(empId) || employeesWithRecentCompletedVacation.has(empId)) {
+        return;
+      }
+      const admIso = normalizeIsoDate(emp.admissionDate || emp.dataAdmissao || emp.data_admissao);
+      if (!admIso) return;
+
+      const admDate = new Date(`${admIso}T12:00:00`);
+      if (isNaN(admDate.getTime())) return;
+
+      const monthsWorked =
+        (now.getFullYear() - admDate.getFullYear()) * 12 + (now.getMonth() - admDate.getMonth());
+      if (monthsWorked >= 10) {
+        // Verifica se está no intervalo de alerta do período concessivo (>= 10 meses desde o último ciclo anual)
+        const cycleMonth = monthsWorked % 12;
+        if (cycleMonth >= 10 || monthsWorked >= 12) {
+          employeesWithVacationAlert.add(empId);
+        }
+      }
+    });
+
+    feriasAVencer = employeesWithVacationAlert.size;
+
+    // Aniversariantes do Mês (Funcionários ativos + Clientes cadastrados)
+    const seenBirthdayKeys = new Set<string>();
+
+    employees.forEach((emp: any) => {
+      const birthMonth = extractMonthNumber(
+        emp.birthDate || emp.dataNascimento || emp.data_nascimento || emp.aniversario
+      );
+      if (birthMonth === currentMonth) {
+        seenBirthdayKeys.add(`emp_${emp.id || emp.name}`);
+      }
+    });
+
+    const clients = getStoredClients();
+    clients.forEach((cli: any) => {
+      const birthMonth = extractMonthNumber(
+        cli.birthDate || cli.dataNascimento || cli.data_nascimento || cli.aniversario
+      );
+      if (birthMonth === currentMonth) {
+        seenBirthdayKeys.add(`cli_${cli.id || cli.name}`);
+      }
+    });
+
+    aniversariantesMes = seenBirthdayKeys.size;
+  } catch {
+    // Mantém zero
+  }
 
   return {
     receberVencidos,
     receberHoje,
-    receberCheques,
-    pagarVencidos,
+    receberChequesHoje,
+    pagarVencidas,
     pagarHoje,
-    pagarCheques: 0,
-    clientesAusentes,
-    clientesBloqueados,
-    clientesAniversariantes,
-    produtosEstoqueBaixo,
-    produtosVencendoHoje,
-    produtosCicloVida: 0,
-    outrosEntregas,
-    outrosSemVendas,
-    outrosCobrancasPrevistas,
-    monitorFiscalStatus: 'ATIVO'
+    pagarChequesEmitidosHoje,
+    frotaFluidosVencidos,
+    frotaRevisoesProximas,
+    frotaEmManutencao,
+    estoqueAbaixoMinimo,
+    notasPendentes,
+    monitorFiscalStatus: 'ATIVO',
+    cnhVencidas,
+    cnhAVencer,
+    cnhTotalAlertas: cnhVencidas + cnhAVencer,
+    feriasAVencer,
+    aniversariantesMes,
   };
 }
 
@@ -348,7 +617,7 @@ export function getReactiveCompanyLogo(overrideProfile?: CompanyProfile): string
     return trimmed;
   };
 
-  // 1. Prioridade máxima: chave direta 'agrocontrol_empresa_logo' do Contrato Master
+  // 1. Prioridade máxima: chave direta 'agrocontrol_empresa_logo'
   try {
     const directLogo = localStorage.getItem('agrocontrol_empresa_logo');
     const cleanedDirect = sanitizeLogo(directLogo);
@@ -367,9 +636,10 @@ export function getReactiveCompanyLogo(overrideProfile?: CompanyProfile): string
 
   // 3. Chaves de perfil corporativo persistido
   try {
-    const rawProfile = localStorage.getItem('silagem_facil_clean_v1_company_profile') ||
-                       localStorage.getItem('colaca_silagem_company_profile') ||
-                       localStorage.getItem('agrocontrol_empresa');
+    const rawProfile =
+      localStorage.getItem('silagem_facil_clean_v1_company_profile') ||
+      localStorage.getItem('colaca_silagem_company_profile') ||
+      localStorage.getItem('agrocontrol_empresa');
     if (rawProfile) {
       const parsed = JSON.parse(rawProfile);
       const cleaned = sanitizeLogo(parsed?.logoUrl || parsed?.logo);
@@ -393,6 +663,21 @@ export function getReactiveCompanyLogo(overrideProfile?: CompanyProfile): string
   return '';
 }
 
+interface PillarRowConfig {
+  label: string;
+  value: number | string;
+  targetTab: string;
+  badgeVariant: 'danger' | 'warning' | 'success' | 'neutral';
+}
+
+interface PillarCardConfig {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  headerTab: string;
+  rows: PillarRowConfig[];
+}
+
 export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   onNavigate,
   companyProfile,
@@ -400,18 +685,24 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
   const [imgError, setImgError] = useState(false);
   const [clientLogoError, setClientLogoError] = useState(false);
 
-  // Leitura reativa e síncrona do logotipo da empresa via LocalStorage / IndexedDB
   const [companyLogo, setCompanyLogo] = useState<string>(() => getReactiveCompanyLogo(companyProfile));
   const resolvedCompanyLogo = useResolvedMediaUrl(companyLogo);
+
+  const [indicators, setIndicators] = useState<HomeIndicatorValues>(() => calculateRealIndicators());
+  const [activeUserName, setActiveUserName] = useState<string>(() => {
+    try {
+      const session = getActiveUserSession();
+      return session?.name || 'Administrador';
+    } catch {
+      return 'Administrador';
+    }
+  });
 
   useEffect(() => {
     setClientLogoError(false);
   }, [resolvedCompanyLogo]);
 
-  // Leitura reativa e dinâmica dos indicadores do painel comercial diretamente do LocalStorage
-  const [indicators, setIndicators] = useState<IndicatorValues>(() => calculateRealIndicators());
-
-  // Sincronização em tempo real de logotipo e perfil corporativo
+  // Sincronização em tempo real do logotipo da empresa
   useEffect(() => {
     const updateLogo = () => {
       try {
@@ -430,30 +721,33 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       'agrocontrol_empresa_logo_updated',
       'agrocontrol_company_profile_updated',
       'colaca_company_profile_live_change',
-      'company_profile_updated'
+      'company_profile_updated',
     ];
 
     logoEvents.forEach((ev) => window.addEventListener(ev, updateLogo));
-
     return () => {
       logoEvents.forEach((ev) => window.removeEventListener(ev, updateLogo));
     };
   }, [companyProfile]);
 
+  // Sincronização em tempo real dos 5 pilares e do usuário ativo
   useEffect(() => {
-    const handleStorageChange = () => {
+    const handleRefresh = () => {
       try {
         setIndicators(calculateRealIndicators());
+        const session = getActiveUserSession();
+        if (session?.name) setActiveUserName(session.name);
       } catch (e) {
-        console.error('Erro ao recalcular indicadores:', e);
+        console.error('Erro ao recalcular indicadores da tela inicial:', e);
       }
     };
 
-    // Recalcula imediatamente na montagem para garantir sincronismo
-    handleStorageChange();
+    handleRefresh();
 
     const events = [
       'storage',
+      'focus',
+      'visibilitychange',
       'agrocontrol_indicators_updated',
       'agrocontrol_produtos_updated',
       'colaca_silagem_estoque_produtos_updated',
@@ -469,419 +763,378 @@ export const AgroControlHome: React.FC<AgroControlHomeProps> = ({
       'agrocontrol_clientes_updated',
       'colaca_silagem_clientes_updated',
       'expenses_updated',
-      'agrocontrol_despesas_updated'
+      'agrocontrol_despesas_updated',
+      'agrocontrol_plano_preventivo_grupos_updated',
+      'agrocontrol_user_session_updated',
     ];
 
-    events.forEach((ev) => window.addEventListener(ev, handleStorageChange));
-
+    events.forEach((ev) => window.addEventListener(ev, handleRefresh));
     return () => {
-      events.forEach((ev) => window.removeEventListener(ev, handleStorageChange));
+      events.forEach((ev) => window.removeEventListener(ev, handleRefresh));
     };
   }, []);
 
-  // Formatação comercial padrão PT-BR: R$ #.##0,00
-  const formattedCobrancasPrevistas = useMemo(() => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(indicators.outrosCobrancasPrevistas || 0);
-  }, [indicators.outrosCobrancasPrevistas]);
+  const formattedCurrentDate = useMemo(() => {
+    const raw = new Intl.DateTimeFormat('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, []);
+
+  const quickActions = useMemo(
+    () => [
+      {
+        id: 'quick-despesa',
+        label: '+ Lançar Despesa',
+        icon: <Receipt className="w-3.5 h-3.5 shrink-0" />,
+        tab: 'despesas',
+      },
+      {
+        id: 'quick-venda',
+        label: '+ Nova Venda / PDV',
+        icon: <ShoppingCart className="w-3.5 h-3.5 shrink-0" />,
+        tab: 'venda',
+      },
+      {
+        id: 'quick-servico',
+        label: '+ Prestação de Serviço',
+        icon: <Wrench className="w-3.5 h-3.5 shrink-0" />,
+        tab: 'servicos',
+      },
+      {
+        id: 'quick-abastecimento',
+        label: '+ Abastecimento',
+        icon: <Fuel className="w-3.5 h-3.5 shrink-0" />,
+        tab: 'combustivel',
+      },
+    ],
+    []
+  );
+
+  const pillars: PillarCardConfig[] = useMemo(
+    () => [
+      {
+        id: 'pillar-receber',
+        title: 'CONTAS A RECEBER',
+        icon: <TrendingUp className="w-3.5 h-3.5 text-emerald-200 shrink-0" />,
+        headerTab: 'receber',
+        rows: [
+          {
+            label: 'Débitos Vencidos',
+            value: indicators.receberVencidos,
+            targetTab: 'receber',
+            badgeVariant: indicators.receberVencidos > 0 ? 'danger' : 'neutral',
+          },
+          {
+            label: 'Vencendo Hoje',
+            value: indicators.receberHoje,
+            targetTab: 'receber',
+            badgeVariant: indicators.receberHoje > 0 ? 'warning' : 'neutral',
+          },
+          {
+            label: 'Cheques Recebidos Hoje',
+            value: indicators.receberChequesHoje,
+            targetTab: 'receber',
+            badgeVariant: indicators.receberChequesHoje > 0 ? 'warning' : 'neutral',
+          },
+        ],
+      },
+      {
+        id: 'pillar-pagar',
+        title: 'CONTAS A PAGAR',
+        icon: <Wallet className="w-3.5 h-3.5 text-emerald-200 shrink-0" />,
+        headerTab: 'pagar',
+        rows: [
+          {
+            label: 'Contas Vencidas',
+            value: indicators.pagarVencidas,
+            targetTab: 'pagar',
+            badgeVariant: indicators.pagarVencidas > 0 ? 'danger' : 'neutral',
+          },
+          {
+            label: 'Vencendo Hoje',
+            value: indicators.pagarHoje,
+            targetTab: 'pagar',
+            badgeVariant: indicators.pagarHoje > 0 ? 'warning' : 'neutral',
+          },
+          {
+            label: 'Cheques Emitidos Hoje',
+            value: indicators.pagarChequesEmitidosHoje,
+            targetTab: 'pagar',
+            badgeVariant: indicators.pagarChequesEmitidosHoje > 0 ? 'warning' : 'neutral',
+          },
+        ],
+      },
+      {
+        id: 'pillar-frota',
+        title: 'FROTA & MANUTENÇÃO',
+        icon: <Tractor className="w-3.5 h-3.5 text-emerald-200 shrink-0" />,
+        headerTab: 'frotas',
+        rows: [
+          {
+            label: 'Fluidos / Peças Vencidas',
+            value: indicators.frotaFluidosVencidos,
+            targetTab: 'manutencoes',
+            badgeVariant: indicators.frotaFluidosVencidos > 0 ? 'danger' : 'neutral',
+          },
+          {
+            label: 'Revisões Próximas',
+            value: indicators.frotaRevisoesProximas,
+            targetTab: 'manutencoes',
+            badgeVariant: indicators.frotaRevisoesProximas > 0 ? 'warning' : 'neutral',
+          },
+          {
+            label: 'Equipamentos em Manutenção',
+            value: indicators.frotaEmManutencao,
+            targetTab: 'frotas',
+            badgeVariant: indicators.frotaEmManutencao > 0 ? 'warning' : 'neutral',
+          },
+        ],
+      },
+      {
+        id: 'pillar-estoque-fiscal',
+        title: 'ESTOQUE & FISCAL',
+        icon: <Package className="w-3.5 h-3.5 text-emerald-200 shrink-0" />,
+        headerTab: 'estoque',
+        rows: [
+          {
+            label: 'Estoque Abaixo do Mínimo',
+            value: indicators.estoqueAbaixoMinimo,
+            targetTab: 'estoque',
+            badgeVariant:
+              indicators.estoqueAbaixoMinimo >= 5
+                ? 'danger'
+                : indicators.estoqueAbaixoMinimo > 0
+                  ? 'warning'
+                  : 'neutral',
+          },
+          {
+            label: 'Notas / Lançamentos Pendentes',
+            value: indicators.notasPendentes,
+            targetTab: 'fiscal',
+            badgeVariant: indicators.notasPendentes > 0 ? 'warning' : 'neutral',
+          },
+          {
+            label: 'Monitor Fiscal',
+            value: indicators.monitorFiscalStatus,
+            targetTab: 'fiscal',
+            badgeVariant: 'success',
+          },
+        ],
+      },
+      {
+        id: 'pillar-rh-relacionamento',
+        title: 'RH & RELACIONAMENTO',
+        icon: <Users className="w-3.5 h-3.5 text-emerald-200 shrink-0" />,
+        headerTab: 'rh',
+        rows: [
+          {
+            label: 'CNHs Vencidas / A Vencer',
+            value: indicators.cnhTotalAlertas,
+            targetTab: 'funcionarios',
+            badgeVariant:
+              indicators.cnhVencidas > 0
+                ? 'danger'
+                : indicators.cnhAVencer > 0
+                  ? 'warning'
+                  : 'neutral',
+          },
+          {
+            label: 'Férias a Vencer',
+            value: indicators.feriasAVencer,
+            targetTab: 'rh',
+            badgeVariant: indicators.feriasAVencer > 0 ? 'warning' : 'neutral',
+          },
+          {
+            label: 'Aniversariantes do Mês',
+            value: indicators.aniversariantesMes,
+            targetTab: 'clientes',
+            badgeVariant: indicators.aniversariantesMes > 0 ? 'success' : 'neutral',
+          },
+        ],
+      },
+    ],
+    [indicators]
+  );
+
+  const getBadgeClasses = (variant: PillarRowConfig['badgeVariant']) => {
+    switch (variant) {
+      case 'danger':
+        return 'bg-rose-600! text-white! border border-rose-900/50 font-black';
+      case 'warning':
+        return 'bg-amber-600! text-white! border border-amber-900/40 font-black';
+      case 'success':
+        return 'bg-emerald-700! text-white! border border-emerald-950/40 font-black tracking-wide';
+      default:
+        return 'bg-[#cad4e6]! dark:bg-stone-800! text-slate-800! dark:text-stone-200! border border-black/30 dark:border-stone-600 font-bold';
+    }
+  };
 
   return (
-    <div 
+    <div
       id="agrocontrol-home-root"
-      className="flex flex-col min-h-full justify-between p-4 overflow-y-auto overflow-x-hidden select-none bg-[#edf4ff] dark:bg-gradient-to-b dark:from-stone-900 dark:via-stone-900 dark:to-stone-950"
+      className="flex flex-col h-full min-h-full justify-between gap-3 px-2 sm:px-4 py-2 sm:py-3 select-none bg-[#cad4e6]! dark:bg-stone-950!"
     >
-      
-      {/* =========================================================================
-          FAIXA 1: TOPO NOBRE (OCUPAR 40% DA ALTURA DA PÁGINA)
-          Renderização síncrona e reativa do logotipo oficial da empresa via LocalStorage
-          ('agrocontrol_empresa_logo').
-          Se nenhum logotipo estiver anexado, o emblema estático 'COLAÇA SILAGEM' foi
-          100% REMOVIDO, exibindo silhueta neutra e elegante em Slim Design Pro.
-         ========================================================================= */}
-      <div className="h-[40%] flex items-center justify-center text-center shrink-0 w-full max-w-6xl mx-auto px-4 overflow-hidden">
-        {resolvedCompanyLogo && !clientLogoError ? (
-          <div className="w-full h-full flex items-center justify-center py-1 px-2">
-            <img 
-              src={resolvedCompanyLogo} 
-              alt="LOGOTIPO DA EMPRESA"
-              className="w-[580px] max-w-[95vw] h-auto max-h-[96%] object-contain mb-2 sm:mb-3 mx-auto block drop-shadow-md select-none transition-transform hover:scale-[1.01] duration-150"
+      {/* =====================================================================
+          FAIXA 1: LOGO DINÂMICA DA EMPRESA + SAUDAÇÃO + 4 ATALHOS RÁPIDOS
+          Usa tag semântica <header> para isolamento limpo de regras legadas
+         ===================================================================== */}
+      <header className="w-full max-w-6xl mx-auto flex flex-col items-center justify-center text-center shrink-0 pt-1">
+        {/* Logotipo Dinâmico de Dados da Empresa */}
+        <div className="w-full flex items-center justify-center min-h-[112px] sm:min-h-[136px] max-h-[168px]">
+          {resolvedCompanyLogo && !clientLogoError ? (
+            <img
+              src={resolvedCompanyLogo}
+              alt={companyProfile?.name || 'Logotipo da Empresa'}
+              className="w-auto max-w-[90vw] sm:max-w-[460px] max-h-[136px] sm:max-h-[160px] object-contain mx-auto block drop-shadow-sm select-none"
               referrerPolicy="no-referrer"
               onError={() => setClientLogoError(true)}
             />
-          </div>
-        ) : (
-          <div 
-            onClick={() => onNavigate('configuracoes')}
-            className="w-full max-w-md h-[82%] max-h-48 mx-auto my-auto flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-blue-300/80 dark:border-blue-800/60 bg-white/60 dark:bg-stone-900/40 hover:bg-white/90 dark:hover:bg-stone-900/70 hover:border-blue-500 dark:hover:border-blue-600 transition-all cursor-pointer group shadow-2xs select-none"
-            title="CLIQUE PARA CONFIGURAR LOGOTIPO EM DADOS DA EMPRESA"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-100/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 flex items-center justify-center mb-2 text-blue-600 dark:text-blue-400 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-2xs">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
-              LOGOTIPO DA EMPRESA NÃO CONFIGURADO
-            </span>
-            <span className="text-[9.5px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 mt-1 group-hover:underline">
-              CLIQUE AQUI PARA ANEXAR O LOGOTIPO EM DADOS DA EMPRESA
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* =========================================================================
-          FAIXA 2: MIOLO CENTRAL (GRADE DE CARDS AZUIS SLIM & HARMONIOSA)
-          Grade contínua horizontal contendo os 5 blocos de cards azuis de 
-          monitoramento comercial ('CONTAS A RECEBER', 'CONTAS A PAGAR', 'CLIENTES', 
-          'PRODUTOS', 'OUTROS') em escala slim elegante e compacta
-         ========================================================================= */}
-      <div className="w-full max-w-7xl mx-auto shrink-0 my-auto py-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
-          
-          {/* SEÇÃO 1: CONTAS A RECEBER */}
-          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
-            {/* Cabeçalho da Seção */}
-            <div 
-              onClick={() => onNavigate('financeiro')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
+          ) : (
+            <button
+              type="button"
+              onClick={() => onNavigate('configuracoes')}
+              className="w-full max-w-md flex flex-col items-center justify-center px-5 py-4 rounded-lg border border-black! bg-[#e0e6f1]! hover:bg-[#d2dced]! dark:bg-stone-900! dark:hover:bg-stone-800! dark:border-stone-600! transition-colors cursor-pointer group shadow-sm"
+              title="Clique para configurar o logotipo em Dados da Empresa"
             >
-              <div className="flex items-center space-x-1.5 truncate">
-                <TrendingUp className="w-3.5 h-3.5 text-blue-200 shrink-0" />
-                <span className="truncate">CONTAS A RECEBER</span>
+              <div className="w-10 h-10 rounded-lg bg-emerald-800! text-white! border border-black! flex items-center justify-center mb-2 group-hover:bg-emerald-700! transition-colors">
+                <Building2 className="w-5 h-5" />
               </div>
-              <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
-            </div>
-
-            {/* Itens Internos com Escala Slim Equilibrada */}
-            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  DÉBITOS VENCIDOS
-                </span>
-                <span className={`${indicators.receberVencidos > 0 ? 'bg-rose-600 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
-                  {indicators.receberVencidos}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  DÉB. VENCENDO HOJE
-                </span>
-                <span className={`${indicators.receberHoje > 0 ? 'bg-amber-500 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
-                  {indicators.receberHoje}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  CHEQUES VENCENDO HOJE
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.receberCheques}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* SEÇÃO 2: CONTAS A PAGAR */}
-          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
-            {/* Cabeçalho da Seção */}
-            <div 
-              onClick={() => onNavigate('financeiro')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
-            >
-              <div className="flex items-center space-x-1.5 truncate">
-                <Wallet className="w-3.5 h-3.5 text-blue-200 shrink-0" />
-                <span className="truncate">CONTAS A PAGAR</span>
-              </div>
-              <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
-            </div>
-
-            {/* Itens Internos com Escala Slim Equilibrada */}
-            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  DÉBITOS VENCIDOS
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.pagarVencidos}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  DÉB. VENCENDO HOJE
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.pagarHoje}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  CHEQUES VENCENDO HOJE
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.pagarCheques}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* SEÇÃO 3: CLIENTES */}
-          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
-            {/* Cabeçalho da Seção */}
-            <div 
-              onClick={() => onNavigate('clientes')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
-            >
-              <div className="flex items-center space-x-1.5 truncate">
-                <Users className="w-3.5 h-3.5 text-blue-200 shrink-0" />
-                <span className="truncate">CLIENTES</span>
-              </div>
-              <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
-            </div>
-
-            {/* Itens Internos com Escala Slim Equilibrada */}
-            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNavigate('clientes')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  CLIENTES AUSENTES
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.clientesAusentes}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('clientes')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  CLIENTES BLOQUEADOS
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.clientesBloqueados}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('clientes')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  ANIVERSARIANTES
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.clientesAniversariantes}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* SEÇÃO 4: PRODUTOS */}
-          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95">
-            {/* Cabeçalho da Seção */}
-            <div 
-              onClick={() => onNavigate('almoxarifado')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
-            >
-              <div className="flex items-center space-x-1.5 truncate">
-                <Package className="w-3.5 h-3.5 text-blue-200 shrink-0" />
-                <span className="truncate">PRODUTOS</span>
-              </div>
-              <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
-            </div>
-
-            {/* Itens Internos com Escala Slim Equilibrada */}
-            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  ESTOQUE BAIXO
-                </span>
-                <span className={`${indicators.produtosEstoqueBaixo > 0 ? 'bg-amber-500 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
-                  {indicators.produtosEstoqueBaixo}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  PROD. VENCENDO HOJE
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.produtosVencendoHoje}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  SUG. DE CICLO DE VIDA
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.produtosCicloVida}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* SEÇÃO 5: OUTROS */}
-          <div className="flex flex-col h-full rounded-md shadow-xs overflow-hidden border border-blue-400/80 dark:border-blue-900 bg-white/95 dark:bg-stone-850/95 sm:col-span-2 lg:col-span-1">
-            {/* Cabeçalho da Seção */}
-            <div 
-              onClick={() => onNavigate('fiscal')}
-              className="bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide py-1.5 px-3 flex items-center justify-between border-b border-blue-900 cursor-pointer transition select-none shadow-2xs shrink-0"
-            >
-              <div className="flex items-center space-x-1.5 truncate">
-                <Layers className="w-3.5 h-3.5 text-blue-200 shrink-0" />
-                <span className="truncate">OUTROS</span>
-              </div>
-              <ChevronRight className="w-3 h-3 text-blue-200 shrink-0" />
-            </div>
-
-            {/* Itens Internos com Escala Slim Equilibrada */}
-            <div className="flex flex-col justify-between p-2 sm:p-2.5 h-full flex-1 gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNavigate('servicos')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  ENTREGAS
-                </span>
-                <span className="bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold text-[11px] px-2 py-0.5 rounded min-w-[22px] text-center shrink-0">
-                  {indicators.outrosEntregas}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('almoxarifado')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  PRODUTOS SEM VENDAS
-                </span>
-                <span className={`${indicators.outrosSemVendas > 0 ? 'bg-blue-600 text-white font-black' : 'bg-slate-200 dark:bg-stone-700 text-slate-600 dark:text-stone-300 font-bold'} text-[11px] px-2 py-0.5 rounded shadow-2xs min-w-[22px] text-center shrink-0`}>
-                  {indicators.outrosSemVendas}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('financeiro')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-50 hover:bg-blue-50 dark:bg-stone-800 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-stone-700 hover:border-blue-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase truncate">
-                  COBRANÇAS PREVISTAS
-                </span>
-                <span className="bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-black text-[10px] px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800 shrink-0">
-                  {formattedCobrancasPrevistas}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('fiscal')}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-emerald-50/80 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-300 transition cursor-pointer text-left active:scale-98"
-              >
-                <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase truncate flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  MONITOR FISCAL
-                </span>
-                <span className="bg-emerald-600 text-white font-black text-[10px] px-2 py-0.5 rounded shadow-2xs shrink-0 tracking-wider">
-                  {indicators.monitorFiscalStatus}
-                </span>
-              </button>
-            </div>
-          </div>
-
+              <span className="text-xs font-black uppercase tracking-wide text-slate-900 dark:text-stone-100">
+                {companyProfile?.name || 'LOGOTIPO DA EMPRESA NÃO CONFIGURADO'}
+              </span>
+              <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 mt-0.5 group-hover:underline">
+                Clique para anexar o logotipo em Dados da Empresa
+              </span>
+            </button>
+          )}
         </div>
-      </div>
 
-      {/* =========================================================================
-          FAIXA 3: BASE DA TELA (BLOCO DA MARCA AGROCONTROL OFICIAL 100% CENTRALIZADO)
-          Fluxo vertical perfeitamente centralizado: Imagem oficial da ensiladeira 
-          com saco de moedas acima, seguida de 'AgroControl' e 'GESTÃO DE SILAGEM E MÁQUINAS'
-         ========================================================================= */}
-      <div className="flex flex-col items-center justify-center text-center mt-auto pb-2 w-full select-none">
-        <div 
-          className="flex flex-col items-center justify-center text-center cursor-pointer transition-transform hover:scale-[1.01] duration-150"
+        {/* Linha discreta: Data atual + Usuário logado */}
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs font-semibold text-slate-800 dark:text-stone-300">
+          <span className="inline-flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-400 shrink-0" />
+            <span>{formattedCurrentDate}</span>
+          </span>
+          <span className="text-slate-500 dark:text-stone-600">•</span>
+          <span className="inline-flex items-center gap-1.5">
+            <UserCheck className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-400 shrink-0" />
+            <span>
+              Olá, <strong className="font-extrabold text-slate-950 dark:text-white">{activeUserName}</strong>
+            </span>
+          </span>
+        </div>
+
+        {/* Fileira centralizada de 4 Botões de Acesso Rápido */}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {quickActions.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => onNavigate(action.tab)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border border-black! bg-emerald-700! hover:bg-emerald-800! text-white! shadow-sm cursor-pointer transition-colors active:scale-[0.99]"
+            >
+              {action.icon}
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* =====================================================================
+          FAIXA 2: 5 PILARES EXECUTIVOS PADRONIZADOS (#e0e6f1 + Borda Preta)
+          Usa tag semântica <section> para evitar sobrescrita de div:nth-of-type
+         ===================================================================== */}
+      <section className="w-full max-w-7xl mx-auto shrink-0 my-auto py-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          {pillars.map((pillar) => (
+            <article
+              key={pillar.id}
+              className="flex flex-col h-full bg-[#e0e6f1]! dark:bg-stone-900! border border-black! dark:border-stone-700! rounded-lg overflow-hidden shadow-sm"
+            >
+              {/* Cabeçalho Verde Esmeralda Clicável */}
+              <button
+                type="button"
+                onClick={() => onNavigate(pillar.headerTab)}
+                className="w-full bg-emerald-800! hover:bg-emerald-900! text-white! border-b border-black! font-bold text-xs px-3 py-2 flex items-center justify-between gap-1.5 cursor-pointer transition-colors text-left shrink-0"
+                title={`Abrir módulo ${pillar.title}`}
+              >
+                <span className="flex items-center gap-1.5 min-w-0">
+                  {pillar.icon}
+                  <span className="truncate tracking-wide">{pillar.title}</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+              </button>
+
+              {/* Linhas Clicáveis do Pilar */}
+              <div className="flex flex-col flex-1 divide-y divide-black/15 dark:divide-stone-800 bg-[#e0e6f1]! dark:bg-stone-900!">
+                {pillar.rows.map((row) => {
+                  const isMonitorFiscal = row.label === 'Monitor Fiscal';
+                  return (
+                    <button
+                      key={`${pillar.id}-${row.label}`}
+                      type="button"
+                      onClick={() => onNavigate(row.targetTab)}
+                      className="w-full flex-1 flex items-center justify-between gap-2 px-3 py-2.5 bg-transparent hover:bg-[#d2dced]! dark:hover:bg-stone-800! cursor-pointer transition-colors text-left"
+                      title={`Abrir ${row.label}`}
+                    >
+                      <span className="text-[11px] font-bold text-slate-900 dark:text-stone-200 leading-tight flex items-center gap-1.5 min-w-0">
+                        {isMonitorFiscal && (
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                        )}
+                        <span className="truncate">{row.label}</span>
+                      </span>
+                      <span
+                        className={`text-[11px] tabular-nums px-2 py-0.5 rounded min-w-[26px] text-center shrink-0 ${getBadgeClasses(row.badgeVariant)}`}
+                      >
+                        {row.value}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* =====================================================================
+          FAIXA 3: RODAPÉ DISCRETO DA MARCA AGROCONTROL (COMPACTO, SEM SCROLL)
+          Usa tag semântica <footer> para encaixe limpo na viewport desktop
+         ===================================================================== */}
+      <footer className="w-full flex flex-col items-center justify-center text-center shrink-0 pb-0.5">
+        <button
+          type="button"
           onClick={() => onNavigate('dashboard')}
-          title="Visão Executiva do AgroControl"
+          className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-[#d2dced]/80 dark:hover:bg-stone-900 transition-colors cursor-pointer group"
+          title="Abrir Painel Executivo (Dashboard)"
         >
-          {/* 1. Imagem Oficial Fiel: Ensiladeira com Saco de Moedas (Print 2) */}
-          <div className="shrink-0 mb-1">
+          <div className="shrink-0">
             {!imgError ? (
-              <img 
+              <img
                 src="/src/assets/images/ensiladeira_moedas_1791492311961.jpg"
-                alt="AgroControl - Ensiladeira com Moedas de Ouro"
-                className="w-44 h-auto mx-auto block object-contain mix-blend-multiply drop-shadow-sm transition-all"
-                style={{ mixBlendMode: 'multiply' }}
+                alt="AgroControl"
+                className="w-16 sm:w-20 h-auto block object-contain mix-blend-multiply dark:mix-blend-normal dark:rounded"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
               />
             ) : (
-              <EnsiladeiraVector size="lg" className="w-44 h-auto drop-shadow-sm mx-auto block" />
+              <EnsiladeiraVector size="sm" className="w-16 h-auto block" />
             )}
           </div>
-
-          {/* 2. Alinhamento do Nome Comercial: AgroControl (CamelCase exata) */}
-          <h2 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight leading-tight [text-shadow:_0_1px_0_rgba(255,255,255,0.9)] dark:[text-shadow:_0_1px_0_rgba(255,255,255,0.05)]">
-            AgroControl
-          </h2>
-
-          {/* 3. Alinhamento da Descrição de Especialidade 100% Caixa Alta */}
-          <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tracking-widest uppercase mt-0.5 leading-tight">
-            GESTÃO DE SILAGEM E MÁQUINAS
-          </p>
-        </div>
-      </div>
-
+          <div className="text-left leading-tight">
+            <div className="text-sm font-black text-slate-900 dark:text-stone-100 tracking-tight group-hover:text-emerald-800 dark:group-hover:text-emerald-400 transition-colors">
+              AgroControl
+            </div>
+            <div className="text-[9.5px] font-bold text-emerald-800 dark:text-emerald-400 tracking-widest uppercase">
+              SISTEMA DE GESTÃO INTEGRADA
+            </div>
+          </div>
+        </button>
+      </footer>
     </div>
   );
 };
