@@ -28,7 +28,8 @@ import {
   FileSpreadsheet,
   Camera,
   Image as ImageIcon,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ClipboardList
 } from 'lucide-react';
 import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
 import { 
@@ -37,6 +38,7 @@ import {
   getStoredFuelLogs,
   getStoredInventory,
   getStoredStockMovements,
+  getStoredInventoryBalances,
   ensureDieselProductsInInventory,
   ensureServicesInInventory,
   saveStoredInventory
@@ -47,6 +49,7 @@ import { ProductLabelPrintModal, LabelProductItem } from './ProductLabelPrintMod
 import { PrintQueueManagerModal } from './PrintQueueManagerModal';
 import { ComprasSubModule } from './ComprasSubModule';
 import { CotacoesSubModule } from './CotacoesSubModule';
+import { InventoryBalanceSubModule } from './InventoryBalanceSubModule';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchEstoque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 
@@ -66,7 +69,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [showSpecialPrices, setShowSpecialPrices] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inventario' | 'relatorios' | 'compras' | 'cotacoes'>('inventario');
+  const [activeTab, setActiveTab] = useState<'inventario' | 'relatorios' | 'compras' | 'cotacoes' | 'balanco'>('inventario');
+  const [openBalancesCount, setOpenBalancesCount] = useState<number>(() => {
+    try {
+      return getStoredInventoryBalances().filter(s => s.status === 'EM_ANDAMENTO').length;
+    } catch {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    const syncOpenBalances = () => {
+      try {
+        setOpenBalancesCount(getStoredInventoryBalances().filter(s => s.status === 'EM_ANDAMENTO').length);
+      } catch {}
+    };
+    window.addEventListener('agrocontrol_inventory_balances_updated', syncOpenBalances);
+    window.addEventListener('storage', syncOpenBalances);
+    return () => {
+      window.removeEventListener('agrocontrol_inventory_balances_updated', syncOpenBalances);
+      window.removeEventListener('storage', syncOpenBalances);
+    };
+  }, []);
 
   const [localInventory, setLocalInventory] = useState<InventoryItem[]>(inventory);
 
@@ -367,7 +391,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       });
     }
 
-    // 3. Verificar entradas de estoque originadas de NF-e / Entradas Manuais
+    // 3. Verificar entradas/ajustes de estoque originados de NF-e, Entradas Manuais ou Balanço/Inventário
     const stockEntryMovs = getStoredStockMovements();
     const viewNameNorm = String(viewingItem.nome_comercial || viewingItem.name || '').toLowerCase().trim();
     const viewCodeNorm = String(viewingItem.code || viewingItem.codigo_produto || '').toLowerCase().trim();
@@ -376,15 +400,21 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       const matchCode = viewCodeNorm && mov.productCode && String(mov.productCode).toLowerCase().trim() === viewCodeNorm;
       const matchName = viewNameNorm && mov.productName && String(mov.productName).toLowerCase().trim() === viewNameNorm;
       if (matchId || matchCode || matchName) {
+        const movType: 'entrada' | 'saida' = mov.type === 'saida' ? 'saida' : 'entrada';
+        const defaultDesc = mov.source === 'balanco'
+          ? `Ajuste de Inventário - Balanço #${mov.invoiceNumber}`
+          : `Entrada via NF-e / Doc ${mov.invoiceNumber}${mov.supplier ? ` (${mov.supplier})` : ''}`;
         movements.push({
-          id: `nfe_in_${mov.id}`,
+          id: `stock_mov_${mov.id}`,
           date: mov.date || (mov.createdAt ? mov.createdAt.split('T')[0] : 'Data n/d'),
-          type: 'entrada',
-          description: `Entrada via NF-e / Doc ${mov.invoiceNumber}${mov.supplier ? ` (${mov.supplier})` : ''}`,
+          type: movType,
+          description: mov.description || defaultDesc,
           quantity: mov.quantity,
           unit: mov.unit || viewingItem.unit || 'UN',
           cost: mov.totalCost || (mov.quantity * (mov.unitCost || 0)),
-          ref: mov.invoiceNumber ? `NF ${mov.invoiceNumber}` : undefined,
+          ref: mov.source === 'balanco'
+            ? `Balanço #${mov.invoiceNumber}`
+            : (mov.invoiceNumber ? `NF ${mov.invoiceNumber}` : undefined),
         });
       }
     });
@@ -710,7 +740,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               id="tab-cotacoes"
               onClick={() => setActiveTab('cotacoes')}
               style={activeTab === 'cotacoes' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
-              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap border-r border-slate-300/80 dark:border-stone-700/80 ${
                 activeTab === 'cotacoes'
                   ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
                   : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
@@ -718,6 +748,26 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <span>COTAÇÕES</span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-balanco-inventario"
+              onClick={() => setActiveTab('balanco')}
+              style={activeTab === 'balanco' ? { backgroundColor: 'rgba(251, 146, 60, 0.40)' } : undefined}
+              className={`flex-1 min-w-max flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] tracking-wide uppercase transition cursor-pointer select-none whitespace-nowrap ${
+                activeTab === 'balanco'
+                  ? 'bg-orange-400/40 text-black font-semibold shadow-xs border-t-2 border-t-emerald-600 -mb-px z-10'
+                  : 'bg-slate-200/50 hover:bg-slate-200 dark:bg-stone-850 dark:hover:bg-stone-800 text-slate-700 font-bold dark:text-stone-400 hover:text-slate-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <ClipboardList className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+              <span>📋 BALANÇO / INVENTÁRIO</span>
+              {openBalancesCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[9px] font-black leading-tight border border-black/40">
+                  {openBalancesCount}
+                </span>
+              )}
             </button>
           </nav>
         </div>
@@ -1319,6 +1369,14 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     <CotacoesSubModule 
       allItems={allItems} 
     />
+  ) : activeTab === 'balanco' ? (
+    <InventoryBalanceSubModule
+      allItems={allItems}
+      onSaveInventory={(updated) => {
+        setLocalInventory(updated);
+        onSaveInventory(updated);
+      }}
+    />
   ) : null}
         </div>
       </div>
@@ -1591,7 +1649,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           <div className={`p-1.5 rounded-lg ${
                             mov.type === 'saida' 
                               ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' 
-                              : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200'
+                              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
                           }`}>
                             {mov.type === 'saida' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                           </div>
@@ -1613,8 +1671,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         </div>
 
                         <div className="text-right whitespace-nowrap">
-                          <span className="font-bold text-rose-600 dark:text-rose-400 font-mono">
-                            -{mov.quantity} {mov.unit}
+                          <span className={`font-bold font-mono ${
+                            mov.type === 'entrada'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                          }`}>
+                            {mov.type === 'entrada' ? '+' : '-'}{mov.quantity} {mov.unit}
                           </span>
                           {mov.cost !== undefined && (
                             <p className="text-[10px] text-black/65 dark:text-stone-400 font-mono">

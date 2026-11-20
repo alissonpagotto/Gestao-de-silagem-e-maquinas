@@ -119,9 +119,29 @@ function getActiveCompanyIdFallback(): string {
   ).trim();
 }
 
+const CANONICAL_AGRO_KEY_MAP: Record<string, string> = {
+  clientes: 'agrocontrol_clientes',
+  fornecedores: 'agrocontrol_fornecedores',
+  funcionarios: 'agrocontrol_funcionarios',
+  despesas: 'agrocontrol_expenses',
+  abastecimentos: 'agrocontrol_abastecimentos',
+  estoque: 'agrocontrol_produtos',
+};
+
 function getOfflineTableData(entity: string): any[] {
   if (typeof localStorage === 'undefined') return [];
   const cId = getActiveCompanyIdFallback();
+  // 0. Tenta carregar pela chave canônica agrocontrol_* primeiro
+  const canonicalKey = CANONICAL_AGRO_KEY_MAP[entity];
+  if (canonicalKey) {
+    const rawCanon = localStorage.getItem(canonicalKey);
+    if (rawCanon) {
+      try {
+        const parsed = JSON.parse(rawCanon);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (_) {}
+    }
+  }
   // 1. Tenta carregar pela chave vinculada à empresa atual (apenas se não vazia)
   const rawScoped = localStorage.getItem(`colaca_silagem_${entity}_${cId}`);
   if (rawScoped) {
@@ -172,30 +192,12 @@ function getOfflineTableData(entity: string): any[] {
 function saveOfflineTableData(entity: string, data: any[]): void {
   if (typeof localStorage === 'undefined') return;
   try {
-    const cId = getActiveCompanyIdFallback();
     const json = JSON.stringify(data);
-    safeLocalStorageSetItem(`colaca_silagem_${entity}_${cId}`, json);
-    safeLocalStorageSetItem(`colaca_silagem_${entity}`, json);
-    const legacyKeyMap: Record<string, string> = {
-      frotas: 'silagem_facil_clean_v1_machineries',
-      funcionarios: 'silagem_facil_clean_v1_employees',
-      rh_folhas: 'silagem_facil_clean_v1_payrolls',
-      rh_faltas: 'silagem_facil_clean_v1_absences',
-      rh_ferias: 'silagem_facil_clean_v1_vacations',
-      fornecedores: 'silagem_facil_clean_v1_suppliers',
-      clientes: 'silagem_facil_clean_v1_clients',
-      despesas: 'silagem_facil_clean_v1_expenses',
-      servicos: 'silagem_facil_clean_v1_services',
-      abastecimentos: 'silagem_facil_clean_v1_fuel_logs',
-      manutencoes: 'silagem_facil_clean_v1_maintenance_logs',
-      estoque: 'silagem_facil_clean_v1_inventory',
-      financeiro_contas: 'silagem_facil_clean_v1_bank_accounts',
-      documentos_entrada: 'agrocontrol_notas_entradas',
-      documentos_entrada_itens: 'colaca_silagem_documentos_entrada_itens',
-    };
-    const legKey = legacyKeyMap[entity];
-    if (legKey) {
-      try { safeLocalStorageSetItem(legKey, json); } catch (_) {}
+    const canonicalKey = CANONICAL_AGRO_KEY_MAP[entity];
+    if (canonicalKey) {
+      safeLocalStorageSetItem(canonicalKey, json);
+    } else {
+      safeLocalStorageSetItem(`colaca_silagem_${entity}`, json);
     }
   } catch (err) {
     console.warn(`[Supabase Offline] Aviso não-bloqueante ao salvar tabela "${entity}":`, err);

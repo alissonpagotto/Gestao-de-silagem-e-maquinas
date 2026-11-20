@@ -41,7 +41,8 @@ import {
   TrocaDevolucaoRecord,
   PendenciaDevolucaoRecord,
   NotaSaidaRecord,
-  StockEntryMovement
+  StockEntryMovement,
+  InventoryBalanceSession
 } from '../types';
 import { backfillEmployeesBadgeNumbers } from '../components/rh/badgeHelpers';
 import { 
@@ -245,6 +246,8 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
         'silagem_facil_clean_v1_clients',
         'silagem_facil_clean_v1_orders',
         'silagem_facil_clean_v1_services',
+        'silagem_facil_clean_v1_suppliers',
+        'silagem_facil_clean_v1_salary_advances',
         'silagem_facil_clean_v1_bank_accounts',
         'silagem_facil_clean_v1_bank_transactions'
       ];
@@ -254,20 +257,49 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
         }
       }
 
-      // 3. Limpar chaves duplicadas com escopo de empresa antigo (ex: colaca_silagem_*_default)
+      // 3. Limpar espelhos redundantes quando a chave canônica agrocontrol_* já existe (zero perda de dados)
+      const canonicalRedundantMirrors: Array<[string, string[]]> = [
+        ['agrocontrol_clientes', ['colaca_silagem_clientes', 'silagem_facil_clean_v1_clients']],
+        ['agrocontrol_pedidos', ['colaca_silagem_pedidos', 'silagem_facil_clean_v1_orders']],
+        ['agrocontrol_expenses', ['agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'colaca_silagem_despesas', 'silagem_facil_clean_v1_expenses']],
+        ['agrocontrol_fornecedores', ['colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers']],
+        ['agrocontrol_funcionarios', ['colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees']],
+        ['agrocontrol_produtos', ['colaca_silagem_estoque_produtos', 'colaca_silagem_estoque', 'silagem_facil_clean_v1_inventory']],
+        ['agrocontrol_abastecimentos', ['agrocontrol_fuel_logs', 'colaca_silagem_abastecimentos', 'silagem_facil_clean_v1_fuel_logs']],
+        ['agrocontrol_adiantamentos', ['colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances']],
+        ['agrocontrol_fiscal_docs', ['agrocontrol_nfe_records', 'agrocontrol_notas_fiscais']],
+      ];
+      for (const [primaryKey, duplicates] of canonicalRedundantMirrors) {
+        const primaryVal = localStorage.getItem(primaryKey);
+        if (primaryVal && primaryVal !== '[]' && primaryVal !== '{}') {
+          for (const dupKey of duplicates) {
+            if (dupKey !== key) {
+              localStorage.removeItem(dupKey);
+            }
+          }
+        }
+      }
+
+      // 4. Limpar chaves duplicadas com escopo de empresa antigo (ex: colaca_silagem_*_default)
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
-        if (k && (k.endsWith('_default') || k.endsWith('_company_default_fazenda') || k.includes('_undefined'))) {
+        if (
+          k &&
+          k !== key &&
+          (k.endsWith('_default') ||
+            k.endsWith('_company_default_fazenda') ||
+            k.includes('_undefined'))
+        ) {
           localStorage.removeItem(k);
         }
       }
 
-      // Tenta gravar novamente após a primeira limpeza
+      // Tenta gravar novamente após a limpeza de espelhos redundantes
       localStorage.setItem(key, value);
       return true;
     } catch {
       try {
-        // 4. Se ainda assim a cota estiver no limite, verifica se o valor contém fotos/imagens base64 grandes
+        // 5. Se ainda assim a cota estiver no limite, verifica se o valor contém fotos/imagens base64 grandes
         if (value.includes('data:image')) {
           const stripped = value.replace(/"data:image\/[^;]+;base64,[^"]+"/g, '""');
           localStorage.setItem(key, stripped);
@@ -275,12 +307,47 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
         }
         return false;
       } catch {
-        // 5. Contingência final: mantém os dados na memória reativa da aplicação sem quebrar
+        // 6. Contingência final: mantém os dados na memória reativa da aplicação sem quebrar
         return false;
       }
     }
   }
 }
+
+/**
+ * Executa limpeza preventiva uma única vez na inicialização do navegador:
+ * remove apenas cópias espelho legadas redundantes quando a chave canônica
+ * `agrocontrol_*` já existe e contém dados válidos (zero perda de dados).
+ */
+export function runStartupStorageQuotaCleanup(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const mirrorPairs: Array<[string, string[]]> = [
+      ['agrocontrol_clientes', ['colaca_silagem_clientes', 'silagem_facil_clean_v1_clients']],
+      ['agrocontrol_pedidos', ['colaca_silagem_pedidos', 'silagem_facil_clean_v1_orders']],
+      ['agrocontrol_expenses', ['agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'colaca_silagem_despesas', 'silagem_facil_clean_v1_expenses']],
+      ['agrocontrol_fornecedores', ['colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers']],
+      ['agrocontrol_funcionarios', ['colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees']],
+      ['agrocontrol_produtos', ['colaca_silagem_estoque_produtos', 'colaca_silagem_estoque', 'silagem_facil_clean_v1_inventory']],
+      ['agrocontrol_abastecimentos', ['agrocontrol_fuel_logs', 'colaca_silagem_abastecimentos', 'silagem_facil_clean_v1_fuel_logs']],
+      ['agrocontrol_adiantamentos', ['colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances']],
+    ];
+    for (const [primaryKey, duplicates] of mirrorPairs) {
+      const primaryVal = localStorage.getItem(primaryKey);
+      if (primaryVal && primaryVal !== '[]' && primaryVal !== '{}' && primaryVal !== 'null') {
+        for (const dupKey of duplicates) {
+          if (localStorage.getItem(dupKey) !== null) {
+            localStorage.removeItem(dupKey);
+          }
+        }
+      }
+    }
+  } catch {
+    // non-blocking
+  }
+}
+
+runStartupStorageQuotaCleanup();
 
 export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
   {
@@ -532,24 +599,20 @@ export function saveStoredExpenses(expenses: Expense[], allowEmpty = false): voi
 
     const json = JSON.stringify(cleaned);
     const cId = (getActiveCompanyId() || 'default').trim();
-    const hasPrimaryKeys =
-      localStorage.getItem('agrocontrol_expenses') === json &&
-      localStorage.getItem('agrocontrol_despesas') === json &&
-      localStorage.getItem('agrocontrol_contas_a_pagar') === json &&
-      localStorage.getItem('agrocontrol_financeiro') === json &&
-      localStorage.getItem('colaca_silagem_despesas') === json &&
-      localStorage.getItem(STORAGE_KEYS.EXPENSES) === json;
-    if (json === lastSavedExpensesJson && hasPrimaryKeys) return;
-    lastSavedExpensesJson = json;
-    safeLocalStorageSetItem('agrocontrol_expenses', json);
-    safeLocalStorageSetItem('agrocontrol_despesas', json);
-    safeLocalStorageSetItem('agrocontrol_contas_a_pagar', json);
-    safeLocalStorageSetItem('agrocontrol_financeiro', json);
-    safeLocalStorageSetItem('colaca_silagem_despesas', json);
-    safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, json);
-    safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, json);
-    if (cId && cId !== 'default') {
-      safeLocalStorageSetItem(`agrocontrol_expenses_${cId}`, json);
+    if (json === lastSavedExpensesJson && localStorage.getItem('agrocontrol_expenses') === json) return;
+    if (safeLocalStorageSetItem('agrocontrol_expenses', json)) {
+      lastSavedExpensesJson = json;
+      // Remove espelhos duplicados redundantes para evitar QuotaExceededError no localStorage
+      try {
+        localStorage.removeItem('agrocontrol_despesas');
+        localStorage.removeItem('agrocontrol_contas_a_pagar');
+        localStorage.removeItem('colaca_silagem_despesas');
+        localStorage.removeItem(STORAGE_KEYS.EXPENSES);
+        localStorage.removeItem(`colaca_silagem_despesas_${cId}`);
+        if (cId && cId !== 'default') {
+          localStorage.removeItem(`agrocontrol_expenses_${cId}`);
+        }
+      } catch {}
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
@@ -990,9 +1053,12 @@ export function getStoredClients(): Client[] {
     const { items: withCodes, changed: codesChanged } = ensureSequentialClientCodes(cleaned);
     if (cleaned.length !== parsed.length || codesChanged) {
       const json = JSON.stringify(withCodes);
-      localStorage.setItem('agrocontrol_clientes', json);
-      localStorage.setItem('colaca_silagem_clientes', json);
-      localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
+      if (safeLocalStorageSetItem('agrocontrol_clientes', json)) {
+        try {
+          localStorage.removeItem('colaca_silagem_clientes');
+          localStorage.removeItem(STORAGE_KEYS.CLIENTS);
+        } catch {}
+      }
     }
     return withCodes;
   } catch (e) {
@@ -1000,15 +1066,25 @@ export function getStoredClients(): Client[] {
   }
 }
 
+let lastSavedClientsJson = '';
+
 export function saveStoredClients(clients: Client[]): void {
   try {
     const { items: withCodes } = ensureSequentialClientCodes(Array.isArray(clients) ? clients : []);
     const json = JSON.stringify(withCodes);
-    localStorage.setItem('agrocontrol_clientes', json);
-    localStorage.setItem('colaca_silagem_clientes', json);
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
+    if (json === lastSavedClientsJson && localStorage.getItem('agrocontrol_clientes') === json) {
+      return;
+    }
+    if (safeLocalStorageSetItem('agrocontrol_clientes', json)) {
+      lastSavedClientsJson = json;
+      // Remove espelhos legados redundantes para evitar estourar cota de 5MB do localStorage
+      try {
+        localStorage.removeItem('colaca_silagem_clientes');
+        localStorage.removeItem(STORAGE_KEYS.CLIENTS);
+      } catch {}
+    }
   } catch (e) {
-    console.error('Failed to save clients', e);
+    console.warn('Aviso não-bloqueante ao salvar clientes:', e);
   }
 }
 
@@ -1470,13 +1546,23 @@ export function getStoredOrders(): SilageOrder[] {
   }
 }
 
+let lastSavedOrdersJson = '';
+
 export function saveStoredOrders(orders: SilageOrder[]): void {
   try {
-    const json = JSON.stringify(orders);
-    localStorage.setItem('agrocontrol_pedidos', json);
-    localStorage.setItem(STORAGE_KEYS.ORDERS, json);
+    const json = JSON.stringify(Array.isArray(orders) ? orders : []);
+    if (json === lastSavedOrdersJson && localStorage.getItem('agrocontrol_pedidos') === json) {
+      return;
+    }
+    if (safeLocalStorageSetItem('agrocontrol_pedidos', json)) {
+      lastSavedOrdersJson = json;
+      // Remove espelho legado redundante para preservar cota do localStorage
+      try {
+        localStorage.removeItem(STORAGE_KEYS.ORDERS);
+      } catch {}
+    }
   } catch (e) {
-    console.error('Failed to save orders', e);
+    console.warn('Aviso não-bloqueante ao salvar pedidos:', e);
   }
 }
 
@@ -2939,6 +3025,83 @@ export function hasStockMovementForInvoice(
     }
     return false;
   });
+}
+
+// ==============================================================================
+// BALANÇO / INVENTÁRIO FÍSICO DE ESTOQUE (PERSISTÊNCIA CONTÍNUA MULTI-DIAS)
+// Chave oficial: 'agrocontrol_inventory_balances'
+// ==============================================================================
+const INVENTORY_BALANCES_BASE_KEY = 'agrocontrol_inventory_balances';
+
+function getAllInventoryBalanceKeys(): string[] {
+  const keys: string[] = [INVENTORY_BALANCES_BASE_KEY];
+  try {
+    const cId = (getActiveCompanyId() || '').trim();
+    if (cId && cId !== 'default') {
+      keys.push(`${INVENTORY_BALANCES_BASE_KEY}_${cId}`);
+    }
+  } catch (_) {}
+  return keys;
+}
+
+export function getStoredInventoryBalances(): InventoryBalanceSession[] {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const map = new Map<string, InventoryBalanceSession>();
+    for (const key of getAllInventoryBalanceKeys()) {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === '[]' || raw === 'null') continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) continue;
+        for (const item of parsed) {
+          if (item && typeof item === 'object' && item.id) {
+            const existing = map.get(item.id);
+            if (!existing) {
+              map.set(item.id, item as InventoryBalanceSession);
+            } else {
+              const exTime = String(existing.updatedAt || existing.createdAt || '');
+              const curTime = String(item.updatedAt || item.createdAt || '');
+              if (curTime > exTime) {
+                map.set(item.id, item as InventoryBalanceSession);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+    );
+  } catch (e) {
+    console.warn('Erro ao ler balanços de inventário:', e);
+    return [];
+  }
+}
+
+export function saveStoredInventoryBalances(
+  sessions: InventoryBalanceSession[],
+  allowEmpty = false
+): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const clean = (Array.isArray(sessions) ? sessions : []).filter(
+      (s: any) => s && typeof s === 'object' && s.id
+    );
+    if (!allowEmpty && clean.length === 0) {
+      const existing = getStoredInventoryBalances();
+      if (existing.length > 0) return;
+    }
+    const json = JSON.stringify(clean);
+    for (const key of getAllInventoryBalanceKeys()) {
+      safeLocalStorageSetItem(key, json);
+    }
+    window.dispatchEvent(
+      new CustomEvent('agrocontrol_inventory_balances_updated', { detail: clean })
+    );
+  } catch (e) {
+    console.warn('Erro ao salvar balanços de inventário:', e);
+  }
 }
 
 /**
@@ -4410,15 +4573,18 @@ export function saveStoredSalaryAdvances(advances: SalaryAdvance[]): void {
     }));
 
     const json = JSON.stringify(validAdvances);
-    localStorage.setItem('agrocontrol_adiantamentos', json);
-    localStorage.setItem(STORAGE_KEYS.SALARY_ADVANCES, json);
-    localStorage.setItem('colaca_silagem_rh_adiantamentos', json);
+    if (safeLocalStorageSetItem('agrocontrol_adiantamentos', json)) {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.SALARY_ADVANCES);
+        localStorage.removeItem('colaca_silagem_rh_adiantamentos');
+      } catch {}
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_advances_updated', { detail: validAdvances }));
     }
   } catch (e) {
-    console.error('Failed to save salary advances', e);
+    console.warn('Aviso não-bloqueante ao salvar adiantamentos:', e);
   }
 }
 
@@ -4435,9 +4601,9 @@ export function getStoredMedicalCertificates(): MedicalCertificateRecord[] {
 
 export function saveStoredMedicalCertificates(certificates: MedicalCertificateRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.MEDICAL_CERTIFICATES, JSON.stringify(certificates));
+    safeLocalStorageSetItem(STORAGE_KEYS.MEDICAL_CERTIFICATES, JSON.stringify(certificates));
   } catch (e) {
-    console.error('Failed to save medical certificates', e);
+    console.warn('Aviso não-bloqueante ao salvar atestados:', e);
   }
 }
 
@@ -5649,8 +5815,10 @@ export const saveCompanyFornecedores = (fornecedores: Supplier[], companyId?: st
   const { items: withCodes } = ensureSequentialSupplierCodes(Array.isArray(fornecedores) ? fornecedores : []);
   saveCompanyData('fornecedores', withCodes, companyId);
   try {
-    localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(withCodes));
-    localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(withCodes));
+    const json = JSON.stringify(withCodes);
+    if (safeLocalStorageSetItem('agrocontrol_fornecedores', json)) {
+      localStorage.removeItem(STORAGE_KEYS.SUPPLIERS);
+    }
   } catch {}
 };
 export const getCompanyFornecedores = (companyId?: string): Supplier[] => {
@@ -5665,10 +5833,7 @@ export const getCompanyFornecedores = (companyId?: string): Supplier[] => {
 export const saveCompanyClientes = (clientes: Client[], companyId?: string): void => {
   const { items: withCodes } = ensureSequentialClientCodes(Array.isArray(clientes) ? clientes : []);
   saveCompanyData('clientes', withCodes, companyId);
-  try {
-    localStorage.setItem('agrocontrol_clientes', JSON.stringify(withCodes));
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(withCodes));
-  } catch {}
+  saveStoredClients(withCodes);
 };
 export const getCompanyClientes = (companyId?: string): Client[] => {
   const raw = getCompanyData<Client>('clientes', getStoredClients, companyId);
@@ -5686,19 +5851,17 @@ export const saveCompanyDespesas = (despesas: Expense[], companyId?: string, all
   saveCompanyData('despesas', despesas, companyId);
   try {
     const json = JSON.stringify(despesas);
-    safeLocalStorageSetItem('agrocontrol_expenses', json);
-    safeLocalStorageSetItem('agrocontrol_despesas', json);
-    safeLocalStorageSetItem('agrocontrol_contas_a_pagar', json);
-    safeLocalStorageSetItem('agrocontrol_financeiro', json);
-    safeLocalStorageSetItem('colaca_silagem_despesas', json);
-    safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, json);
+    if (safeLocalStorageSetItem('agrocontrol_expenses', json)) {
+      localStorage.removeItem(STORAGE_KEYS.EXPENSES);
+      localStorage.removeItem('colaca_silagem_despesas');
+    }
   } catch {}
 };
 export const getCompanyDespesas = (companyId?: string): Expense[] => getCompanyData<Expense>('despesas', getStoredExpenses, companyId);
 
 export const saveCompanyServicos = (servicos: ServiceOrder[], companyId?: string): void => {
   saveCompanyData('servicos', servicos, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(servicos)); } catch {}
+  try { safeLocalStorageSetItem(STORAGE_KEYS.SERVICES, JSON.stringify(servicos)); } catch {}
 };
 export const getCompanyServicos = (companyId?: string): ServiceOrder[] => sanitizeServiceOrders(getCompanyData<ServiceOrder>('servicos', getStoredServices, companyId));
 
@@ -5716,9 +5879,10 @@ export const saveCompanyAbastecimentos = (logs: FuelLog[], companyId?: string): 
   saveCompanyData('abastecimentos', cleaned, companyId);
   try {
     const json = JSON.stringify(cleaned);
-    localStorage.setItem(STORAGE_KEYS.FUEL_LOGS, json);
-    localStorage.setItem('agrocontrol_abastecimentos', json);
-    localStorage.setItem('agrocontrol_fuel_logs', json);
+    if (safeLocalStorageSetItem('agrocontrol_abastecimentos', json)) {
+      localStorage.removeItem(STORAGE_KEYS.FUEL_LOGS);
+      localStorage.removeItem('agrocontrol_fuel_logs');
+    }
   } catch {}
 };
 export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] => {
@@ -5732,7 +5896,7 @@ export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] => {
 
 export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?: string): void => {
   saveCompanyData('manutencoes', manutencoes, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(manutencoes)); } catch {}
+  try { safeLocalStorageSetItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(manutencoes)); } catch {}
 };
 export const getCompanyManutencoes = (companyId?: string): MaintenanceLog[] => sanitizeMaintenanceLogs(getCompanyData<MaintenanceLog>('manutencoes', getStoredMaintenanceLogs, companyId));
 
@@ -5938,32 +6102,304 @@ export function saveStoredFormSequences(sequences: FormSequences): void {
 // ==============================================================================
 // MÓDULO DE TROCAS E DEVOLUÇÕES DE PRODUTOS (100% LOCAL)
 // ==============================================================================
+function getTrocasDevolucoesCompanyKey(): string {
+  const cId = getActiveCompanyId();
+  return cId ? `${STORAGE_KEYS.TROCAS_DEVOLUCOES}_${cId}` : STORAGE_KEYS.TROCAS_DEVOLUCOES;
+}
+
 export function getStoredTrocasDevolucoes(): TrocaDevolucaoRecord[] {
   try {
-    const raw =
-      localStorage.getItem(STORAGE_KEYS.TROCAS_DEVOLUCOES) ||
-      localStorage.getItem('colaca_silagem_trocas_devolucoes');
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const companyKey = getTrocasDevolucoesCompanyKey();
+    const candidateKeys = Array.from(
+      new Set([
+        companyKey,
+        STORAGE_KEYS.TROCAS_DEVOLUCOES,
+        'colaca_silagem_trocas_devolucoes',
+      ])
+    );
+
+    const byId = new Map<string, TrocaDevolucaoRecord>();
+    for (const key of candidateKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) continue;
+        for (const item of parsed) {
+          if (!item || typeof item !== 'object' || !item.id) continue;
+          if (!byId.has(item.id)) {
+            byId.set(item.id, item as TrocaDevolucaoRecord);
+          }
+        }
+      } catch {}
+    }
+
+    return Array.from(byId.values()).sort((a, b) =>
+      String(b.createdAt || b.data || '').localeCompare(String(a.createdAt || a.data || ''))
+    );
   } catch (e) {
     console.warn('Erro ao ler trocas e devoluções:', e);
     return [];
   }
 }
 
-export function saveStoredTrocasDevolucoes(records: TrocaDevolucaoRecord[]): void {
+export function saveStoredTrocasDevolucoes(
+  records: TrocaDevolucaoRecord[],
+  allowEmpty = false
+): void {
   try {
-    const safeList = Array.isArray(records) ? records : [];
-    const json = JSON.stringify(safeList);
-    safeLocalStorageSetItem(STORAGE_KEYS.TROCAS_DEVOLUCOES, json);
-    safeLocalStorageSetItem('colaca_silagem_trocas_devolucoes', json);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrocontrol_trocas_updated', { detail: safeList }));
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const safeList = (Array.isArray(records) ? records : []).filter(
+      (item: any) => item && typeof item === 'object' && item.id
+    );
+
+    // Proteção absoluta: jamais sobrescrever histórico persistido com [] vazio acidental no F5
+    if (!allowEmpty && safeList.length === 0) {
+      const existing = getStoredTrocasDevolucoes();
+      if (existing.length > 0) {
+        return;
+      }
     }
+
+    const json = JSON.stringify(safeList);
+    const companyKey = getTrocasDevolucoesCompanyKey();
+    safeLocalStorageSetItem(STORAGE_KEYS.TROCAS_DEVOLUCOES, json);
+    if (companyKey !== STORAGE_KEYS.TROCAS_DEVOLUCOES) {
+      safeLocalStorageSetItem(companyKey, json);
+    }
+    try {
+      localStorage.removeItem('colaca_silagem_trocas_devolucoes');
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('agrocontrol_trocas_updated', { detail: safeList }));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_notas_devolucao_updated', { detail: safeList }));
   } catch (e) {
     console.warn('Erro ao salvar trocas e devoluções:', e);
   }
+}
+
+function calcNfeMod11Digit(key43: string): string {
+  let weight = 2;
+  let sum = 0;
+  for (let i = key43.length - 1; i >= 0; i--) {
+    sum += Number(key43[i] || 0) * weight;
+    weight = weight === 9 ? 2 : weight + 1;
+  }
+  const rem = sum % 11;
+  const dv = rem === 0 || rem === 1 ? 0 : 11 - rem;
+  return String(dv);
+}
+
+export function generateOfficialReturnNfeKey(
+  numeroNfe: string,
+  serie = '001',
+  cnpjEmitente?: string,
+  issueDate?: string
+): string {
+  const ufCode = '41';
+  const dt = issueDate && /^\d{4}-\d{2}/.test(issueDate) ? issueDate : new Date().toISOString().split('T')[0];
+  const aamm = `${dt.slice(2, 4)}${dt.slice(5, 7)}`;
+  const cnpj = String(cnpjEmitente || '').replace(/\D/g, '').padStart(14, '0').slice(0, 14);
+  const mod = '55';
+  const ser = String(serie || '1').replace(/\D/g, '').padStart(3, '0').slice(-3);
+  const nNF = String(numeroNfe || '1').replace(/\D/g, '').padStart(9, '0').slice(-9);
+  const tpEmis = '1';
+  const cNF = String(Math.floor(10000000 + Math.random() * 89999999)).slice(0, 8);
+  const key43 = `${ufCode}${aamm}${cnpj}${mod}${ser}${nNF}${tpEmis}${cNF}`;
+  return `${key43}${calcNfeMod11Digit(key43)}`;
+}
+
+export function getNextOfficialReturnNfeNumber(): string {
+  let maxNum = 0;
+  const parseNum = (val?: string) => {
+    const digits = String(val || '').replace(/\D/g, '');
+    if (!digits) return 0;
+    const n = parseInt(digits, 10);
+    return Number.isFinite(n) && n < 99999999 ? n : 0;
+  };
+  for (const ns of getStoredNotasSaida()) {
+    maxNum = Math.max(maxNum, parseNum(ns.numero));
+  }
+  for (const t of getStoredTrocasDevolucoes()) {
+    maxNum = Math.max(maxNum, parseNum(t.notaDevolucaoNumber));
+  }
+  return String(maxNum + 1).padStart(6, '0');
+}
+
+/**
+ * Emite e registra uma Nota Fiscal de Devolução Oficial (NF-e Modelo 55 - Finalidade 4) na Central de Documentos:
+ * - Devolução ao Fornecedor -> Central de Documentos > Notas de Saída (NF-e)
+ * - Devolução de Cliente -> Central de Documentos > Notas de Entrada (NF-e)
+ */
+export function emitOfficialReturnNfeToCentral(
+  record: TrocaDevolucaoRecord,
+  options: {
+    cfopDevolucao?: string;
+    chaveNfeReferenciada?: string;
+    naturezaOperacao?: string;
+    numeroNfe?: string;
+    serieNfe?: string;
+    companyProfile?: CompanyProfile | null;
+  } = {}
+): TrocaDevolucaoRecord {
+  const isFornecedor =
+    record.envolvidoTipo === 'fornecedor' || record.tipoOperacao === 'devolucao_fornecedor';
+
+  const cfop = (
+    options.cfopDevolucao ||
+    record.cfopDevolucao ||
+    (isFornecedor ? '5.202' : '1.202')
+  ).trim();
+
+  const natureza = (
+    options.naturezaOperacao ||
+    record.naturezaOperacao ||
+    (isFornecedor ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA' : 'DEVOLUÇÃO DE VENDA')
+  )
+    .trim()
+    .toUpperCase();
+
+  const chaveRef = (options.chaveNfeReferenciada ?? record.chaveNfeReferenciada ?? '')
+    .replace(/\D/g, '')
+    .slice(0, 44);
+
+  const serie = (options.serieNfe || record.serieNfe || '001')
+    .replace(/\D/g, '')
+    .padStart(3, '0')
+    .slice(-3);
+  const numeroNfe = (
+    options.numeroNfe ||
+    record.notaDevolucaoNumber ||
+    getNextOfficialReturnNfeNumber()
+  ).trim();
+  const issueDate = record.data || new Date().toISOString().split('T')[0];
+  const nowIso = new Date().toISOString();
+
+  const existingChaveClean = String(record.notaDevolucaoChave || '').replace(/\D/g, '');
+  const chaveNfe =
+    existingChaveClean.length === 44
+      ? existingChaveClean
+      : generateOfficialReturnNfeKey(numeroNfe, serie, options.companyProfile?.cnpj, issueDate);
+
+  const protocoloAutorizacao =
+    record.protocoloAutorizacao ||
+    `141${new Date().getFullYear().toString().slice(-2)}${String(Date.now()).slice(-10)}`;
+
+  const fiscalDocId = record.fiscalDocId || `nfe_dev_${record.id}`;
+  const valorTotal = Number(
+    (record.totalDevolvido > 0 ? record.totalDevolvido : Math.abs(record.saldoFinal || 0)).toFixed(2)
+  );
+  const itensList = record.itensDevolvidos || [];
+
+  if (isFornecedor) {
+    const notaSaida: NotaSaidaRecord = {
+      id: fiscalDocId,
+      companyId: record.companyId || getActiveCompanyId() || undefined,
+      tipoDocumento: 'NF-e',
+      numero: numeroNfe,
+      serie,
+      dataEmissao: issueDate,
+      chaveAcesso: chaveNfe,
+      destinatarioId: record.envolvidoId,
+      destinatarioNome: record.envolvidoNome,
+      destinatarioCpfCnpj: record.envolvidoDocumento,
+      descricao: `${natureza} — Protocolo ${record.protocolo}${record.numeroVendaOuNotaOrigem ? ` (Ref. ${record.numeroVendaOuNotaOrigem})` : ''}`,
+      valorTotal,
+      condicaoPagamento: record.destinoFinanceiroLabel || 'Devolução / Compensação Fiscal',
+      lancarContasReceber: false,
+      status: 'AUTORIZADA',
+      protocoloAutorizacao,
+      dataAutorizacao: nowIso,
+      ambienteSefaz: 'producao',
+      nfeNaturezaOperacao: natureza,
+      nfeCfop: cfop.replace(/\./g, ''),
+      nfeFinalidade: '4 - Devolução de mercadoria',
+      nfeModalidadeFrete: '9 - Sem Ocorrência de Transporte',
+      nfeReferenciada: chaveRef || record.numeroVendaOuNotaOrigem || undefined,
+      itens: itensList.map((it, idx) => ({
+        id: it.id || `item_dev_${idx + 1}`,
+        inventoryItemId: it.productId,
+        codigo: it.productCode || String(idx + 1),
+        descricao: it.productName,
+        cfop: cfop.replace(/\./g, ''),
+        unidade: it.unit || 'UN',
+        quantidade: Number(it.quantity) || 1,
+        valorUnitario: Number(it.unitPrice) || 0,
+        valorTotal: Number(it.totalPrice) || 0,
+      })),
+      observacoes: [
+        `NF-e de Devolução Oficial (Modelo 55 / Série ${serie}) — Protocolo ${record.protocolo}.`,
+        chaveRef ? `NF-e Referenciada: ${chaveRef}` : '',
+        record.observacoes ? `Obs: ${record.observacoes}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | '),
+      createdAt: nowIso,
+    };
+    saveLocalNotaSaida(notaSaida);
+  } else {
+    const currentFiscal = getStoredFiscalRecords();
+    const fiscalEntry: Expense = {
+      id: fiscalDocId,
+      companyId: record.companyId || getActiveCompanyId() || undefined,
+      date: issueDate,
+      dueDate: issueDate,
+      categoryId: 'devolucao_venda_nfe',
+      categoryName: 'Devolução de Venda (NF-e 55)',
+      categoryColor: '#059669',
+      supplier: record.envolvidoNome,
+      description: `${natureza} — ${record.envolvidoNome} (${record.protocolo})`,
+      amount: valorTotal,
+      status: 'pago',
+      documentType: 'NF-e',
+      invoiceNumber: numeroNfe,
+      accessKey: chaveNfe,
+      supplierName: record.envolvidoNome,
+      supplierCnpj: record.envolvidoDocumento,
+      cfop: cfop.replace(/\./g, ''),
+      paymentMethod: record.destinoFinanceiroLabel || 'Devolução',
+      notes: [
+        `NF-e de Devolução de Cliente (Modelo 55 / Série ${serie}) — Protocolo ${record.protocolo}`,
+        `Natureza: ${natureza} | CFOP: ${cfop}`,
+        chaveRef ? `NF-e Referenciada: ${chaveRef}` : '',
+        `Protocolo Autorização: ${protocoloAutorizacao}`,
+        record.observacoes ? `Obs: ${record.observacoes}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | '),
+      items: itensList.map((it, idx) => ({
+        id: it.id || `item_dev_${idx + 1}`,
+        description: it.productName,
+        quantity: Number(it.quantity) || 1,
+        unit_value: Number(it.unitPrice) || 0,
+        total_value: Number(it.totalPrice) || 0,
+      })),
+      createdAt: nowIso,
+    } as Expense;
+
+    const exists = currentFiscal.some((f) => f.id === fiscalDocId);
+    const updatedFiscal = exists
+      ? currentFiscal.map((f) => (f.id === fiscalDocId ? fiscalEntry : f))
+      : [fiscalEntry, ...currentFiscal];
+    saveStoredFiscalRecords(updatedFiscal);
+  }
+
+  return {
+    ...record,
+    tipoDocumento: 'nfe_oficial',
+    cfopDevolucao: cfop,
+    chaveNfeReferenciada: chaveRef || undefined,
+    naturezaOperacao: natureza,
+    serieNfe: serie,
+    protocoloAutorizacao,
+    fiscalDocId,
+    fiscalStatus: 'NF-e Emitida',
+    notaDevolucaoNumber: numeroNfe,
+    notaDevolucaoChave: chaveNfe,
+    notaDevolucaoEmitidaEm: nowIso,
+    fiscalDecidedAt: nowIso,
+  };
 }
 
 export function getNextTrocaProtocolo(existing?: TrocaDevolucaoRecord[]): string {

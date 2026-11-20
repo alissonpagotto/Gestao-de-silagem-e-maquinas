@@ -4221,10 +4221,15 @@ export default function App() {
               onOpenAlmoxarifado={() => setActiveTab('almoxarifado')}
               onOpenTrocasDevolucoes={() => {
                 try {
-                  sessionStorage.setItem('agrocontrol_pending_venda_tab', 'trocas_devolucoes');
+                  sessionStorage.setItem('agrocontrol_pending_nfe_tab', 'devolucao');
+                  sessionStorage.setItem('agrocontrol_open_nova_devolucao', '1');
                 } catch {}
-                setActiveTab('venda');
-                window.dispatchEvent(new CustomEvent('agrocontrol_open_venda_trocas_tab'));
+                setActiveTab('fiscal');
+                window.dispatchEvent(
+                  new CustomEvent('agrocontrol_open_nfe_devolucoes', {
+                    detail: { openModal: true },
+                  })
+                );
               }}
             />
           )}

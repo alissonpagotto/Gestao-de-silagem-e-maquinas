@@ -37,7 +37,7 @@ import {
   Settings
 } from 'lucide-react';
 import { Client, CompanyProfile, ServiceOrder, InventoryItem, Machinery } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredInventory, saveStoredInventory, getActiveCompanyId, getStoredClients, getStoredMachineries, STORAGE_KEYS } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getStoredInventory, saveStoredInventory, getActiveCompanyId, getStoredClients, getStoredMachineries, safeLocalStorageSetItem, STORAGE_KEYS } from '../../lib/storage';
 import { registrarVendaNoCaixa } from '../../lib/caixaStorage';
 import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
@@ -2105,8 +2105,9 @@ export const PdvView: React.FC<PdvViewProps> = ({
         });
 
         const ordersJson = JSON.stringify(ordersList);
-        localStorage.setItem('agrocontrol_pedidos', ordersJson);
-        localStorage.setItem(STORAGE_KEYS.ORDERS, ordersJson);
+        if (safeLocalStorageSetItem('agrocontrol_pedidos', ordersJson)) {
+          try { localStorage.removeItem(STORAGE_KEYS.ORDERS); } catch {}
+        }
         window.dispatchEvent(new CustomEvent('colaca_orders_updated', { detail: ordersList }));
       } catch (eOrd) {
         console.warn('Erro ao atualizar pedidos de frete:', eOrd);
@@ -2697,8 +2698,12 @@ export const PdvView: React.FC<PdvViewProps> = ({
               cli.ultimaCompra = novaVenda.data;
               cli.totalGasto = Number(cli.totalGasto || 0) + Number(novaVenda.totalLiquido || 0);
 
-              localStorage.setItem('agrocontrol_clientes', JSON.stringify(clientesAtuais));
-              localStorage.setItem('colaca_silagem_clientes', JSON.stringify(clientesAtuais));
+              if (safeLocalStorageSetItem('agrocontrol_clientes', JSON.stringify(clientesAtuais))) {
+                try {
+                  localStorage.removeItem('colaca_silagem_clientes');
+                  localStorage.removeItem(STORAGE_KEYS.CLIENTS);
+                } catch {}
+              }
               window.dispatchEvent(new CustomEvent('agrocontrol_clientes_updated', { detail: clientesAtuais }));
             }
           }

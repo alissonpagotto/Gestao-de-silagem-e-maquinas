@@ -1415,7 +1415,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   type CentralDocumentDirection = 'entrada' | 'saida';
   type CentralDocumentFilter = 'todos' | 'nfe' | 'cte' | 'nfse' | 'nfce' | 'mdfe' | 'avulsas';
 
-  const [activeMainFiscalTab, setActiveMainFiscalTab] = useState<MainFiscalTab>('notas');
+  const [activeMainFiscalTab, setActiveMainFiscalTab] = useState<MainFiscalTab>(() => {
+    try {
+      const pending = sessionStorage.getItem('agrocontrol_pending_nfe_tab');
+      if (pending === 'devolucao') {
+        sessionStorage.removeItem('agrocontrol_pending_nfe_tab');
+        return 'devolucao';
+      }
+    } catch {}
+    return 'notas';
+  });
+  const [devolucaoAutoOpenTrigger, setDevolucaoAutoOpenTrigger] = useState<number>(0);
   const [activeDocDirection, setActiveDocDirection] = useState<CentralDocumentDirection>('entrada');
   const [activeDocFilter, setActiveDocFilter] = useState<CentralDocumentFilter>('todos');
 
@@ -1545,6 +1555,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     };
   }, []);
 
+  // Escuta redirecionamento direto de outros módulos (ex: Estoque > Trocas / Devoluções)
+  useEffect(() => {
+    const handleOpenDevolucoes = (e: any) => {
+      try {
+        sessionStorage.removeItem('agrocontrol_pending_nfe_tab');
+      } catch {}
+      setActiveMainFiscalTab('devolucao');
+      if (e?.detail?.openModal) {
+        setDevolucaoAutoOpenTrigger((prev) => prev + 1);
+      }
+    };
+    window.addEventListener('agrocontrol_open_nfe_devolucoes', handleOpenDevolucoes);
+    return () => {
+      window.removeEventListener('agrocontrol_open_nfe_devolucoes', handleOpenDevolucoes);
+    };
+  }, []);
+
   // Sincronização reativa dos contadores das abas e documentos legados / MDF-e / Notas de Saída / Clientes
   useEffect(() => {
     const handleCountUpdate = () => {
@@ -1555,6 +1582,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setMdfeDocs(getStoredMdfe());
       setNotasSaida(getStoredNotasSaida());
       setLocalClients(getStoredClients());
+      const freshFiscal = getStoredFiscalRecords();
+      if (freshFiscal.length > 0) {
+        setNotasLancadas((prev) =>
+          buildUnifiedFiscalRecords([...(expenses || []), ...freshFiscal, ...prev])
+        );
+      }
     };
     window.addEventListener('storage', handleCountUpdate);
     window.addEventListener('colaca_silagem_pedidos_reforma_updated', handleCountUpdate);
@@ -1564,6 +1597,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     window.addEventListener('agrocontrol_trocas_updated', handleCountUpdate);
     window.addEventListener('agrocontrol_notas_entradas_updated', handleCountUpdate);
     window.addEventListener('agrocontrol_notas_saida_updated', handleCountUpdate);
+    window.addEventListener('agrocontrol_fiscal_records_updated', handleCountUpdate);
     window.addEventListener('silagem_clients_updated', handleCountUpdate);
     window.addEventListener('agrocontrol_clientes_updated', handleCountUpdate);
     return () => {
@@ -1575,10 +1609,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       window.removeEventListener('agrocontrol_trocas_updated', handleCountUpdate);
       window.removeEventListener('agrocontrol_notas_entradas_updated', handleCountUpdate);
       window.removeEventListener('agrocontrol_notas_saida_updated', handleCountUpdate);
+      window.removeEventListener('agrocontrol_fiscal_records_updated', handleCountUpdate);
       window.removeEventListener('silagem_clients_updated', handleCountUpdate);
       window.removeEventListener('agrocontrol_clientes_updated', handleCountUpdate);
     };
-  }, [readLegacyFiscalDocsFromStorage]);
+  }, [readLegacyFiscalDocsFromStorage, expenses]);
 
   // Estado dedicado reativo para Notas Fiscais Lançadas (NF-e) - Unicidade estrita de 1 linha por NF
   // Leitura síncrona imediata de todas as fontes locais para jamais iniciar zerado no F5
@@ -12120,6 +12155,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               competence={fiscalCompetence}
               onCompetenceChange={setFiscalCompetence}
               hideCompetenceSelector={true}
+              autoOpenModalTrigger={devolucaoAutoOpenTrigger}
             />
           ) : (
             /* Conteúdo padrão de Notas e Entradas */

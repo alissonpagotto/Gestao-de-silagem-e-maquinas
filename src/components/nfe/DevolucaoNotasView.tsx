@@ -24,9 +24,11 @@ import {
   TrocaDevolucaoRecord,
 } from '../../types';
 import {
+  emitOfficialReturnNfeToCentral,
   formatDateBR,
   formatCurrencyBRL,
   getActiveCompanyId,
+  getNextOfficialReturnNfeNumber,
   getStoredClients,
   getStoredCompanyProfile,
   getStoredPendenciasDevolucao,
@@ -40,6 +42,7 @@ import {
 } from '../vendas/NovaTrocaDevolucaoModal';
 import {
   getTipoOperacaoLabel,
+  printDanfeDevolucaoOficialA4,
   printEspelhoFiscalDevolucaoA4,
   printTrocaDevolucaoA4,
   printTrocaDevolucaoCupom80mm,
@@ -95,14 +98,8 @@ export function getStoredNotasDevolucao(): NotaDevolucao[] {
   return [];
 }
 
-function isFiscalRelevantTroca(rec: TrocaDevolucaoRecord): boolean {
-  if (!rec) return false;
-  if (rec.fiscalStatus) return true;
-  if (rec.tipoOperacao === 'devolucao_fornecedor') return true;
-  if (Array.isArray(rec.itensDevolvidos) && rec.itensDevolvidos.some((it) => it.returnToStock === false)) {
-    return true;
-  }
-  return false;
+function isNfeEmitidaStatus(status?: string): boolean {
+  return status === 'NF-e Emitida' || status === 'Nota de Devolução Emitida';
 }
 
 function normalizeMotivo(motivoRaw?: string): TrocaDevolucaoRecord['motivo'] {
@@ -117,9 +114,9 @@ function normalizeMotivo(motivoRaw?: string): TrocaDevolucaoRecord['motivo'] {
 }
 
 /**
- * Lê a fonte única compartilhada (`agrocontrol_trocas_devolucoes`), sincronizando
- * silenciosamente quaisquer registros legados que ainda existiam em
- * `agrocontrol_pendencias_devolucao` ou `colaca_silagem_notas_devolucao`.
+ * Lê a fonte única compartilhada (`agrocontrol_trocas_devolucoes` + chave da empresa ativa),
+ * exibindo 100% das trocas, devoluções e garantias (clientes e fornecedores) sem descartar registros,
+ * e sincronizando silenciosamente quaisquer registros legados.
  */
 export function getUnifiedFiscalDevolucoes(): TrocaDevolucaoRecord[] {
   const trocas = getStoredTrocasDevolucoes();
@@ -134,7 +131,7 @@ export function getUnifiedFiscalDevolucoes(): TrocaDevolucaoRecord[] {
     return clone;
   });
 
-  // 1. Garante fiscalStatus nos registros de troca que exigem decisão fiscal
+  // 1. Garante fiscalStatus em TODOS os registros de troca/devolução
   const pendByTrocaOrProto = new Map<string, PendenciaDevolucaoRecord>();
   pendencias.forEach((p) => {
     if (p.trocaRecordId) pendByTrocaOrProto.set(`id:${p.trocaRecordId}`, p);
@@ -142,7 +139,7 @@ export function getUnifiedFiscalDevolucoes(): TrocaDevolucaoRecord[] {
   });
 
   orderedTrocas.forEach((rec) => {
-    if (isFiscalRelevantTroca(rec) && !rec.fiscalStatus) {
+    if (!rec.fiscalStatus) {
       const matchedPend =
         pendByTrocaOrProto.get(`id:${rec.id}`) ||
         pendByTrocaOrProto.get(`proto:${rec.protocolo}`);
@@ -279,16 +276,21 @@ export function getUnifiedFiscalDevolucoes(): TrocaDevolucaoRecord[] {
     mutatedTrocas = true;
   });
 
-  // Persistência silenciosa da migração única para evitar loops de eventos
-  if (mutatedTrocas) {
+  // Persistência silenciosa da migração única usando o storage oficial sincronizado
+  if (mutatedTrocas && orderedTrocas.length > 0) {
     try {
-      localStorage.setItem(TROCAS_STORAGE_KEY, JSON.stringify(orderedTrocas));
+      const cId = getActiveCompanyId();
+      const json = JSON.stringify(orderedTrocas);
+      localStorage.setItem(TROCAS_STORAGE_KEY, json);
+      if (cId) {
+        localStorage.setItem(`${TROCAS_STORAGE_KEY}_${cId}`, json);
+      }
     } catch (e) {
       console.warn('Erro ao sincronizar devoluções legadas:', e);
     }
   }
 
-  return orderedTrocas.filter(isFiscalRelevantTroca);
+  return orderedTrocas;
 }
 
 export function getUnifiedFiscalDevolucaoCounts(): {
@@ -303,7 +305,7 @@ export function getUnifiedFiscalDevolucaoCounts(): {
   let descartadas = 0;
   list.forEach((r) => {
     const st = r.fiscalStatus || 'Aguardando Decisão Fiscal';
-    if (st === 'Nota de Devolução Emitida') emitidas += 1;
+    if (isNfeEmitidaStatus(st)) emitidas += 1;
     else if (st === 'Descartado pela Empresa') descartadas += 1;
     else aguardando += 1;
   });
@@ -323,6 +325,7 @@ interface DevolucaoNotasViewProps {
   competence?: string;
   onCompetenceChange?: (comp: string) => void;
   hideCompetenceSelector?: boolean;
+  autoOpenModalTrigger?: number;
 }
 
 export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
@@ -330,25 +333,36 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   competence,
   onCompetenceChange,
   hideCompetenceSelector = false,
+  autoOpenModalTrigger = 0,
 }) => {
   const [records, setRecords] = useState<TrocaDevolucaoRecord[]>(() =>
     getUnifiedFiscalDevolucoes()
   );
   const [clients, setClients] = useState<Client[]>(() => getStoredClients());
-  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [isNewModalOpen, setIsNewModalOpen] = useState(() => {
+    try {
+      if (sessionStorage.getItem('agrocontrol_open_nova_devolucao') === '1') {
+        sessionStorage.removeItem('agrocontrol_open_nova_devolucao');
+        return true;
+      }
+    } catch {}
+    return false;
+  });
   const [detailsTarget, setDetailsTarget] = useState<TrocaDevolucaoRecord | null>(null);
 
-  // Filtros
+  // Filtros (padrão: Todos os Períodos / Todos os Meses)
   const [statusFilter, setStatusFilter] = useState<FiscalFilterOption>('todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [useCompetenceFilter, setUseCompetenceFilter] = useState(false);
 
-  // Modal de Registro de NF-e de Devolução Emitida
+  // Modal de Emissão Oficial de NF-e de Devolução (Modelo 55)
   const [nfeTarget, setNfeTarget] = useState<TrocaDevolucaoRecord | null>(null);
   const [nfeNumero, setNfeNumero] = useState('');
-  const [nfeChave, setNfeChave] = useState('');
+  const [nfeCfop, setNfeCfop] = useState('5.202');
+  const [nfeNatureza, setNfeNatureza] = useState('DEVOLUÇÃO DE MERCADORIA ADQUIRIDA');
+  const [nfeChaveRef, setNfeChaveRef] = useState('');
   const [nfeOrigem, setNfeOrigem] = useState('');
-  const [printEspelhoOnSave, setPrintEspelhoOnSave] = useState(true);
+  const [printDanfeOnSave, setPrintDanfeOnSave] = useState(true);
   const [nfeError, setNfeError] = useState('');
 
   // Modal de Descarte / Baixa como Perda
@@ -363,19 +377,39 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     [companyProfile]
   );
 
+  // Abertura automática do modal quando acionado via botão "Trocas / Devoluções" do Estoque ou outros atalhos
+  useEffect(() => {
+    if (autoOpenModalTrigger > 0) {
+      try {
+        sessionStorage.removeItem('agrocontrol_open_nova_devolucao');
+      } catch {}
+      setIsNewModalOpen(true);
+    }
+  }, [autoOpenModalTrigger]);
+
   useEffect(() => {
     const syncAll = () => {
       setRecords(getUnifiedFiscalDevolucoes());
       setClients(getStoredClients());
     };
+    const handleOpenModalEvent = (e: any) => {
+      if (e?.detail?.openModal) {
+        try {
+          sessionStorage.removeItem('agrocontrol_open_nova_devolucao');
+        } catch {}
+        setIsNewModalOpen(true);
+      }
+    };
     window.addEventListener('agrocontrol_trocas_updated', syncAll);
     window.addEventListener('agrocontrol_pendencias_devolucao_updated', syncAll);
     window.addEventListener('colaca_silagem_notas_devolucao_updated', syncAll);
+    window.addEventListener('agrocontrol_open_nfe_devolucoes', handleOpenModalEvent);
     window.addEventListener('storage', syncAll);
     return () => {
       window.removeEventListener('agrocontrol_trocas_updated', syncAll);
       window.removeEventListener('agrocontrol_pendencias_devolucao_updated', syncAll);
       window.removeEventListener('colaca_silagem_notas_devolucao_updated', syncAll);
+      window.removeEventListener('agrocontrol_open_nfe_devolucoes', handleOpenModalEvent);
       window.removeEventListener('storage', syncAll);
     };
   }, []);
@@ -405,7 +439,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
     records.forEach((rec) => {
       const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
-      if (st === 'Nota de Devolução Emitida') {
+      if (isNfeEmitidaStatus(st)) {
         emitidas += 1;
         valorEmitidas += Number(rec.totalDevolvido || 0);
       } else if (st === 'Descartado pela Empresa') {
@@ -430,7 +464,13 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     const q = String(searchTerm ?? '').trim().toLowerCase();
     const list = records.filter((rec) => {
       const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
-      if (statusFilter !== 'todas' && st !== statusFilter) return false;
+      if (statusFilter !== 'todas') {
+        if (isNfeEmitidaStatus(statusFilter)) {
+          if (!isNfeEmitidaStatus(st)) return false;
+        } else if (st !== statusFilter) {
+          return false;
+        }
+      }
 
       if (useCompetenceFilter) {
         const recDate = rec.data || rec.createdAt || '';
@@ -480,55 +520,83 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     }
   };
 
-  // Ação 1: Abrir Modal de Registro de NF-e de Devolução
-  const handleOpenRegisterNfe = (rec: TrocaDevolucaoRecord) => {
+  // Ação 1: Abrir Modal de Emissão Oficial de NF-e de Devolução (Modelo 55)
+  const handleOpenEmitOfficialNfe = (rec: TrocaDevolucaoRecord) => {
+    const isForn =
+      rec.envolvidoTipo === 'fornecedor' || rec.tipoOperacao === 'devolucao_fornecedor';
     setNfeTarget(rec);
-    setNfeNumero(rec.notaDevolucaoNumber || '');
-    setNfeChave(rec.notaDevolucaoChave || '');
+    setNfeNumero(rec.notaDevolucaoNumber || getNextOfficialReturnNfeNumber());
+    setNfeCfop(rec.cfopDevolucao || (isForn ? '5.202' : '1.202'));
+    setNfeNatureza(
+      rec.naturezaOperacao ||
+        (isForn ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA' : 'DEVOLUÇÃO DE VENDA')
+    );
+    setNfeChaveRef(rec.chaveNfeReferenciada || '');
     setNfeOrigem(rec.numeroVendaOuNotaOrigem || '');
-    setPrintEspelhoOnSave(true);
+    setPrintDanfeOnSave(true);
     setNfeError('');
   };
 
-  const handleConfirmRegisterNfe = (e: React.FormEvent) => {
+  const handleConfirmEmitOfficialNfe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nfeTarget) return;
 
     const trimmedNum = nfeNumero.trim();
     if (!trimmedNum) {
-      setNfeError('Informe o número da NF-e de Devolução emitida.');
+      setNfeError('Informe o número da NF-e de Devolução Oficial.');
+      return;
+    }
+    if (!nfeCfop.trim()) {
+      setNfeError('Informe o CFOP de Devolução.');
+      return;
+    }
+    if (!nfeNatureza.trim()) {
+      setNfeError('Informe a Natureza da Operação.');
+      return;
+    }
+    const cleanChaveRef = nfeChaveRef.replace(/\D/g, '');
+    if (cleanChaveRef.length > 0 && cleanChaveRef.length !== 44) {
+      setNfeError(
+        `A Chave de Acesso da NF-e Referenciada deve conter 44 dígitos (atual: ${cleanChaveRef.length}).`
+      );
       return;
     }
 
-    const nowIso = new Date().toISOString();
-    const updatedRecord: TrocaDevolucaoRecord = {
-      ...nfeTarget,
-      numeroVendaOuNotaOrigem: nfeOrigem.trim() || nfeTarget.numeroVendaOuNotaOrigem,
-      fiscalStatus: 'Nota de Devolução Emitida',
-      notaDevolucaoNumber: trimmedNum,
-      notaDevolucaoChave: nfeChave.trim() || undefined,
-      notaDevolucaoEmitidaEm: nowIso,
-      fiscalDecidedAt: nowIso,
-    };
+    const updatedRecord = emitOfficialReturnNfeToCentral(
+      {
+        ...nfeTarget,
+        numeroVendaOuNotaOrigem: nfeOrigem.trim() || nfeTarget.numeroVendaOuNotaOrigem,
+      },
+      {
+        numeroNfe: trimmedNum,
+        cfopDevolucao: nfeCfop,
+        naturezaOperacao: nfeNatureza,
+        chaveNfeReferenciada: cleanChaveRef,
+        companyProfile: company,
+      }
+    );
 
     const allTrocas = getStoredTrocasDevolucoes();
-    const nextTrocas = allTrocas.map((r) => (r.id === nfeTarget.id ? updatedRecord : r));
+    const existsInStore = allTrocas.some((r) => r.id === nfeTarget.id);
+    const nextTrocas = existsInStore
+      ? allTrocas.map((r) => (r.id === nfeTarget.id ? updatedRecord : r))
+      : [updatedRecord, ...allTrocas];
     saveStoredTrocasDevolucoes(nextTrocas);
 
     syncMatchingPendencias(nfeTarget, {
-      status: 'Nota de Devolução Emitida',
-      notaDevolucaoNumber: trimmedNum,
-      decidedAt: nowIso,
+      status: 'NF-e Emitida',
+      notaDevolucaoNumber: updatedRecord.notaDevolucaoNumber,
+      decidedAt: updatedRecord.fiscalDecidedAt,
     });
 
     setRecords(getUnifiedFiscalDevolucoes());
     setSuccessMsg(
-      `NF-e de Devolução ${trimmedNum} vinculada ao protocolo ${nfeTarget.protocolo} com sucesso!`
+      `NF-e de Devolução Oficial Nº ${updatedRecord.notaDevolucaoNumber} emitida, gravada na Central de Documentos e vinculada ao protocolo ${nfeTarget.protocolo}!`
     );
-    setTimeout(() => setSuccessMsg(''), 5500);
+    setTimeout(() => setSuccessMsg(''), 6500);
 
-    if (printEspelhoOnSave) {
-      printEspelhoFiscalDevolucaoA4(updatedRecord, company);
+    if (printDanfeOnSave) {
+      printDanfeDevolucaoOficialA4(updatedRecord, company);
     }
 
     setNfeTarget(null);
@@ -587,16 +655,17 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         </span>
       );
     }
-    if (st === 'Nota de Devolução Emitida') {
+    if (isNfeEmitidaStatus(st)) {
       return (
         <div className="flex flex-col items-center gap-0.5">
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
             <CheckCircle2 className="w-3 h-3 shrink-0" />
-            <span>Nota de Devolução Emitida</span>
+            <span>NF-e Emitida</span>
           </span>
           {rec.notaDevolucaoNumber && (
             <span className="text-[10px] font-mono font-black text-emerald-800 dark:text-emerald-300">
               NF-e: {rec.notaDevolucaoNumber}
+              {rec.cfopDevolucao ? ` • CFOP ${rec.cfopDevolucao}` : ''}
             </span>
           )}
         </div>
@@ -726,19 +795,19 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setUseCompetenceFilter(false)}
-                  className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 cursor-pointer"
-                  title="Clique para voltar a exibir todos os meses"
+                  className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400 cursor-pointer"
+                  title="Clique para exibir Todos os Períodos / Todos os Meses"
                 >
-                  Mês ativo ×
+                  Mês ativo ({activeCompetence}) ×
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => setUseCompetenceFilter(true)}
-                  className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 cursor-pointer"
-                  title="Filtrar pela competência selecionada"
+                  className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-white hover:bg-slate-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-900 dark:text-stone-300 border border-slate-400 dark:border-stone-700 cursor-pointer"
+                  title="Clique para filtrar apenas pelo mês de competência selecionado"
                 >
-                  Todos os meses
+                  Todos os Períodos / Meses
                 </button>
               )}
             </div>
@@ -749,7 +818,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
               className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>+ Nova Nota de Devolução</span>
+              <span>+ Nova Troca / Devolução</span>
             </button>
           </div>
         </div>
@@ -780,18 +849,18 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
           <button
             type="button"
-            onClick={() => setStatusFilter('Nota de Devolução Emitida')}
+            onClick={() => setStatusFilter('NF-e Emitida')}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-              statusFilter === 'Nota de Devolução Emitida'
+              isNfeEmitidaStatus(statusFilter)
                 ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                 : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-emerald-900 border-black dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-800'
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Notas de Devolução Emitidas</span>
+            <span>NF-e de Devolução Emitidas</span>
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                statusFilter === 'Nota de Devolução Emitida'
+                isNfeEmitidaStatus(statusFilter)
                   ? 'bg-white/25 text-white'
                   : 'bg-emerald-200 text-emerald-900'
               }`}
@@ -875,7 +944,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                   filteredRecords.map((rec, idx) => {
                     const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
                     const isPending = st === 'Aguardando Decisão Fiscal';
-                    const isEmitida = st === 'Nota de Devolução Emitida';
+                    const isEmitida = isNfeEmitidaStatus(st);
                     const firstItem = rec.itensDevolvidos?.[0];
                     const extraItemsCount = Math.max(0, (rec.itensDevolvidos?.length || 0) - 1);
 
@@ -959,12 +1028,12 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenRegisterNfe(rec)}
+                                  onClick={() => handleOpenEmitOfficialNfe(rec)}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer"
-                                  title="Registrar número da NF-e de Devolução emitida e gerar espelho fiscal"
+                                  title="Converter este comprovante em NF-e de Devolução Oficial (Modelo 55), lançar na Central de Documentos e abrir DANFE"
                                 >
                                   <FileText className="w-3 h-3" />
-                                  <span>📄 Registrar NF-e de Devolução</span>
+                                  <span>🧾 Emitir NF-e Oficial</span>
                                 </button>
                                 <button
                                   type="button"
@@ -981,12 +1050,12 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                             {isEmitida && (
                               <button
                                 type="button"
-                                onClick={() => printEspelhoFiscalDevolucaoA4(rec, company)}
+                                onClick={() => printDanfeDevolucaoOficialA4(rec, company)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer"
-                                title="Imprimir Espelho Fiscal da NF-e de Devolução"
+                                title="Imprimir DANFE Oficial da NF-e de Devolução (Modelo 55)"
                               >
                                 <Printer className="w-3 h-3" />
-                                <span>Espelho Fiscal A4</span>
+                                <span>🧾 DANFE NF-e</span>
                               </button>
                             )}
 
@@ -1034,13 +1103,19 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         onClose={() => setIsNewModalOpen(false)}
         clients={clients}
         companyProfile={company}
-        defaultTipoOperacao="devolucao_fornecedor"
+        defaultTipoOperacao="devolucao_cliente"
         onSuccess={(record, shouldAutoPrint) => {
           setRecords(getUnifiedFiscalDevolucoes());
-          setSuccessMsg(
-            `Devolução ${record.protocolo} registrada com sucesso! Enviada para a fila fiscal como "Aguardando Decisão Fiscal".`
-          );
-          setTimeout(() => setSuccessMsg(''), 6000);
+          if (isNfeEmitidaStatus(record.fiscalStatus)) {
+            setSuccessMsg(
+              `NF-e de Devolução Oficial Nº ${record.notaDevolucaoNumber || ''} emitida (${record.protocolo}), registrada na Central de Documentos e DANFE aberto para impressão!`
+            );
+          } else {
+            setSuccessMsg(
+              `Protocolo ${record.protocolo} salvo com sucesso! Registrado como "Aguardando Decisão Fiscal" — você pode emitir a NF-e Oficial a qualquer momento.`
+            );
+          }
+          setTimeout(() => setSuccessMsg(''), 6500);
           if (shouldAutoPrint) {
             printTrocaDevolucaoA4(record, company);
           }
@@ -1054,10 +1129,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         onClose={() => setDetailsTarget(null)}
       />
 
-      {/* Modal Rápido: Registrar NF-e de Devolução Emitida */}
+      {/* Modal Rápido: Emitir NF-e de Devolução Oficial (Modelo 55) + Central de Documentos + DANFE */}
       {nfeTarget && (
         <div className="fixed inset-0 z-[9990] flex items-center justify-center p-3 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-150">
-          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-lg w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100">
+          <div className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-xl w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100">
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-white dark:bg-stone-800 border border-black dark:border-stone-700">
@@ -1065,7 +1140,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide">
-                    Registrar NF-e de Devolução Emitida
+                    🧾 Emitir NF-e de Devolução Oficial (Modelo 55)
                   </h3>
                   <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
                     Protocolo {nfeTarget.protocolo} • {nfeTarget.envolvidoNome}
@@ -1081,10 +1156,16 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleConfirmRegisterNfe} className="p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
+            <form onSubmit={handleConfirmEmitOfficialNfe} className="p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
               <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-1 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold">Protocolo: {nfeTarget.protocolo}</span>
+                  <span className="font-bold">
+                    {nfeTarget.protocolo} •{' '}
+                    {nfeTarget.envolvidoTipo === 'fornecedor' ||
+                    nfeTarget.tipoOperacao === 'devolucao_fornecedor'
+                      ? 'NF-e de Saída (Fornecedor)'
+                      : 'NF-e de Entrada (Cliente)'}
+                  </span>
                   <span className="font-black text-emerald-800 dark:text-emerald-300">
                     {formatCurrencyBRL(nfeTarget.totalDevolvido)}
                   </span>
@@ -1105,32 +1186,86 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
               )}
 
               <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-2.5 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1">
-                    Número da NF-e de Devolução Emitida <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={nfeNumero}
-                    onChange={(e) => {
-                      setNfeNumero(e.target.value);
-                      if (nfeError) setNfeError('');
-                    }}
-                    placeholder="Ex: NF-e 001428 ou DEV-2026-001"
-                    className="w-full px-2.5 py-1.5 text-xs font-bold rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-600"
-                    autoFocus
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider mb-1">
+                      Número da NF-e <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={nfeNumero}
+                      onChange={(e) => {
+                        setNfeNumero(e.target.value);
+                        if (nfeError) setNfeError('');
+                      }}
+                      placeholder="Ex: 000001"
+                      className="w-full px-2.5 py-1.5 text-xs font-bold rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-600"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider mb-1">
+                      CFOP de Devolução <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      value={nfeCfop}
+                      onChange={(e) => setNfeCfop(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs font-bold rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-600"
+                    >
+                      {nfeTarget.envolvidoTipo === 'fornecedor' ||
+                      nfeTarget.tipoOperacao === 'devolucao_fornecedor' ? (
+                        <>
+                          <option value="5.202">5.202 — Dev. Compra (Dentro UF)</option>
+                          <option value="6.202">6.202 — Dev. Compra (Fora UF)</option>
+                          <option value="5.411">5.411 — Dev. Compra c/ ST (Dentro UF)</option>
+                          <option value="6.411">6.411 — Dev. Compra c/ ST (Fora UF)</option>
+                          <option value="5.556">5.556 — Dev. Uso/Consumo (Dentro UF)</option>
+                          <option value="6.556">6.556 — Dev. Uso/Consumo (Fora UF)</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="1.202">1.202 — Dev. Venda (Dentro UF)</option>
+                          <option value="2.202">2.202 — Dev. Venda (Fora UF)</option>
+                          <option value="1.411">1.411 — Dev. Venda c/ ST (Dentro UF)</option>
+                          <option value="2.411">2.411 — Dev. Venda c/ ST (Fora UF)</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider mb-1">
-                    Chave de Acesso da NF-e (Opcional)
+                    Natureza da Operação <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="text"
-                    value={nfeChave}
-                    onChange={(e) => setNfeChave(e.target.value)}
-                    placeholder="44 dígitos da chave fiscal (se disponível)"
+                    value={nfeNatureza}
+                    onChange={(e) => setNfeNatureza(e.target.value)}
+                    placeholder="DEVOLUÇÃO DE MERCADORIA ADQUIRIDA"
+                    className="w-full px-2.5 py-1.5 text-xs font-bold uppercase rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider">
+                      Chave de Acesso NF-e Referenciada (44 dígitos)
+                    </label>
+                    <span className="text-[10px] font-mono font-black text-slate-600">
+                      {nfeChaveRef.replace(/\D/g, '').length}/44
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={44}
+                    value={nfeChaveRef}
+                    onChange={(e) => {
+                      setNfeChaveRef(e.target.value.replace(/\D/g, '').slice(0, 44));
+                      if (nfeError) setNfeError('');
+                    }}
+                    placeholder="44 dígitos da NF-e de origem (opcional se avulsa)"
                     className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none"
                   />
                 </div>
@@ -1143,7 +1278,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                     type="text"
                     value={nfeOrigem}
                     onChange={(e) => setNfeOrigem(e.target.value)}
-                    placeholder="Ex: NF-e Entrada 48291"
+                    placeholder="Ex: NF-e 48291"
                     className="w-full px-2.5 py-1.5 text-xs font-semibold rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none"
                   />
                 </div>
@@ -1151,11 +1286,11 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 <label className="inline-flex items-center gap-2 pt-1 text-xs font-bold cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={printEspelhoOnSave}
-                    onChange={(e) => setPrintEspelhoOnSave(e.target.checked)}
+                    checked={printDanfeOnSave}
+                    onChange={(e) => setPrintDanfeOnSave(e.target.checked)}
                     className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
                   />
-                  <span>Gerar e imprimir Espelho Fiscal A4 ao salvar</span>
+                  <span>Gerar e abrir DANFE Oficial (NF-e 55) pronto para impressão/PDF</span>
                 </label>
               </div>
 
@@ -1172,7 +1307,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-900 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Confirmar Emissão & Vincular NF-e</span>
+                  <span>🧾 Emitir NF-e Oficial &amp; Abrir DANFE</span>
                 </button>
               </div>
             </form>

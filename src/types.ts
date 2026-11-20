@@ -2280,9 +2280,54 @@ export interface StockEntryMovement {
   unitCost: number;
   totalCost: number;
   date: string;
-  type: 'entrada';
-  source: 'xml' | 'manual' | 'reintegracao';
+  type: 'entrada' | 'saida';
+  source: 'xml' | 'manual' | 'reintegracao' | 'balanco';
+  description?: string;
   createdAt: string;
+}
+
+export type InventoryBalanceScopeType = 'completo' | 'categoria' | 'local';
+
+export interface InventoryBalanceItem {
+  productId: string;
+  code?: string;
+  name: string;
+  category?: string;
+  location?: string;
+  unit: string;
+  unitCost: number;
+  systemQty: number;
+  countedQty: number | null;
+  countedAt?: string;
+  note?: string;
+}
+
+export interface InventoryBalanceSession {
+  id: string;
+  code: string;
+  companyId?: string;
+  title: string;
+  scopeType: InventoryBalanceScopeType;
+  scopeValue?: string;
+  responsible: string;
+  notes?: string;
+  status: 'EM_ANDAMENTO' | 'CONCLUIDO';
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  completedBy?: string;
+  items: InventoryBalanceItem[];
+  summarySnapshot?: {
+    totalItems: number;
+    countedItems: number;
+    okItems: number;
+    adjustedItems: number;
+    surplusCount: number;
+    surplusValue: number;
+    shortageCount: number;
+    shortageValue: number;
+    netFinancialImpact: number;
+  };
 }
 
 // ==============================================================================
@@ -2682,6 +2727,13 @@ export interface TrocaDevolucaoRecord {
   valeCreditoValor?: number;
   boletoAbatido?: BoletoAbatidoInfo;
   fiscalStatus?: PendenciaDevolucaoStatus;
+  tipoDocumento?: 'comprovante_interno' | 'nfe_oficial';
+  cfopDevolucao?: string;
+  chaveNfeReferenciada?: string;
+  naturezaOperacao?: string;
+  serieNfe?: string;
+  protocoloAutorizacao?: string;
+  fiscalDocId?: string;
   notaDevolucaoNumber?: string;
   notaDevolucaoChave?: string;
   notaDevolucaoEmitidaEm?: string;
@@ -2693,6 +2745,7 @@ export interface TrocaDevolucaoRecord {
 
 export type PendenciaDevolucaoStatus =
   | 'Aguardando Decisão Fiscal'
+  | 'NF-e Emitida'
   | 'Nota de Devolução Emitida'
   | 'Descartado pela Empresa';
 
