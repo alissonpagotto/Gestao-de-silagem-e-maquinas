@@ -8,6 +8,10 @@ import {
   formatSystemSupportPhoneMask,
 } from '../../lib/printIdentity';
 import { executePrint } from '../../lib/printService';
+import {
+  buildDanfeOficialNfeHtml,
+  buildDeterministicChave44,
+} from '../../lib/danfeOficialHtml';
 
 function escapeHtml(raw?: string | null): string {
   return String(raw || '')
@@ -112,7 +116,13 @@ async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | nul
     phone: formatPhoneDisplay(header.phone),
     email: header.email,
     fullAddress: formattedAddress,
+    street: streetPart,
+    neighborhood: rawNeighborhood,
+    city: rawCity,
+    state: rawState,
+    zipCode: rawZip,
     logoDataUrl,
+    ambienteSefaz: company?.ambienteSefaz ?? stored?.ambienteSefaz ?? 'homologacao',
   };
 }
 
@@ -554,29 +564,6 @@ export async function printEspelhoFiscalDevolucaoA4(
   return printTrocaDevolucaoA4(record, companyProfile, { isEspelhoFiscal: true });
 }
 
-function formatAccessKeyGroups(rawKey?: string): string {
-  const digits = String(rawKey || '').replace(/\D/g, '');
-  if (!digits) return '—';
-  return digits.replace(/(.{4})/g, '$1 ').trim();
-}
-
-function buildDanfeBarcodeSvg(code: string): string {
-  const digits = String(code || '').replace(/\D/g, '') || '00000000000000000000000000000000000000000000';
-  let x = 2;
-  const bars: string[] = [];
-  for (let i = 0; i < digits.length; i++) {
-    const val = Number(digits[i]) || 0;
-    const w1 = (val % 3) + 1;
-    const g1 = ((val + 1) % 2) + 1;
-    const w2 = ((val + 2) % 2) + 1;
-    bars.push(`<rect x="${x}" y="0" width="${w1}" height="34" fill="#000"/>`);
-    x += w1 + g1;
-    bars.push(`<rect x="${x}" y="0" width="${w2}" height="34" fill="#000"/>`);
-    x += w2 + 1.5;
-  }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.ceil(x + 2)} 34" preserveAspectRatio="none" style="width:100%;height:34px;display:block;">${bars.join('')}</svg>`;
-}
-
 /**
  * Gera o HTML do DANFE da NF-e de Devolução (Modelo 55 — Finalidade 4: Devolução de Mercadoria)
  */
@@ -596,22 +583,48 @@ export async function buildDanfeDevolucaoOficialHtml(
     stateRegistration,
     phone,
     fullAddress,
+    street,
+    neighborhood,
+    city,
+    state,
+    zipCode,
     logoDataUrl,
+    ambienteSefaz,
   } = await resolveActiveCompanyAndLogo(companyProfile);
 
   const companyIe = String(stateRegistration || '').trim() || 'ISENTO';
-
   const numeroNfe =
     record.notaDevolucaoNumber || record.protocolo.replace(/\D/g, '').padStart(6, '0');
-  const serieNfe = record.serieNfe || '001';
-  const chaveNfe = record.notaDevolucaoChave || '';
-  const chaveRef = record.chaveNfeReferenciada || '';
-  const cfop = record.cfopDevolucao || (isFornecedor ? '5.202' : '1.202');
+  const serieNfe = record.serieNfe || companyProfile?.seriePadraoNotas || '001';
+  const rawChaveDigits = String(record.notaDevolucaoChave || '').replace(/\D/g, '');
+  const chaveNfe =
+    rawChaveDigits.length === 44
+      ? rawChaveDigits
+      : buildDeterministicChave44({
+          uf: state || 'PR',
+          dataEmissao: record.data,
+          cnpj: cnpj || '',
+          modelo: '55',
+          serie: serieNfe,
+          numero: numeroNfe,
+          seed: record.id || record.protocolo,
+        });
+
+  const chaveRefDigits = String(record.chaveNfeReferenciada || '').replace(/\D/g, '');
+  const chaveRefDisplay =
+    chaveRefDigits.length === 44
+      ? chaveRefDigits
+      : String(record.chaveNfeReferenciada || '').trim();
+
+  const cfopClean = String(
+    record.cfopDevolucao || (isFornecedor ? '5202' : '1202')
+  ).replace(/\D/g, '') || (isFornecedor ? '5202' : '1202');
+
   const natureza =
     record.naturezaOperacao ||
     (isFornecedor ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA' : 'DEVOLUÇÃO DE VENDA');
-  const protocoloAut = record.protocoloAutorizacao || `141${Date.now().toString().slice(-12)}`;
-  const dataEmissao = formatDateBR(record.data);
+
+  const dataEmissaoBR = formatDateBR(record.data);
   const horaEmissao = new Date(
     record.notaDevolucaoEmitidaEm || record.createdAt || Date.now()
   ).toLocaleTimeString('pt-BR', {
@@ -620,340 +633,112 @@ export async function buildDanfeDevolucaoOficialHtml(
     second: '2-digit',
   });
 
-  const tipoNfCodigo = isFornecedor ? '1' : '0';
-  const tipoNfLabel = isFornecedor ? '1 - SAÍDA' : '0 - ENTRADA';
+  const isHomologacao = ambienteSefaz !== 'producao';
+  const protocoloAut = record.protocoloAutorizacao
+    ? `${record.protocoloAutorizacao}${isHomologacao ? ' (HOMOLOGAÇÃO)' : ''}`
+    : `141${String(record.notaDevolucaoEmitidaEm || Date.now()).replace(/\D/g, '').slice(-12)} - ${dataEmissaoBR} ${horaEmissao}${isHomologacao ? ' (HOMOLOGAÇÃO)' : ''}`;
+
+  const tipoNfCodigo: '0' | '1' = isFornecedor ? '1' : '0';
   const valorTotal =
     record.totalDevolvido > 0 ? record.totalDevolvido : Math.abs(record.saldoFinal || 0);
 
-  const itemsRows = (record.itensDevolvidos || [])
-    .map(
-      (it, idx) => `
-      <tr>
-        <td class="c">${escapeHtml(it.productCode || String(idx + 1).padStart(3, '0'))}</td>
-        <td><strong>${escapeHtml(it.productName)}</strong></td>
-        <td class="c">0000.00.00</td>
-        <td class="c">000</td>
-        <td class="c"><strong>${escapeHtml(cfop.replace(/\./g, ''))}</strong></td>
-        <td class="c">${escapeHtml(it.unit || 'UN')}</td>
-        <td class="r">${Number(it.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
-        <td class="r">${formatCurrencyBRL(it.unitPrice)}</td>
-        <td class="r"><strong>${formatCurrencyBRL(it.totalPrice)}</strong></td>
-        <td class="r">0,00</td>
-        <td class="r">0,00</td>
-      </tr>
-    `
-    )
-    .join('');
+  const infoLines = [
+    chaveRefDisplay ? `NFe Ref.: (${chaveRefDisplay})` : '',
+    record.numeroVendaOuNotaOrigem ? `Documento / Venda Origem: ${record.numeroVendaOuNotaOrigem}` : '',
+    `Protocolo Interno: ${record.protocolo}`,
+    record.motivo ? `Motivo da Devolução: ${record.motivo}` : '',
+    record.destinoFinanceiroLabel ? `Destino Financeiro: ${record.destinoFinanceiroLabel}` : '',
+    record.observacoes ? `Observações: ${record.observacoes}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>DANFE NF-e Nº ${escapeHtml(numeroNfe)} - ${escapeHtml(record.protocolo)}</title>
-  <style>
-    @page { size: A4 portrait; margin: 8mm; }
-    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #000;
-      background: #fff;
-      font-size: 9px;
-      line-height: 1.25;
-    }
-    .toolbar { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; background: #e0e6f1; border-bottom: 1.5px solid #000; margin-bottom: 8px; }
-    .btn { padding: 6px 14px; border: 1.5px solid #000; border-radius: 5px; font-weight: 800; font-size: 11px; cursor: pointer; background: #0f172a; color: #fff; }
-    .btn.sec { background: #fff; color: #000; }
-    @media print {
-      @page { size: A4 portrait; margin: 8mm; }
-      html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
-      .toolbar { display: none !important; }
-    }
+  const danfeItens = (record.itensDevolvidos || []).map((it, idx) => ({
+    codigo: it.productCode || String(idx + 1).padStart(3, '0'),
+    descricao: it.productName,
+    ncm: '00000000',
+    csosnCst: '102',
+    cfop: cfopClean,
+    unidade: it.unit || 'UN',
+    quantidade: Number(it.quantity || 0),
+    valorUnitario: Number(it.unitPrice || 0),
+    valorDesconto: 0,
+    valorTotal: Number(it.totalPrice || 0),
+    baseIcms: 0,
+    valorIcms: 0,
+    valorIpi: 0,
+    aliquotaIcms: 0,
+    aliquotaIpi: 0,
+  }));
 
-    .danfe-page {
-      width: 100%;
-      min-height: 278mm;
-      border: 1.5px solid #000;
-      padding: 5px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .danfe-top { flex-shrink: 0; }
-    .danfe-products-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-    .products-table-wrap {
-      flex: 1;
-      border-left: 1px solid #000;
-      border-right: 1px solid #000;
-      border-bottom: 1px solid #000;
-      background: #fff;
-    }
-    .danfe-bottom { flex-shrink: 0; }
-
-    .canhoto { display: grid; grid-template-columns: 1fr 140px; border: 1px solid #000; margin-bottom: 5px; }
-    .canhoto-left { border-right: 1px solid #000; display: flex; flex-direction: column; }
-    .canhoto-top { padding: 4px 6px; font-size: 7.5px; border-bottom: 1px solid #000; }
-    .canhoto-bottom { display: grid; grid-template-columns: 130px 1fr; flex: 1; }
-    .canhoto-cell { padding: 4px 6px; min-height: 28px; }
-    .canhoto-cell:first-child { border-right: 1px solid #000; }
-    .canhoto-right { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 4px; }
-    .cut-line { border-top: 1px dashed #000; margin: 5px 0; text-align: center; font-size: 7px; color: #333; }
-
-    .header-grid { display: grid; grid-template-columns: 40% 19% 41%; border: 1px solid #000; }
-    .hdr-emit { border-right: 1px solid #000; padding: 6px; display: flex; align-items: center; gap: 8px; }
-    .hdr-logo { width: 54px; height: 54px; object-fit: contain; border: 1px solid #cbd5e1; padding: 2px; border-radius: 4px; flex-shrink: 0; }
-    .hdr-danfe { border-right: 1px solid #000; padding: 5px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
-    .hdr-key { padding: 5px; display: flex; flex-direction: column; justify-content: space-between; }
-
-    .lbl { font-size: 6.8px; text-transform: uppercase; font-weight: 700; color: #111; display: block; margin-bottom: 1px; letter-spacing: 0.2px; }
-    .val { font-size: 9.2px; font-weight: 700; color: #000; word-break: break-word; }
-    .val-mono { font-family: 'Courier New', monospace; font-size: 8.5px; font-weight: 700; letter-spacing: 0.35px; }
-    .danfe-title { font-size: 13px; font-weight: 900; letter-spacing: 1px; margin: 0; }
-    .danfe-sub { font-size: 7.4px; font-weight: 700; margin: 2px 0; }
-    .tipo-box { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 3px auto; }
-    .tipo-num { border: 1.5px solid #000; padding: 2px 7px; font-size: 12px; font-weight: 900; }
-
-    .sec-title { font-size: 7.5px; font-weight: 900; text-transform: uppercase; background: #e2e8f0; border: 1px solid #000; border-top: none; padding: 2.5px 5px; letter-spacing: 0.4px; }
-    .row { display: grid; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; }
-    .cell { padding: 3px 5px; border-right: 1px solid #000; min-height: 24px; }
-    .cell:last-child { border-right: none; }
-
-    table.products-table { width: 100%; border-collapse: collapse; }
-    table.products-table th { background: #f1f5f9; border-bottom: 1px solid #000; border-right: 1px solid #000; font-size: 7px; text-transform: uppercase; padding: 3px 4px; text-align: left; }
-    table.products-table th:last-child, table.products-table td:last-child { border-right: none; }
-    table.products-table td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #000; padding: 4px 4px; font-size: 8.5px; }
-    .c { text-align: center; }
-    .r { text-align: right; }
-
-    .footer-note { margin-top: 6px; font-size: 7.5px; color: #334155; display: flex; justify-content: space-between; }
-  </style>
-</head>
-<body>
-  <div class="toolbar">
-    <button class="btn sec" onclick="window.close()">Fechar</button>
-    <button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF (DANFE NF-e)</button>
-  </div>
-
-  <div class="danfe-page">
-    <div class="danfe-top">
-      <div class="canhoto">
-        <div class="canhoto-left">
-          <div class="canhoto-top">
-            RECEBEMOS DE <strong>${escapeHtml((companyName || tradeName).toUpperCase())}</strong> OS PRODUTOS / MERCADORIAS CONSTANTES DA NOTA FISCAL ELETRÔNICA DE DEVOLUÇÃO INDICADA AO LADO — EMISSÃO: ${escapeHtml(dataEmissao)} — VALOR TOTAL: <strong>${formatCurrencyBRL(valorTotal)}</strong> — DESTINATÁRIO/REMETENTE: <strong>${escapeHtml(record.envolvidoNome.toUpperCase())}</strong>
-          </div>
-          <div class="canhoto-bottom">
-            <div class="canhoto-cell"><span class="lbl">DATA DE RECEBIMENTO</span></div>
-            <div class="canhoto-cell"><span class="lbl">IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR</span></div>
-          </div>
-        </div>
-        <div class="canhoto-right">
-          <strong style="font-size:11px;">NF-e</strong>
-          <div style="font-size:10px;font-weight:900;">Nº ${escapeHtml(numeroNfe)}</div>
-          <div style="font-size:8.5px;font-weight:700;">SÉRIE ${escapeHtml(serieNfe)}</div>
-        </div>
-      </div>
-
-      <div class="cut-line">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
-
-      <div class="header-grid">
-        <div class="hdr-emit">
-          ${logoDataUrl ? `<img src="${logoDataUrl}" class="hdr-logo" alt="Logo" />` : ''}
-          <div style="min-width: 0; flex: 1;">
-            <div style="font-size:9.8px;font-weight:900;text-transform:uppercase;line-height:1.2;margin-bottom:2px;">${escapeHtml(companyName || tradeName)}</div>
-            ${tradeName && companyName && tradeName.toUpperCase() !== companyName.toUpperCase() ? `<div style="font-size:7.6px;font-weight:700;color:#1e293b;margin-bottom:2px;">${escapeHtml(tradeName)}</div>` : ''}
-            ${fullAddress ? `<div style="font-size:7.4px;line-height:1.25;margin-top:2px;">${escapeHtml(fullAddress)}</div>` : ''}
-            ${phone ? `<div style="font-size:7.5px;margin-top:2px;"><strong>TELEFONE:</strong> ${escapeHtml(phone)}</div>` : ''}
-            <div style="font-size:7.5px;margin-top:2px;"><strong>CNPJ:</strong> ${escapeHtml(cnpj || 'Não informado')} &nbsp;|&nbsp; <strong>IE:</strong> ${escapeHtml(companyIe)}</div>
-          </div>
-        </div>
-        <div class="hdr-danfe">
-          <div>
-            <p class="danfe-title">DANFE</p>
-            <p class="danfe-sub">Documento Auxiliar da Nota Fiscal Eletrônica</p>
-          </div>
-          <div class="tipo-box">
-            <div style="text-align:left;font-size:7px;font-weight:700;">0 - ENTRADA<br/>1 - SAÍDA</div>
-            <div class="tipo-num">${tipoNfCodigo}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:900;">Nº ${escapeHtml(numeroNfe)}</div>
-            <div style="font-size:8.5px;font-weight:700;">SÉRIE ${escapeHtml(serieNfe)} &nbsp;|&nbsp; FOLHA 1/1</div>
-            <div style="font-size:7px;font-weight:700;margin-top:2px;">FINALIDADE: 4 - DEVOLUÇÃO</div>
-          </div>
-        </div>
-        <div class="hdr-key">
-          <div>
-            <span class="lbl">CONTROLE DO FISCO / CÓDIGO DE BARRAS</span>
-            <div style="margin:3px 0;">${buildDanfeBarcodeSvg(chaveNfe)}</div>
-          </div>
-          <div style="border-top:1px solid #000;padding-top:3px;">
-            <span class="lbl">CHAVE DE ACESSO (MODELO 55)</span>
-            <div class="val-mono">${escapeHtml(formatAccessKeyGroups(chaveNfe))}</div>
-          </div>
-          <div style="border-top:1px solid #000;padding-top:3px;font-size:7px;">
-            Consulta de autenticidade no portal nacional da NF-e <strong>www.nfe.fazenda.gov.br/portal</strong> ou na Sefaz Autorizadora.
-          </div>
-        </div>
-      </div>
-
-      <div class="row" style="grid-template-columns: 58% 42%;">
-        <div class="cell">
-          <span class="lbl">NATUREZA DA OPERAÇÃO</span>
-          <span class="val">${escapeHtml(natureza)} (CFOP ${escapeHtml(cfop)})</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
-          <span class="val-mono">${escapeHtml(protocoloAut)} - ${escapeHtml(dataEmissao)} ${escapeHtml(horaEmissao)}</span>
-        </div>
-      </div>
-
-      <div class="row" style="grid-template-columns: 33% 33% 34%;">
-        <div class="cell">
-          <span class="lbl">INSCRIÇÃO ESTADUAL</span>
-          <span class="val">${escapeHtml(companyIe)}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">TIPO DE OPERAÇÃO FISCAL</span>
-          <span class="val">${escapeHtml(tipoNfLabel)} — ${escapeHtml(getTipoOperacaoLabel(record.tipoOperacao))}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">CNPJ DO EMITENTE</span>
-          <span class="val">${escapeHtml(cnpj || 'Não informado')}</span>
-        </div>
-      </div>
-
-      <div class="sec-title">DESTINATÁRIO / REMETENTE (${isFornecedor ? 'FORNECEDOR' : 'CLIENTE'})</div>
-      <div class="row" style="grid-template-columns: 56% 24% 20%;">
-        <div class="cell">
-          <span class="lbl">NOME / RAZÃO SOCIAL</span>
-          <span class="val">${escapeHtml(record.envolvidoNome.toUpperCase())}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">CNPJ / CPF</span>
-          <span class="val">${escapeHtml(record.envolvidoDocumento || 'NÃO INFORMADO')}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">DATA DA EMISSÃO</span>
-          <span class="val">${escapeHtml(dataEmissao)}</span>
-        </div>
-      </div>
-      <div class="row" style="grid-template-columns: 56% 24% 20%;">
-        <div class="cell">
-          <span class="lbl">TELEFONE / CONTATO</span>
-          <span class="val">${escapeHtml(record.envolvidoTelefone || '—')}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">PROTOCOLO INTERNO</span>
-          <span class="val">${escapeHtml(record.protocolo)}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">DATA ENTRADA / SAÍDA</span>
-          <span class="val">${escapeHtml(dataEmissao)}</span>
-        </div>
-      </div>
-
-      <div class="sec-title">DOCUMENTO FISCAL REFERENCIADO (NF-e DE ORIGEM)</div>
-      <div class="row" style="grid-template-columns: 72% 28%;">
-        <div class="cell">
-          <span class="lbl">CHAVE DE ACESSO DA NF-e REFERENCIADA (44 DÍGITOS)</span>
-          <span class="val-mono">${chaveRef ? escapeHtml(formatAccessKeyGroups(chaveRef)) : 'NÃO INFORMADA'}</span>
-        </div>
-        <div class="cell">
-          <span class="lbl">Nº DOC / VENDA ORIGEM</span>
-          <span class="val">${escapeHtml(record.numeroVendaOuNotaOrigem || '—')}</span>
-        </div>
-      </div>
-
-      <div class="sec-title">CÁLCULO DO IMPOSTO / TOTAIS DA DEVOLUÇÃO</div>
-      <div class="row" style="grid-template-columns: repeat(5, 1fr);">
-        <div class="cell"><span class="lbl">BASE DE CÁLC. DO ICMS</span><span class="val">R$ 0,00</span></div>
-        <div class="cell"><span class="lbl">VALOR DO ICMS</span><span class="val">R$ 0,00</span></div>
-        <div class="cell"><span class="lbl">VALOR DO FRETE</span><span class="val">R$ 0,00</span></div>
-        <div class="cell"><span class="lbl">VALOR TOTAL DOS PRODUTOS</span><span class="val">${formatCurrencyBRL(valorTotal)}</span></div>
-        <div class="cell" style="background:#f8fafc;"><span class="lbl">VALOR TOTAL DA NOTA</span><span class="val" style="font-size:11px;">${formatCurrencyBRL(valorTotal)}</span></div>
-      </div>
-    </div>
-
-    <div class="danfe-products-section">
-      <div class="sec-title">DADOS DOS PRODUTOS / MERCADORIAS DEVOLVIDAS</div>
-      <div class="products-table-wrap">
-        <table class="products-table">
-          <thead>
-            <tr>
-              <th class="c" style="width:8%;">CÓD.</th>
-              <th>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
-              <th class="c" style="width:9%;">NCM/SH</th>
-              <th class="c" style="width:5%;">CST</th>
-              <th class="c" style="width:6%;">CFOP</th>
-              <th class="c" style="width:5%;">UN</th>
-              <th class="r" style="width:8%;">QTD.</th>
-              <th class="r" style="width:11%;">V. UNIT.</th>
-              <th class="r" style="width:12%;">V. TOTAL</th>
-              <th class="r" style="width:7%;">BC ICMS</th>
-              <th class="r" style="width:7%;">V. ICMS</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsRows || `<tr><td colspan="11" class="c" style="padding:10px;">Nenhum item detalhado.</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="danfe-bottom">
-      <div class="sec-title">DADOS ADICIONAIS / INFORMAÇÕES COMPLEMENTARES</div>
-      <div class="row" style="grid-template-columns: 65% 35%;">
-        <div class="cell" style="min-height:64px;">
-          <span class="lbl">INFORMAÇÕES COMPLEMENTARES</span>
-          <div style="font-size:8px;margin-top:2px;line-height:1.4;">
-            <strong>Motivo da Devolução:</strong> ${escapeHtml(record.motivo)}<br/>
-            <strong>Destino Financeiro:</strong> ${escapeHtml(record.destinoFinanceiroLabel || '—')}<br/>
-            ${chaveRef ? `<strong>NF-e de Origem Referenciada:</strong> ${escapeHtml(chaveRef)}<br/>` : ''}
-            ${record.observacoes ? `<strong>Observações:</strong> ${escapeHtml(record.observacoes)}` : ''}
-          </div>
-        </div>
-        <div class="cell" style="min-height:64px;">
-          <span class="lbl">RESERVADO AO FISCO</span>
-          <div style="font-size:7.5px;margin-top:4px;color:#334155;">
-            NF-e de Devolução Oficial (Modelo 55).<br/>
-            Status: <strong>NF-e EMITIDA / AUTORIZADA</strong><br/>
-            Operador: ${escapeHtml(record.operador || 'Sistema')}
-          </div>
-        </div>
-      </div>
-
-      <div class="footer-note">
-        <span>${buildSystemPrintFooterText()}</span>
-        <span>${isPreview ? 'Pré-visualização em ' : 'Impresso em '}${escapeHtml(new Date().toLocaleString('pt-BR'))}</span>
-      </div>
-    </div>
-  </div>
-  ${
-    isPreview
-      ? `<style>.toolbar { display: none !important; } body { padding: 12px; background: #f8fafc; } .danfe-page { background: #fff; }</style>`
-      : `<script>
-    window.addEventListener('load', function() {
-      setTimeout(function() { try { window.print(); } catch(e) {} }, 260);
-    });
-  </script>`
-  }
-</body>
-</html>`;
-
-  return isPreview
-    ? html.replace(
-        '<div class="danfe-page">',
-        `<div style="background:#fef3c7;border:1.5px solid #92400e;color:#78350f;padding:7px 12px;margin-bottom:10px;border-radius:6px;font-family:Arial,sans-serif;font-size:11px;font-weight:800;text-align:center;">👁️ PRÉ-VISUALIZAÇÃO DO DANFE (NF-e MODELO 55) — SEM VALOR FISCAL ATÉ A EMISSÃO DEFINITIVA</div><div class="danfe-page">`
-      )
-    : html;
+  return buildDanfeOficialNfeHtml({
+    numero: numeroNfe,
+    serie: serieNfe,
+    tipoOperacao: tipoNfCodigo,
+    chaveAcesso: chaveNfe,
+    naturezaOperacao: natureza,
+    protocoloAutorizacao: protocoloAut,
+    dataEmissao: record.data,
+    dataSaida: record.data,
+    horaSaida: horaEmissao,
+    isHomologacao,
+    emitente: {
+      razaoSocial: companyName || tradeName || 'EMPRESA EMITENTE',
+      cnpjCpf: cnpj || 'NÃO INFORMADO',
+      ie: companyIe,
+      endereco: street || fullAddress || 'Endereço não informado',
+      bairro: neighborhood || '',
+      municipio: city || '',
+      uf: state || '',
+      cep: zipCode || '',
+      fone: phone || '',
+      logoUrl: logoDataUrl,
+    },
+    destinatario: {
+      nomeRazaoSocial: record.envolvidoNome.toUpperCase(),
+      cnpjCpf: record.envolvidoDocumento || 'NÃO INFORMADO',
+      endereco: '-',
+      bairro: '-',
+      cep: '-',
+      municipio: '-',
+      uf: '-',
+      fone: record.envolvidoTelefone || '-',
+      ie: 'ISENTO',
+    },
+    pagamentos: [{ descricao: 'Sem Pagamento', valor: 0 }],
+    totais: {
+      baseCalculoIcms: 0,
+      valorIcms: 0,
+      baseCalculoIcmsSt: 0,
+      valorIcmsSt: 0,
+      valorTotalProdutos: valorTotal,
+      valorFrete: 0,
+      valorSeguro: 0,
+      desconto: 0,
+      outrasDespesas: 0,
+      valorIpi: 0,
+      valorTotalNota: valorTotal,
+    },
+    transportador: {
+      nomeRazaoSocial: '',
+      fretePorConta: '9 - SEM FRETE',
+      codigoAntt: '',
+      placaVeiculo: '',
+      veiculoUf: '',
+      cnpjCpf: '',
+      endereco: '',
+      municipio: '',
+      uf: '',
+      ie: '',
+    },
+    itens: danfeItens,
+    informacoesComplementares: infoLines,
+    options: {
+      isPreview,
+      autoPrint: !isPreview,
+      documentTitle: `DANFE NF-e Nº ${numeroNfe} - ${record.protocolo}`,
+    },
+  });
 }
 
 /**

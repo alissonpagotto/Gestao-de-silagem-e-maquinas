@@ -13,6 +13,10 @@ import {
   getStoredCfopCatalog,
   DEFAULT_CFOP_CATALOG,
 } from '../../lib/cfopCatalog';
+import {
+  buildDanfeOficialNfeHtml,
+  DanfeOficialItem,
+} from '../../lib/danfeOficialHtml';
 
 const escapeHtml = (value?: string | number | null): string => {
   if (value === undefined || value === null) return '';
@@ -1139,6 +1143,7 @@ export function buildNotaSaidaHtml(
   const isNfse = docTypeLower.includes('nfs-e') || docTypeLower.includes('nfse');
   const isCte = docTypeLower.includes('ct-e') || docTypeLower.includes('cte');
   const isMdfe = docTypeLower.includes('mdf-e') || docTypeLower.includes('mdfe');
+  const isNfce = docTypeLower.includes('nfc-e') || docTypeLower.includes('nfce');
   const isNfeOrNfce = !isNfse && !isCte && !isMdfe;
   const natLower = String(nota.nfeNaturezaOperacao ?? '').toLowerCase();
   const nfeCfopDigits = cleanDigits(nota.nfeCfop || '');
@@ -1146,10 +1151,12 @@ export function buildNotaSaidaHtml(
   const isDanfeRetorno =
     isNfeOrNfce &&
     (docTypeLower.includes('retorno') ||
+      docTypeLower.includes('devolu') ||
       isEntradaCfop ||
       natLower.startsWith('retorno') ||
+      natLower.startsWith('devolu') ||
       (docTypeLower.includes('remessa') && natLower.startsWith('devolu')));
-  const tipoOperacaoDanfe = isDanfeRetorno ? '0' : '1';
+  const tipoOperacaoDanfe: '0' | '1' = isDanfeRetorno ? '0' : '1';
 
   const numeroFormatado = String(nota.numero || '000001').padStart(6, '0');
   const serieFormatada = String(nota.serie || '1');
@@ -1213,11 +1220,169 @@ export function buildNotaSaidaHtml(
   const transpMunicipio =
     nota.nfeTransportadoraMunicipio || (isPropriaTransp && companyProfile?.city ? companyProfile.city.toUpperCase() : '-');
   const transpUf =
-    nota.nfeTransportadoraUf || (isPropriaTransp && companyProfile?.state ? companyProfile.state.toUpperCase() : '-');
+    nota.nfeTransportadoraUf || (isPropriaTransp && companyProfile?.state ? companyProfile.state.toUpperCase() : '');
   const transpVeiculoUf =
     nota.nfeTransportadoraVeiculoUf ||
     nota.nfeTransportadoraUf ||
-    (transpPlaca && isPropriaTransp ? (companyProfile?.state || destUf || '-').toUpperCase() : transpPlaca ? (destUf || companyProfile?.state || '-').toUpperCase() : '-');
+    (transpPlaca && isPropriaTransp ? (companyProfile?.state || destUf || '').toUpperCase() : transpPlaca ? (destUf || companyProfile?.state || '').toUpperCase() : '');
+
+  // =====================================================================
+  // NF-e (MODELO 55) — DANFE OFICIAL SEFAZ (100% FUNDO BRANCO / A4)
+  // =====================================================================
+  if (!isCte && !isNfse && !isMdfe && !isNfce) {
+    const infoComplementaresBase =
+      (nota.informacoesComplementares || '').trim() ||
+      buildDefaultInformacoesComplementares({
+        tipoDocumento: nota.tipoDocumento,
+        naturezaOperacao: nota.nfeNaturezaOperacao,
+        nfeReferenciada: nota.nfeReferenciada,
+        veiculoPlaca: nota.veiculoPlaca || nota.nfeTransportadoraPlaca,
+        motoristaNome: nota.motoristaNome,
+        ativosImobilizados: itemsList.map((i) => i.fleetAssetLabel).filter((v): v is string => Boolean(v)),
+      });
+
+    const refTrimmedNfe = (nota.nfeReferenciada || '').trim();
+    const refDigitsNfe = cleanDigits(refTrimmedNfe);
+    const refDisplayNfe = refDigitsNfe.length === 44 ? refDigitsNfe : refTrimmedNfe;
+    const extraRefLine =
+      refDisplayNfe && !infoComplementaresBase.includes(refDisplayNfe)
+        ? `\nNFe Ref.: (${refDisplayNfe})`
+        : '';
+    const finalInfoComp = `${infoComplementaresBase}${extraRefLine}`.trim();
+
+    const valorTotalProdCalc =
+      itemsList.length > 0 ? totalProdutos + totalDescontos : Number(nota.valorTotal || 0);
+
+    const isSemPagamentoNfe =
+      isDanfeRetorno ||
+      String(nota.nfeFinalidade || '').toLowerCase().includes('devolu') ||
+      String(nota.condicaoPagamento || '').toLowerCase().includes('sem pagamento') ||
+      Number(nota.valorTotal || 0) <= 0;
+
+    const horaSaidaVal = new Date(nota.dataAutorizacao || nota.createdAt || Date.now()).toLocaleTimeString(
+      'pt-BR',
+      { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+    );
+
+    const danfeItens: DanfeOficialItem[] =
+      itemsList.length > 0
+        ? itemsList.map((it, idx) => ({
+            codigo: it.codigo || String(idx + 1).padStart(3, '0'),
+            descricao: it.descricao || nota.descricao || 'MERCADORIA',
+            ncm: it.ncm || '00000000',
+            csosnCst: '102',
+            cfop: it.cfop || nota.nfeCfop || (isDanfeRetorno ? '1202' : '5102'),
+            unidade: it.unidade || 'UN',
+            quantidade: Number(it.quantidade || 0),
+            valorUnitario: Number(it.valorUnitario || 0),
+            valorDesconto: Number(it.desconto || 0),
+            valorTotal: Number(it.valorTotal || 0),
+            baseIcms: Number(it.baseIcms || 0),
+            valorIcms: Number(it.valorIcms || 0),
+            valorIpi: 0,
+            aliquotaIcms: Number(it.aliquotaIcms || 0),
+            aliquotaIpi: 0,
+          }))
+        : [
+            {
+              codigo: '001',
+              descricao: nota.descricao || nota.tipoDocumento || 'MERCADORIA',
+              ncm: '00000000',
+              csosnCst: '102',
+              cfop: nota.nfeCfop || (isDanfeRetorno ? '1202' : '5102'),
+              unidade: 'UN',
+              quantidade: 1,
+              valorUnitario: Number(nota.valorTotal || 0),
+              valorDesconto: 0,
+              valorTotal: Number(nota.valorTotal || 0),
+              baseIcms: 0,
+              valorIcms: 0,
+              valorIpi: 0,
+              aliquotaIcms: 0,
+              aliquotaIpi: 0,
+            },
+          ];
+
+    const hasTranspInfo = Boolean(
+      nota.nfeTransportadoraNome || isPropriaTransp || transpPlaca
+    );
+
+    return buildDanfeOficialNfeHtml({
+      numero: nota.numero || '1',
+      serie: nota.serie || companyProfile?.seriePadraoNotas || '001',
+      tipoOperacao: tipoOperacaoDanfe,
+      chaveAcesso: chave44,
+      naturezaOperacao: naturezaOperacaoText,
+      protocoloAutorizacao: protocoloUso,
+      dataEmissao: nota.dataEmissao,
+      dataSaida: nota.dataEmissao,
+      horaSaida: horaSaidaVal,
+      isHomologacao,
+      emitente: {
+        razaoSocial: corporateName,
+        cnpjCpf: companyCnpj,
+        ie: companyIe,
+        ieSt: companyIeSt,
+        endereco: companyStreet || 'ENDEREÇO NÃO INFORMADO',
+        bairro: companyNeighborhood,
+        municipio: companyProfile?.city || '',
+        uf: companyProfile?.state || '',
+        cep: companyCep,
+        fone: companyPhone,
+        logoUrl,
+      },
+      destinatario: {
+        nomeRazaoSocial: nota.destinatarioNome || '-',
+        cnpjCpf: nota.destinatarioCpfCnpj || 'NÃO INFORMADO',
+        endereco: nota.destinatarioEndereco || '-',
+        bairro: '-',
+        cep: extractCepFromText(nota.destinatarioEndereco) || '-',
+        municipio: destCidade || nota.destinatarioCidadeUf || '-',
+        uf: destUf || '-',
+        fone: '-',
+        ie: nota.destinatarioIe || 'ISENTO',
+      },
+      pagamentos: isSemPagamentoNfe
+        ? [{ descricao: 'Sem Pagamento', valor: 0 }]
+        : [
+            {
+              descricao: nota.condicaoPagamento || 'À Vista',
+              valor: Number(nota.valorTotal || 0),
+            },
+          ],
+      totais: {
+        baseCalculoIcms: totalBaseIcms,
+        valorIcms: totalValorIcms,
+        baseCalculoIcmsSt: 0,
+        valorIcmsSt: 0,
+        valorTotalProdutos: valorTotalProdCalc,
+        valorFrete: 0,
+        valorSeguro: 0,
+        desconto: totalDescontos,
+        outrasDespesas: 0,
+        valorIpi: 0,
+        valorTotalNota: Number(nota.valorTotal || 0),
+      },
+      transportador: {
+        nomeRazaoSocial: hasTranspInfo ? transpNome : '',
+        fretePorConta: nota.nfeModalidadeFrete || '9 - SEM FRETE',
+        codigoAntt: '',
+        placaVeiculo: transpPlaca,
+        veiculoUf: transpVeiculoUf,
+        cnpjCpf: hasTranspInfo && transpCnpjCpf !== '-' ? transpCnpjCpf : '',
+        endereco: hasTranspInfo && transpEndereco !== '-' ? transpEndereco : '',
+        municipio: hasTranspInfo && transpMunicipio !== '-' ? transpMunicipio : '',
+        uf: hasTranspInfo && transpUf !== '-' ? transpUf : '',
+        ie: hasTranspInfo && transpIe !== '-' ? transpIe : '',
+      },
+      itens: danfeItens,
+      informacoesComplementares: finalInfoComp,
+      options: {
+        autoPrint: true,
+        documentTitle: `DANFE NF-e Nº ${nota.numero || '000001'} - ${corporateName}`,
+      },
+    });
+  }
 
   // =====================================================================
   // QUADROS ESPECÍFICOS POR TIPO DE DOCUMENTO (SEFAZ OFICIAL — TOPO / MIOLO / RODAPÉ)
