@@ -32,11 +32,25 @@ import {
   getNextOfficialReturnNfeNumber,
   getStoredClients,
   getStoredCompanyProfile,
+  getStoredExpenses,
+  getStoredFiscalRecords,
+  getStoredInventory,
+  getStoredNotasSaida,
   getStoredPendenciasDevolucao,
   getStoredTrocasDevolucoes,
+  saveStoredClients,
+  saveStoredExpenses,
+  saveStoredFiscalRecords,
+  saveStoredInventory,
+  saveStoredNotasSaida,
   saveStoredPendenciasDevolucao,
   saveStoredTrocasDevolucoes,
 } from '../../lib/storage';
+import {
+  formatCurrentAuditDateTimeBR,
+  getLoggedAuditUserName,
+  recordFinancialReversalAudit,
+} from '../../lib/financialAudit';
 import {
   NovaTrocaDevolucaoModal,
   TrocaDevolucaoDetailsModal,
@@ -264,8 +278,8 @@ export function getUnifiedFiscalDevolucoes(): TrocaDevolucaoRecord[] {
       saldoFinal: Number(n.totalAmount || 0),
       destinoFinanceiro: 'credito_fornecedor',
       destinoFinanceiroLabel: 'Crédito / NF-e de Devolução Registrada',
-      fiscalStatus: isCanceled ? 'Descartado pela Empresa' : 'Nota de Devolução Emitida',
-      notaDevolucaoNumber: isCanceled ? undefined : devNum,
+      fiscalStatus: isCanceled ? 'Cancelada' : 'Nota de Devolução Emitida',
+      notaDevolucaoNumber: devNum || undefined,
       notaDevolucaoChave: n.originInvoiceKey,
       justificativaDescarte: isCanceled ? n.notes || 'Nota cancelada' : undefined,
       fiscalDecidedAt: n.createdAt,
@@ -300,20 +314,23 @@ export function getUnifiedFiscalDevolucaoCounts(): {
   aguardando: number;
   emitidas: number;
   descartadas: number;
+  canceladas: number;
 } {
   const list = getUnifiedFiscalDevolucoes();
   let rascunhos = 0;
   let aguardando = 0;
   let emitidas = 0;
   let descartadas = 0;
+  let canceladas = 0;
   list.forEach((r) => {
     const st = r.fiscalStatus || 'Aguardando Decisão Fiscal';
     if (st === 'Rascunho') rascunhos += 1;
     else if (isNfeEmitidaStatus(st)) emitidas += 1;
     else if (st === 'Descartado pela Empresa') descartadas += 1;
+    else if (st === 'Cancelada') canceladas += 1;
     else aguardando += 1;
   });
-  return { total: list.length, rascunhos, aguardando, emitidas, descartadas };
+  return { total: list.length, rascunhos, aguardando, emitidas, descartadas, canceladas };
 }
 
 type FiscalFilterOption = 'todas' | PendenciaDevolucaoStatus;
@@ -375,7 +392,17 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   const [discardJustificativa, setDiscardJustificativa] = useState('');
   const [discardError, setDiscardError] = useState('');
 
+  // Modal de Cancelamento Oficial da NF-e de Devolução (SEFAZ >= 15 chars + Estorno)
+  const [cancelNfeTarget, setCancelNfeTarget] = useState<TrocaDevolucaoRecord | null>(null);
+  const [cancelNfeJustificativa, setCancelNfeJustificativa] = useState('');
+  const [cancelNfeError, setCancelNfeError] = useState('');
+
+  // Modal de Bloqueio & Confirmação de Exclusão
+  const [deleteBlockedInfo, setDeleteBlockedInfo] = useState<{ title: string; message: string } | null>(null);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<TrocaDevolucaoRecord | null>(null);
+
   const [successMsg, setSuccessMsg] = useState('');
+  const loggedUserName = useMemo(() => getLoggedAuditUserName(), []);
 
   const company = useMemo(
     () => companyProfile || getStoredCompanyProfile(),
@@ -440,6 +467,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     let aguardando = 0;
     let emitidas = 0;
     let descartadas = 0;
+    let canceladas = 0;
     let valorAguardando = 0;
     let valorEmitidas = 0;
 
@@ -452,6 +480,8 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         valorEmitidas += Number(rec.totalDevolvido || 0);
       } else if (st === 'Descartado pela Empresa') {
         descartadas += 1;
+      } else if (st === 'Cancelada') {
+        canceladas += 1;
       } else {
         aguardando += 1;
         valorAguardando += Number(rec.totalDevolvido || 0);
@@ -464,6 +494,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       aguardando,
       emitidas,
       descartadas,
+      canceladas,
       valorAguardando,
       valorEmitidas,
     };
@@ -654,13 +685,382 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     setDiscardJustificativa('');
   };
 
-  const handleDeleteDraft = (rec: TrocaDevolucaoRecord) => {
+  const reverseDevolucaoStock = (rec: TrocaDevolucaoRecord): string[] => {
+    if (rec.fiscalStatus === 'Rascunho' || rec.estoqueEstornado) return [];
+    const currentInventory = [...getStoredInventory()];
+    const logs: string[] = [];
+    const nowIso = new Date().toISOString();
+    const isFornecedor =
+      rec.envolvidoTipo === 'fornecedor' || rec.tipoOperacao === 'devolucao_fornecedor';
+
+    const applyDelta = (productId: string, productCode: string | undefined, productName: string, delta: number) => {
+      const idx = currentInventory.findIndex(
+        (p) =>
+          (productId && String(p.id) === String(productId)) ||
+          (productCode && p.code && String(p.code).trim().toLowerCase() === String(productCode).trim().toLowerCase()) ||
+          (productName &&
+            String(p.name || p.nome_comercial || '').trim().toLowerCase() ===
+              String(productName).trim().toLowerCase())
+      );
+      if (idx >= 0) {
+        const item = currentInventory[idx];
+        const isService =
+          String((item as any).categoria || item.category || '').toUpperCase() === 'SERVIÇOS' ||
+          String(item.tipo_item || '').toUpperCase() === 'SERVIÇO';
+        if (isService) return;
+        const prevQty = Number(item.quantidade_atual ?? item.quantity ?? 0);
+        const nextQty = Math.max(0, Number((prevQty + delta).toFixed(3)));
+        currentInventory[idx] = {
+          ...item,
+          quantity: nextQty,
+          quantidade_atual: nextQty,
+          updatedAt: nowIso,
+        };
+        logs.push(`${item.name} (${delta >= 0 ? '+' : ''}${delta} ${item.unit || 'UN'})`);
+      }
+    };
+
+    (rec.itensDevolvidos || []).forEach((it) => {
+      if (it.returnToStock !== false) {
+        // Reverte o delta original: fornecedor havia subtraído -> soma; cliente havia somado -> subtrai
+        const reverseDelta = isFornecedor ? Math.abs(it.quantity) : -Math.abs(it.quantity);
+        applyDelta(it.productId, it.productCode, it.productName, reverseDelta);
+      }
+    });
+
+    if (rec.tipoOperacao === 'troca_direta') {
+      (rec.itensLevados || []).forEach((it) => {
+        applyDelta(it.productId, it.productCode, it.productName, Math.abs(it.quantity));
+      });
+    }
+
+    if (logs.length > 0) {
+      saveStoredInventory(currentInventory);
+      window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: currentInventory }));
+      window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: currentInventory }));
+      window.dispatchEvent(new CustomEvent('inventory_updated', { detail: currentInventory }));
+    }
+    return logs;
+  };
+
+  const reverseDevolucaoOpenFinancials = (rec: TrocaDevolucaoRecord) => {
+    const expenses = getStoredExpenses();
+    let expensesChanged = false;
+    const nextExpenses = expenses
+      .filter((exp) => {
+        if (
+          exp.invoiceNumber === rec.protocolo &&
+          String(exp.id || '').startsWith('exp_dev_') &&
+          exp.status !== 'pago'
+        ) {
+          expensesChanged = true;
+          return false;
+        }
+        return true;
+      })
+      .map((exp) => {
+        if (
+          rec.boletoAbatido?.expenseId &&
+          String(exp.id) === String(rec.boletoAbatido.expenseId) &&
+          exp.status !== 'pago'
+        ) {
+          expensesChanged = true;
+          const restoredAmt = Number(rec.boletoAbatido.valorAnterior || exp.amount || 0);
+          return {
+            ...exp,
+            amount: restoredAmt,
+            valor_parcela: restoredAmt,
+            status: 'pendente' as const,
+            paymentDate: undefined,
+            notes: [exp.notes, `Abatimento ${rec.protocolo} estornado por cancelamento`].filter(Boolean).join(' | '),
+          };
+        }
+        return exp;
+      });
+    if (expensesChanged) {
+      saveStoredExpenses(nextExpenses);
+    }
+
+    if (rec.destinoFinanceiro === 'vale_credito' && (rec.valeCreditoValor || 0) > 0 && rec.envolvidoId) {
+      const currentClients = getStoredClients();
+      let cliChanged = false;
+      const nextClients = currentClients.map((c) => {
+        if (String(c.id) !== String(rec.envolvidoId)) return c;
+        const curBal = Number(c.creditBalance ?? c.saldoCredito ?? 0);
+        const deduct = Math.min(curBal, Number(rec.valeCreditoValor || 0));
+        if (deduct <= 0) return c;
+        cliChanged = true;
+        const nextBal = Number(Math.max(0, curBal - deduct).toFixed(2));
+        return {
+          ...c,
+          creditBalance: nextBal,
+          saldoCredito: nextBal,
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      if (cliChanged) {
+        saveStoredClients(nextClients);
+        setClients(nextClients);
+      }
+    }
+  };
+
+  const hasSettledFinancialForDevolucao = (rec: TrocaDevolucaoRecord): boolean => {
+    if (rec.fiscalDocId) {
+      const notas = getStoredNotasSaida();
+      if (
+        notas.some(
+          (n) =>
+            (n.id === rec.fiscalDocId ||
+              n.id.startsWith(`nf_inst_${rec.fiscalDocId}_`) ||
+              n.id.startsWith(`nf_cnab_${rec.fiscalDocId}_`)) &&
+            n.receberStatus === 'pago'
+        )
+      ) {
+        return true;
+      }
+    }
+    const expenses = getStoredExpenses();
+    if (
+      rec.boletoAbatido?.expenseId &&
+      expenses.some((e) => String(e.id) === String(rec.boletoAbatido?.expenseId) && e.status === 'pago')
+    ) {
+      return true;
+    }
+    if (expenses.some((e) => e.invoiceNumber === rec.protocolo && e.status === 'pago')) {
+      return true;
+    }
+    return false;
+  };
+
+  // Ação 3: Cancelar NF-e Emitida (SEFAZ >= 15 chars + Estorno Estoque & Títulos em Aberto)
+  const handleOpenCancelNfe = (rec: TrocaDevolucaoRecord) => {
+    setCancelNfeTarget(rec);
+    setCancelNfeJustificativa('');
+    setCancelNfeError('');
+  };
+
+  const handleConfirmCancelNfe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancelNfeTarget) return;
+    const just = cancelNfeJustificativa.trim();
+    if (just.length < 15) {
+      setCancelNfeError(
+        `A justificativa SEFAZ deve conter no mínimo 15 caracteres (atual: ${just.length}/15).`
+      );
+      return;
+    }
+
+    const auditUser = getLoggedAuditUserName();
+    const auditDateTime = formatCurrentAuditDateTimeBR();
+    const nowIso = new Date().toISOString();
+
+    const stockLogs = reverseDevolucaoStock(cancelNfeTarget);
+    reverseDevolucaoOpenFinancials(cancelNfeTarget);
+
+    // Atualiza nota vinculada na Central de Documentos mantendo histórico para o Contador
+    if (cancelNfeTarget.fiscalDocId || cancelNfeTarget.notaDevolucaoNumber) {
+      const notasSaida = getStoredNotasSaida();
+      let saidaChanged = false;
+      const nextSaidas = notasSaida
+        .filter((n) => {
+          if (
+            cancelNfeTarget.fiscalDocId &&
+            (n.id.startsWith(`nf_inst_${cancelNfeTarget.fiscalDocId}_`) ||
+              n.id.startsWith(`nf_cnab_${cancelNfeTarget.fiscalDocId}_`)) &&
+            n.receberStatus !== 'pago'
+          ) {
+            saidaChanged = true;
+            return false;
+          }
+          return true;
+        })
+        .map((n) => {
+          const matchesId = cancelNfeTarget.fiscalDocId && n.id === cancelNfeTarget.fiscalDocId;
+          const matchesNum =
+            cancelNfeTarget.notaDevolucaoNumber &&
+            n.numero === cancelNfeTarget.notaDevolucaoNumber &&
+            n.id.startsWith('nfe_dev_');
+          if (!matchesId && !matchesNum) return n;
+          saidaChanged = true;
+          return {
+            ...n,
+            status: 'CANCELADA' as const,
+            lancarContasReceber: n.receberStatus === 'pago' ? n.lancarContasReceber : false,
+            estoqueBaixado: false,
+            cancelamentoMotivo: just,
+            canceladoPor: auditUser,
+            canceladoEm: auditDateTime,
+            observacoes: [
+              n.observacoes,
+              `CANCELADA EM ${auditDateTime} POR ${auditUser} — MOTIVO: ${just}`,
+            ]
+              .filter(Boolean)
+              .join(' | '),
+            updatedAt: nowIso,
+          };
+        });
+      if (saidaChanged) {
+        saveStoredNotasSaida(nextSaidas);
+      }
+
+      const fiscalRecs = getStoredFiscalRecords();
+      let fiscalChanged = false;
+      const nextFiscal = fiscalRecs.map((f) => {
+        if (f.id === cancelNfeTarget.fiscalDocId) {
+          fiscalChanged = true;
+          return {
+            ...f,
+            status: 'Cancelada' as any,
+            notes: [f.notes, `CANCELADA EM ${auditDateTime} POR ${auditUser} — MOTIVO: ${just}`]
+              .filter(Boolean)
+              .join(' | '),
+          };
+        }
+        return f;
+      });
+      if (fiscalChanged) {
+        saveStoredFiscalRecords(nextFiscal);
+      }
+    }
+
+    const updatedRecord: TrocaDevolucaoRecord = {
+      ...cancelNfeTarget,
+      fiscalStatus: 'Cancelada',
+      cancelamentoMotivo: just,
+      canceladoPor: auditUser,
+      canceladoEm: auditDateTime,
+      estoqueEstornado: true,
+      fiscalDecidedAt: nowIso,
+    };
+
     const allTrocas = getStoredTrocasDevolucoes();
-    const nextTrocas = allTrocas.filter((r) => r.id !== rec.id);
-    saveStoredTrocasDevolucoes(nextTrocas, true);
+    const existsInStore = allTrocas.some((r) => r.id === cancelNfeTarget.id);
+    const nextTrocas = existsInStore
+      ? allTrocas.map((r) => (r.id === cancelNfeTarget.id ? updatedRecord : r))
+      : [updatedRecord, ...allTrocas];
+    saveStoredTrocasDevolucoes(nextTrocas);
+
+    syncMatchingPendencias(cancelNfeTarget, {
+      status: 'Cancelada',
+      justificativaDescarte: just,
+      decidedAt: nowIso,
+    });
+
+    recordFinancialReversalAudit({
+      id: `cancel_dev_${cancelNfeTarget.id}_${Date.now()}`,
+      targetType: cancelNfeTarget.envolvidoTipo === 'fornecedor' ? 'receber' : 'pagar',
+      targetId: cancelNfeTarget.id,
+      description: `Cancelamento NF-e Devolução ${cancelNfeTarget.notaDevolucaoNumber || cancelNfeTarget.protocolo} (${cancelNfeTarget.envolvidoNome})`,
+      amount: Number(cancelNfeTarget.totalDevolvido || 0),
+      user: auditUser,
+      dateTime: auditDateTime,
+      isoTimestamp: nowIso,
+      reason: just,
+      previousStatus: cancelNfeTarget.fiscalStatus,
+    });
+
     setRecords(getUnifiedFiscalDevolucoes());
-    setSuccessMsg(`Rascunho ${rec.protocolo} excluído.`);
-    setTimeout(() => setSuccessMsg(''), 4000);
+    const stockNote = stockLogs.length > 0 ? ` Estoque estornado: ${stockLogs.join(', ')}.` : '';
+    setSuccessMsg(
+      `NF-e ${cancelNfeTarget.notaDevolucaoNumber || cancelNfeTarget.protocolo} marcada como CANCELADA por ${auditUser}.${stockNote}`
+    );
+    setTimeout(() => setSuccessMsg(''), 6500);
+    setCancelNfeTarget(null);
+    setCancelNfeJustificativa('');
+  };
+
+  const isDevolucaoDeletionAllowed = (rec: TrocaDevolucaoRecord): boolean => {
+    const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
+    const hasNfeNumber = Boolean(rec.notaDevolucaoNumber && String(rec.notaDevolucaoNumber).trim().length > 0);
+    if (isNfeEmitidaStatus(st) || st === 'Cancelada' || hasNfeNumber) {
+      return false;
+    }
+    return true;
+  };
+
+  // Ação 4: Solicitar & Confirmar Exclusão (com Auditoria Prévia e Regra Fiscal de Produção)
+  const requestDeleteDevolucao = (rec: TrocaDevolucaoRecord) => {
+    if (!isDevolucaoDeletionAllowed(rec)) {
+      setDeleteBlockedInfo({
+        title: 'Exclusão Proibida — Documento Fiscal Emitido',
+        message:
+          'Por regra fiscal de produção, registros com NF-e já emitida, autorizada ou cancelada não podem ser excluídos, mantendo-se permanentemente no histórico e na sequência numérica para o Contador. Utilize apenas o botão "🚫 Cancelar" caso a nota ainda esteja ativa.',
+      });
+      return;
+    }
+    if (hasSettledFinancialForDevolucao(rec)) {
+      setDeleteBlockedInfo({
+        title: 'Exclusão Bloqueada — Título Liquidado no Financeiro',
+        message:
+          'Existe uma parcela ou lançamento já baixado/pago no Financeiro vinculado a este registro. Acesse o Financeiro, estorne a baixa informando o motivo e depois exclua o registro.',
+      });
+      return;
+    }
+    setDeleteConfirmTarget(rec);
+  };
+
+  const handleConfirmDeleteDevolucao = () => {
+    if (!deleteConfirmTarget) return;
+    const rec = deleteConfirmTarget;
+    if (!isDevolucaoDeletionAllowed(rec)) {
+      setDeleteConfirmTarget(null);
+      return;
+    }
+
+    if (rec.fiscalStatus !== 'Rascunho' && rec.fiscalStatus !== 'Cancelada' && !rec.estoqueEstornado) {
+      reverseDevolucaoStock(rec);
+      reverseDevolucaoOpenFinancials(rec);
+    }
+
+    const allTrocas = getStoredTrocasDevolucoes();
+    saveStoredTrocasDevolucoes(
+      allTrocas.filter((r) => r.id !== rec.id),
+      true
+    );
+
+    const allPend = getStoredPendenciasDevolucao();
+    const filteredPend = allPend.filter(
+      (p) => p.trocaRecordId !== rec.id && p.protocolo !== rec.protocolo && `legacy_pend_${p.id}` !== rec.id
+    );
+    if (filteredPend.length !== allPend.length) {
+      saveStoredPendenciasDevolucao(filteredPend);
+    }
+
+    if (rec.id.startsWith('legacy_nfdev_')) {
+      const legacyId = rec.id.replace('legacy_nfdev_', '');
+      const nextLegacy = getStoredNotasDevolucao().filter((n) => n.id !== legacyId);
+      try {
+        localStorage.setItem(NOTAS_DEVOLUCAO_KEY, JSON.stringify(nextLegacy));
+      } catch {}
+    }
+
+    if (rec.fiscalDocId) {
+      const saidas = getStoredNotasSaida();
+      const nextSaidas = saidas.filter(
+        (n) =>
+          !(
+            (n.id === rec.fiscalDocId ||
+              n.id.startsWith(`nf_inst_${rec.fiscalDocId}_`) ||
+              n.id.startsWith(`nf_cnab_${rec.fiscalDocId}_`)) &&
+            n.receberStatus !== 'pago'
+          )
+      );
+      if (nextSaidas.length !== saidas.length) {
+        saveStoredNotasSaida(nextSaidas);
+      }
+
+      const fiscal = getStoredFiscalRecords();
+      const nextFiscal = fiscal.filter((f) => f.id !== rec.fiscalDocId);
+      if (nextFiscal.length !== fiscal.length) {
+        saveStoredFiscalRecords(nextFiscal);
+      }
+    }
+
+    setRecords(getUnifiedFiscalDevolucoes());
+    setDeleteConfirmTarget(null);
+    setSuccessMsg(`Registro ${rec.protocolo} excluído permanentemente.`);
+    setTimeout(() => setSuccessMsg(''), 4500);
   };
 
   const getFiscalStatusBadge = (rec: TrocaDevolucaoRecord) => {
@@ -671,6 +1071,31 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
           <FileEdit className="w-3 h-3 shrink-0" />
           <span>Rascunho</span>
         </span>
+      );
+    }
+    if (st === 'Cancelada') {
+      return (
+        <div className="flex flex-col items-center gap-0.5">
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-500 uppercase whitespace-nowrap"
+            title={
+              rec.cancelamentoMotivo
+                ? `Cancelada por ${rec.canceladoPor || 'Sistema'} em ${rec.canceladoEm || ''} — Motivo: ${rec.cancelamentoMotivo}`
+                : 'Nota Fiscal Cancelada'
+            }
+          >
+            <Ban className="w-3 h-3 shrink-0" />
+            <span>CANCELADA</span>
+          </span>
+          {rec.cancelamentoMotivo && (
+            <span
+              className="text-[10px] text-rose-700 dark:text-rose-400 max-w-[170px] truncate"
+              title={rec.cancelamentoMotivo}
+            >
+              {rec.cancelamentoMotivo}
+            </span>
+          )}
+        </div>
       );
     }
     if (st === 'Aguardando Decisão Fiscal') {
@@ -943,6 +1368,28 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
           <button
             type="button"
+            onClick={() => setStatusFilter('Cancelada')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+              statusFilter === 'Cancelada'
+                ? 'bg-rose-700 text-white border-rose-900 shadow-xs'
+                : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-rose-900 border-black dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800'
+            }`}
+          >
+            <Ban className="w-3.5 h-3.5" />
+            <span>Canceladas</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                statusFilter === 'Cancelada'
+                  ? 'bg-white/25 text-white'
+                  : 'bg-rose-200 text-rose-900'
+              }`}
+            >
+              {counts.canceladas}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setStatusFilter('todas')}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
               statusFilter === 'todas'
@@ -964,18 +1411,17 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         </div>
         </div>
 
-        {/* Tabela Unificada */}
+        {/* Tabela Unificada (Alinhada ao padrão limpo da tabela de NOTAS) */}
         <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-2xs">
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-[#cad4e6] dark:bg-stone-800 text-black dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-20 border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="py-2 px-3">Data</th>
-                  <th className="py-2 px-3">Protocolo</th>
-                  <th className="py-2 px-3">Fornecedor / Origem</th>
-                  <th className="py-2 px-3">Produto(s) Devolvido(s)</th>
+                  <th className="py-2 px-3">Protocolo / Doc.</th>
+                  <th className="py-2 px-3">Fornecedor / Cliente</th>
+                  <th className="py-2 px-3">Produto(s) / Motivo</th>
+                  <th className="py-2 px-3 text-center">Emissão</th>
                   <th className="py-2 px-3 text-right">Valor Total</th>
-                  <th className="py-2 px-3">Motivo / Financeiro</th>
                   <th className="py-2 px-3 text-center">Situação Fiscal</th>
                   <th className="py-2 px-3 text-right">Ações</th>
                 </tr>
@@ -984,7 +1430,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 {filteredRecords.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={7}
                       className="py-8 text-center bg-[#e0e6f1] text-xs text-stone-600 font-semibold uppercase"
                     >
                       Nenhum registro de devolução ou garantia encontrado para este filtro
@@ -998,107 +1444,102 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                     const isEmitida = isNfeEmitidaStatus(st);
                     const firstItem = rec.itensDevolvidos?.[0];
                     const extraItemsCount = Math.max(0, (rec.itensDevolvidos?.length || 0) - 1);
+                    const conciseFinancialNote = rec.boletoAbatido
+                      ? `Abatido ${rec.boletoAbatido.documento || 'Boleto'}: ${formatCurrencyBRL(rec.boletoAbatido.valorAbatido)}${
+                          rec.boletoAbatido.saldoRestante <= 0
+                            ? ' (Liquidado)'
+                            : ` • Rest: ${formatCurrencyBRL(rec.boletoAbatido.saldoRestante)}`
+                        }`
+                      : rec.destinoFinanceiroLabel || '';
 
                     return (
                       <tr
                         key={`${rec.id}_${idx}`}
                         className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800"
                       >
-                        <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                          {formatDateBR(rec.data)}
-                        </td>
-
-                        <td className="py-2.5 px-3 whitespace-nowrap">
+                        <td className="py-2 px-3 whitespace-nowrap">
                           <span className="font-mono font-black text-rose-700 dark:text-rose-400">
                             {rec.protocolo}
                           </span>
-                          <span className="block text-[10px] font-semibold text-stone-500">
-                            {getTipoOperacaoLabel(rec.tipoOperacao)}
-                          </span>
+                          {rec.notaDevolucaoNumber ? (
+                            <span className="block text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                              NF-e Nº {rec.notaDevolucaoNumber}
+                            </span>
+                          ) : (
+                            <span className="block text-[10px] font-semibold text-stone-500">
+                              {getTipoOperacaoLabel(rec.tipoOperacao)}
+                            </span>
+                          )}
                         </td>
 
-                        <td className="py-2.5 px-3 font-bold text-stone-800 dark:text-stone-200">
-                          <span className="uppercase">{rec.envolvidoNome}</span>
+                        <td className="py-2 px-3 font-bold text-stone-800 dark:text-stone-200 max-w-[220px]">
+                          <span className="uppercase block truncate" title={rec.envolvidoNome}>
+                            {rec.envolvidoNome}
+                          </span>
                           {rec.numeroVendaOuNotaOrigem && (
-                            <span className="block text-[10px] font-normal text-stone-500">
+                            <span className="block text-[10px] font-normal text-stone-500 truncate">
                               NF/Venda Origem: {rec.numeroVendaOuNotaOrigem}
                             </span>
                           )}
-                          {rec.boletoAbatido && (
-                            <span
-                              className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-950/50 border border-teal-300 dark:border-teal-800 text-[10px] font-bold text-teal-800 dark:text-teal-300"
-                              title={`Boleto: ${rec.boletoAbatido.documento || '—'} | ${rec.boletoAbatido.statusResultante}`}
-                            >
-                              Abatido em {rec.boletoAbatido.documento || 'Boleto'}:{' '}
-                              {formatCurrencyBRL(rec.boletoAbatido.valorAbatido)}
-                              {rec.boletoAbatido.saldoRestante <= 0
-                                ? ' (Liquidado)'
-                                : ` • Rest: ${formatCurrencyBRL(rec.boletoAbatido.saldoRestante)}`}
-                            </span>
-                          )}
                         </td>
 
-                        <td className="py-2.5 px-3 text-stone-900 dark:text-stone-100">
+                        <td className="py-2 px-3 text-stone-900 dark:text-stone-100 max-w-[260px]">
                           {firstItem ? (
-                            <div>
+                            <div className="truncate">
                               <span className="font-bold">
                                 {firstItem.productCode ? `[${firstItem.productCode}] ` : ''}
                                 {firstItem.productName}
                               </span>
-                              <span className="block text-[10px] text-stone-500">
-                                {firstItem.quantity} {firstItem.unit || 'UN'} ×{' '}
-                                {formatCurrencyBRL(firstItem.unitPrice)}
-                                {extraItemsCount > 0 ? ` (+${extraItemsCount} item(ns))` : ''}
+                              <span className="text-[10px] text-stone-500 ml-1">
+                                ({firstItem.quantity} {firstItem.unit || 'UN'} × {formatCurrencyBRL(firstItem.unitPrice)}
+                                {extraItemsCount > 0 ? ` +${extraItemsCount}` : ''})
                               </span>
                             </div>
                           ) : (
                             '—'
                           )}
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="inline-block px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-[10px] font-bold text-amber-900 dark:text-amber-200">
+                              {rec.motivo}
+                            </span>
+                            {conciseFinancialNote && (
+                              <span
+                                className="text-[10px] font-semibold text-teal-800 dark:text-teal-300 truncate max-w-[180px]"
+                                title={conciseFinancialNote}
+                              >
+                                • {conciseFinancialNote}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
-                        <td className="py-2.5 px-3 text-right font-black text-stone-900 dark:text-stone-100 whitespace-nowrap">
+                        <td className="py-2 px-3 text-center text-stone-700 dark:text-stone-300 whitespace-nowrap font-mono text-xs">
+                          {formatDateBR(rec.data)}
+                        </td>
+
+                        <td className="py-2 px-3 text-right font-mono font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap">
                           {formatCurrencyBRL(rec.totalDevolvido)}
                         </td>
 
-                        <td className="py-2.5 px-3 text-stone-700 dark:text-stone-300">
-                          <span className="inline-block px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-[10.5px] font-bold text-amber-900 dark:text-amber-200">
-                            {rec.motivo}
-                          </span>
-                          <span className="block text-[10px] text-stone-500 mt-0.5 max-w-[200px] truncate">
-                            {rec.destinoFinanceiroLabel}
-                          </span>
-                        </td>
-
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
                           {getFiscalStatusBadge(rec)}
                         </td>
 
-                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1 flex-nowrap">
                             {isDraft && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingDraft(rec);
-                                    setIsNewModalOpen(true);
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer"
-                                  title="Reabrir rascunho para editar e concluir a operação"
-                                >
-                                  <FileEdit className="w-3 h-3" />
-                                  <span>✏️ Continuar / Concluir</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteDraft(rec)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-[11px] font-bold transition cursor-pointer"
-                                  title="Excluir rascunho"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>Excluir</span>
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingDraft(rec);
+                                  setIsNewModalOpen(true);
+                                }}
+                                className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                                title="Reabrir rascunho para editar e concluir a operação"
+                              >
+                                <FileEdit className="w-3 h-3" />
+                                <span>✏️ Continuar</span>
+                              </button>
                             )}
 
                             {isPending && (
@@ -1106,62 +1547,85 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEmitOfficialNfe(rec)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer"
-                                  title="Converter este comprovante em NF-e de Devolução Oficial (Modelo 55), lançar na Central de Documentos e abrir DANFE"
+                                  className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                                  title="Converter este comprovante em NF-e de Devolução Oficial (Modelo 55)"
                                 >
                                   <FileText className="w-3 h-3" />
-                                  <span>🧾 Emitir NF-e Oficial</span>
+                                  <span>🧾 Emitir NF-e</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenDiscard(rec)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-[11px] font-bold transition cursor-pointer"
+                                  className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-400 text-[10px] font-bold transition cursor-pointer"
                                   title="Descartar item e baixar como perda sem emitir nota"
                                 >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>🗑️ Descartar / Perda</span>
+                                  <Ban className="w-3 h-3" />
+                                  <span>Descartar</span>
                                 </button>
                               </>
                             )}
 
                             {isEmitida && (
-                              <button
-                                type="button"
-                                onClick={() => printDanfeDevolucaoOficialA4(rec, company)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer"
-                                title="Imprimir DANFE Oficial da NF-e de Devolução (Modelo 55)"
-                              >
-                                <Printer className="w-3 h-3" />
-                                <span>🧾 DANFE NF-e</span>
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => printDanfeDevolucaoOficialA4(rec, company)}
+                                  className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                                  title="Imprimir DANFE Oficial da NF-e de Devolução (Modelo 55)"
+                                >
+                                  <Printer className="w-3 h-3" />
+                                  <span>DANFE</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCancelNfe(rec)}
+                                  className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400 text-[10px] font-bold transition cursor-pointer"
+                                  title="Cancelar NF-e emitida (SEFAZ) e estornar estoque/títulos em aberto"
+                                >
+                                  <span>🚫 Cancelar</span>
+                                </button>
+                              </>
                             )}
 
                             <button
                               type="button"
                               onClick={() => printTrocaDevolucaoA4(rec, company)}
-                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 transition cursor-pointer"
+                              className="h-6 w-6 inline-flex items-center justify-center rounded-md bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 transition cursor-pointer"
                               title="Imprimir Comprovante A4"
                             >
-                              <Printer className="w-3.5 h-3.5" />
+                              <Printer className="w-3 h-3" />
                             </button>
 
                             <button
                               type="button"
                               onClick={() => printTrocaDevolucaoCupom80mm(rec, company)}
-                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 transition cursor-pointer"
+                              className="h-6 w-6 inline-flex items-center justify-center rounded-md bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 transition cursor-pointer"
                               title="Imprimir Cupom 80mm"
                             >
-                              <Receipt className="w-3.5 h-3.5" />
+                              <Receipt className="w-3 h-3" />
                             </button>
 
                             <button
                               type="button"
                               onClick={() => setDetailsTarget(rec)}
-                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700 transition cursor-pointer"
+                              className="h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 text-[10px] font-bold transition cursor-pointer"
                               title="Ver Detalhes Completos"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3 h-3" />
+                              <span>VER</span>
                             </button>
+
+                            {isDevolucaoDeletionAllowed(rec) && (
+                              <button
+                                type="button"
+                                onClick={() => requestDeleteDevolucao(rec)}
+                                className="h-6 w-6 inline-flex items-center justify-center rounded-md bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 transition cursor-pointer"
+                                title={`Excluir registro ${rec.protocolo}`}
+                                aria-label={`Excluir ${rec.protocolo}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1503,6 +1967,219 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cancelamento Oficial de NF-e de Devolução (SEFAZ >= 15 caracteres + Estorno) */}
+      {cancelNfeTarget && (
+        <div
+          className="fixed inset-0 z-[9992] flex items-center justify-center p-3 bg-black/65 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => setCancelNfeTarget(null)}
+        >
+          <div
+            className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-lg w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-100 border border-amber-500">
+                  <Ban className="w-4 h-4 text-amber-900" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide">
+                    🚫 Cancelar Nota Fiscal de Devolução
+                  </h3>
+                  <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
+                    {cancelNfeTarget.notaDevolucaoNumber
+                      ? `NF-e Nº ${cancelNfeTarget.notaDevolucaoNumber} • `
+                      : ''}
+                    {cancelNfeTarget.protocolo}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCancelNfeTarget(null)}
+                className="p-1 rounded-lg bg-white/80 hover:bg-white border border-black text-slate-900 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancelNfe} className="p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-500 text-amber-950 text-xs font-bold leading-relaxed">
+                Tem certeza que deseja cancelar esta Nota Fiscal? Esta ação invalidará o documento fiscal e estornará estoque e títulos em aberto.
+              </div>
+
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold uppercase">{cancelNfeTarget.envolvidoNome}</span>
+                  <span className="font-mono font-black">{formatCurrencyBRL(cancelNfeTarget.totalDevolvido)}</span>
+                </div>
+                <div className="text-[11px] text-slate-700 dark:text-stone-300 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-black/15">
+                  <span>
+                    <strong>Usuário Logado:</strong> {loggedUserName}
+                  </span>
+                  <span>
+                    <strong>Data/Hora:</strong> {formatCurrentAuditDateTimeBR()}
+                  </span>
+                </div>
+              </div>
+
+              {cancelNfeError && (
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-500 text-rose-800 text-xs font-bold">
+                  {cancelNfeError}
+                </div>
+              )}
+
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider">
+                    Justificativa / Motivo do Cancelamento <span className="text-rose-600">*</span>
+                  </label>
+                  <span
+                    className={`text-[10px] font-mono font-bold ${
+                      cancelNfeJustificativa.trim().length >= 15 ? 'text-emerald-700' : 'text-rose-700'
+                    }`}
+                  >
+                    {cancelNfeJustificativa.trim().length}/15 caracteres mínimos
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={cancelNfeJustificativa}
+                  onChange={(e) => {
+                    setCancelNfeJustificativa(e.target.value);
+                    if (cancelNfeError) setCancelNfeError('');
+                  }}
+                  placeholder="Informe o motivo do cancelamento conforme padrão SEFAZ (mínimo 15 caracteres)..."
+                  className="w-full px-2.5 py-1.5 text-xs rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-600 resize-none"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setCancelNfeTarget(null)}
+                  className="px-4 py-1.5 text-xs font-bold rounded bg-white hover:bg-gray-100 dark:bg-stone-800 text-black dark:text-stone-200 border border-black cursor-pointer"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded bg-amber-600 hover:bg-amber-700 text-white border border-amber-900 cursor-pointer"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Confirmar Cancelamento da NF-e</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Bloqueio de Exclusão (NF-e Ativa ou Título Baixado) */}
+      {deleteBlockedInfo && (
+        <div
+          className="fixed inset-0 z-[9993] flex items-center justify-center p-3 bg-black/65 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => setDeleteBlockedInfo(null)}
+        >
+          <div
+            className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-md w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-700">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase">{deleteBlockedInfo.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteBlockedInfo(null)}
+                className="p-1 rounded-lg hover:bg-black/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 bg-[#e0e6f1] dark:bg-stone-950">
+              <p className="text-xs font-semibold text-stone-800 dark:text-stone-200 leading-relaxed">
+                {deleteBlockedInfo.message}
+              </p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDeleteBlockedInfo(null)}
+                  className="px-4 py-1.5 text-xs font-black uppercase rounded-lg bg-slate-900 hover:bg-black text-white border border-black cursor-pointer"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação Explícita: Excluir Registro Permanentemente */}
+      {deleteConfirmTarget && (
+        <div
+          className="fixed inset-0 z-[9993] flex items-center justify-center p-3 bg-black/65 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => setDeleteConfirmTarget(null)}
+        >
+          <div
+            className="bg-[#cad4e6] dark:bg-stone-900 rounded-xl max-w-md w-full border border-black dark:border-stone-700 shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-700">
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase">Confirmar Exclusão</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTarget(null)}
+                className="p-1 rounded-lg hover:bg-black/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 bg-[#e0e6f1] dark:bg-stone-950">
+              <p className="text-xs font-bold text-stone-900 dark:text-stone-100 leading-relaxed">
+                Tem certeza que deseja excluir este registro permanentemente?
+              </p>
+              <div className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-black/30 text-xs space-y-1">
+                <div>
+                  <strong>Documento / Protocolo:</strong> {deleteConfirmTarget.protocolo}
+                  {deleteConfirmTarget.notaDevolucaoNumber ? ` (NF-e Nº ${deleteConfirmTarget.notaDevolucaoNumber})` : ''}
+                </div>
+                <div>
+                  <strong>Envolvido:</strong> {deleteConfirmTarget.envolvidoNome} •{' '}
+                  <strong>Valor:</strong> {formatCurrencyBRL(deleteConfirmTarget.totalDevolvido)}
+                </div>
+                <div>
+                  <strong>Usuário Logado:</strong> {loggedUserName}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmTarget(null)}
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white hover:bg-gray-100 text-black border border-black cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteDevolucao}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-700 text-white border border-rose-800 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Sim, Excluir Permanentemente</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

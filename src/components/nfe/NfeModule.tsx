@@ -49,7 +49,8 @@ import {
   User,
   Send,
   Lock,
-  RefreshCw
+  RefreshCw,
+  Ban
 } from 'lucide-react';
 import { 
   Expense, 
@@ -132,8 +133,17 @@ import {
   getStoredMaintenanceLogs,
   safeLocalStorageSetItem,
   compactNfeItemForStorage,
-  stripXmlAndHeavyBlobsFromText
+  stripXmlAndHeavyBlobsFromText,
+  getStoredTrocasDevolucoes,
+  saveStoredTrocasDevolucoes,
+  getStoredPendenciasDevolucao,
+  saveStoredPendenciasDevolucao
 } from '../../lib/storage';
+import {
+  getLoggedAuditUserName,
+  formatCurrentAuditDateTimeBR,
+  recordFinancialReversalAudit
+} from '../../lib/financialAudit';
 import {
   PendingMaintenanceFromEntryNfePayload,
   dispatchOpenMaintenanceFromEntryNfe,
@@ -260,6 +270,7 @@ import {
   buildFiscalXmlStorageKey,
   classifyEntryEnviarContador,
   classifySaidaEnviarContador,
+  isOfficialFiscalDocumentType,
   saveRawFiscalXml,
 } from '../../lib/accountingExport';
 
@@ -1797,7 +1808,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   });
   const [showExtraPrices, setShowExtraPrices] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
-  const [blockedDeleteInfo, setBlockedDeleteInfo] = useState<{ title: string; detail: string } | null>(null);
+  const [blockedDeleteInfo, setBlockedDeleteInfo] = useState<{ title: string; detail: string; message?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-calibração reativa do motor fiscal: assegura CUSTO COMPOSTO = vProd + vIPI + freteItem e V. TOTAL = CUSTO COMPOSTO
@@ -2861,6 +2872,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const notaSaidaBodyRef = useRef<HTMLDivElement | null>(null);
   const [viewingNotaSaida, setViewingNotaSaida] = useState<NotaSaidaRecord | null>(null);
   const [notaSaidaToDelete, setNotaSaidaToDelete] = useState<NotaSaidaRecord | null>(null);
+  const [notaSaidaToCancel, setNotaSaidaToCancel] = useState<NotaSaidaRecord | null>(null);
+  const [cancelNotaJustificativa, setCancelNotaJustificativa] = useState('');
+  const [cancelNotaError, setCancelNotaError] = useState('');
 
   // Fluxo de Transmissão e Autorização SEFAZ
   const [sefazModalStage, setSefazModalStage] = useState<SefazModalStage>('closed');
@@ -5481,7 +5495,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     );
   };
 
+  const isNotaSaidaDeletionAllowed = (nota: NotaSaidaRecord): boolean => {
+    const statusNorm = String(nota.status || 'EMITIDA').trim().toUpperCase();
+    const isOfficialFiscal = isOfficialFiscalDocumentType(nota.tipoDocumento);
+    const hasFiscalAuth =
+      Boolean(cleanDigits(nota.chaveAcesso || '')) ||
+      Boolean(String(nota.protocoloAutorizacao || '').trim());
+
+    if (hasFiscalAuth) return false;
+
+    if (!isOfficialFiscal) {
+      return statusNorm !== 'AUTORIZADA' && statusNorm !== 'CANCELADA';
+    }
+
+    return statusNorm === 'RASCUNHO';
+  };
+
   const requestDeleteNotaSaida = (nota: NotaSaidaRecord) => {
+    if (!isNotaSaidaDeletionAllowed(nota)) {
+      setBlockedDeleteInfo({
+        title: 'Exclusão Proibida — Documento Fiscal Emitido',
+        detail: `${nota.tipoDocumento.split(' ')[0]} Nº ${nota.numero} (${nota.destinatarioNome})`,
+        message:
+          'Por regra fiscal de produção, notas fiscais já emitidas, autorizadas ou canceladas não podem ser excluídas, devendo permanecer no histórico e na sequência numérica para o Contador. Utilize apenas o botão "🚫 Cancelar" caso a nota ainda esteja ativa.',
+      });
+      return;
+    }
     if (hasSettledReceivableForNotaSaida(nota)) {
       setBlockedDeleteInfo({
         title: 'Exclusão Bloqueada — Parcela Recebida no Financeiro',
@@ -5490,6 +5529,164 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return;
     }
     setNotaSaidaToDelete(nota);
+  };
+
+  const handleOpenCancelNotaSaida = (nota: NotaSaidaRecord) => {
+    setNotaSaidaToCancel(nota);
+    setCancelNotaJustificativa('');
+    setCancelNotaError('');
+  };
+
+  const handleConfirmCancelNotaSaida = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notaSaidaToCancel) return;
+    const just = cancelNotaJustificativa.trim();
+    if (just.length < 15) {
+      setCancelNotaError('Informe o motivo do cancelamento com no mínimo 15 caracteres (exigência SEFAZ).');
+      return;
+    }
+
+    const nota = notaSaidaToCancel;
+    const auditUser = getLoggedAuditUserName();
+    const auditDateTime = formatCurrentAuditDateTimeBR();
+    const nowIso = new Date().toISOString();
+
+    // Estorno de estoque para notas de saída que realizaram baixa
+    const estornoLogs: string[] = [];
+    if (nota.estoqueBaixado && Array.isArray(nota.itens) && nota.itens.length > 0) {
+      const updatedInventory = [...getMergedBaseInventory()];
+      nota.itens.forEach((it) => {
+        const qty = Number(it.quantidade) || 0;
+        if (qty <= 0) return;
+        const idx = updatedInventory.findIndex(
+          (inv) =>
+            (it.inventoryItemId && inv.id === it.inventoryItemId) ||
+            (it.codigo && inv.code && String(inv.code).trim().toLowerCase() === String(it.codigo).trim().toLowerCase()) ||
+            (it.descricao &&
+              String(inv.name || inv.nome_comercial || '').trim().toLowerCase() ===
+                String(it.descricao).trim().toLowerCase())
+        );
+        if (idx >= 0) {
+          const cur = Number(updatedInventory[idx].quantity) || 0;
+          const nextQty = Math.round((cur + qty) * 100) / 100;
+          updatedInventory[idx] = {
+            ...updatedInventory[idx],
+            quantity: nextQty,
+            updatedAt: nowIso,
+          };
+          estornoLogs.push(`${updatedInventory[idx].name} (+${qty} ${updatedInventory[idx].unit || it.unidade || 'UN'})`);
+        }
+      });
+      if (estornoLogs.length > 0) {
+        saveInventory(updatedInventory);
+      }
+    }
+
+    const updatedNota: NotaSaidaRecord = {
+      ...nota,
+      status: 'CANCELADA',
+      lancarContasReceber: nota.receberStatus === 'pago' ? nota.lancarContasReceber : false,
+      estoqueBaixado: false,
+      cancelamentoMotivo: just,
+      canceladoPor: auditUser,
+      canceladoEm: auditDateTime,
+      observacoes: [nota.observacoes, `CANCELADA EM ${auditDateTime} POR ${auditUser} — MOTIVO: ${just}`]
+        .filter(Boolean)
+        .join(' | '),
+      updatedAt: nowIso,
+    };
+
+    // Mantém a nota como CANCELADA (histórico do Contador) e remove parcelas em aberto vinculadas
+    const nextSaidas = getStoredNotasSaida()
+      .filter(
+        (n) =>
+          !(
+            (n.id.startsWith(`nf_inst_${nota.id}_`) || n.id.startsWith(`nf_cnab_${nota.id}_`)) &&
+            n.receberStatus !== 'pago'
+          )
+      )
+      .map((n) => (n.id === nota.id ? updatedNota : n));
+
+    saveStoredNotasSaida(nextSaidas);
+    saveLocalNotaSaida(updatedNota);
+    setNotasSaida(getStoredNotasSaida());
+
+    // Sincroniza Devoluções & Garantias se a nota for originada de devolução
+    if (nota.id.startsWith('nfe_dev_')) {
+      const trocas = getStoredTrocasDevolucoes();
+      let trocaChanged = false;
+      const matchedTrocaIds = new Set<string>();
+      const matchedProtocolos = new Set<string>();
+      const nextTrocas = trocas.map((t) => {
+        if (t.fiscalDocId === nota.id || (nota.numero && t.notaDevolucaoNumber === nota.numero && t.fiscalDocId?.startsWith('nfe_dev_'))) {
+          trocaChanged = true;
+          matchedTrocaIds.add(t.id);
+          if (t.protocolo) matchedProtocolos.add(t.protocolo);
+          return {
+            ...t,
+            fiscalStatus: 'Cancelada' as const,
+            cancelamentoMotivo: just,
+            canceladoPor: auditUser,
+            canceladoEm: auditDateTime,
+            estoqueEstornado: true,
+            fiscalDecidedAt: nowIso,
+          };
+        }
+        return t;
+      });
+      if (trocaChanged) {
+        saveStoredTrocasDevolucoes(nextTrocas);
+      }
+
+      const pendencias = getStoredPendenciasDevolucao();
+      let pendChanged = false;
+      const nextPend = pendencias.map((p) => {
+        if (
+          p.notaDevolucaoId === nota.id ||
+          (p.trocaRecordId && matchedTrocaIds.has(p.trocaRecordId)) ||
+          (p.protocolo && matchedProtocolos.has(p.protocolo)) ||
+          (nota.numero && p.notaDevolucaoNumber === nota.numero)
+        ) {
+          pendChanged = true;
+          return {
+            ...p,
+            status: 'Cancelada' as const,
+            justificativaDescarte: just,
+            decidedAt: nowIso,
+          };
+        }
+        return p;
+      });
+      if (pendChanged) {
+        saveStoredPendenciasDevolucao(nextPend);
+      }
+    }
+
+    recordFinancialReversalAudit({
+      id: `cancel_nf_saida_${nota.id}_${Date.now()}`,
+      targetType: 'receber',
+      targetId: nota.id,
+      description: `Cancelamento ${nota.tipoDocumento.split(' ')[0]} Nº ${nota.numero} (${nota.destinatarioNome})`,
+      amount: Number(nota.valorTotal || 0),
+      user: auditUser,
+      dateTime: auditDateTime,
+      isoTimestamp: nowIso,
+      reason: just,
+      previousStatus: nota.status,
+    });
+
+    if (viewingNotaSaida?.id === nota.id) {
+      setViewingNotaSaida(updatedNota);
+    }
+    setNotaSaidaToCancel(null);
+    setCancelNotaJustificativa('');
+    setCancelNotaError('');
+
+    const stockNote = estornoLogs.length > 0 ? ` Estoque estornado: ${estornoLogs.join(', ')}.` : '';
+    setSuccessMessage(
+      `${nota.tipoDocumento.split(' ')[0]} Nº ${nota.numero} marcada como CANCELADA por ${auditUser}.${stockNote}`
+    );
+    setTimeout(() => setSuccessMessage(''), 6500);
   };
 
   const requestDeleteXmlNota = (notaId: string) => {
@@ -5539,6 +5736,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const handleDeleteNotaSaida = (nota: NotaSaidaRecord) => {
+    if (!isNotaSaidaDeletionAllowed(nota)) {
+      setNotaSaidaToDelete(null);
+      setBlockedDeleteInfo({
+        title: 'Exclusão Proibida — Documento Fiscal Emitido',
+        detail: `${nota.tipoDocumento.split(' ')[0]} Nº ${nota.numero} (${nota.destinatarioNome})`,
+        message:
+          'Por regra fiscal de produção, notas fiscais já emitidas, autorizadas ou canceladas não podem ser excluídas, devendo permanecer no histórico e na sequência numérica para o Contador. Utilize apenas o botão "🚫 Cancelar" caso a nota ainda esteja ativa.',
+      });
+      return;
+    }
     if (hasSettledReceivableForNotaSaida(nota)) {
       setNotaSaidaToDelete(null);
       setBlockedDeleteInfo({
@@ -14092,7 +14299,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   RASCUNHO
                                 </span>
                               ) : rawNotaSaida.status === 'CANCELADA' ? (
-                                <span className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-400 uppercase tracking-wide whitespace-nowrap">
+                                <span
+                                  className="h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-400 uppercase tracking-wide whitespace-nowrap"
+                                  title={
+                                    rawNotaSaida.cancelamentoMotivo
+                                      ? `Cancelada por ${rawNotaSaida.canceladoPor || 'Sistema'} em ${rawNotaSaida.canceladoEm || ''} — Motivo: ${rawNotaSaida.cancelamentoMotivo}`
+                                      : 'Nota Fiscal Cancelada'
+                                  }
+                                >
                                   CANCELADA
                                 </span>
                               ) : (
@@ -14199,7 +14413,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     <span>SEFAZ</span>
                                   </button>
                                 )}
-                                {rawNotaSaida.status !== 'AUTORIZADA' && (
+                                {rawNotaSaida.status !== 'AUTORIZADA' && rawNotaSaida.status !== 'CANCELADA' && (
                                   <button
                                     type="button"
                                     id={`btn-edit-nota-saida-${entry.id}`}
@@ -14275,6 +14489,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     <span className="hidden 2xl:inline">IMPRIMIR</span>
                                   </button>
                                 )}
+                                {rawNotaSaida.status !== 'CANCELADA' && rawNotaSaida.status !== 'RASCUNHO' && (
+                                  <button
+                                    type="button"
+                                    id={`btn-cancel-nota-saida-${entry.id}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenCancelNotaSaida(rawNotaSaida);
+                                    }}
+                                    className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap"
+                                    title={`Cancelar Nota Fiscal ${entry.documentNumber} (SEFAZ + estorno)`}
+                                  >
+                                    <Ban className="w-3 h-3 shrink-0" />
+                                    <span>Cancelar</span>
+                                  </button>
+                                )}
                               </>
                             ) : entry.rawExpense ? (
                               <button
@@ -14312,29 +14541,31 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               </button>
                             )}
 
-                            <button
-                              type="button"
-                              id={`btn-delete-doc-${entry.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (rawNotaSaida) {
-                                  requestDeleteNotaSaida(rawNotaSaida);
-                                } else if (isXml && entry.rawExpense) {
-                                  requestDeleteXmlNota(entry.id);
-                                } else if (entry.rawLegacyFiscalDoc) {
-                                  requestDeleteLegacyFiscalDoc(entry.rawLegacyFiscalDoc);
-                                } else if (entry.rawMdfeDoc) {
-                                  setMdfeDocToDelete(entry.rawMdfeDoc);
-                                } else {
-                                  requestDeleteManualDoc(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio', numero: entry.documentNumber } as DocumentoEntradaRecord));
-                                }
-                              }}
-                              className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
-                              title={`Excluir documento ${entry.documentNumber}`}
-                              aria-label={`Excluir ${entry.documentNumber}`}
-                            >
-                              <Trash2 className="w-3 h-3 pointer-events-none" />
-                            </button>
+                            {(!rawNotaSaida || isNotaSaidaDeletionAllowed(rawNotaSaida)) && (
+                              <button
+                                type="button"
+                                id={`btn-delete-doc-${entry.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (rawNotaSaida) {
+                                    requestDeleteNotaSaida(rawNotaSaida);
+                                  } else if (isXml && entry.rawExpense) {
+                                    requestDeleteXmlNota(entry.id);
+                                  } else if (entry.rawLegacyFiscalDoc) {
+                                    requestDeleteLegacyFiscalDoc(entry.rawLegacyFiscalDoc);
+                                  } else if (entry.rawMdfeDoc) {
+                                    setMdfeDocToDelete(entry.rawMdfeDoc);
+                                  } else {
+                                    requestDeleteManualDoc(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio', numero: entry.documentNumber } as DocumentoEntradaRecord));
+                                  }
+                                }}
+                                className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
+                                title={`Excluir documento ${entry.documentNumber}`}
+                                aria-label={`Excluir ${entry.documentNumber}`}
+                              >
+                                <Trash2 className="w-3 h-3 pointer-events-none" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -19611,19 +19842,42 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   {formatCurrencyBRL(viewingNotaSaida.valorTotal)}
                 </span>
               </div>
+
+              {viewingNotaSaida.status === 'CANCELADA' && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-400 rounded-lg text-xs text-rose-900 dark:text-rose-200 space-y-1">
+                  <div className="font-black uppercase">Documento Fiscal Cancelado</div>
+                  {viewingNotaSaida.canceladoPor && (
+                    <div>
+                      <strong>Responsável:</strong> {viewingNotaSaida.canceladoPor}{' '}
+                      {viewingNotaSaida.canceladoEm ? `em ${viewingNotaSaida.canceladoEm}` : ''}
+                    </div>
+                  )}
+                  {viewingNotaSaida.cancelamentoMotivo && (
+                    <div>
+                      <strong>Motivo / Justificativa:</strong> {viewingNotaSaida.cancelamentoMotivo}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => requestDeleteNotaSaida(viewingNotaSaida)}
-                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Excluir</span>
-              </button>
+              {isNotaSaidaDeletionAllowed(viewingNotaSaida) ? (
+                <button
+                  type="button"
+                  onClick={() => requestDeleteNotaSaida(viewingNotaSaida)}
+                  className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Excluir</span>
+                </button>
+              ) : (
+                <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                  Documento fiscal permanente (exclusão bloqueada para preservar sequência e histórico contábil).
+                </span>
+              )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {viewingNotaSaida.status !== 'AUTORIZADA' && viewingNotaSaida.status !== 'CANCELADA' && (
                   <button
                     type="button"
@@ -19638,6 +19892,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     <span>📤 Enviar SEFAZ</span>
                   </button>
                 )}
+                {viewingNotaSaida.status !== 'CANCELADA' && viewingNotaSaida.status !== 'RASCUNHO' && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCancelNotaSaida(viewingNotaSaida)}
+                    className="px-3.5 py-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400 rounded-lg transition cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>🚫 Cancelar Nota</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handlePrintNotaSaida(viewingNotaSaida)}
@@ -19646,7 +19910,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir Documento (DANFE/Espelho)</span>
                 </button>
-                {viewingNotaSaida.status !== 'AUTORIZADA' && (
+                {viewingNotaSaida.status !== 'AUTORIZADA' && viewingNotaSaida.status !== 'CANCELADA' && (
                   <button
                     type="button"
                     onClick={() => {
@@ -19674,41 +19938,176 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* MODAL: CANCELAR NOTA DE SAÍDA (SEFAZ >= 15 CARACTERES + ESTORNO)          */}
+      {/* ========================================================================= */}
+      {notaSaidaToCancel && (
+        <div
+          id="modal-cancelar-nota-saida"
+          className="fixed inset-0 z-90 bg-black/65 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setNotaSaidaToCancel(null)}
+        >
+          <div
+            className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-100 border border-amber-500">
+                  <Ban className="w-4 h-4 text-amber-900" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide">
+                    🚫 Cancelar Nota Fiscal ({notaSaidaToCancel.tipoDocumento.split(' ')[0]})
+                  </h3>
+                  <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
+                    Nº {notaSaidaToCancel.numero} • Série {notaSaidaToCancel.serie || '1'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotaSaidaToCancel(null)}
+                className="p-1 rounded-lg bg-white/80 hover:bg-white border border-black text-slate-900 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancelNotaSaida} className="p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-500 text-amber-950 text-xs font-bold leading-relaxed">
+                Tem certeza que deseja cancelar esta Nota Fiscal? Esta ação invalidará o documento fiscal e estornará estoque e títulos em aberto.
+              </div>
+
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-1 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold uppercase truncate">{notaSaidaToCancel.destinatarioNome}</span>
+                  <span className="font-mono font-black shrink-0">{formatCurrencyBRL(notaSaidaToCancel.valorTotal)}</span>
+                </div>
+                <div className="text-[11px] text-slate-700 dark:text-stone-300 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-black/15">
+                  <span>
+                    <strong>Usuário Logado:</strong> {getLoggedAuditUserName()}
+                  </span>
+                  <span>
+                    <strong>Data/Hora:</strong> {formatCurrentAuditDateTimeBR()}
+                  </span>
+                </div>
+              </div>
+
+              {cancelNotaError && (
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-500 text-rose-800 text-xs font-bold">
+                  {cancelNotaError}
+                </div>
+              )}
+
+              <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider">
+                    Justificativa / Motivo do Cancelamento <span className="text-rose-600">*</span>
+                  </label>
+                  <span
+                    className={`text-[10px] font-mono font-bold ${
+                      cancelNotaJustificativa.trim().length >= 15 ? 'text-emerald-700' : 'text-rose-700'
+                    }`}
+                  >
+                    {cancelNotaJustificativa.trim().length}/15 caracteres mínimos
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={cancelNotaJustificativa}
+                  onChange={(e) => {
+                    setCancelNotaJustificativa(e.target.value);
+                    if (cancelNotaError) setCancelNotaError('');
+                  }}
+                  placeholder="Informe o motivo do cancelamento conforme padrão SEFAZ (mínimo 15 caracteres)..."
+                  className="w-full px-2.5 py-1.5 text-xs rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-600 resize-none"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setNotaSaidaToCancel(null)}
+                  className="px-4 py-1.5 text-xs font-bold rounded bg-white hover:bg-gray-100 dark:bg-stone-800 text-black dark:text-stone-200 border border-black cursor-pointer"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  id="btn-confirmar-cancelamento-nota-saida"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded bg-amber-600 hover:bg-amber-700 text-white border border-amber-900 cursor-pointer"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Confirmar Cancelamento da Nota</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* MODAL: CONFIRMAR EXCLUSÃO DE NOTA DE SAÍDA */}
       {/* ========================================================================= */}
       {notaSaidaToDelete && (
         <div
           id="modal-confirmar-exclusao-nota-saida"
-          className="fixed inset-0 z-80 bg-black/55 backdrop-blur-none flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-80 bg-black/65 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setNotaSaidaToDelete(null)}
         >
           <div
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 text-stone-900 dark:text-stone-100"
+            className="bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl max-w-md w-full shadow-2xl overflow-hidden text-stone-900 dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center space-x-2 text-rose-600">
-              <AlertTriangle className="w-5 h-5" />
-              <h3 className="text-sm font-bold">Excluir Nota de Saída</h3>
-            </div>
-            <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-              Deseja realmente excluir a nota {notaSaidaToDelete.tipoDocumento.split(' ')[0]} nº {notaSaidaToDelete.numero} emitida para {notaSaidaToDelete.destinatarioNome} ({formatCurrencyBRL(notaSaidaToDelete.valorTotal)})?
-            </p>
-            <div className="pt-2 flex justify-end space-x-2">
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-700">
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase">Confirmar Exclusão</h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setNotaSaidaToDelete(null)}
-                className="px-3 py-1.5 text-xs font-bold text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl cursor-pointer"
+                className="p-1 rounded-lg hover:bg-black/10 cursor-pointer"
               >
-                Cancelar
+                <X className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                id="btn-confirmar-exclusao-nota-saida"
-                onClick={() => handleDeleteNotaSaida(notaSaidaToDelete)}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl cursor-pointer flex items-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Sim, Excluir</span>
-              </button>
+            </div>
+            <div className="p-4 space-y-3 bg-[#e0e6f1] dark:bg-stone-950">
+              <p className="text-xs font-bold text-stone-900 dark:text-stone-100 leading-relaxed">
+                Tem certeza que deseja excluir este registro permanentemente?
+              </p>
+              <div className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-black/30 text-xs space-y-1">
+                <div>
+                  <strong>Documento / Número:</strong> {notaSaidaToDelete.tipoDocumento.split(' ')[0]} Nº {notaSaidaToDelete.numero}
+                </div>
+                <div>
+                  <strong>Destinatário:</strong> {notaSaidaToDelete.destinatarioNome} •{' '}
+                  <strong>Valor:</strong> {formatCurrencyBRL(notaSaidaToDelete.valorTotal)}
+                </div>
+                <div>
+                  <strong>Usuário Logado:</strong> {getLoggedAuditUserName()}
+                </div>
+              </div>
+              <div className="pt-1 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setNotaSaidaToDelete(null)}
+                  className="px-3.5 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  id="btn-confirmar-exclusao-nota-saida"
+                  onClick={() => handleDeleteNotaSaida(notaSaidaToDelete)}
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 border border-rose-800 rounded-lg cursor-pointer flex items-center space-x-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Sim, Excluir Permanentemente</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -19747,7 +20146,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 {blockedDeleteInfo.detail}
               </div>
               <p className="text-xs font-semibold text-stone-800 dark:text-stone-200 leading-relaxed">
-                Não é possível excluir esta Nota Fiscal porque existem parcelas já baixadas no Financeiro. Acesse <strong>Financeiro &gt; A Pagar (ou A Receber)</strong>, estorne a baixa da parcela paga informando o motivo e depois exclua a nota.
+                {blockedDeleteInfo.message || (
+                  <>
+                    Não é possível excluir esta Nota Fiscal porque existem parcelas já baixadas no Financeiro. Acesse <strong>Financeiro &gt; A Pagar (ou A Receber)</strong>, estorne a baixa da parcela paga informando o motivo e depois exclua a nota.
+                  </>
+                )}
               </p>
               <div className="pt-1 flex justify-end">
                 <button

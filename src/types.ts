@@ -2435,6 +2435,9 @@ export interface NotaSaidaRecord {
   dataAutorizacao?: string;
   ambienteSefaz?: 'homologacao' | 'producao';
   transmitidaEmModoSimulacao?: boolean;
+  cancelamentoMotivo?: string;
+  canceladoPor?: string;
+  canceladoEm?: string;
   observacoes?: string;
 
   // A) Campos específicos de NFS-e
@@ -2768,6 +2771,10 @@ export interface TrocaDevolucaoRecord {
   notaDevolucaoChave?: string;
   notaDevolucaoEmitidaEm?: string;
   justificativaDescarte?: string;
+  cancelamentoMotivo?: string;
+  canceladoPor?: string;
+  canceladoEm?: string;
+  estoqueEstornado?: boolean;
   fiscalDecidedAt?: string;
   operador?: string;
   createdAt: string;
@@ -2778,7 +2785,8 @@ export type PendenciaDevolucaoStatus =
   | 'Aguardando Decisão Fiscal'
   | 'NF-e Emitida'
   | 'Nota de Devolução Emitida'
-  | 'Descartado pela Empresa';
+  | 'Descartado pela Empresa'
+  | 'Cancelada';
 
 export interface PendenciaDevolucaoRecord {
   id: string;
