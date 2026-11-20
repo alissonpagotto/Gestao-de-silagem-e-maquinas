@@ -16,6 +16,7 @@ import {
 import {
   buildDanfeOficialNfeHtml,
   DanfeOficialItem,
+  resolveDestinatarioDanfe,
 } from '../../lib/danfeOficialHtml';
 
 const escapeHtml = (value?: string | number | null): string => {
@@ -1331,17 +1332,19 @@ export function buildNotaSaidaHtml(
         fone: companyPhone,
         logoUrl,
       },
-      destinatario: {
-        nomeRazaoSocial: nota.destinatarioNome || '-',
-        cnpjCpf: nota.destinatarioCpfCnpj || 'NÃO INFORMADO',
-        endereco: nota.destinatarioEndereco || '-',
-        bairro: '-',
-        cep: extractCepFromText(nota.destinatarioEndereco) || '-',
-        municipio: destCidade || nota.destinatarioCidadeUf || '-',
-        uf: destUf || '-',
-        fone: '-',
-        ie: nota.destinatarioIe || 'ISENTO',
-      },
+      destinatario: resolveDestinatarioDanfe({
+        id: nota.destinatarioId,
+        nome: nota.destinatarioNome,
+        cpfCnpj: nota.destinatarioCpfCnpj,
+        ie: nota.destinatarioIe,
+        endereco: nota.destinatarioEndereco,
+        cep: extractCepFromText(nota.destinatarioEndereco),
+        municipio: destCidade,
+        uf: destUf,
+        cidadeUf: nota.destinatarioCidadeUf,
+        preferTipo: isDanfeRetorno ? 'fornecedor' : 'cliente',
+        chaveNfeReferenciada: nota.nfeReferenciada,
+      }),
       pagamentos: isSemPagamentoNfe
         ? [{ descricao: 'Sem Pagamento', valor: 0 }]
         : [

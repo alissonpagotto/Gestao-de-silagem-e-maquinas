@@ -11,6 +11,7 @@ import { executePrint } from '../../lib/printService';
 import {
   buildDanfeOficialNfeHtml,
   buildDeterministicChave44,
+  resolveDestinatarioDanfe,
 } from '../../lib/danfeOficialHtml';
 
 function escapeHtml(raw?: string | null): string {
@@ -694,17 +695,15 @@ export async function buildDanfeDevolucaoOficialHtml(
       fone: phone || '',
       logoUrl: logoDataUrl,
     },
-    destinatario: {
-      nomeRazaoSocial: record.envolvidoNome.toUpperCase(),
-      cnpjCpf: record.envolvidoDocumento || 'NÃO INFORMADO',
-      endereco: '-',
-      bairro: '-',
-      cep: '-',
-      municipio: '-',
-      uf: '-',
-      fone: record.envolvidoTelefone || '-',
-      ie: 'ISENTO',
-    },
+    destinatario: resolveDestinatarioDanfe({
+      id: record.envolvidoId,
+      nome: record.envolvidoNome.toUpperCase(),
+      cpfCnpj: record.envolvidoDocumento,
+      fone: record.envolvidoTelefone,
+      preferTipo: isFornecedor ? 'fornecedor' : 'cliente',
+      chaveNfeReferenciada: chaveRefDisplay,
+      numeroOrigem: record.numeroVendaOuNotaOrigem,
+    }),
     pagamentos: [{ descricao: 'Sem Pagamento', valor: 0 }],
     totais: {
       baseCalculoIcms: 0,

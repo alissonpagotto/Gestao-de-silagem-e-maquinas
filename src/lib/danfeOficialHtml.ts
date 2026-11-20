@@ -1,5 +1,14 @@
 import { cleanDigits, formatCpfCnpj } from './formatters';
-import { formatDateBR } from './storage';
+import {
+  formatDateBR,
+  getStoredClients,
+  getStoredDocumentosEntrada,
+  getStoredExpenses,
+  getStoredFiscalRecords,
+  getStoredNotasSaida,
+  getStoredSuppliers,
+} from './storage';
+import { Client, Supplier } from '../types';
 
 export interface DanfeOficialItem {
   codigo: string;
@@ -233,6 +242,275 @@ export function formatDanfeTimestampBR(date = new Date()): string {
   return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
 }
 
+function formatZipDanfe(raw?: string | null): string {
+  const digits = cleanDigits(raw || '');
+  if (digits.length === 8) {
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  }
+  return String(raw || '').trim();
+}
+
+function extractCepDanfe(raw?: string | null): string {
+  if (!raw) return '';
+  const m = String(raw).match(/\b(\d{5})-?(\d{3})\b/);
+  return m ? `${m[1]}-${m[2]}` : '';
+}
+
+function splitCityUfDanfe(raw?: string | null): { cidade: string; uf: string } {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return { cidade: '', uf: '' };
+  const m = trimmed.match(/^(.*?)[\/\-]\s*([A-Za-z]{2})$/);
+  if (m) {
+    return { cidade: m[1].trim(), uf: m[2].trim().toUpperCase() };
+  }
+  return { cidade: trimmed, uf: '' };
+}
+
+function normalizeTextKey(raw?: string | null): string {
+  return String(raw || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function pickNonBlank(...values: Array<string | undefined | null>): string {
+  for (const v of values) {
+    const t = String(v || '').trim();
+    if (t && t !== '-' && t !== '—') return t;
+  }
+  return '';
+}
+
+export interface ResolveDestinatarioInput {
+  id?: string;
+  nome?: string;
+  cpfCnpj?: string;
+  ie?: string;
+  endereco?: string;
+  bairro?: string;
+  cep?: string;
+  municipio?: string;
+  uf?: string;
+  cidadeUf?: string;
+  fone?: string;
+  preferTipo?: 'cliente' | 'fornecedor';
+  chaveNfeReferenciada?: string;
+  numeroOrigem?: string;
+}
+
+export function resolveDestinatarioDanfe(
+  params: ResolveDestinatarioInput
+): DanfeOficialInput['destinatario'] {
+  const clients = getStoredClients();
+  const suppliers = getStoredSuppliers();
+
+  let refNotaSaidaNome = '';
+  let refNotaSaidaId = '';
+  let refNotaSaidaDoc = '';
+  let refNotaSaidaIe = '';
+  let refNotaSaidaEnd = '';
+  let refNotaSaidaCidadeUf = '';
+  let refSupplierId = '';
+  let refSupplierName = '';
+  let refSupplierCnpj = '';
+
+  const refKeyDigits = cleanDigits(params.chaveNfeReferenciada || '');
+  const refNumDigits = cleanDigits(params.numeroOrigem || '').replace(/^0+/, '');
+
+  if (refKeyDigits.length === 44 || refNumDigits) {
+    const notasSaida = getStoredNotasSaida();
+    const matchedSaida = notasSaida.find((n) => {
+      const k = cleanDigits(n.chaveAcesso || '');
+      const num = cleanDigits(n.numero || '').replace(/^0+/, '');
+      return (
+        (refKeyDigits.length === 44 && k === refKeyDigits) ||
+        (refNumDigits && num && num === refNumDigits)
+      );
+    });
+    if (matchedSaida) {
+      refNotaSaidaNome = matchedSaida.destinatarioNome || '';
+      refNotaSaidaId = matchedSaida.destinatarioId || '';
+      refNotaSaidaDoc = matchedSaida.destinatarioCpfCnpj || '';
+      refNotaSaidaIe = matchedSaida.destinatarioIe || '';
+      refNotaSaidaEnd = matchedSaida.destinatarioEndereco || '';
+      refNotaSaidaCidadeUf = matchedSaida.destinatarioCidadeUf || '';
+    }
+
+    const docsEntrada = getStoredDocumentosEntrada();
+    const matchedDocEntrada = docsEntrada.find((d) => {
+      const k = cleanDigits(d.chave_acesso || '');
+      const num = cleanDigits(d.numero || d.numero_documento || '').replace(/^0+/, '');
+      return (
+        (refKeyDigits.length === 44 && k === refKeyDigits) ||
+        (refNumDigits && num && num === refNumDigits)
+      );
+    });
+    if (matchedDocEntrada) {
+      refSupplierId = matchedDocEntrada.fornecedor_id || '';
+      refSupplierName = matchedDocEntrada.fornecedor_nome || matchedDocEntrada.fornecedor || '';
+      refSupplierCnpj = matchedDocEntrada.fornecedor_cnpj || '';
+    }
+
+    const expensesPool = [...getStoredFiscalRecords(), ...getStoredExpenses()];
+    const matchedExp = expensesPool.find((e) => {
+      const k = cleanDigits(e.accessKey || '');
+      const num = cleanDigits(e.invoiceNumber || '').replace(/^0+/, '');
+      return (
+        (refKeyDigits.length === 44 && k === refKeyDigits) ||
+        (refNumDigits && num && num === refNumDigits)
+      );
+    });
+    if (matchedExp) {
+      refSupplierId = refSupplierId || matchedExp.supplierId || matchedExp.fornecedorId || '';
+      refSupplierName = refSupplierName || matchedExp.supplier || '';
+    }
+  }
+
+  const candidateId = pickNonBlank(params.id, refNotaSaidaId, refSupplierId);
+  const candidateDocDigits = cleanDigits(
+    pickNonBlank(params.cpfCnpj, refNotaSaidaDoc, refSupplierCnpj)
+  );
+  const candidateNameKey = normalizeTextKey(
+    pickNonBlank(params.nome, refNotaSaidaNome, refSupplierName)
+  );
+
+  const findSupplier = (): Supplier | undefined =>
+    suppliers.find((s) => {
+      if (candidateId && s.id === candidateId) return true;
+      const sDoc = cleanDigits(s.cnpjOrCpf || '');
+      if (candidateDocDigits.length >= 11 && sDoc === candidateDocDigits) return true;
+      if (candidateNameKey) {
+        const n1 = normalizeTextKey(s.name);
+        const n2 = normalizeTextKey(s.tradeName);
+        if (n1 === candidateNameKey || (n2 && n2 === candidateNameKey)) return true;
+      }
+      return false;
+    });
+
+  const findClient = (): Client | undefined =>
+    clients.find((c) => {
+      if (candidateId && c.id === candidateId) return true;
+      const cDoc = cleanDigits(c.cpfCnpj || '');
+      if (candidateDocDigits.length >= 11 && cDoc === candidateDocDigits) return true;
+      if (candidateNameKey) {
+        const n1 = normalizeTextKey(c.name || c.nome);
+        const n2 = normalizeTextKey(c.farmName || c.fazenda);
+        if (n1 === candidateNameKey || (n2 && n2 === candidateNameKey)) return true;
+      }
+      return false;
+    });
+
+  const matchedSupplier =
+    params.preferTipo === 'fornecedor'
+      ? findSupplier()
+      : findSupplier();
+  const matchedClient =
+    params.preferTipo === 'cliente'
+      ? findClient()
+      : findClient();
+
+  const entity =
+    params.preferTipo === 'fornecedor'
+      ? matchedSupplier || matchedClient
+      : matchedClient || matchedSupplier;
+
+  const isSupplierEntity = Boolean(
+    entity && ('cnpjOrCpf' in entity || 'tradeName' in entity)
+  );
+  const sup = isSupplierEntity ? (entity as Supplier) : undefined;
+  const cli = !isSupplierEntity && entity ? (entity as Client) : undefined;
+
+  const entityStreet = sup
+    ? [
+        sup.address,
+        sup.addressNumber ? `Nº ${sup.addressNumber}` : '',
+        sup.addressComplement,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : cli
+      ? [
+          cli.address,
+          cli.addressNumber ? `Nº ${cli.addressNumber}` : '',
+          cli.addressComplement,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : '';
+
+  const entityBairro = sup ? sup.neighborhood || '' : cli ? cli.neighborhood || '' : '';
+  const entityCep = sup
+    ? formatZipDanfe(sup.zipCode)
+    : cli
+      ? formatZipDanfe(cli.zipCode)
+      : '';
+  const entityMunicipio = sup
+    ? sup.city || ''
+    : cli
+      ? cli.city || cli.cidade || ''
+      : '';
+  const entityUf = sup
+    ? (sup.state || '').toUpperCase()
+    : cli
+      ? (cli.state || cli.estado || '').toUpperCase()
+      : '';
+  const entityFone = sup
+    ? sup.phone || ''
+    : cli
+      ? cli.phone || cli.telefone || ''
+      : '';
+  const entityIe = sup
+    ? sup.stateRegistration || ''
+    : cli
+      ? cli.stateRegistration || ''
+      : '';
+  const entityDoc = sup
+    ? sup.cnpjOrCpf || ''
+    : cli
+      ? cli.cpfCnpj || ''
+      : '';
+  const entityNome = sup
+    ? sup.name || sup.tradeName || ''
+    : cli
+      ? cli.name || cli.nome || ''
+      : '';
+
+  const explicitCityUf = splitCityUfDanfe(params.cidadeUf);
+  const refCityUf = splitCityUfDanfe(refNotaSaidaCidadeUf);
+
+  const enderecoFinal = pickNonBlank(params.endereco, refNotaSaidaEnd, entityStreet) || '-';
+  const bairroFinal = pickNonBlank(params.bairro, entityBairro) || '-';
+  const cepFinal =
+    pickNonBlank(
+      formatZipDanfe(params.cep),
+      entityCep,
+      extractCepDanfe(params.endereco),
+      extractCepDanfe(refNotaSaidaEnd)
+    ) || '-';
+  const municipioFinal =
+    pickNonBlank(params.municipio, explicitCityUf.cidade, entityMunicipio, refCityUf.cidade) ||
+    '-';
+  const ufFinal =
+    pickNonBlank(params.uf, explicitCityUf.uf, entityUf, refCityUf.uf).toUpperCase() || '-';
+  const foneFinal = pickNonBlank(params.fone, entityFone) || '-';
+  const ieFinal = pickNonBlank(params.ie, refNotaSaidaIe, entityIe) || 'ISENTO';
+  const docFinal = pickNonBlank(params.cpfCnpj, refNotaSaidaDoc, refSupplierCnpj, entityDoc);
+  const nomeFinal = pickNonBlank(params.nome, entityNome, refNotaSaidaNome, refSupplierName) || '-';
+
+  return {
+    nomeRazaoSocial: nomeFinal,
+    cnpjCpf: docFinal ? formatCpfCnpj(docFinal) || docFinal : 'NÃO INFORMADO',
+    endereco: enderecoFinal,
+    bairro: bairroFinal,
+    cep: cepFinal,
+    municipio: municipioFinal,
+    uf: ufFinal,
+    fone: foneFinal,
+    ie: ieFinal,
+  };
+}
+
 export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   const isPreview = Boolean(input.options?.isPreview);
   const autoPrint = input.options?.autoPrint !== false && !isPreview;
@@ -295,16 +573,16 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   // 14 colunas oficiais da grade DADOS DOS PRODUTOS / SERVIÇOS
   const colWidths = [
     '6%',    // 1. CÓDIGO PRODUTO
-    '22%',   // 2. DESCRIÇÃO DO PRODUTO / SERVIÇO
+    '20.5%', // 2. DESCRIÇÃO DO PRODUTO / SERVIÇO
     '7%',    // 3. NCM/SH
     '6%',    // 4. CSOSN / CST
     '4.5%',  // 5. CFOP
     '4%',    // 6. UNID
     '5.5%',  // 7. QTDE.
     '7.5%',  // 8. VALOR UNITÁRIO
-    '6.5%',  // 9. VALOR DESCONTO
+    '7.5%',  // 9. VALOR DESCONTO
     '7.5%',  // 10. VALOR TOTAL
-    '7%',    // 11. BASE DE CÁLC. ICMS
+    '7.5%',  // 11. BASE DE CÁLC. ICMS
     '6%',    // 12. VALOR ICMS
     '5%',    // 13. VALOR IPI
     '5.5%',  // 14. ALÍQ. % (ICMS / IPI)
@@ -378,7 +656,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   <style>
     @page {
       size: A4 portrait;
-      margin: 0mm;
+      margin: 7mm;
     }
     * {
       box-sizing: border-box;
@@ -394,28 +672,30 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       font-family: Arial, Helvetica, sans-serif;
     }
     body {
-      padding: ${isPreview ? '8px' : '4mm 0'};
+      padding: ${isPreview ? '8px' : '10px'};
     }
     @media print {
       html, body {
-        width: 210mm;
-        height: 297mm;
+        width: 100%;
+        height: auto;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
       }
       .no-print { display: none !important; }
       .danfe-sheet {
-        width: 210mm !important;
-        min-height: 297mm !important;
-        height: 297mm !important;
-        margin: 0 !important;
-        padding: 7mm 7mm !important;
+        width: 100% !important;
+        max-width: 196mm !important;
+        min-height: 282mm !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
         border: none !important;
       }
     }
     .no-print {
-      width: 210mm;
+      width: 100%;
+      max-width: 196mm;
       margin: 0 auto 8px auto;
       display: flex;
       justify-content: flex-end;
@@ -440,7 +720,8 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       cursor: pointer;
     }
     .preview-banner {
-      width: 210mm;
+      width: 100%;
+      max-width: 196mm;
       margin: 0 auto 8px auto;
       background: #ffffff;
       border: 1.5px solid #000000;
@@ -451,11 +732,12 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       text-align: center;
     }
     .danfe-sheet {
-      width: 210mm;
-      min-height: 297mm;
-      height: 297mm;
+      width: 100%;
+      max-width: 196mm;
+      min-height: 282mm;
       margin: 0 auto;
-      padding: 7mm 7mm;
+      padding: 0;
+      box-sizing: border-box;
       background: #ffffff;
       display: flex;
       flex-direction: column;
@@ -606,16 +888,16 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       border-left: 1px solid #000000;
       border-top: none;
       border-right: none;
-      padding: 2px 2px;
-      font-size: 5.2pt;
+      padding: 2px 1.5px;
+      font-size: 6.5px;
       font-weight: 800;
-      line-height: 1.08;
+      line-height: 1.12;
+      white-space: nowrap;
       text-align: center;
       vertical-align: middle;
       background: #ffffff;
       color: #000000;
       text-transform: uppercase;
-      word-break: break-word;
     }
     table.prod-table th:first-child,
     table.prod-table td:first-child {
@@ -860,7 +1142,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
           <thead>
             <tr>
               <th>CÓDIGO<br/>PRODUTO</th>
-              <th style="text-align:left;padding-left:4px;">DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+              <th style="text-align:left;padding-left:4px;">DESCRIÇÃO DO PRODUTO /<br/>SERVIÇO</th>
               <th>NCM/SH</th>
               <th>CSOSN /<br/>CST</th>
               <th>CFOP</th>
