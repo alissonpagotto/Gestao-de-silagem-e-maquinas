@@ -1959,3 +1959,119 @@ html:not(.dark) #reports-module-root .reports-filter-bar {
   background-image: none !important;
   border: 1px solid #000000 !important;
 }
+
+/* ==========================================================================
+   REDIMENSIONAMENTO PROPORCIONAL PURO NA RAIZ (ESCALA UNIFORME VIA REM)
+   Mantém exatamente a mesma disposição em 1 linha do monitor 24" em telas
+   menores (1600x900, 1440x900, 1366x768) sem quebrar cabeçalhos ou botões.
+   ========================================================================== */
+html {
+  font-size: 16px;
+}
+
+/* Telas grandes (>= 1680px — monitor 24"+): 100% */
+@media screen and (min-width: 1680px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* Monitores médios (1441px a 1679px): 87.5% */
+@media screen and (max-width: 1679px) and (min-width: 1441px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Notebooks HD+ (1367px a 1440px): 81.25% */
+@media screen and (max-width: 1440px) and (min-width: 1367px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+/* Notebooks padrão (1150px a 1366px — 14" / 15.6" 1366x768): 75% */
+@media screen and (max-width: 1366px) and (min-width: 1150px) {
+  html {
+    font-size: 12px;
+  }
+}
+
+/* Telas compactas (<= 1149px): 68.75% */
+@media screen and (max-width: 1149px) {
+  html {
+    font-size: 11px;
+  }
+}
+
+/* Preserva escala 100% (16px) em impressões A4, recibos, OS e holerites */
+@media print {
+  html {
+    font-size: 16px !important;
+  }
+}
+
+/* ==========================================================================
+   PROTEÇÃO GLOBAL DE MODAIS EM TELAS DE BAIXA ALTURA (768px)
+   Garante max-h-[92vh] + flex-col + overflow-hidden, corpo com rolagem
+   interna (flex-1 min-h-0 overflow-y-auto) e cabeçalho/rodapé fixos (shrink-0)
+   para que os botões SALVAR / CANCELAR nunca sejam cortados na base.
+   ========================================================================== */
+@media screen {
+  .fixed.inset-0.flex.justify-center > div:not(.fixed):not(.no-modal-clamp),
+  .fixed.inset-0.flex.justify-center > form:not(.no-modal-clamp) {
+    max-height: 92vh !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Corpos roláveis explícitos dentro de modais e formulários de modais */
+  .fixed.inset-0.flex.justify-center > div:not(.fixed) > .overflow-y-auto,
+  .fixed.inset-0.flex.justify-center > div:not(.fixed) > form > .overflow-y-auto,
+  .fixed.inset-0.flex.justify-center > form > .overflow-y-auto {
+    flex: 1 1 auto;
+    min-height: 0 !important;
+    overflow-y: auto;
+  }
+
+  /* Formulários diretos dentro do card do modal mantêm flex-col + min-h-0 */
+  .fixed.inset-0.flex.justify-center > div:not(.fixed) > form:not(.shrink-0) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Modais com cabeçalho + corpo + rodapé sem .overflow-y-auto explícito */
+  .fixed.inset-0.flex.justify-center > div:not(.fixed):not(:has(> .overflow-y-auto)):not(:has(> form)) > :first-child {
+    flex-shrink: 0;
+  }
+
+  .fixed.inset-0.flex.justify-center > div:not(.fixed):not(:has(> .overflow-y-auto)):not(:has(> form)) > :last-child:not(:first-child) {
+    flex-shrink: 0;
+  }
+
+  .fixed.inset-0.flex.justify-center > div:not(.fixed):not(:has(> .overflow-y-auto)):not(:has(> form)) > :not(:first-child):not(:last-child) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .fixed.inset-0.flex.justify-center > div:not(.fixed):not(:has(> .overflow-y-auto)):not(:has(> form)) > :only-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Formulários diretos sem container .overflow-y-auto interno: garante acesso aos campos e botões */
+  .fixed.inset-0.flex.justify-center > div:not(.fixed) > form:not(:has(> .overflow-y-auto)) {
+    overflow-y: auto;
+  }
+
+  .fixed.inset-0.flex.justify-center > div:not(.fixed) > form:not(:has(> .overflow-y-auto)) > :last-child:not(:first-child) {
+    flex-shrink: 0;
+  }
+}
+

@@ -653,7 +653,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         id="main-sidebar"
         className={`
-          no-print absolute inset-y-0 left-0 z-40 ${isCollapsed ? 'w-16' : 'w-64'} bg-[#d4deee] dark:bg-stone-900 border-r border-black dark:border-stone-800 flex flex-col transition-all duration-200 ease-in-out h-full max-h-full overflow-hidden
+          no-print absolute inset-y-0 left-0 z-40 ${isCollapsed ? 'w-16' : 'w-[15rem]'} bg-[#d4deee] dark:bg-stone-900 border-r border-black dark:border-stone-800 flex flex-col transition-all duration-200 ease-in-out h-full max-h-full overflow-hidden
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
