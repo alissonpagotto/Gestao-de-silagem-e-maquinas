@@ -13671,7 +13671,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">ENTRADA / SAÍDA</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">VALOR</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">STATUS</th>
-                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">INTEGRAÇÃO</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">CONTADOR</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">AÇÕES</th>
                 </tr>
@@ -13679,7 +13678,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                 {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={10} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
+                    <td colSpan={9} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
                       {activeDocDirection === 'saida'
                         ? 'NENHUMA NOTA DE SAÍDA REGISTRADA NESTA COMPETÊNCIA. CLIQUE EM "+ LANÇAR NOTA DE SAÍDA" PARA EMITIR/REGISTRAR.'
                         : 'NENHUM REGISTRO ENCONTRADO'}
@@ -13689,9 +13688,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   filteredUnifiedEntries.map((entry, idx) => {
                     const isXml = entry.sourceType === 'xml';
                     const rawNotaSaida = (entry as any).rawNotaSaida as NotaSaidaRecord | undefined;
-                    const integrationStatus = !rawNotaSaida && entry.sourceType !== 'mdfe'
-                      ? getEntryIntegrationStatus(entry)
-                      : null;
                     const tooltipText = (entry as any).tooltip || entry.description;
                     const compCnpj = (companyProfile || getStoredCompanyProfile())?.cnpjCpf;
                     const isVaiContador = rawNotaSaida
@@ -13842,50 +13838,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             }`}>
                               {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
                             </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-2 text-center whitespace-nowrap text-xs">
-                          {integrationStatus ? (
-                            <div className="inline-flex items-center justify-center gap-1 flex-nowrap">
-                              <span
-                                className={`h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
-                                  integrationStatus.hasStock
-                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-700'
-                                    : 'bg-slate-200 dark:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-400 dark:border-stone-600'
-                                }`}
-                                title={
-                                  integrationStatus.hasStock
-                                    ? 'Entrada no Estoque confirmada com movimentação vinculada à nota'
-                                    : 'Sem entrada registrada no Estoque — clique em Reintegrar para processar'
-                                }
-                              >
-                                {integrationStatus.hasStock ? '📦 Estoque OK' : 'Sem Estoque'}
-                              </span>
-                              <span
-                                className={`h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
-                                  integrationStatus.isBlockedFin
-                                    ? 'bg-slate-200 dark:bg-stone-800 text-slate-600 dark:text-stone-400 border-slate-400 dark:border-stone-600'
-                                    : integrationStatus.hasFinancial
-                                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-700'
-                                      : 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-400 dark:border-amber-700'
-                                }`}
-                                title={
-                                  integrationStatus.isBlockedFin
-                                    ? 'Operação sem lançamento financeiro no Contas a Pagar'
-                                    : integrationStatus.hasFinancial
-                                      ? 'Título(s) vinculado(s) em Contas a Pagar / Despesas'
-                                      : 'Título financeiro pendente — clique em Reintegrar para lançar no Contas a Pagar'
-                                }
-                              >
-                                {integrationStatus.isBlockedFin
-                                  ? 'Sem Fin.'
-                                  : integrationStatus.hasFinancial
-                                    ? '💰 Financeiro OK'
-                                    : 'Pendente'}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[10px] font-semibold text-stone-500">—</span>
                           )}
                         </td>
                         <td
@@ -14062,26 +14014,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               >
                                 <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span>VER</span>
-                              </button>
-                            )}
-
-                            {integrationStatus && (
-                              <button
-                                type="button"
-                                id={`btn-reintegrate-doc-${entry.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleReintegrateEntry(entry);
-                                }}
-                                className={`h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap ${
-                                  !integrationStatus.hasStock || (!integrationStatus.hasFinancial && !integrationStatus.isBlockedFin)
-                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-800'
-                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-200 border-slate-400 dark:border-stone-600'
-                                }`}
-                                title={`Reintegrar Estoque & Financeiro da nota ${entry.documentNumber} (sem duplicar itens já lançados)`}
-                              >
-                                <RefreshCw className="w-3 h-3 shrink-0" />
-                                <span>Reintegrar</span>
                               </button>
                             )}
 
