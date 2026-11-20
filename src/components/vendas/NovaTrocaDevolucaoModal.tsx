@@ -53,6 +53,7 @@ import {
   getStoredFiscalRecords,
   getStoredInventory,
   getStoredNotasSaida,
+  getStoredPendenciasDevolucao,
   getStoredServices,
   getStoredSuppliers,
   getStoredTrocasDevolucoes,
@@ -60,6 +61,7 @@ import {
   saveStoredClienteCreditos,
   saveStoredExpenses,
   saveStoredInventory,
+  saveStoredPendenciasDevolucao,
   saveStoredTrocasDevolucoes,
 } from '../../lib/storage';
 import {
@@ -1493,7 +1495,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         }
       }
 
-      // 1. ATUALIZAÇÃO IMEDIATA DO ESTOQUE NO LOCALSTORAGE
+      const isEditingExistingOperational = Boolean(
+        initialDraft &&
+          initialDraft.fiscalStatus &&
+          initialDraft.fiscalStatus !== 'Rascunho'
+      );
+
+      // 1. ATUALIZAÇÃO DO ESTOQUE NO LOCALSTORAGE (somente delta líquido ao editar registro já processado)
       const currentInventory = getStoredInventory();
       const updatedInventory = currentInventory.map((inv) => ({ ...inv }));
 
@@ -1523,6 +1531,21 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         }
       };
 
+      if (isEditingExistingOperational && initialDraft) {
+        const oldFornecedor = initialDraft.tipoOperacao === 'devolucao_fornecedor';
+        (initialDraft.itensDevolvidos || []).forEach((item) => {
+          if (item.returnToStock !== false) {
+            const revertDelta = oldFornecedor ? Math.abs(item.quantity) : -Math.abs(item.quantity);
+            applyStockDelta(item.productId, item.productCode, revertDelta);
+          }
+        });
+        if (initialDraft.tipoOperacao === 'troca_direta') {
+          (initialDraft.itensLevados || []).forEach((item) => {
+            applyStockDelta(item.productId, item.productCode, Math.abs(item.quantity));
+          });
+        }
+      }
+
       itensDevolvidos.forEach((item) => {
         if (item.returnToStock !== false) {
           // Cliente devolve para o estoque (+) | Empresa devolve para o fornecedor (-)
@@ -1543,18 +1566,35 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       window.dispatchEvent(new CustomEvent('inventory_updated', { detail: updatedInventory }));
 
       // 2. INTEGRAÇÃO FINANCEIRA E VALE-CRÉDITO
-      let destinoFinanceiro: TrocaDestinoFinanceiro = 'sem_impacto';
-      let destinoFinanceiroLabel = 'Sem Impacto Financeiro';
-      let valeCreditoId: string | undefined;
-      let valeCreditoValor: number | undefined;
-      let formaPagDif: string | undefined;
-      let formaEstornoFinal: string | undefined;
-      let boletoAbatidoInfo: BoletoAbatidoInfo | undefined;
+      let destinoFinanceiro: TrocaDestinoFinanceiro =
+        isEditingExistingOperational && initialDraft?.destinoFinanceiro
+          ? initialDraft.destinoFinanceiro
+          : 'sem_impacto';
+      let destinoFinanceiroLabel =
+        isEditingExistingOperational && initialDraft?.destinoFinanceiroLabel
+          ? initialDraft.destinoFinanceiroLabel
+          : 'Sem Impacto Financeiro';
+      let valeCreditoId: string | undefined = isEditingExistingOperational
+        ? initialDraft?.valeCreditoId
+        : undefined;
+      let valeCreditoValor: number | undefined = isEditingExistingOperational
+        ? initialDraft?.valeCreditoValor
+        : undefined;
+      let formaPagDif: string | undefined = isEditingExistingOperational
+        ? initialDraft?.formaPagamentoDiferenca
+        : undefined;
+      let formaEstornoFinal: string | undefined = isEditingExistingOperational
+        ? initialDraft?.formaEstorno
+        : undefined;
+      let boletoAbatidoInfo: BoletoAbatidoInfo | undefined = isEditingExistingOperational
+        ? initialDraft?.boletoAbatido
+        : undefined;
 
       const dataBR = formatDateBR(dataOperacao);
       const horaStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      if (isFornecedor) {
+      if (!isEditingExistingOperational) {
+        if (isFornecedor) {
         if (destinoFornecedor === 'abatimento_boleto' && selectedBoleto) {
           const allExpenses = getStoredExpenses();
           const targetIdx = allExpenses.findIndex(
@@ -1884,6 +1924,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           }
         }
       }
+      }
 
       const isEmitirNfeOficial = tipoDocumentoEmitir === 'nfe_oficial';
       const cleanedChaveRef = chaveNfeReferenciada.replace(/\D/g, '');
@@ -1963,8 +2004,25 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         : [finalRecord, ...existingTrocas];
       saveStoredTrocasDevolucoes(updatedTrocasList);
 
-      // 4. SINCRONIZAÇÃO LEGADA COM FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA
-      if (!isEmitirNfeOficial && itensParaFilaFiscal.length > 0) {
+      // 4. SINCRONIZAÇÃO LEGADA COM FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA (sem duplicar ao editar)
+      const currentPendencias = getStoredPendenciasDevolucao();
+      const withoutCurrentPendencias = currentPendencias.filter(
+        (p) => p.trocaRecordId !== finalRecord.id && p.protocolo !== protocolo
+      );
+
+      if (isEmitirNfeOficial) {
+        const syncedPendencias = currentPendencias.map((p) =>
+          p.trocaRecordId === finalRecord.id || p.protocolo === protocolo
+            ? {
+                ...p,
+                status: 'NF-e Emitida' as const,
+                notaDevolucaoNumber: finalRecord.notaDevolucaoNumber,
+                decidedAt: finalRecord.fiscalDecidedAt || now.toISOString(),
+              }
+            : p
+        );
+        saveStoredPendenciasDevolucao(syncedPendencias);
+      } else if (itensParaFilaFiscal.length > 0) {
         const pendenciasToQueue: PendenciaDevolucaoRecord[] = itensParaFilaFiscal.map(
           (item, idx) => ({
             id: `pend_dev_${now.getTime()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
@@ -1996,7 +2054,9 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             createdAt: now.toISOString(),
           })
         );
-        addPendenciasDevolucao(pendenciasToQueue);
+        saveStoredPendenciasDevolucao([...pendenciasToQueue, ...withoutCurrentPendencias]);
+      } else if (withoutCurrentPendencias.length !== currentPendencias.length) {
+        saveStoredPendenciasDevolucao(withoutCurrentPendencias);
       }
 
       if (isEmitirNfeOficial) {
@@ -2187,7 +2247,9 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 <span>NOVA TROCA / DEVOLUÇÃO DE PRODUTOS</span>
                 {initialDraft && (
                   <span className="px-2 py-0.5 rounded bg-amber-100 border border-amber-600 text-amber-900 text-[10px] font-black uppercase">
-                    📝 EDITANDO RASCUNHO
+                    {initialDraft.fiscalStatus === 'Rascunho'
+                      ? '📝 EDITANDO RASCUNHO'
+                      : '✏️ EDITANDO PENDÊNCIA FISCAL'}
                   </span>
                 )}
               </h2>

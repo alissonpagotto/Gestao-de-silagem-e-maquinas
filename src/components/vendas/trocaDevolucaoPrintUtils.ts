@@ -130,10 +130,11 @@ async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | nul
 export async function buildTrocaDevolucaoA4Html(
   record: TrocaDevolucaoRecord,
   companyProfile?: CompanyProfile | null,
-  options?: { isEspelhoFiscal?: boolean; isPreview?: boolean }
+  options?: { isEspelhoFiscal?: boolean; isPreview?: boolean; viewerOnly?: boolean }
 ): Promise<string> {
   const isEspelhoFiscal = Boolean(options?.isEspelhoFiscal);
   const isPreview = Boolean(options?.isPreview);
+  const viewerOnly = Boolean(options?.viewerOnly);
   const { companyName, tradeName, cnpj, phone, email, fullAddress, logoDataUrl } =
     await resolveActiveCompanyAndLogo(companyProfile);
 
@@ -516,7 +517,7 @@ export async function buildTrocaDevolucaoA4Html(
     ${buildSystemPrintFooterHtml({ extraRight: `Protocolo ${record.protocolo}` })}
   </div>
   ${
-    isPreview
+    isPreview || viewerOnly
       ? `<style>body { padding: 14px; background: #f8fafc; } .sheet, .print-wrapper { background: #fff; padding: 14px; border: 1px solid #cbd5e1; border-radius: 6px; }</style>`
       : `<script>
     window.addEventListener('load', function() {
@@ -530,7 +531,7 @@ export async function buildTrocaDevolucaoA4Html(
 </body>
 </html>`;
 
-  return isPreview
+  return isPreview && !viewerOnly
     ? html.replace(
         '<body>',
         `<body><div style="background:#fef3c7;border:1.5px solid #92400e;color:#78350f;padding:7px 12px;margin-bottom:10px;border-radius:6px;font-family:Arial,sans-serif;font-size:11px;font-weight:800;text-align:center;">👁️ PRÉ-VISUALIZAÇÃO DO COMPROVANTE INTERNO (NÃO FISCAL) — DOCUMENTO AINDA NÃO SALVO E SEM MOVIMENTAÇÃO DE ESTOQUE</div>`
@@ -571,9 +572,10 @@ export async function printEspelhoFiscalDevolucaoA4(
 export async function buildDanfeDevolucaoOficialHtml(
   record: TrocaDevolucaoRecord,
   companyProfile?: CompanyProfile | null,
-  options?: { isPreview?: boolean }
+  options?: { isPreview?: boolean; viewerOnly?: boolean }
 ): Promise<string> {
   const isPreview = Boolean(options?.isPreview);
+  const viewerOnly = Boolean(options?.viewerOnly);
   const isFornecedor =
     record.envolvidoTipo === 'fornecedor' || record.tipoOperacao === 'devolucao_fornecedor';
 
@@ -733,8 +735,9 @@ export async function buildDanfeDevolucaoOficialHtml(
     itens: danfeItens,
     informacoesComplementares: infoLines,
     options: {
-      isPreview,
-      autoPrint: !isPreview,
+      isPreview: isPreview && !viewerOnly,
+      autoPrint: !isPreview && !viewerOnly,
+      hideToolbar: viewerOnly,
       documentTitle: `DANFE NF-e Nº ${numeroNfe} - ${record.protocolo}`,
     },
   });

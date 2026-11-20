@@ -99,6 +99,7 @@ export interface DanfeOficialInput {
   options?: {
     isPreview?: boolean;
     autoPrint?: boolean;
+    hideToolbar?: boolean;
     documentTitle?: string;
   };
 }
@@ -949,7 +950,9 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   ${
     isPreview
       ? `<div class="preview-banner">PRÉ-VISUALIZAÇÃO DO DANFE OFICIAL (NF-e MODELO 55) — PADRÃO SEFAZ</div>`
-      : `<div class="no-print">
+      : input.options?.hideToolbar
+        ? ''
+        : `<div class="no-print">
           <button class="btn-close" onclick="window.close()">Fechar</button>
           <button class="btn-print" onclick="window.focus();window.print()">Imprimir / Salvar PDF (DANFE)</button>
         </div>`

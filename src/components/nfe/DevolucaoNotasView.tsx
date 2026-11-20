@@ -51,11 +51,10 @@ import {
   getLoggedAuditUserName,
   recordFinancialReversalAudit,
 } from '../../lib/financialAudit';
+import { NovaTrocaDevolucaoModal } from '../vendas/NovaTrocaDevolucaoModal';
 import {
-  NovaTrocaDevolucaoModal,
-  TrocaDevolucaoDetailsModal,
-} from '../vendas/NovaTrocaDevolucaoModal';
-import {
+  buildDanfeDevolucaoOficialHtml,
+  buildTrocaDevolucaoA4Html,
   getTipoOperacaoLabel,
   printDanfeDevolucaoOficialA4,
   printEspelhoFiscalDevolucaoA4,
@@ -370,7 +369,13 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     return false;
   });
   const [editingDraft, setEditingDraft] = useState<TrocaDevolucaoRecord | null>(null);
-  const [detailsTarget, setDetailsTarget] = useState<TrocaDevolucaoRecord | null>(null);
+  const [docViewerState, setDocViewerState] = useState<{
+    record: TrocaDevolucaoRecord;
+    mode: 'danfe' | 'comprovante';
+    title: string;
+    html: string;
+  } | null>(null);
+  const [isLoadingDocViewer, setIsLoadingDocViewer] = useState(false);
 
   // Filtros (padrão: Todos os Períodos / Todos os Meses)
   const [statusFilter, setStatusFilter] = useState<FiscalFilterOption>('todas');
@@ -1059,8 +1064,45 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
     setRecords(getUnifiedFiscalDevolucoes());
     setDeleteConfirmTarget(null);
+    if (docViewerState?.record.id === rec.id) {
+      setDocViewerState(null);
+    }
     setSuccessMsg(`Registro ${rec.protocolo} excluído permanentemente.`);
     setTimeout(() => setSuccessMsg(''), 4500);
+  };
+
+  const hasOfficialNfeIssued = (rec: TrocaDevolucaoRecord): boolean => {
+    const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
+    return (
+      isNfeEmitidaStatus(st) ||
+      st === 'Cancelada' ||
+      Boolean(rec.notaDevolucaoNumber && String(rec.notaDevolucaoNumber).trim().length > 0) ||
+      rec.tipoDocumento === 'nfe_oficial'
+    );
+  };
+
+  const handleOpenDirectDocument = async (
+    rec: TrocaDevolucaoRecord,
+    forceMode?: 'danfe' | 'comprovante'
+  ) => {
+    const mode: 'danfe' | 'comprovante' =
+      forceMode || (hasOfficialNfeIssued(rec) ? 'danfe' : 'comprovante');
+    setIsLoadingDocViewer(true);
+    try {
+      const html =
+        mode === 'danfe'
+          ? await buildDanfeDevolucaoOficialHtml(rec, company, { viewerOnly: true })
+          : await buildTrocaDevolucaoA4Html(rec, company, { viewerOnly: true });
+      const title =
+        mode === 'danfe'
+          ? `DANFE Oficial da NF-e${rec.notaDevolucaoNumber ? ` Nº ${rec.notaDevolucaoNumber}` : ''} — ${rec.protocolo}`
+          : `Comprovante A4 da Operação — ${rec.protocolo}`;
+      setDocViewerState({ record: rec, mode, title, html });
+    } catch (err) {
+      console.error('Erro ao gerar visualização do documento A4:', err);
+    } finally {
+      setIsLoadingDocViewer(false);
+    }
   };
 
   const getFiscalStatusBadge = (rec: TrocaDevolucaoRecord) => {
@@ -1527,18 +1569,21 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
                         <td className="py-2 px-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1 flex-nowrap">
-                            {isDraft && (
+                            {(isDraft || isPending) && (
                               <button
                                 type="button"
                                 onClick={() => {
                                   setEditingDraft(rec);
                                   setIsNewModalOpen(true);
                                 }}
-                                className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
-                                title="Reabrir rascunho para editar e concluir a operação"
+                                className="h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 text-[10px] font-bold uppercase shadow-2xs transition cursor-pointer shrink-0 whitespace-nowrap"
+                                title={
+                                  isDraft
+                                    ? `Reabrir rascunho ${rec.protocolo} para editar e concluir`
+                                    : `Editar ${rec.protocolo} no formulário completo de origem`
+                                }
                               >
-                                <FileEdit className="w-3 h-3" />
-                                <span>✏️ Continuar</span>
+                                <span>✏️ EDITAR</span>
                               </button>
                             )}
 
@@ -1569,9 +1614,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => printDanfeDevolucaoOficialA4(rec, company)}
-                                  className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
-                                  title="Imprimir DANFE Oficial da NF-e de Devolução (Modelo 55)"
+                                  onClick={() => handleOpenDirectDocument(rec, 'danfe')}
+                                  disabled={isLoadingDocViewer}
+                                  className="h-6 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer disabled:opacity-60"
+                                  title="Visualizar e imprimir DANFE Oficial da NF-e de Devolução (Modelo 55)"
                                 >
                                   <Printer className="w-3 h-3" />
                                   <span>DANFE</span>
@@ -1607,9 +1653,14 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
                             <button
                               type="button"
-                              onClick={() => setDetailsTarget(rec)}
-                              className="h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 text-[10px] font-bold transition cursor-pointer"
-                              title="Ver Detalhes Completos"
+                              onClick={() => handleOpenDirectDocument(rec)}
+                              disabled={isLoadingDocViewer}
+                              className="h-6 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 text-[10px] font-bold transition cursor-pointer disabled:opacity-60"
+                              title={
+                                hasOfficialNfeIssued(rec)
+                                  ? 'Visualizar DANFE Oficial A4 pronto para conferir e imprimir'
+                                  : 'Visualizar Comprovante A4 pronto para conferir e imprimir'
+                              }
                             >
                               <Eye className="w-3 h-3" />
                               <span>VER</span>
@@ -1671,12 +1722,74 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
         }}
       />
 
-      {/* Modal de Detalhes Completos */}
-      <TrocaDevolucaoDetailsModal
-        record={detailsTarget}
-        companyProfile={company}
-        onClose={() => setDetailsTarget(null)}
-      />
+      {/* Modal Direto: Visualização A4 Oficial (DANFE da NF-e ou Comprovante A4) */}
+      {docViewerState && (
+        <div
+          className="fixed inset-0 z-[9995] flex items-center justify-center bg-black/75 backdrop-blur-[2px] p-2 sm:p-4"
+          onClick={() => setDocViewerState(null)}
+        >
+          <div
+            className="w-[94vw] max-w-[1060px] h-[93vh] flex flex-col bg-[#cad4e6] dark:bg-stone-900 border-2 border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-slate-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-700 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-emerald-800 dark:text-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black uppercase truncate">
+                    {docViewerState.title}
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-700 dark:text-stone-400 truncate">
+                    {docViewerState.record.envolvidoNome} • {formatDateBR(docViewerState.record.data)} •{' '}
+                    {formatCurrencyBRL(docViewerState.record.totalDevolvido)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    docViewerState.mode === 'danfe'
+                      ? printDanfeDevolucaoOficialA4(docViewerState.record, company)
+                      : printTrocaDevolucaoA4(docViewerState.record, company)
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-900 text-xs font-bold uppercase cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>
+                    {docViewerState.mode === 'danfe'
+                      ? 'Imprimir DANFE Oficial'
+                      : 'Imprimir Comprovante A4'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => printTrocaDevolucaoCupom80mm(docViewerState.record, company)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black text-xs font-bold uppercase cursor-pointer"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Cupom 80mm</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocViewerState(null)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black text-xs font-bold uppercase cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Fechar</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-200 dark:bg-stone-950 p-2 sm:p-3 overflow-hidden">
+              <iframe
+                title={docViewerState.title}
+                srcDoc={docViewerState.html}
+                className="w-full h-full bg-white border border-black rounded shadow-inner"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Rápido: Emitir NF-e de Devolução Oficial (Modelo 55) + Central de Documentos + DANFE */}
       {nfeTarget && (
