@@ -46,7 +46,8 @@ import {
   getStoredMachineries,
   saveStoredMachineries,
   getStoredEmployees,
-  getActiveCompanyId
+  getActiveCompanyId,
+  isFictitiousDriverRecord
 } from '../../lib/storage';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { toValidUUID, isSupabaseConfigured, supabase, upsertVeiculoMaquina } from '../../lib/supabaseService';
@@ -1118,15 +1119,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setLicensingLastLaunchDate(editingVehicle.licensingLastLaunchDate || '');
       
       // Drivers
-      const poolOfEmployees = getStoredEmployees().length > 0 ? getStoredEmployees() : (employees || []);
+      const poolOfEmployees = (getStoredEmployees().length > 0 ? getStoredEmployees() : (employees || []))
+        .filter(emp => !isFictitiousDriverRecord(emp) && emp.status !== 'excluido');
+      const validPoolIds = new Set(poolOfEmployees.map(emp => emp.id));
       if (editingVehicle.assignedDriverIds && editingVehicle.assignedDriverIds.length > 0) {
-        setSelectedDriverIds(editingVehicle.assignedDriverIds);
+        setSelectedDriverIds(editingVehicle.assignedDriverIds.filter(id => validPoolIds.has(id)));
       } else if (editingVehicle.operatorOrDriver) {
         const existingNames = String(editingVehicle.operatorOrDriver ?? '').split(',').map(s => String(s ?? '').trim().toLowerCase());
         const matchedIds = poolOfEmployees
           .filter(emp => existingNames.includes(String(emp?.name ?? '').toLowerCase().trim()))
           .map(emp => emp.id);
-        setSelectedDriverIds(matchedIds.length > 0 ? matchedIds : (editingVehicle.assignedDriverIds || []));
+        setSelectedDriverIds(matchedIds);
       } else if ((editingVehicle as any).user_id || (editingVehicle as any).driver_id) {
         const uid = (editingVehicle as any).user_id || (editingVehicle as any).driver_id;
         const matched = poolOfEmployees.find(emp => emp.id === uid || toValidUUID(emp.id) === toValidUUID(uid));

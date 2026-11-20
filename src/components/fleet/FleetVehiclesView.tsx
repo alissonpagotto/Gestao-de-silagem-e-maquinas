@@ -27,7 +27,9 @@ import {
   saveStoredMaintenanceCategories,
   DEFAULT_PREVENTIVE_PLANS_BY_CATEGORY,
   MAINTENANCE_SUBGROUPS,
-  inferMaintenanceSubgroup
+  inferMaintenanceSubgroup,
+  isFictitiousDriverName,
+  isFictitiousDriverRecord
 } from '../../lib/storage';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
@@ -2617,10 +2619,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     const totalFuel = getVehicleTotalFuel(vehicle.id);
                     const totalMaint = getVehicleTotalMaintenance(vehicle.id);
                     const totalCost = totalFuel + totalMaint;
-                    const employeePool = (employees && employees.length > 0) ? employees : getStoredEmployees();
+                    const employeePool = ((employees && employees.length > 0) ? employees : getStoredEmployees())
+                      .filter(e => !isFictitiousDriverRecord(e));
                     let driversList = vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0
-                      ? vehicle.assignedDrivers
-                      : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()).filter(Boolean) : []);
+                      ? vehicle.assignedDrivers.filter(n => !isFictitiousDriverName(n))
+                      : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()).filter(n => Boolean(n) && !isFictitiousDriverName(n)) : []);
                     if (driversList.length === 0 && (vehicle.assignedDriverIds?.length || (vehicle as any).user_id || (vehicle as any).driver_id)) {
                       const candidateIds = vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0
                         ? vehicle.assignedDriverIds

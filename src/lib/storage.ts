@@ -547,6 +547,10 @@ export function getStoredExpenses(): Expense[] {
         hasInvalid = true;
         return false;
       }
+      if (isFictitiousDriverRecord(item)) {
+        hasInvalid = true;
+        return false;
+      }
       return true;
     }).map(sanitizeExpenseRecord);
 
@@ -1593,20 +1597,21 @@ export function sanitizeMachineryList(list: any): Machinery[] {
     })
     .map((m: any, idx: number) => {
       const img = m.imageUrl || m.photoUrl;
+      const { machinery: driverCleanM } = sanitizeMachineryDriverLinks(m);
       const sanitizedBase = {
-        ...m,
-        id: String(m.id ?? '').trim() || `veh_sanitized_${idx}`,
-        name: String(m.name ?? ''),
-        model: String(m.model ?? ''),
-        brand: String(m.brand ?? ''),
-        licensePlateOrSerial: String(m.licensePlateOrSerial ?? ''),
-        fleetNumber: String(m.fleetNumber ?? ''),
-        operatorOrDriver: String(m.operatorOrDriver ?? ''),
-        categoriaVeiculo: String(m.categoriaVeiculo ?? ''),
-        categoria: String(m.categoria ?? ''),
-        categoryType: String(m.categoryType ?? ''),
-        type: String(m.type ?? ''),
-        notes: String(m.notes ?? ''),
+        ...driverCleanM,
+        id: String(driverCleanM.id ?? '').trim() || `veh_sanitized_${idx}`,
+        name: String(driverCleanM.name ?? ''),
+        model: String(driverCleanM.model ?? ''),
+        brand: String(driverCleanM.brand ?? ''),
+        licensePlateOrSerial: String(driverCleanM.licensePlateOrSerial ?? ''),
+        fleetNumber: String(driverCleanM.fleetNumber ?? ''),
+        operatorOrDriver: String(driverCleanM.operatorOrDriver ?? ''),
+        categoriaVeiculo: String(driverCleanM.categoriaVeiculo ?? ''),
+        categoria: String(driverCleanM.categoria ?? ''),
+        categoryType: String(driverCleanM.categoryType ?? ''),
+        type: String(driverCleanM.type ?? ''),
+        notes: String(driverCleanM.notes ?? ''),
       };
       if (img && (img.includes('wix_mp.com') || img.includes('wix_mp') || img.includes('static.wixstatic.com') || img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
         return { ...sanitizedBase, imageUrl: undefined, photoUrl: undefined, foto_url: undefined };
@@ -1970,10 +1975,10 @@ export function getStoredEmployees(): Employee[] {
       return id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (name === 'ALISSON PAG' && !emp.cpf);
     };
 
-    // Filtra apenas colaboradores excluídos permanentemente, duplicata legada sem CPF e registros sem nome
+    // Filtra apenas colaboradores excluídos permanentemente, duplicata legada sem CPF, registros fictícios e registros sem nome
     const filtered = parsed.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
-      if (isLegacyDuplicateWithoutCpf(emp)) {
+      if (isLegacyDuplicateWithoutCpf(emp) || isFictitiousDriverRecord(emp)) {
         modified = true;
         return false;
       }
@@ -2075,7 +2080,7 @@ export function getStoredAllEmployees(): Employee[] {
       return id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (name === 'ALISSON PAG' && !emp.cpf);
     };
 
-    const cleaned = parsed.filter(emp => !isLegacyDuplicateWithoutCpf(emp));
+    const cleaned = parsed.filter(emp => !isLegacyDuplicateWithoutCpf(emp) && !isFictitiousDriverRecord(emp));
     const { list: withAlissonRestored, recovered } = recoverAlissonPagottoIfMissingOrInactive(cleaned, cId);
     if (recovered || withAlissonRestored.length !== parsed.length) {
       saveStoredEmployees(withAlissonRestored);
@@ -3388,6 +3393,273 @@ export function purgeFictitiousFuelLogsFromStorage(): number {
   return purgedCount;
 }
 
+function normalizeDriverTextForCheck(raw?: unknown): string {
+  return String(raw ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function isFictitiousDriverName(raw?: unknown): boolean {
+  const norm = normalizeDriverTextForCheck(raw);
+  if (!norm) return false;
+  return norm.includes('ELIAS COLACA');
+}
+
+export function isFictitiousDriverRecord(item: any, fictitiousIds?: Set<string>): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const id = String(item.id || item.uuid || '').trim();
+  const empId = String(item.employeeId || item.employee_id || item.driverId || item.driver_id || '').trim();
+  if (fictitiousIds && ((id && fictitiousIds.has(id)) || (empId && fictitiousIds.has(empId)))) {
+    return true;
+  }
+  const fields = [
+    item.name,
+    item.nome,
+    item.employeeName,
+    item.funcionarioNome,
+    item.funcionario_nome,
+    item.driverName,
+    item.motoristaNome,
+    item.driverOrOperator,
+    item.operatorOrDriver,
+    item.operatorAssigned,
+    item.condutor,
+    item.supplier,
+    item.fornecedor,
+    item.description,
+    item.descricao,
+    item.notes,
+    item.observacoes,
+  ];
+  return fields.some((f) => isFictitiousDriverName(f));
+}
+
+export function sanitizeMachineryDriverLinks(
+  m: any,
+  fictitiousIds?: Set<string>
+): { machinery: any; changed: boolean } {
+  if (!m || typeof m !== 'object') return { machinery: m, changed: false };
+  let changed = false;
+  const next = { ...m };
+
+  if (typeof next.operatorOrDriver === 'string' && next.operatorOrDriver.trim()) {
+    const parts = next.operatorOrDriver
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    const validParts = parts.filter((p: string) => !isFictitiousDriverName(p));
+    if (validParts.length !== parts.length) {
+      next.operatorOrDriver = validParts.join(', ');
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(next.assignedDrivers)) {
+    const validDrivers = next.assignedDrivers.filter((d: any) => {
+      if (typeof d === 'string') return !isFictitiousDriverName(d);
+      if (d && typeof d === 'object') {
+        const dId = String(d.id || '').trim();
+        if (fictitiousIds && dId && fictitiousIds.has(dId)) return false;
+        return !isFictitiousDriverName(d.name || d.nome);
+      }
+      return true;
+    });
+    if (validDrivers.length !== next.assignedDrivers.length) {
+      next.assignedDrivers = validDrivers;
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(next.assignedDriverIds)) {
+    const validIds = next.assignedDriverIds.filter((id: any) => {
+      const idStr = String(id || '').trim();
+      if (!idStr) return false;
+      if (fictitiousIds && fictitiousIds.has(idStr)) return false;
+      if (isFictitiousDriverName(idStr)) return false;
+      return true;
+    });
+    if (validIds.length !== next.assignedDriverIds.length) {
+      next.assignedDriverIds = validIds;
+      changed = true;
+    }
+  }
+
+  if (next.driver_id && fictitiousIds && fictitiousIds.has(String(next.driver_id))) {
+    delete next.driver_id;
+    changed = true;
+  }
+  if (next.user_id && fictitiousIds && fictitiousIds.has(String(next.user_id))) {
+    delete next.user_id;
+    changed = true;
+  }
+
+  return { machinery: next, changed };
+}
+
+export function purgeFictitiousDriverRecordsFromStorage(): number {
+  if (typeof window === 'undefined' || !window.localStorage) return 0;
+  let purgedCount = 0;
+  const fictitiousIds = new Set<string>();
+
+  const employeeKeyPrefixes = [
+    'agrocontrol_funcionarios',
+    'colaca_silagem_funcionarios',
+    STORAGE_KEYS.EMPLOYEES,
+  ];
+  const arrayRecordKeyPrefixes = [
+    'agrocontrol_funcionarios',
+    'colaca_silagem_funcionarios',
+    STORAGE_KEYS.EMPLOYEES,
+    'agrocontrol_folhas_pagamento',
+    'colaca_silagem_rh_folhas',
+    STORAGE_KEYS.PAYROLLS,
+    'agrocontrol_ferias',
+    'colaca_silagem_rh_ferias',
+    STORAGE_KEYS.VACATIONS,
+    'agrocontrol_rescisao',
+    'colaca_silagem_rh_rescisao',
+    STORAGE_KEYS.TERMINATIONS,
+    'agrocontrol_adiantamentos',
+    'colaca_silagem_rh_adiantamentos',
+    STORAGE_KEYS.SALARY_ADVANCES,
+    STORAGE_KEYS.ABSENCES,
+    'agrocontrol_expenses',
+    'agrocontrol_despesas',
+    'agrocontrol_contas_a_pagar',
+    'agrocontrol_financeiro',
+    'colaca_silagem_despesas',
+    STORAGE_KEYS.EXPENSES,
+  ];
+  const machineryKeyPrefixes = [
+    'agrocontrol_frotas_veiculos',
+    'agrocontrol_frotas',
+    'agrocontrol_veiculos',
+    'agrocontrol_maquinas',
+    'colaca_silagem_frotas_veiculos',
+    STORAGE_KEYS.MACHINERIES,
+  ];
+  const fuelAndTeamPrefixes = [
+    'agrocontrol_abastecimentos',
+    'agrocontrol_fuel_logs',
+    'agrocontrol_combustivel',
+    'colaca_silagem_abastecimentos',
+    STORAGE_KEYS.FUEL_LOGS,
+    STORAGE_KEYS.FLEET_TEAMS,
+    'agrocontrol_equipes_frota',
+  ];
+
+  const matchesPrefix = (key: string, prefixes: string[]) =>
+    prefixes.some((p) => key === p || key.startsWith(`${p}_`));
+
+  try {
+    const allKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) allKeys.push(k);
+    }
+
+    // 1. Coleta IDs fictícios em funcionários e folhas antes de limpar vínculos em frotas/despesas
+    for (const key of allKeys) {
+      if (!matchesPrefix(key, employeeKeyPrefixes) && !matchesPrefix(key, [STORAGE_KEYS.PAYROLLS, 'agrocontrol_folhas_pagamento', 'colaca_silagem_rh_folhas'])) {
+        continue;
+      }
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (isFictitiousDriverRecord(item)) {
+              if (item.id) fictitiousIds.add(String(item.id));
+              if (item.employeeId) fictitiousIds.add(String(item.employeeId));
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Remove registros fictícios de funcionários, folhas, férias, rescisões, adiantamentos e despesas
+    for (const key of allKeys) {
+      if (!matchesPrefix(key, arrayRecordKeyPrefixes)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((item) => !isFictitiousDriverRecord(item, fictitiousIds));
+          if (cleaned.length !== parsed.length) {
+            purgedCount += parsed.length - cleaned.length;
+            safeLocalStorageSetItem(key, JSON.stringify(cleaned));
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Limpa vínculos fictícios em veículos / máquinas da frota
+    for (const key of allKeys) {
+      if (!matchesPrefix(key, machineryKeyPrefixes)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          let changed = false;
+          const cleaned = parsed.map((m) => {
+            const res = sanitizeMachineryDriverLinks(m, fictitiousIds);
+            if (res.changed) {
+              changed = true;
+              purgedCount++;
+            }
+            return res.machinery;
+          });
+          if (changed) {
+            safeLocalStorageSetItem(key, JSON.stringify(cleaned));
+          }
+        }
+      } catch {}
+    }
+
+    // 4. Limpa nomes de motoristas fictícios em abastecimentos e equipes
+    for (const key of allKeys) {
+      if (!matchesPrefix(key, fuelAndTeamPrefixes)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          let changed = false;
+          const cleaned = parsed.map((item) => {
+            if (!item || typeof item !== 'object') return item;
+            const next = { ...item };
+            if (isFictitiousDriverName(next.driverName)) {
+              next.driverName = '';
+              changed = true;
+            }
+            if (isFictitiousDriverName(next.driverOrOperator)) {
+              next.driverOrOperator = '';
+              changed = true;
+            }
+            if (next.driverId && fictitiousIds.has(String(next.driverId))) {
+              delete next.driverId;
+              changed = true;
+            }
+            return next;
+          });
+          if (changed) {
+            purgedCount++;
+            safeLocalStorageSetItem(key, JSON.stringify(cleaned));
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+
+  return purgedCount;
+}
+
 export function getStoredFuelLogs(): FuelLog[] {
   try {
     const candidateKeys = [
@@ -4384,7 +4656,9 @@ export function getStoredPayrolls(): PayrollRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PAYROLLS);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((p) => !isFictitiousDriverRecord(p));
   } catch (e) {
     return [];
   }

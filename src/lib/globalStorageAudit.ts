@@ -30,6 +30,8 @@ import {
   purgeGhostDocumentosEntrada,
   purgeFictitiousFuelLogsFromStorage,
   sanitizeFuelLogs,
+  isFictitiousDriverRecord,
+  purgeFictitiousDriverRecordsFromStorage,
 } from './storage';
 import { migrateAndCleanLocalStorageMedia, preloadAllMediaFromIndexedDB } from './imageStorage';
 
@@ -183,7 +185,7 @@ export function isMockStorageRecord(item: any): boolean {
   ) {
     return true;
   }
-  if (isCorruptedOrGhostDocumento(item)) {
+  if (isCorruptedOrGhostDocumento(item) || isFictitiousDriverRecord(item)) {
     return true;
   }
   return false;
@@ -699,9 +701,10 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
   migrateAndCleanLocalStorageMedia();
   void preloadAllMediaFromIndexedDB();
 
-  // Purga defensiva preliminar de registros fantasmas/corrompidos e abastecimentos fictícios zerados
+  // Purga defensiva preliminar de registros fantasmas/corrompidos, abastecimentos fictícios zerados e motoristas fictícios
   purgeGhostDocumentosEntrada();
   purgeFictitiousFuelLogsFromStorage();
+  purgeFictitiousDriverRecordsFromStorage();
 
   const companyId = getActiveCompanyId();
   let synchronizedKeysCount = 0;

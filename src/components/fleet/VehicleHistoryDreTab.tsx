@@ -42,7 +42,9 @@ import {
   getStoredServices, 
   getStoredOrders, 
   getStoredPayrolls,
-  getStoredCompanyProfile 
+  getStoredCompanyProfile,
+  isFictitiousDriverRecord,
+  isFictitiousDriverName
 } from '../../lib/storage';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { PrintReportHeader } from '../common/PrintReportHeader';
@@ -243,42 +245,74 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     return calculateVehicleConsumptionMetrics(vehicle.id, fuelLogs);
   }, [vehicle.id, fuelLogs]);
 
-  // --- 3. Identify Assigned Drivers ---
-  const assignedDriverIds = useMemo(() => {
-    const idSet = new Set<string>();
-    if (vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0) {
-      vehicle.assignedDriverIds.forEach((id) => idSet.add(id));
-    }
-    if (vehicle.operatorOrDriver) {
-      const names = vehicle.operatorOrDriver.split(',').map((s) => String(s ?? '').trim().toLowerCase());
-      employees
-        .filter((emp) => names.includes(String(emp.name ?? '').toLowerCase()))
-        .forEach((emp) => idSet.add(emp.id));
-    }
-    employees
-      .filter((emp) => emp.machineryId === vehicle.id)
-      .forEach((emp) => idSet.add(emp.id));
-    return Array.from(idSet);
-  }, [vehicle, employees]);
+  // --- 3. Identify Assigned Drivers (exclusivamente colaboradores reais cadastrados no RH vinculados ao veículo) ---
+  const realRhEmployees = useMemo(() => {
+    return (employees || []).filter((emp) => {
+      if (!emp || !emp.id || !emp.name || !emp.name.trim()) return false;
+      const st = String(emp.status || '').toLowerCase().trim();
+      if (st === 'excluido') return false;
+      if (isFictitiousDriverRecord(emp)) return false;
+      return true;
+    });
+  }, [employees]);
 
   const assignedDrivers = useMemo(() => {
-    return employees.filter((e) => assignedDriverIds.includes(e.id));
-  }, [employees, assignedDriverIds]);
+    const driverNameParts = vehicle.operatorOrDriver
+      ? vehicle.operatorOrDriver
+          .split(',')
+          .map((s) => String(s ?? '').trim().toLowerCase())
+          .filter((n) => n && !isFictitiousDriverName(n))
+      : [];
+    const assignedDriverEntries = Array.isArray((vehicle as any).assignedDrivers)
+      ? (vehicle as any).assignedDrivers
+      : [];
+
+    return realRhEmployees.filter((emp) => {
+      if (emp.machineryId && (emp.machineryId === vehicle.id || toValidUUID(emp.machineryId) === toValidUUID(vehicle.id))) {
+        return true;
+      }
+      if (
+        Array.isArray(vehicle.assignedDriverIds) &&
+        vehicle.assignedDriverIds.some((id) => id === emp.id || toValidUUID(id) === toValidUUID(emp.id))
+      ) {
+        return true;
+      }
+      const empNameLower = String(emp.name ?? '').trim().toLowerCase();
+      if (empNameLower && driverNameParts.includes(empNameLower)) {
+        return true;
+      }
+      if (
+        assignedDriverEntries.some((d: any) => {
+          if (typeof d === 'string') return d.trim().toLowerCase() === empNameLower;
+          if (d && typeof d === 'object') {
+            return (d.id && (d.id === emp.id || toValidUUID(d.id) === toValidUUID(emp.id))) ||
+              (d.name && String(d.name).trim().toLowerCase() === empNameLower);
+          }
+          return false;
+        })
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [vehicle, realRhEmployees]);
+
+  const assignedDriverIds = useMemo(() => {
+    return assignedDrivers.map((d) => d.id);
+  }, [assignedDrivers]);
 
   const assignedDriverNames = useMemo(() => {
-    if (assignedDrivers.length > 0) return assignedDrivers.map((d) => d.name);
-    if (vehicle.operatorOrDriver) return vehicle.operatorOrDriver.split(',').map((s) => s.trim());
-    return [];
-  }, [assignedDrivers, vehicle.operatorOrDriver]);
+    return assignedDrivers.map((d) => d.name);
+  }, [assignedDrivers]);
 
   // Set default driver in form
   React.useEffect(() => {
     if (!expenseDriverId && assignedDrivers.length > 0) {
       setExpenseDriverId(assignedDrivers[0].id);
-    } else if (!expenseDriverId && employees.length > 0) {
-      setExpenseDriverId(employees[0].id);
+    } else if (!expenseDriverId && realRhEmployees.length > 0) {
+      setExpenseDriverId(realRhEmployees[0].id);
     }
-  }, [assignedDrivers, employees, expenseDriverId]);
+  }, [assignedDrivers, realRhEmployees, expenseDriverId]);
 
   const getApportionedAmountForVehicle = React.useCallback(
     (exp: Expense): number => {
@@ -333,6 +367,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     const modelClean = String((vehicle.model || vehicle.name) ?? '').toLowerCase().trim();
 
     return localExpenses.filter((exp) => {
+      if (!exp || isFictitiousDriverRecord(exp)) return false;
       // Rateio proporcional ou individual explícito por funcionários
       if (
         (exp.employeeApportionment && exp.employeeApportionment.trim()) ||
@@ -391,10 +426,12 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     }).sort((a, b) => new Date(b.dueDate || b.paymentDate || b.createdAt).getTime() - new Date(a.dueDate || a.paymentDate || a.createdAt).getTime());
   }, [localExpenses, vehicle, assignedDriverIds, assignedDriverNames, getApportionedAmountForVehicle]);
 
-  // Driver Payroll Records
+  // Driver Payroll Records (somente colaboradores reais do RH vinculados ao veículo)
   const driverPayrolls = useMemo(() => {
     if (assignedDriverIds.length === 0) return [];
-    return payrolls.filter((p) => assignedDriverIds.includes(p.employeeId));
+    return payrolls.filter(
+      (p) => !isFictitiousDriverRecord(p) && assignedDriverIds.includes(p.employeeId)
+    );
   }, [payrolls, assignedDriverIds]);
 
   // Categorize Driver Costs
@@ -425,18 +462,22 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       } else if (text.includes('diári') || text.includes('diari') || text.includes('viagem') || text.includes('pedágio')) {
         diarias += effectiveAmount;
       } else if (text.includes('salár') || text.includes('salar') || text.includes('adiant') || text.includes('folha') || text.includes('vale')) {
-        salarios += effectiveAmount;
+        // Salários e remunerações só são somados quando há colaborador real do RH vinculado ao veículo
+        if (assignedDrivers.length > 0) {
+          salarios += effectiveAmount;
+        }
       } else {
         outros += effectiveAmount;
       }
     });
 
-    // If no direct salary expense logged but payroll records exist, include net salaries from payrolls
-    if (salarios === 0 && driverPayrolls.length > 0) {
-      salarios = driverPayrolls.reduce((sum, p) => sum + (p.netSalary || p.baseSalary || 0), 0);
-    } else if (salarios === 0 && assignedDrivers.length > 0) {
-      // Contextual base salary
-      salarios = assignedDrivers.reduce((sum, d) => sum + (d.salary || 0), 0);
+    // Soma exclusivamente salários/folhas de colaboradores reais do RH vinculados a este veículo
+    if (assignedDrivers.length === 0) {
+      salarios = 0;
+    } else if (salarios === 0 && driverPayrolls.length > 0) {
+      salarios = driverPayrolls.reduce((sum, p) => sum + (Number(p.netSalary || p.baseSalary || 0) || 0), 0);
+    } else if (salarios === 0) {
+      salarios = assignedDrivers.reduce((sum, d) => sum + (Number(d.baseSalary ?? d.salary ?? 0) || 0), 0);
     }
 
     const total = alimentacao + salarios + rescisao + diarias + outros;
@@ -1022,7 +1063,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
               </div>
               <div className="pl-7 space-y-1 text-xs text-sky-800 dark:text-sky-300 font-medium">
                 <div className="flex justify-between">
-                  <span>• Salários e Remunerações dos Motoristas ({assignedDriverNames.join(', ') || 'Motoristas'})</span>
+                  <span>• Salários e Remunerações dos Motoristas ({assignedDriverNames.length > 0 ? assignedDriverNames.join(', ') : 'Nenhum motorista vinculado'})</span>
                   <span className="font-mono font-bold">{formatCurrencyBRL(driverExpensesByCategory.salarios)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -1179,15 +1220,18 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                 Motoristas Atribuídos ao Veículo:
               </span>
               <div className="flex flex-wrap gap-2">
-                {assignedDrivers.map((drv) => (
-                  <span
-                    key={drv.id}
-                    className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 shadow-2xs"
-                  >
-                    👤 {drv.name} <span className="text-stone-400 ml-1">({drv.role})</span>
-                    {drv.salary ? <strong className="ml-1.5 text-emerald-600">{formatCurrencyBRL(drv.salary)}/mês</strong> : null}
-                  </span>
-                ))}
+                {assignedDrivers.map((drv) => {
+                  const drvSalary = Number(drv.baseSalary ?? drv.salary ?? 0) || 0;
+                  return (
+                    <span
+                      key={drv.id}
+                      className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 shadow-2xs"
+                    >
+                      👤 {drv.name} <span className="text-stone-400 ml-1">({drv.role})</span>
+                      {drvSalary > 0 ? <strong className="ml-1.5 text-emerald-600">{formatCurrencyBRL(drvSalary)}/mês</strong> : null}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}

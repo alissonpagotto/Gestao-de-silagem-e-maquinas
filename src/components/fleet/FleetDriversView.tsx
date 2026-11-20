@@ -21,7 +21,7 @@ import {
   Printer
 } from 'lucide-react';
 import { Employee, Machinery, CompanyProfile } from '../../types';
-import { formatDateBR, checkCnhStatus, getActiveCompanyId } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, getActiveCompanyId, isFictitiousDriverRecord } from '../../lib/storage';
 import { resolveSubscriberPrintHeader, buildSystemPrintFooterText } from '../../lib/printIdentity';
 import { 
   saveFleetDriverToSupabase, 
@@ -150,10 +150,10 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   const allDriversMerged = useMemo(() => {
     const map = new Map<string, Employee>();
     dbDrivers.forEach(d => {
-      if (d.id) map.set(d.id, d);
+      if (d.id && !isFictitiousDriverRecord(d)) map.set(d.id, d);
     });
     employees.forEach(e => {
-      if (e.id && !map.has(e.id)) {
+      if (e.id && !isFictitiousDriverRecord(e) && !map.has(e.id)) {
         map.set(e.id, e);
       }
     });

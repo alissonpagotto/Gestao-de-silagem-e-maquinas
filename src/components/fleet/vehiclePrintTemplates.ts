@@ -1,5 +1,5 @@
 import { Machinery, CompanyProfile, FuelLog, MaintenanceLog, Expense, ServiceOrder, SilageOrder, Employee } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, isFictitiousDriverName } from '../../lib/storage';
 
 /**
  * Generates the clean, executive A4 HTML report for the vehicle's registration data:
@@ -16,9 +16,17 @@ export function generateVehicleRegistrationPrintHtml(
 ): string {
   const pbt = (vehicle.taraWeightKg || 0) + (vehicle.capacityLoadKg || 0);
 
-  const driversText = assignedDriverNames.length > 0 
-    ? assignedDriverNames.join(', ')
-    : (vehicle.operatorOrDriver || 'Nenhum motorista/operador vinculado');
+  const cleanAssigned = assignedDriverNames.filter((n) => !isFictitiousDriverName(n));
+  const cleanOperator = vehicle.operatorOrDriver
+    ? vehicle.operatorOrDriver
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => Boolean(s) && !isFictitiousDriverName(s))
+        .join(', ')
+    : '';
+  const driversText = cleanAssigned.length > 0
+    ? cleanAssigned.join(', ')
+    : (cleanOperator || 'Nenhum motorista/operador vinculado');
 
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.4;">
