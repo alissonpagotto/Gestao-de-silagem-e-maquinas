@@ -31,7 +31,7 @@ import {
   ArrowLeftRight,
   ClipboardList
 } from 'lucide-react';
-import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
+import { InventoryItem, MaintenanceLog, FuelLog, CompanyProfile } from '../../types';
 import { 
   formatCurrencyBRL, 
   getStoredMaintenanceLogs, 
@@ -41,8 +41,10 @@ import {
   getStoredInventoryBalances,
   ensureDieselProductsInInventory,
   ensureServicesInInventory,
-  saveStoredInventory
+  saveStoredInventory,
+  getStoredCompanyProfile
 } from '../../lib/storage';
+import { generatePrintableHtml, executePrint } from '../../lib/printService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductLabelPrintModal, LabelProductItem } from './ProductLabelPrintModal';
@@ -1429,7 +1431,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       {/* Modal 3: Detalhes do Produto (Ficha Completa & Histórico de Movimentações) */}
       {viewingItem && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
-          <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100">
+          <div className="w-[88vw] max-w-[1150px] max-h-[92vh] flex flex-col justify-start mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100">
             
             {/* Header */}
             <div className="px-5 py-3 bg-[#cad4e6] text-black flex items-center justify-between border-b border-black shrink-0">
@@ -1454,6 +1456,54 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const company = (getStoredCompanyProfile() || {}) as CompanyProfile;
+                    const saleVal = viewingItem.salePrice !== undefined ? viewingItem.salePrice : viewingItem.unitCost * 1.3;
+                    const movRows = itemMovements.slice(0, 15).map((m) => `
+                      <tr>
+                        <td>${m.date}</td>
+                        <td>${m.type === 'entrada' ? 'ENTRADA' : 'SAÍDA'}</td>
+                        <td>${m.description}</td>
+                        <td style="text-align:right;">${m.type === 'entrada' ? '+' : '-'}${m.quantity} ${m.unit}</td>
+                        <td style="text-align:right;">${m.cost !== undefined ? formatCurrencyBRL(m.cost) : '-'}</td>
+                      </tr>
+                    `).join('');
+                    const html = generatePrintableHtml({
+                      title: `FICHA TÉCNICA DE ITEM — ${viewingItem.name}`,
+                      subtitle: `Categoria: ${viewingItem.category.replace('_', ' ')} • Local: ${viewingItem.location || 'Barracão Principal'}`,
+                      documentType: 'FICHA DE ESTOQUE',
+                      company,
+                      contentHtml: `
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border:1.5px solid #0f172a;border-radius:6px;padding:10px;background:#f8fafc;margin-bottom:12px;font-size:9pt;">
+                          <div><strong>ESTOQUE ATUAL:</strong><br/>${viewingItem.quantity} ${viewingItem.unit}</div>
+                          <div><strong>ESTOQUE MÍNIMO:</strong><br/>${viewingItem.minQuantity} ${viewingItem.unit}</div>
+                          <div><strong>CUSTO UNITÁRIO:</strong><br/>${formatCurrencyBRL(viewingItem.unitCost)}</div>
+                          <div><strong>VALOR TOTAL:</strong><br/>${formatCurrencyBRL(viewingItem.quantity * viewingItem.unitCost)}</div>
+                        </div>
+                        <div style="border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:9pt;">
+                          <strong>PREÇO DE VENDA PADRÃO:</strong> ${formatCurrencyBRL(saleVal)}
+                          ${viewingItem.code ? ` &nbsp;|&nbsp; <strong>CÓDIGO:</strong> ${viewingItem.code}` : ''}
+                        </div>
+                        ${itemMovements.length > 0 ? `
+                          <table>
+                            <thead><tr><th>DATA</th><th>TIPO</th><th>HISTÓRICO</th><th style="text-align:right;">QTD</th><th style="text-align:right;">VALOR</th></tr></thead>
+                            <tbody>${movRows}</tbody>
+                          </table>
+                        ` : '<p style="font-size:9pt;color:#475569;">Nenhuma movimentação registrada recentemente.</p>'}
+                      `,
+                      orientation: 'portrait',
+                      showSignatures: false,
+                    });
+                    executePrint(html);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white border border-black text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+                  title="Imprimir Ficha Técnica em Folha A4"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir Ficha A4</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setLabelPrintItem(viewingItem)}

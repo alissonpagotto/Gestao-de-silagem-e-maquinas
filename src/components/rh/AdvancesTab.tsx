@@ -21,10 +21,12 @@ import {
   Layers,
   Percent,
   Info,
-  Settings
+  Settings,
+  Printer
 } from 'lucide-react';
-import { Employee, SalaryAdvance, PaymentMethod } from '../../types';
-import { formatCurrencyBRL, formatDateBR, saveStoredSalaryAdvances } from '../../lib/storage';
+import { Employee, SalaryAdvance, PaymentMethod, CompanyProfile } from '../../types';
+import { formatCurrencyBRL, formatDateBR, saveStoredSalaryAdvances, getStoredCompanyProfile } from '../../lib/storage';
+import { generatePrintableHtml, executePrint } from '../../lib/printService';
 import {
   useGlobalPaymentMethods,
   getPaymentMethodKey,
@@ -1184,7 +1186,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       {/* Modal de Prévia de Comprovante de Pagamento */}
       {viewingReceipt && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px]">
-          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-between mx-auto my-auto">
+          <div className="bg-[#cad4e6] border border-black rounded-xl w-[88vw] max-w-[1100px] max-h-[92vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col justify-start mx-auto my-auto">
             <div className="flex items-center justify-between px-4 py-3 bg-[#cad4e6] text-black border-b border-black shrink-0">
               <div className="flex items-center space-x-2 overflow-hidden">
                 <Paperclip className="w-4 h-4 shrink-0 text-emerald-700" />
@@ -1201,27 +1203,48 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
               </button>
             </div>
             <div className="p-4 overflow-auto flex-1 min-h-0 flex items-center justify-center bg-[#cad4e6]">
-              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 w-full h-full flex items-center justify-center">
+              <div className="bg-[#e0e6f1] border border-black rounded-xl p-4 w-full flex items-center justify-center">
               {viewingReceipt.url.startsWith('data:application/pdf') || viewingReceipt.name?.endsWith('.pdf') ? (
                 <iframe
                   src={viewingReceipt.url}
                   title="Comprovante PDF"
-                  className="w-full h-full rounded-lg border border-black bg-white"
+                  className="w-full h-[65vh] rounded-lg border border-black bg-white"
                 />
               ) : (
                 <img
                   src={viewingReceipt.url}
                   alt="Comprovante"
-                  className="max-h-full max-w-full object-contain rounded-lg border border-black bg-white shadow-sm"
+                  className="max-h-[65vh] max-w-full object-contain rounded-lg border border-black bg-white shadow-sm"
                 />
               )}
               </div>
             </div>
-            <div className="px-4 py-3 bg-[#cad4e6] border-t border-black flex justify-end shrink-0">
+            <div className="px-4 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end gap-2 shrink-0">
+              {!(viewingReceipt.url.startsWith('data:application/pdf') || viewingReceipt.name?.endsWith('.pdf')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const company = (getStoredCompanyProfile() || {}) as CompanyProfile;
+                    const html = generatePrintableHtml({
+                      title: viewingReceipt.name || 'COMPROVANTE DE ADIANTAMENTO / PAGAMENTO RH',
+                      documentType: 'COMPROVANTE RH',
+                      company,
+                      contentHtml: `<div style="text-align:center;padding:10px;border:1px solid #cbd5e1;border-radius:6px;"><img src="${viewingReceipt.url}" style="max-width:100%;max-height:680px;object-fit:contain;" /></div>`,
+                      orientation: 'portrait',
+                      showSignatures: false,
+                    });
+                    executePrint(html);
+                  }}
+                  className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 border border-black text-white font-bold text-xs transition cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setViewingReceipt(null)}
-                className="px-4 py-1.5 rounded-lg bg-white hover:bg-gray-100 border border-gray-400 text-black font-bold text-xs transition cursor-pointer"
+                className="px-4 py-1.5 rounded-lg bg-white hover:bg-gray-100 border border-black text-black font-bold text-xs transition cursor-pointer"
               >
                 Fechar
               </button>

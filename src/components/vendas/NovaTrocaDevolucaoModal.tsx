@@ -84,6 +84,7 @@ import {
   printTrocaDevolucaoA4,
   printTrocaDevolucaoCupom80mm,
 } from './trocaDevolucaoPrintUtils';
+import { resolveSubscriberPrintHeader } from '../../lib/printIdentity';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 
 interface NovaTrocaDevolucaoModalProps {
@@ -3906,9 +3907,11 @@ export const TrocaDevolucaoDetailsModal: React.FC<TrocaDevolucaoDetailsModalProp
 }) => {
   if (!record) return null;
 
+  const subscriber = resolveSubscriberPrintHeader(companyProfile);
+
   return (
     <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-hidden">
-      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-slate-900">
+      <div className="w-[88vw] max-w-[1100px] max-h-[92vh] flex flex-col justify-start mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-slate-900">
         <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 text-slate-900" />
@@ -3926,6 +3929,18 @@ export const TrocaDevolucaoDetailsModal: React.FC<TrocaDevolucaoDetailsModalProp
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 bg-[#cad4e6]">
+          <div className="bg-white border border-black rounded-md px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div>
+              <span className="block text-[9px] font-black uppercase text-slate-500">EMPRESA EMITENTE</span>
+              <span className="font-black uppercase text-black">{subscriber.displayTitle}</span>
+              {subscriber.cnpjCpf && (
+                <span className="ml-2 font-mono text-[10px] text-slate-600">CNPJ/CPF: {subscriber.cnpjCpf}</span>
+              )}
+            </div>
+            {subscriber.fullAddress && (
+              <span className="text-[10px] text-slate-600 uppercase">{subscriber.fullAddress}</span>
+            )}
+          </div>
           <div className="bg-[#e0e6f1] border border-black rounded-md p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div>
               <span className="block text-[10px] font-bold uppercase text-slate-600">Data</span>

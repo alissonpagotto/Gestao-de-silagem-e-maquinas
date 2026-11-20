@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Supplier } from '../../types';
 import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml } from '../../lib/printIdentity';
+import { executePrint } from '../../lib/printService';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -1184,12 +1185,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   // ---------------------------------------------------------------------------
   const handlePrintDocument = (doc: FiscalDocumentRecord) => {
     try {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('POR FAVOR, PERMITA JANELAS POP-UP NO SEU NAVEGADOR PARA IMPRIMIR O DOCUMENTO EM FOLHA A4.');
-        return;
-      }
-
       const subHeader = resolveSubscriberPrintHeader(companyProfile);
       const subscriberTitle = subHeader.displayTitle;
       const subscriberCorporate = subHeader.corporateName && subHeader.corporateName !== subHeader.displayTitle ? subHeader.corporateName : '';
@@ -1216,7 +1211,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         </div>
       `).join('');
 
-      printWindow.document.write(`
+      const htmlContent = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -1362,11 +1357,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             ${buildSystemPrintFooterHtml()}
           </body>
         </html>
-      `);
-      printWindow.document.close();
+      `;
+      executePrint(htmlContent);
     } catch (err) {
       console.warn('Erro ao abrir impressão do documento:', err);
-      alert('FALHA AO GERAR IMPRESSÃO DO DOCUMENTO.');
     }
   };
 
@@ -1582,7 +1576,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
+            className="w-[88vw] max-w-[1200px] max-h-[92vh] flex flex-col justify-start mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* CABEÇALHO */}
@@ -2121,7 +2115,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
           className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
+            className="w-[90vw] max-w-[1100px] max-h-[92vh] flex flex-col justify-start mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black flex items-center justify-between text-black dark:text-stone-100 shrink-0">
@@ -2130,7 +2124,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                   <IconComp className="w-3.5 h-3.5 text-emerald-700" />
                 </div>
                 <h3 className="text-xs sm:text-sm font-black uppercase text-black dark:text-stone-100">
-                  DETALHES DO DOCUMENTO: {viewingDoc.number} ({viewingDoc.documentTypeLabel})
+                  ESPELHO / DANFE: {viewingDoc.documentTypeLabel} Nº {viewingDoc.number}
                 </h3>
               </div>
               <button
@@ -2142,59 +2136,120 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 text-xs bg-[#cad4e6] dark:bg-stone-950">
-              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">NÚMERO</div>
-                  <div className="font-mono font-black text-sm">{viewingDoc.number}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">DATA DE EMISSÃO</div>
-                  <div className="font-bold">{formatDateBR(viewingDoc.issueDate)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">VALOR TOTAL</div>
-                  <div className="font-black text-emerald-800 dark:text-emerald-400 text-sm">{formatCurrencyBRL(viewingDoc.totalAmount)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-black/75 dark:text-stone-400 font-bold uppercase">STATUS</div>
-                  <div className="font-bold">{viewingDoc.status}</div>
-                </div>
-              </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-[#cad4e6] dark:bg-stone-950">
+              <div className="bg-white text-black border-2 border-black rounded-lg shadow-md p-4 space-y-3 text-xs">
+                {(() => {
+                  const subHeader = resolveSubscriberPrintHeader(companyProfile);
+                  return (
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-black pb-3">
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-slate-500 block">EMPRESA / DESTINATÁRIO</span>
+                        <div className="text-sm font-black uppercase text-black">{subHeader.displayTitle}</div>
+                        {subHeader.cnpjCpf && (
+                          <div className="text-[10px] font-mono text-slate-700">CNPJ/CPF: {subHeader.cnpjCpf}{subHeader.stateRegistration ? ` • IE: ${subHeader.stateRegistration}` : ''}</div>
+                        )}
+                        {subHeader.fullAddress && (
+                          <div className="text-[10px] text-slate-600 uppercase">{subHeader.fullAddress}</div>
+                        )}
+                      </div>
+                      <div className="text-right border border-black rounded px-3 py-1.5 bg-slate-50">
+                        <div className="text-[10px] font-black uppercase text-emerald-800">{viewingDoc.documentTypeLabel}</div>
+                        <div className="text-sm font-black font-mono">Nº {viewingDoc.number}</div>
+                        <div className="text-[10px] text-slate-600 font-bold">
+                          SÉRIE {viewingDoc.series || '1'} • EMISSÃO: {formatDateBR(viewingDoc.issueDate)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800 rounded-xl border border-black space-y-1">
-                <div><strong>FORNECEDOR:</strong> {viewingDoc.supplierName}</div>
-                {viewingDoc.supplierCnpj && <div><strong>CNPJ/CPF:</strong> {viewingDoc.supplierCnpj}</div>}
-                {viewingDoc.vehiclePlate && (
-                  <div><strong>VEÍCULO VINCULADO:</strong> <span className="font-black text-sky-800 dark:text-sky-400">{viewingDoc.vehiclePlate}</span> ({viewingDoc.vehicleModel || 'FROTA'})</div>
-                )}
-                {viewingDoc.description && <div><strong>FINALIDADE:</strong> {viewingDoc.description}</div>}
-              </div>
+                <div className="p-3 bg-slate-50 rounded border border-black grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">FORNECEDOR / EMISSOR</div>
+                    <div className="font-black uppercase">{viewingDoc.supplierName}</div>
+                    {viewingDoc.supplierCnpj && <div className="text-[10px] font-mono text-slate-600">{viewingDoc.supplierCnpj}</div>}
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">PAGAMENTO</div>
+                    <div className="font-bold uppercase">{viewingDoc.paymentMethod} ({viewingDoc.installmentsCount}X)</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">STATUS</div>
+                    <div className="font-black uppercase">{viewingDoc.status}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">VALOR TOTAL</div>
+                    <div className="font-mono font-black text-emerald-800 text-sm">{formatCurrencyBRL(viewingDoc.totalAmount)}</div>
+                  </div>
+                  {viewingDoc.vehiclePlate && (
+                    <div className="col-span-2">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase mr-1">VEÍCULO VINCULADO:</span>
+                      <span className="font-black text-sky-800">{viewingDoc.vehiclePlate}</span> ({viewingDoc.vehicleModel || 'FROTA'})
+                    </div>
+                  )}
+                  {viewingDoc.description && (
+                    <div className="col-span-2">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase mr-1">FINALIDADE:</span>
+                      <span className="font-semibold uppercase">{viewingDoc.description}</span>
+                    </div>
+                  )}
+                </div>
 
-              <div className="border border-black rounded-xl overflow-hidden bg-white dark:bg-stone-900">
-                <div className="bg-[#e0e6f1] dark:bg-stone-800 px-3 py-1.5 border-b border-black text-[10px] font-black uppercase">ITENS DO DOCUMENTO</div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-stone-800 text-[10px] font-bold border-b border-black/30">
-                      <th className="py-1 px-2 text-left">DESCRIÇÃO</th>
-                      <th className="py-1 px-2 text-center">QTD</th>
-                      <th className="py-1 px-2 text-center">UN</th>
-                      <th className="py-1 px-2 text-right">UNITÁRIO</th>
-                      <th className="py-1 px-2 text-right">TOTAL</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {viewingDoc.items.map((it, idx) => (
-                      <tr key={`${it.id || 'view_item'}_${idx}`} className="even:bg-[#f2f2f2] odd:bg-white hover:bg-slate-200/60 transition border-b border-slate-200">
-                        <td className="py-1 px-2 font-bold">{it.description}</td>
-                        <td className="py-1 px-2 text-center">{it.quantity}</td>
-                        <td className="py-1 px-2 text-center text-[10px]">{it.unit}</td>
-                        <td className="py-1 px-2 text-right">{formatCurrencyBRL(it.unitPrice)}</td>
-                        <td className="py-1 px-2 text-right font-black">{formatCurrencyBRL(it.totalPrice)}</td>
+                <div className="border border-black rounded overflow-hidden bg-white">
+                  <div className="bg-slate-200 px-3 py-1.5 border-b border-black text-[10px] font-black uppercase">ITENS DO DOCUMENTO ({viewingDoc.items.length})</div>
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 text-[10px] font-black border-b border-black">
+                        <th className="py-1.5 px-2 text-center w-10">#</th>
+                        <th className="py-1.5 px-2 text-left">DESCRIÇÃO</th>
+                        <th className="py-1.5 px-2 text-center">QTD</th>
+                        <th className="py-1.5 px-2 text-center">UN</th>
+                        <th className="py-1.5 px-2 text-right">UNITÁRIO</th>
+                        <th className="py-1.5 px-2 text-right">TOTAL</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {viewingDoc.items.map((it, idx) => (
+                        <tr key={`${it.id || 'view_item'}_${idx}`} className="even:bg-slate-50 odd:bg-white">
+                          <td className="py-1.5 px-2 text-center font-mono font-bold text-slate-600">{String(idx + 1).padStart(2, '0')}</td>
+                          <td className="py-1.5 px-2 font-bold uppercase">{it.description}</td>
+                          <td className="py-1.5 px-2 text-center font-mono">{it.quantity}</td>
+                          <td className="py-1.5 px-2 text-center text-[10px] uppercase">{it.unit}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{formatCurrencyBRL(it.unitPrice)}</td>
+                          <td className="py-1.5 px-2 text-right font-mono font-black text-emerald-800">{formatCurrencyBRL(it.totalPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-100 border-t-2 border-black font-black">
+                        <td colSpan={5} className="py-1.5 px-2 text-right uppercase">TOTAL DO DOCUMENTO:</td>
+                        <td className="py-1.5 px-2 text-right font-mono text-sm text-emerald-800">{formatCurrencyBRL(viewingDoc.totalAmount)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {viewingDoc.installments && viewingDoc.installments.length > 0 && (
+                  <div className="border border-black rounded overflow-hidden">
+                    <div className="bg-slate-200 px-3 py-1 border-b border-black text-[10px] font-black uppercase">PARCELAS FINANCEIRAS ({viewingDoc.installments.length})</div>
+                    <div className="p-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white">
+                      {viewingDoc.installments.map((inst, iIdx) => (
+                        <div key={`vd_inst_${iIdx}`} className="p-2 rounded border border-slate-300 bg-slate-50 text-[10px]">
+                          <div className="font-black">PARC {inst.number} • {inst.status}</div>
+                          <div className="font-mono font-black text-xs text-emerald-800">{formatCurrencyBRL(inst.amount)}</div>
+                          <div className="text-slate-600">Venc: {formatDateBR(inst.dueDate)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {viewingDoc.notes && (
+                  <div className="p-2.5 bg-slate-50 border border-black rounded text-[11px] uppercase">
+                    <span className="font-black block text-[10px] text-slate-600 mb-0.5">OBSERVAÇÕES:</span>
+                    {viewingDoc.notes}
+                  </div>
+                )}
               </div>
             </div>
 

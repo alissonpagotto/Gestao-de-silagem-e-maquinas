@@ -151,6 +151,7 @@ import { ProductFormModal } from '../inventory/ProductFormModal';
 import { ProductLabelPrintModal, LabelProductItem } from '../inventory/ProductLabelPrintModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
 import { FiscalDocumentTypeView, FiscalDocumentRecord, FISCAL_DOCS_STORAGE_KEYS } from './FiscalDocumentTypeView';
+import { FiscalDanfeViewerModal, FiscalDanfeViewerPayload, NormalizedDanfeInstallment } from './FiscalDanfeViewerModal';
 import { openNotaSaidaPrintWindow } from './notaSaidaPrint';
 import { preloadAllMediaFromIndexedDB } from '../../lib/imageStorage';
 import { CfopManagerModal } from './CfopManagerModal';
@@ -5808,7 +5809,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   });
   const [isManageCategoryModalOpen, setIsManageCategoryModalOpen] = useState(false);
 
-  // Modal de Visualização de Detalhes da Entrada Manual / Documento Legado / MDF-e
+  // Modal de Visualização de Detalhes da NF-e / Entrada Manual / Documento Legado / MDF-e
+  const [viewingExpenseDoc, setViewingExpenseDoc] = useState<Expense | null>(null);
   const [viewingManualDoc, setViewingManualDoc] = useState<DocumentoEntradaRecord | null>(null);
   const [viewingLegacyDoc, setViewingLegacyDoc] = useState<FiscalDocumentRecord | null>(null);
   const [viewingMdfeDoc, setViewingMdfeDoc] = useState<MdfeRecord | null>(null);
@@ -5820,18 +5822,89 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [legacyDocToDelete, setLegacyDocToDelete] = useState<FiscalDocumentRecord | null>(null);
   const [mdfeDocToDelete, setMdfeDocToDelete] = useState<MdfeRecord | null>(null);
 
-  // Carrega itens da entrada manual ao abrir visualização
+  // Carrega itens da entrada manual ao abrir visualização (com fallback local/offline garantido)
   useEffect(() => {
     if (viewingManualDoc) {
-      setIsLoadingViewingItems(true);
+      const localItems =
+        Array.isArray(viewingManualDoc.itens) && viewingManualDoc.itens.length > 0
+          ? viewingManualDoc.itens
+          : getStoredDocumentosEntradaItens().filter(
+              (i) => i.documento_entrada_id === viewingManualDoc.id
+            );
+      if (localItems.length > 0) {
+        setViewingDocItems(localItems);
+      }
+      setIsLoadingViewingItems(localItems.length === 0);
       fetchDocumentosEntradaItens(viewingManualDoc.id)
-        .then(items => setViewingDocItems(items || []))
-        .catch(() => setViewingDocItems([]))
+        .then((items) => {
+          if (items && items.length > 0) {
+            setViewingDocItems(items);
+          } else if (localItems.length > 0) {
+            setViewingDocItems(localItems);
+          } else {
+            setViewingDocItems([]);
+          }
+        })
+        .catch(() => {
+          setViewingDocItems(localItems);
+        })
         .finally(() => setIsLoadingViewingItems(false));
     } else {
       setViewingDocItems([]);
     }
   }, [viewingManualDoc]);
+
+  const resolveRelatedInstallmentsForViewer = (ref: {
+    docId?: string;
+    invoiceNumber?: string;
+    canonicalKey?: string;
+    fallbackPaymentMethod?: string;
+  }): NormalizedDanfeInstallment[] => {
+    const docId = String(ref.docId || '').trim();
+    const cleanNum = String(getCleanInvoiceNumber(ref.invoiceNumber) ?? '').toLowerCase().trim();
+    const digits = normalizeFiscalInvoiceDigits(ref.invoiceNumber || '');
+    const targetKey = String(ref.canonicalKey || '').trim();
+
+    const poolMap = new Map<string, Expense>();
+    [...getStoredExpenses(), ...expenses].forEach((e) => {
+      if (e && e.id) poolMap.set(e.id, e);
+    });
+
+    const matched = Array.from(poolMap.values()).filter((e: any) => {
+      if (targetKey && getCanonicalNfeKey(e) === targetKey) return true;
+      const eIdStr = String(e.id ?? '');
+      if (
+        docId &&
+        (eIdStr === docId ||
+          eIdStr.startsWith(`${docId}_`) ||
+          eIdStr.startsWith(`pagar_${docId}`) ||
+          eIdStr.startsWith(`exp_doc_${docId}`) ||
+          eIdStr.startsWith(`fiscal_doc_${docId}`) ||
+          e.notaId === docId ||
+          e.documento_entrada_id === docId ||
+          e.nota_fiscal_id === docId)
+      ) {
+        return true;
+      }
+      const eClean = String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase().trim();
+      if (cleanNum && eClean && eClean === cleanNum) return true;
+      const eDigits = normalizeFiscalInvoiceDigits(e.invoiceNumber || '');
+      if (digits && digits.length >= 3 && eDigits === digits) return true;
+      return false;
+    });
+
+    if (matched.length === 0) return [];
+    matched.sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
+    return matched.map((re, idx) => ({
+      number: String(idx + 1).padStart(2, '0'),
+      dueDate: re.dueDate || '',
+      paymentMethod: String(re.paymentMethod || ref.fallbackPaymentMethod || '')
+        .replace(/_/g, ' ')
+        .toUpperCase(),
+      amount: Number(re.amount) || 0,
+      status: re.status === 'pago' ? 'PAGO' : re.status === 'atrasado' ? 'VENCIDO' : 'EM ABERTO',
+    }));
+  };
 
   // Abre o modal de entrada manual resetando para a Etapa 1
   const handleOpenManualEntryModal = () => {
@@ -13961,13 +14034,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           if (rawNotaSaida) {
                             setViewingNotaSaida(rawNotaSaida);
                           } else if (entry.rawExpense) {
-                            handleEditNota(entry.rawExpense);
+                            setViewingExpenseDoc(entry.rawExpense);
                           } else if (entry.rawManualDoc) {
-                            if (entry.rawManualDoc.status === 'Rascunho') {
-                              handleOpenEditManualDoc(entry.rawManualDoc);
-                            } else {
-                              setViewingManualDoc(entry.rawManualDoc);
-                            }
+                            setViewingManualDoc(entry.rawManualDoc);
                           } else if (entry.rawLegacyFiscalDoc) {
                             setViewingLegacyDoc(entry.rawLegacyFiscalDoc);
                           } else if (entry.rawMdfeDoc) {
@@ -13975,7 +14044,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           }
                         }}
                         className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 cursor-pointer transition group whitespace-nowrap border-b border-black/20 dark:border-stone-800"
-                        title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
+                        title={`Clique para visualizar o espelho/DANFE de ${entry.documentNumber}`}
                       >
                         <td className="py-2 px-2 font-mono font-bold text-xs text-stone-800 dark:text-stone-200 whitespace-nowrap max-w-[115px]">
                           <div className="flex items-center gap-1 truncate">
@@ -14213,10 +14282,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 id={`btn-view-nfe-${entry.id}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleEditNota(entry.rawExpense!);
+                                  setViewingExpenseDoc(entry.rawExpense!);
                                 }}
                                 className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                                title={`Visualizar detalhes da nota ${entry.documentNumber}`}
+                                title={`Visualizar DANFE / Documento ${entry.documentNumber}`}
                               >
                                 <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span>VER</span>
@@ -14236,7 +14305,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   }
                                 }}
                                 className="h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
-                                title={`Visualizar detalhes do documento ${entry.documentNumber}`}
+                                title={`Visualizar espelho do documento ${entry.documentNumber}`}
                               >
                                 <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span>VER</span>
@@ -14819,7 +14888,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           className="fixed inset-0 z-70 bg-black/55 backdrop-blur-none flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
         >
           <div 
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
+            className="w-[88vw] max-w-[1150px] max-h-[92vh] flex flex-col justify-start mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 1. Cabeçalho Principal */}
@@ -14911,14 +14980,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
 
             {/* 3. Corpo do Modal (Passo 1 ou Passo 2) */}
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
+            <div className="flex-1 min-h-0 flex flex-col justify-start items-stretch overflow-hidden bg-[#cad4e6] dark:bg-stone-950">
               
               {/* =============================================================== */}
               {/* PASSO 1: DADOS DO DOCUMENTO (FORNECEDOR E CABEÇALHO) */}
               {/* =============================================================== */}
               {manualEntryStep === 1 && (
-                <form onSubmit={handleAdvanceToStep2} className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 scrollbar-none">
+                <form onSubmit={handleAdvanceToStep2} className="flex-1 min-h-0 flex flex-col justify-start items-stretch overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 scrollbar-none">
                     <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-xl p-3.5 space-y-2.5">
                       {manualFormError && (
                       <div className="p-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-400 dark:border-rose-800 rounded-lg flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold uppercase animate-in fade-in">
@@ -15302,9 +15371,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               {/* PASSO 2: INSERÇÃO DOS ITENS/PRODUTOS (COM ATUALIZAÇÃO DE ESTOQUE) */}
               {/* =============================================================== */}
               {manualEntryStep === 2 && (
-                <div className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+                <div className="flex-1 min-h-0 flex flex-col justify-start items-stretch overflow-hidden">
                   {/* Miolo do formulário (onde ficam os campos e a tabela de produtos inseridos) */}
-                  <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 scrollbar-none">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 space-y-3 scrollbar-none">
                     {/* Alerta de Bloqueio de Validação */}
                     {manualFormError && (
                     <div 
@@ -15874,164 +15943,87 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 2: VISUALIZAR DETALHES DA ENTRADA MANUAL */}
+      {/* MODAL 2: VISUALIZADOR A4 / DANFE UNIFICADO (NF-E XML / ENTRADA MANUAL) */}
       {/* ========================================================================= */}
-      {viewingManualDoc && (
-        <div 
-          id="modal-visualizar-entrada-manual"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-        >
-          <div 
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-black dark:text-stone-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded bg-white dark:bg-stone-800 border border-black flex items-center justify-center">
-                  <Receipt className="w-4 h-4 text-emerald-700" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wide text-black dark:text-stone-100">
-                    Documento de Entrada Manual
-                  </h3>
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white dark:bg-stone-800 border border-black/40 text-emerald-800 dark:text-emerald-300 inline-block">
-                    {viewingManualDoc.tipo_documento}
-                  </span>
-                </div>
-              </div>
+      {viewingExpenseDoc && (() => {
+        const parsed = buildNfeDataFromExpense(viewingExpenseDoc, localInventory, companyProfile);
+        const targetKey = getCanonicalNfeKey(viewingExpenseDoc);
+        const installments = resolveRelatedInstallmentsForViewer({
+          docId: viewingExpenseDoc.id,
+          invoiceNumber: viewingExpenseDoc.invoiceNumber,
+          canonicalKey: targetKey,
+          fallbackPaymentMethod: viewingExpenseDoc.paymentMethod,
+        });
+        const danfePayload: FiscalDanfeViewerPayload = {
+          kind: 'expense',
+          expense: viewingExpenseDoc,
+          items: (parsed.items || []).map((it) => ({
+            code: it.code,
+            description: it.description,
+            ncm: it.ncm,
+            cfop: it.cfop,
+            unit: it.unit,
+            quantity: Number(it.quantity) || 0,
+            unitPrice: Number(it.unitPrice) || 0,
+            totalPrice: Number(it.totalPrice) || 0,
+          })),
+          accessKey: parsed.accessKey,
+          series: parsed.series,
+          installments,
+        };
+        return (
+          <FiscalDanfeViewerModal
+            payload={danfePayload}
+            companyProfile={companyProfile}
+            suppliers={localSuppliers}
+            onClose={() => setViewingExpenseDoc(null)}
+            onEdit={() => {
+              const target = viewingExpenseDoc;
+              setViewingExpenseDoc(null);
+              handleEditNota(target);
+            }}
+            editLabel="Editar Nota"
+            onDelete={() => {
+              const idToDel = viewingExpenseDoc.id;
+              setViewingExpenseDoc(null);
+              requestDeleteXmlNota(idToDel);
+            }}
+            deleteLabel="Excluir Nota"
+          />
+        );
+      })()}
 
-              <button
-                type="button"
-                onClick={() => setViewingManualDoc(null)}
-                className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 text-xs bg-[#cad4e6] dark:bg-stone-950">
-              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75 dark:text-stone-400">Fornecedor / Emitente:</span>
-                  <span className="font-black text-black dark:text-stone-100 text-right">
-                    {viewingManualDoc.fornecedor || viewingManualDoc.fornecedor_nome || '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75 dark:text-stone-400">Data do Documento:</span>
-                  <span className="font-bold text-black dark:text-stone-100">
-                    {formatDateBR(viewingManualDoc.data || viewingManualDoc.data_entrada)}
-                  </span>
-                </div>
-                {viewingManualDoc.condicao_pagamento && (
-                  <div className="flex justify-between">
-                    <span className="font-bold text-black/75 dark:text-stone-400">Condição de Pagamento:</span>
-                    <span className="font-bold text-black dark:text-stone-100">
-                      {viewingManualDoc.condicao_pagamento}
-                      {viewingManualDoc.parcelas_qtd ? ` (${viewingManualDoc.parcelas_qtd}x)` : ''}
-                    </span>
-                  </div>
-                )}
-                {(viewingManualDoc.machineryName || viewingManualDoc.vehiclePlate) && (
-                  <div className="flex justify-between">
-                    <span className="font-bold text-black/75 dark:text-stone-400">Veículo / Frota (DRE):</span>
-                    <span className="font-bold text-indigo-800 dark:text-indigo-400">
-                      {viewingManualDoc.machineryName || viewingManualDoc.vehiclePlate}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center pt-1.5 border-t border-black/20 dark:border-stone-700/60">
-                  <span className="font-black text-black dark:text-stone-300">Valor Total:</span>
-                  <span className="font-mono font-black text-sm text-emerald-800 dark:text-emerald-400">
-                    {formatCurrencyBRL(viewingManualDoc.valor_total)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Lista de Itens do Documento */}
-              {isLoadingViewingItems ? (
-                <div className="p-3 text-center text-xs text-black/70 flex items-center justify-center space-x-2">
-                  <Clock className="w-3.5 h-3.5 animate-spin text-emerald-700" />
-                  <span>Carregando itens...</span>
-                </div>
-              ) : viewingDocItems.length > 0 ? (
-                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-2">
-                  <span className="font-black text-black dark:text-stone-300 block text-[11px] uppercase tracking-wider">
-                    Itens da Entrada ({viewingDocItems.length}):
-                  </span>
-                  <div className="border border-black dark:border-stone-800 rounded-lg overflow-hidden bg-white dark:bg-stone-900 divide-y divide-gray-200 dark:divide-stone-800">
-                    {viewingDocItems.map((it, itIdx) => (
-                      <div key={`${it.id || 'view_item'}_${itIdx}`} className="p-2 text-[11px] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-black dark:text-stone-100 block">
-                            {it.descricao}
-                          </span>
-                          <span className="text-[10px] text-gray-600 dark:text-stone-400">
-                            {it.quantidade} {it.unidade || 'UN'} × {formatCurrencyBRL(it.valor_unitario)}
-                          </span>
-                        </div>
-                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                          {formatCurrencyBRL(it.valor_total)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {viewingManualDoc.observacoes && (
-                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl">
-                  <span className="font-black text-black dark:text-stone-300 block mb-1 uppercase text-[11px]">
-                    Observações:
-                  </span>
-                  <div className="p-2.5 bg-white dark:bg-stone-900 border border-black/30 rounded-lg text-black dark:text-stone-300 whitespace-pre-line leading-relaxed">
-                    {viewingManualDoc.observacoes}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                id="btn-excluir-doc-detalhes"
-                onClick={() => {
-                  requestDeleteManualDoc(viewingManualDoc);
-                }}
-                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Excluir Entrada</span>
-              </button>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  id="btn-editar-doc-detalhes"
-                  onClick={() => {
-                    const doc = viewingManualDoc;
-                    setViewingManualDoc(null);
-                    handleOpenEditManualDoc(doc);
-                  }}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 rounded-lg transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
-                  title="Editar dados ou continuar lançamento deste documento"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  <span>{viewingManualDoc.status === 'Rascunho' ? 'Continuar Lançamento' : 'Editar Entrada'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setViewingManualDoc(null)}
-                  className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-black rounded-lg transition cursor-pointer"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {viewingManualDoc && (() => {
+        const docNum = viewingManualDoc.numero || viewingManualDoc.numero_documento || '';
+        const installments = resolveRelatedInstallmentsForViewer({
+          docId: viewingManualDoc.id,
+          invoiceNumber: docNum,
+          fallbackPaymentMethod: viewingManualDoc.condicao_pagamento,
+        });
+        const manualPayload: FiscalDanfeViewerPayload = {
+          kind: 'manual',
+          doc: viewingManualDoc,
+          items: viewingDocItems,
+          isLoadingItems: isLoadingViewingItems,
+          installments,
+        };
+        return (
+          <FiscalDanfeViewerModal
+            payload={manualPayload}
+            companyProfile={companyProfile}
+            suppliers={localSuppliers}
+            onClose={() => setViewingManualDoc(null)}
+            onEdit={() => {
+              const doc = viewingManualDoc;
+              setViewingManualDoc(null);
+              handleOpenEditManualDoc(doc);
+            }}
+            editLabel={viewingManualDoc.status === 'Rascunho' ? 'Continuar Lançamento' : 'Editar Entrada'}
+            onDelete={() => requestDeleteManualDoc(viewingManualDoc)}
+            deleteLabel="Excluir Entrada"
+          />
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* MODAL 3: CONFIRMAR EXCLUSÃO DE ENTRADA MANUAL */}
@@ -16077,97 +16069,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* ========================================================================= */}
       {/* MODAL: VISUALIZAR DOCUMENTO FISCAL LEGADO (NF-e / CT-e / NFS-e / NFC-e) */}
       {/* ========================================================================= */}
-      {viewingLegacyDoc && (
-        <div
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-        >
-          <div
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-between border-b border-black dark:border-stone-800 shrink-0">
-              <div>
-                <h3 className="text-xs sm:text-sm font-black uppercase text-black dark:text-stone-100">
-                  {viewingLegacyDoc.documentTypeLabel || 'Documento Fiscal'} Nº {viewingLegacyDoc.number}
-                </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white dark:bg-stone-800 border border-black/40 text-black dark:text-stone-200 inline-block">
-                  {viewingLegacyDoc.status}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewingLegacyDoc(null)}
-                className="p-1 rounded-lg text-black hover:bg-black/10 dark:text-stone-300 dark:hover:bg-stone-800 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
-              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75 dark:text-stone-400">Fornecedor:</span>
-                  <span className="font-bold">{viewingLegacyDoc.supplierName || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75 dark:text-stone-400">Emissão:</span>
-                  <span className="font-bold">{formatDateBR(viewingLegacyDoc.issueDate)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75 dark:text-stone-400">Pagamento:</span>
-                  <span className="font-bold">{viewingLegacyDoc.paymentMethod} ({viewingLegacyDoc.installmentsCount || 1}x)</span>
-                </div>
-                {(viewingLegacyDoc.vehiclePlate || viewingLegacyDoc.vehicleModel) && (
-                  <div className="flex justify-between">
-                    <span className="font-bold text-black/75 dark:text-stone-400">Veículo / Frota:</span>
-                    <span className="font-bold text-indigo-800 dark:text-indigo-400">
-                      {viewingLegacyDoc.vehiclePlate || viewingLegacyDoc.vehicleModel}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-1.5 border-t border-black/20 dark:border-stone-700/60">
-                  <span className="font-black">Valor Total:</span>
-                  <span className="font-mono font-black text-sm text-emerald-800 dark:text-emerald-400">
-                    {formatCurrencyBRL(viewingLegacyDoc.totalAmount)}
-                  </span>
-                </div>
-              </div>
-
-              {viewingLegacyDoc.items && viewingLegacyDoc.items.length > 0 && (
-                <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black dark:border-stone-700 rounded-xl space-y-2">
-                  <span className="text-[11px] font-black uppercase text-black dark:text-stone-200 block">Itens do Documento ({viewingLegacyDoc.items.length})</span>
-                  <div className="border border-black dark:border-stone-800 bg-white dark:bg-stone-900 rounded-lg divide-y divide-gray-200 dark:divide-stone-800">
-                    {viewingLegacyDoc.items.map((it, idx) => (
-                      <div key={`${it.id || 'leg_it'}_${idx}`} className="p-2 text-[11px] flex justify-between">
-                        <span className="font-bold truncate pr-2">{it.description} ({it.quantity} {it.unit})</span>
-                        <span className="font-mono font-bold text-emerald-700 shrink-0">{formatCurrencyBRL(it.totalPrice)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                onClick={() => requestDeleteLegacyFiscalDoc(viewingLegacyDoc)}
-                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Excluir</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewingLegacyDoc(null)}
-                className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 border border-black rounded-lg transition cursor-pointer"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {viewingLegacyDoc && (() => {
+        const installments = resolveRelatedInstallmentsForViewer({
+          docId: viewingLegacyDoc.id,
+          invoiceNumber: viewingLegacyDoc.number,
+          fallbackPaymentMethod: viewingLegacyDoc.paymentMethod,
+        });
+        return (
+          <FiscalDanfeViewerModal
+            payload={{
+              kind: 'legacy',
+              doc: viewingLegacyDoc,
+              installments,
+            }}
+            companyProfile={companyProfile}
+            suppliers={localSuppliers}
+            onClose={() => setViewingLegacyDoc(null)}
+            onDelete={() => requestDeleteLegacyFiscalDoc(viewingLegacyDoc)}
+            deleteLabel="Excluir"
+          />
+        );
+      })()}
 
       {legacyDocToDelete && (
         <div
@@ -16209,73 +16131,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* MODAL: VISUALIZAR / EXCLUIR MDF-e */}
       {/* ========================================================================= */}
       {viewingMdfeDoc && (
-        <div
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
-        >
-          <div
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 flex items-center justify-between border-b border-black dark:border-stone-800 shrink-0">
-              <div>
-                <h3 className="text-xs sm:text-sm font-black uppercase">MDF-e Nº {viewingMdfeDoc.numero}</h3>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-white border border-black/40 text-black inline-block">
-                  {viewingMdfeDoc.status}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewingMdfeDoc(null)}
-                className="p-1 rounded-lg text-black hover:bg-black/10 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-[#cad4e6] dark:bg-stone-950">
-              <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/80 border border-black rounded-xl space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75">Condutor:</span>
-                  <span className="font-bold">{viewingMdfeDoc.motoristaNome || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75">Veículo / Placa:</span>
-                  <span className="font-bold">{viewingMdfeDoc.veiculoPlaca || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-bold text-black/75">Rota:</span>
-                  <span className="font-bold">
-                    {viewingMdfeDoc.municipiosCarregamento || viewingMdfeDoc.ufCarregamento} → {viewingMdfeDoc.municipiosDescarregamento || viewingMdfeDoc.ufDescarregamento}
-                  </span>
-                </div>
-                <div className="flex justify-between pt-1.5 border-t border-black/20 dark:border-stone-700/60">
-                  <span className="font-black">Valor da Carga:</span>
-                  <span className="font-mono font-black text-sm text-emerald-800">
-                    {formatCurrencyBRL(viewingMdfeDoc.valorTotalCarga)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                onClick={() => setMdfeDocToDelete(viewingMdfeDoc)}
-                className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Excluir</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewingMdfeDoc(null)}
-                className="px-4 py-1.5 text-xs font-bold text-black dark:text-stone-300 bg-white hover:bg-gray-100 dark:bg-stone-800 border border-black rounded-lg transition cursor-pointer"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
+        <FiscalDanfeViewerModal
+          payload={{
+            kind: 'mdfe',
+            doc: viewingMdfeDoc,
+          }}
+          companyProfile={companyProfile}
+          suppliers={localSuppliers}
+          onClose={() => setViewingMdfeDoc(null)}
+          onDelete={() => setMdfeDocToDelete(viewingMdfeDoc)}
+          deleteLabel="Excluir"
+        />
       )}
 
       {mdfeDocToDelete && (
@@ -19424,7 +19290,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         >
           <div
             id="nota-saida-espelho-print"
-            className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
+            className="w-[90vw] max-w-[1150px] max-h-[92vh] flex flex-col justify-start mx-auto my-auto bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Cabeçalho do Espelho */}

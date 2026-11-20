@@ -21,7 +21,8 @@ import {
   DollarSign,
   User,
   Check,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from 'lucide-react';
 import { 
   FinanceiroCheque, 
@@ -49,6 +50,7 @@ import {
 import { saveFinanceiroCheque, toValidUUID } from '../../lib/supabaseService';
 import { CompetenceSelector, matchesCompetence } from './CompetenceSelector';
 import { BankCombobox } from './BankCombobox';
+import { generatePrintableHtml, executePrint } from '../../lib/printService';
 
 interface ChequesCustodiaTabProps {
   bankAccounts?: BankAccount[];
@@ -1143,7 +1145,7 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
       {/* MODAL DE VISUALIZAÇÃO DA IMAGEM DO CHEQUE */}
       {viewingImageUrl && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden" style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}>
-          <div className="relative w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-between mx-auto my-auto overflow-hidden">
+          <div className="relative w-[88vw] max-w-[1050px] max-h-[92vh] bg-[#cad4e6] border border-black rounded-xl shadow-2xl flex flex-col justify-start mx-auto my-auto overflow-hidden">
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-[#cad4e6] border-b border-black shrink-0 text-black">
               <span className="text-sm font-black text-black uppercase tracking-wide">
                 Folha do Cheque Digitalizada
@@ -1157,15 +1159,33 @@ export const ChequesCustodiaTab: React.FC<ChequesCustodiaTabProps> = ({
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-auto p-4 bg-[#cad4e6] flex items-center justify-center">
-              <div className="w-full h-full bg-[#e0e6f1] border border-black rounded-xl p-4 flex items-center justify-center">
+              <div className="w-full bg-[#e0e6f1] border border-black rounded-xl p-4 flex items-center justify-center">
                 <img
                   src={viewingImageUrl}
                   alt="Folha do Cheque Físico"
-                  className="max-h-[72vh] w-auto max-w-full object-contain rounded-lg border border-black bg-white shadow-md"
+                  className="max-h-[68vh] w-auto max-w-full object-contain rounded-lg border border-black bg-white shadow-md"
                 />
               </div>
             </div>
-            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex justify-end shrink-0">
+            <div className="px-4 sm:px-5 py-3 bg-[#cad4e6] border-t border-black flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const html = generatePrintableHtml({
+                    title: 'CÓPIA DE CHEQUE EM CUSTÓDIA',
+                    documentType: 'CONTROLE DE CHEQUES',
+                    company: companyProfile || ({} as CompanyProfile),
+                    contentHtml: `<div style="text-align:center;padding:12px;border:1px solid #cbd5e1;border-radius:6px;"><img src="${viewingImageUrl}" style="max-width:100%;max-height:560px;object-fit:contain;" /></div>`,
+                    orientation: 'portrait',
+                    showSignatures: false,
+                  });
+                  executePrint(html);
+                }}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-900 border border-black text-white transition cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Imprimir</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setViewingImageUrl('')}
