@@ -21,6 +21,7 @@ import {
   restoreAllIndexedDbMediaRecords,
   verifyIndexedDbIntegrity,
 } from '../../lib/imageStorage';
+import { SystemSelfTestModal } from './SystemSelfTestModal';
 
 export interface DataBackupSecurityBlockProps {
   className?: string;
@@ -512,6 +513,7 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
   const [pendingMediaCount, setPendingMediaCount] = useState<number>(0);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isSelfTestModalOpen, setIsSelfTestModalOpen] = useState<boolean>(false);
 
   // Varredura reativa de chaves (LocalStorage) e arquivos (IndexedDB)
   const refreshStorageCounters = async () => {
@@ -842,6 +844,18 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
               <span>🔍 Verificar Integridade</span>
             </button>
 
+            {/* BOTÃO AUTO-TESTE COMPLETO DO SISTEMA (SANDBOX E2E & HEALTH CHECK) */}
+            <button
+              type="button"
+              id="btn-executar-auto-teste-completo"
+              onClick={() => setIsSelfTestModalOpen(true)}
+              disabled={isProcessing}
+              title="Executar bateria automatizada de auto-testes em sandbox isolado sem alterar dados reais"
+              className="inline-flex items-center gap-1.5 bg-indigo-700 hover:bg-indigo-800 text-white border border-black font-bold text-xs px-3 py-1.5 rounded-md shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            >
+              <span>🩺 Executar Auto-Teste Completo</span>
+            </button>
+
             {/* BOTÃO 1: GERAR BACKUP DO SISTEMA (BAIXAR ARQUIVO) */}
             <button
               type="button"
@@ -1018,6 +1032,11 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
           </div>
         </div>
       )}
+      <SystemSelfTestModal
+        isOpen={isSelfTestModalOpen}
+        onClose={() => setIsSelfTestModalOpen(false)}
+        subscriberName={subscriberName}
+      />
     </>
   );
 };
