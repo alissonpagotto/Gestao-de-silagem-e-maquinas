@@ -130,7 +130,9 @@ import {
   getStoredServices,
   getStoredCompanyProfile,
   getStoredMaintenanceLogs,
-  safeLocalStorageSetItem
+  safeLocalStorageSetItem,
+  compactNfeItemForStorage,
+  stripXmlAndHeavyBlobsFromText
 } from '../../lib/storage';
 import {
   PendingMaintenanceFromEntryNfePayload,
@@ -523,11 +525,76 @@ const NFE_CACHE_STORAGE_KEY = 'silagem_nfe_parsed_cache_map';
 const DELETED_NFE_STORAGE_KEY = 'agrocontrol_deleted_nfe_ids';
 const inMemoryNfeCache = new Map<string, ParsedNfeData>();
 
-try {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    localStorage.removeItem(NFE_CACHE_STORAGE_KEY);
+function purgeObsoleteNfeStorageCaches(): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const obsoleteKeys = [
+      NFE_CACHE_STORAGE_KEY,
+      'silagem_facil_documentos_entrada_itens_v1',
+      'silagem_facil_clean_v1_documentos_entrada_itens',
+      'colaca_silagem_nfe_active_draft',
+      'colaca_silagem_manual_entry_draft',
+      'silagem_facil_active_nfe_draft',
+    ];
+    for (const k of obsoleteKeys) {
+      if (localStorage.getItem(k) !== null) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {}
+}
+
+purgeObsoleteNfeStorageCaches();
+
+function compactParsedNfeForStorage(nfe: ParsedNfeData): ParsedNfeData {
+  const {
+    xmlContent: _x1,
+    rawXml: _x2,
+    xml: _x3,
+    certificateBase64: _c1,
+    nfeProc: _np,
+    signatureXml: _sx,
+    x509Certificate: _xc,
+    ...rest
+  } = (nfe as any) || {};
+  return {
+    ...rest,
+    items: Array.isArray(rest.items) ? rest.items.map(compactNfeItemForStorage) : [],
+    installments: Array.isArray(rest.installments)
+      ? rest.installments.map((inst: any) => ({
+          number: inst.number,
+          dueDate: inst.dueDate,
+          amount: Number(inst.amount) || 0,
+        }))
+      : [],
+  } as ParsedNfeData;
+}
+
+function safePersistWithQuotaRecovery(persistFn: () => void, contextLabel: string): boolean {
+  try {
+    persistFn();
+    return true;
+  } catch (err: any) {
+    const isQuota =
+      err?.name === 'QuotaExceededError' ||
+      err?.code === 22 ||
+      err?.code === 1014 ||
+      String(err?.message ?? '').toLowerCase().includes('quota') ||
+      String(err?.message ?? '').toLowerCase().includes('exceeded');
+    if (isQuota) {
+      purgeObsoleteNfeStorageCaches();
+      try {
+        persistFn();
+        return true;
+      } catch (retryErr) {
+        console.warn(`[NfeModule] Contingência QuotaExceededError em ${contextLabel}:`, retryErr);
+        return false;
+      }
+    }
+    console.warn(`[NfeModule] Aviso não-bloqueante ao persistir ${contextLabel}:`, err);
+    return false;
   }
-} catch {}
+}
 
 export function getDeletedNfeKeys(): Set<string> {
   try {
@@ -559,13 +626,14 @@ function getCachedNfeMap(): Record<string, ParsedNfeData> {
 
 function saveCachedNfe(nfe: ParsedNfeData, expenseId?: string) {
   try {
-    if (expenseId) inMemoryNfeCache.set(expenseId, nfe);
-    if (nfe.invoiceNumber) {
-      inMemoryNfeCache.set(String(nfe.invoiceNumber ?? '').toLowerCase().trim(), nfe);
-      const cleanNum = nfe.invoiceNumber.replace(/\D/g, '');
-      if (cleanNum) inMemoryNfeCache.set(cleanNum, nfe);
+    const compactNfe = compactParsedNfeForStorage(nfe);
+    if (expenseId) inMemoryNfeCache.set(expenseId, compactNfe);
+    if (compactNfe.invoiceNumber) {
+      inMemoryNfeCache.set(String(compactNfe.invoiceNumber ?? '').toLowerCase().trim(), compactNfe);
+      const cleanNum = compactNfe.invoiceNumber.replace(/\D/g, '');
+      if (cleanNum) inMemoryNfeCache.set(cleanNum, compactNfe);
     }
-    if (nfe.accessKey) inMemoryNfeCache.set(nfe.accessKey, nfe);
+    if (compactNfe.accessKey) inMemoryNfeCache.set(compactNfe.accessKey, compactNfe);
   } catch (e) {
     console.warn('Failed to cache NFe data in memory', e);
   }
@@ -1373,8 +1441,29 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
     const allPaid = items.every(i => i.status === 'pago');
     const status = allPaid ? 'pago' : 'pendente';
 
-    // 5. Itens e produtos da NF-e
-    const nfeProducts = cachedItems || primaryItem.nfeItems || items.find(i => i.nfeItems && i.nfeItems.length > 0)?.nfeItems;
+    // 5. Itens e produtos da NF-e (compactados para nunca inflar storage)
+    const rawProducts = cachedItems || primaryItem.nfeItems || items.find(i => i.nfeItems && i.nfeItems.length > 0)?.nfeItems;
+    const nfeProducts = Array.isArray(rawProducts) ? rawProducts.map(compactNfeItemForStorage) : undefined;
+
+    // 5.1 Resolve data fiscal única de emissão/entrada (jamais usa dueDate de parcela futura quando houver emissão/entrada)
+    const cachedCandidateForDate = cachedMap[groupKey] ||
+      (cachedAccessKey ? cachedMap[cachedAccessKey] : undefined);
+    const resolvedIssueDate = String(
+      cachedCandidateForDate?.issueDate ||
+      items.map((it: any) => it.issueDate || it.data_emissao).find(Boolean) ||
+      (primaryItem as any).entryDate ||
+      (primaryItem as any).data_entrada ||
+      items.map((it: any) => it.date).find(Boolean) ||
+      primaryItem.createdAt ||
+      primaryItem.dueDate ||
+      ''
+    ).trim();
+    const resolvedEntryDate = String(
+      (primaryItem as any).entryDate ||
+      (primaryItem as any).data_entrada ||
+      items.map((it: any) => it.entryDate || it.data_entrada).find(Boolean) ||
+      resolvedIssueDate
+    ).trim();
 
     // 6. Monta o Registro Único Fiscal da NF-e
     const rootId = primaryItem.id.split('_parc_')[0];
@@ -1387,11 +1476,14 @@ export function buildUnifiedFiscalRecords(expensesList: Expense[]): Expense[] {
       supplier: supplierName,
       description: `Compra ${cleanInvoiceNumber} - ${supplierName}`,
       amount: consolidatedAmount, // VALOR TOTAL BRUTO CONSOLIDADO (R$ 600,00)
+      date: resolvedIssueDate || resolvedEntryDate || primaryItem.date,
+      issueDate: resolvedIssueDate || primaryItem.issueDate,
+      entryDate: resolvedEntryDate || (primaryItem as any).entryDate,
       dueDate: primaryItem.dueDate,
       status,
       nfeItems: nfeProducts,
       accessKey: cachedAccessKey || primaryItem.accessKey,
-      notes: primaryItem.notes,
+      notes: stripXmlAndHeavyBlobsFromText(primaryItem.notes),
     };
 
     consolidatedList.push(consolidatedRecord);
@@ -5084,6 +5176,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       saveLocalNotaSaida(authorizedNota);
       updateNotaSaidaSequenceCounter(authorizedNota.tipoDocumento, authorizedNota.serie, authorizedNota.numero);
       setNotasSaida(getStoredNotasSaida());
+      syncCompetenceToNewDocument(authorizedNota.dataEmissao);
       setIsNotaSaidaModalOpen(false);
       setActiveMainFiscalTab('notas');
       setActiveDocDirection('saida');
@@ -5659,9 +5752,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // Registra vínculo do pedido de reforma para conclusão após salvar definitivamente
     setLinkedReformOrderId(order.id);
-    try {
-      localStorage.setItem('colaca_silagem_ordem_reforma_em_retorno', order.id);
-    } catch (_) {}
+    safeLocalStorageSetItem('colaca_silagem_ordem_reforma_em_retorno', order.id);
 
     // AÇÃO 1: Redirecionar e popular o modal de "Nova Entrada Manual"
     setActiveMainFiscalTab('notas');
@@ -6722,7 +6813,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const notasAtuaisBase = getStoredDocumentosEntrada();
       const notasFiltradas = notasAtuaisBase.filter(d => d.id !== finalDoc.id);
       const notasAtualizadas = [finalDoc, ...notasFiltradas];
-      saveStoredDocumentosEntrada(notasAtualizadas);
+      safePersistWithQuotaRecovery(() => saveStoredDocumentosEntrada(notasAtualizadas), 'manual_doc_entrada');
       setDocumentosEntrada(notasAtualizadas);
 
       // LANÇAMENTO NO FINANCEIRO (Tabela public.contas_a_pagar do Supabase e agrocontrol_financeiro)
@@ -6814,8 +6905,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         return true;
       });
       const nextManualStoredExpenses = [...novosLancamentosFinanceiros, ...storedExpensesLimpo];
-      saveStoredExpenses(nextManualStoredExpenses);
-      saveCompanyDespesas(nextManualStoredExpenses, getActiveCompanyId(companyProfile));
+      safePersistWithQuotaRecovery(() => {
+        saveStoredExpenses(nextManualStoredExpenses);
+        saveCompanyDespesas(nextManualStoredExpenses, getActiveCompanyId(companyProfile));
+      }, 'manual_entry_expenses');
+      if (!currentManualDoc || currentManualDoc.status === 'Rascunho') {
+        syncCompetenceToNewDocument(manualDate);
+      }
 
       // Atualiza custo acumulado do veículo/máquina no DRE da Frota (quando vinculado)
       if (linkedVehicle && finalAmount > 0) {
@@ -7504,7 +7600,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         return;
       }
 
-      const issueDateVal = expAny.issueDate || expAny.data_emissao || expAny.date || expAny.entryDate || expAny.data_entrada || exp.dueDate || exp.createdAt || '';
+      const issueDateVal = expAny.issueDate || expAny.data_emissao || expAny.entryDate || expAny.data_entrada || expAny.date || exp.createdAt || exp.dueDate || '';
       const entryDateVal = expAny.entryDate || expAny.data_entrada || expAny.data || issueDateVal;
       const expDate = issueDateVal || entryDateVal;
       const vehPlate = expAny.vehiclePlate || expAny.machineryName || (expAny.serviceOrderNumber ? `OS ${expAny.serviceOrderNumber}` : '');
@@ -7711,17 +7807,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (candidateRoots.some(r => seenRootIds.has(r))) continue;
 
       // Desduplica por chave de acesso quando existente
-      const accessKey = item.rawExpense?.accessKey || item.rawManualDoc?.chave_acesso || item.rawMdfeDoc?.chaveAcesso || '';
+      const accessKey = cleanDigits(
+        item.rawExpense?.accessKey || item.rawManualDoc?.chave_acesso || item.rawMdfeDoc?.chaveAcesso || ''
+      );
       if (accessKey && accessKey.length === 44) {
         const keySig = `key_${accessKey}`;
         if (seenAccessKeys.has(keySig)) continue;
         seenAccessKeys.add(keySig);
       }
 
-      // Desduplica registros idênticos por número de documento + fornecedor + valor
-      const cleanDocDigits = String(item.documentNumber ?? '').replace(/\D/g, '');
-      const supplierNorm = String(item.supplier ?? '').trim().toLowerCase();
-      if (cleanDocDigits && cleanDocDigits.length >= 3 && supplierNorm) {
+      // Desduplica registros idênticos por número de documento + fornecedor/valor
+      const cleanDocDigits = String(item.documentNumber ?? '').replace(/\D/g, '').replace(/^0+/, '');
+      const supplierNorm = String(item.supplier ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+      if (cleanDocDigits && cleanDocDigits.length >= 2) {
         const docSig = `num_${cleanDocDigits}_${supplierNorm}_${item.amount.toFixed(2)}`;
         if (seenDocSignatures.has(docSig)) continue;
         seenDocSignatures.add(docSig);
@@ -8368,9 +8466,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         exp.data_emissao ||
         exp.entryDate ||
         exp.data_entrada ||
-        exp.date ||
         item.issueDate ||
         item.entryDate ||
+        exp.date ||
         item.date ||
         exp.createdAt ||
         exp.dueDate ||
@@ -8428,36 +8526,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return unifiedSaidaEntries.filter(item => matchesSaidaCompetence(item, fiscalCompetence));
   }, [unifiedSaidaEntries, fiscalCompetence, periodMode, matchesSaidaCompetence]);
 
-  // Se uma nova nota for importada/lançada durante a sessão em outro mês enquanto "Todos os Períodos" está desligado,
-  // move o seletor de competência para o mês da nota recém-lançada sem ativar "Todos os Períodos".
-  const prevFiscalEntryIdsRef = useRef<Set<string>>(new Set([
-    ...unifiedEntries.map(e => `e_${e.id}`),
-    ...unifiedSaidaEntries.map(s => `s_${s.id}`),
-  ]));
-
-  useEffect(() => {
-    const currentIds = new Set<string>([
-      ...unifiedEntries.map(e => `e_${e.id}`),
-      ...unifiedSaidaEntries.map(s => `s_${s.id}`),
-    ]);
-    const addedEntries = unifiedEntries.filter(e => !prevFiscalEntryIdsRef.current.has(`e_${e.id}`));
-    const addedSaidas = unifiedSaidaEntries.filter(s => !prevFiscalEntryIdsRef.current.has(`s_${s.id}`));
-    prevFiscalEntryIdsRef.current = currentIds;
-
-    if ((addedEntries.length > 0 || addedSaidas.length > 0) && periodMode === 'competence') {
-      const outsideEntry = addedEntries.find(e => !matchesEntryCompetence(e, fiscalCompetence));
-      const outsideSaida = addedSaidas.find(s => !matchesSaidaCompetence(s, fiscalCompetence));
-      const targetDate = outsideEntry
-        ? resolveEntryFiscalDate(outsideEntry)
-        : outsideSaida
-          ? String(outsideSaida.rawNotaSaida?.dataEmissao || outsideSaida.issueDate || outsideSaida.date || '')
-          : '';
-      const targetComp = extractCompetenceFromDateStr(targetDate);
-      if (targetComp && targetComp !== fiscalCompetence) {
-        setFiscalCompetence(targetComp);
-      }
+  // Atualiza a competência ativa explicitamente apenas quando o operador importa/grava um novo documento fiscal em outra competência
+  const syncCompetenceToNewDocument = useCallback((dateStr?: string) => {
+    if (periodMode !== 'competence' || !dateStr) return;
+    const targetComp = extractCompetenceFromDateStr(dateStr);
+    if (targetComp && targetComp !== fiscalCompetence) {
+      setFiscalCompetence(targetComp);
     }
-  }, [unifiedEntries, unifiedSaidaEntries, fiscalCompetence, periodMode, matchesEntryCompetence, matchesSaidaCompetence, resolveEntryFiscalDate, extractCompetenceFromDateStr]);
+  }, [periodMode, fiscalCompetence, extractCompetenceFromDateStr]);
 
   // Base ativa de acordo com a direção selecionada (Entrada vs. Saída)
   const activeDirectionEntries = useMemo(() => {
@@ -8510,21 +8586,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Redireciona diretamente para o módulo Cadastros Base na aba Centros de Custo
   const handleNavigateToCadastrosBaseCentrosCusto = () => {
-    // 1. Captura estado enxuto da nota na tela (sem xmlContent bruto) e salva em rascunho seguro
+    // 1. Captura estado enxuto da nota na tela (sem xmlContent bruto e sem duplicar payload) e salva em rascunho seguro
     if (parsedData) {
-      const draftData: ParsedNfeData = {
+      const draftData = compactParsedNfeForStorage({
         ...parsedData,
         costCenterId: selectedCostCenterId || parsedData.costCenterId,
-      };
+      });
       const fullDraft = {
-        ...draftData,
         parsedData: draftData,
         selectedCostCenterId: selectedCostCenterId || parsedData.costCenterId || '',
         editingExpenseId,
         userInstallmentCount,
         savedAt: new Date().toISOString(),
       };
-      saveActiveNfeDraft(fullDraft);
+      safePersistWithQuotaRecovery(() => saveActiveNfeDraft(fullDraft), 'active_nfe_draft');
     }
 
     if (onNavigate) {
@@ -8542,12 +8617,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (draft) {
       const pData: ParsedNfeData = draft.parsedData || (draft.invoiceNumber ? draft : null);
       if (pData && pData.invoiceNumber) {
-        setParsedData(pData);
+        setParsedData(compactParsedNfeForStorage(pData));
         if (draft.selectedCostCenterId || pData.costCenterId) {
           setSelectedCostCenterId(draft.selectedCostCenterId || pData.costCenterId || '');
-        }
-        if (draft.xmlContent) {
-          setXmlContent(draft.xmlContent);
         }
         if (draft.editingExpenseId !== undefined) {
           setEditingExpenseId(draft.editingExpenseId);
@@ -10688,10 +10760,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
     });
 
-    saveInventory(updatedInventory);
-    if (nonFinStockMovements.length > 0) {
-      persistStockMovementsSync(nonFinStockMovements);
-    }
+    safePersistWithQuotaRecovery(() => {
+      saveInventory(updatedInventory);
+      if (nonFinStockMovements.length > 0) {
+        persistStockMovementsSync(nonFinStockMovements);
+      }
+    }, 'nonfin_inventory_sync');
+
     updatedInventory.forEach(prod => {
       upsertEstoqueItem(prod).catch(err => console.warn('Supabase upsertEstoqueItem non-financial XML sync:', err));
     });
@@ -10716,12 +10791,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     // REGRA DE NEGÓCIO: LANÇAMENTO FINANCEIRO BLOQUEADO NO CONTAS A PAGAR
     // Não gera parcelas a pagar. Se for edição de nota anterior, remove eventuais parcelas residuais.
     if (editingExpenseId) {
-      const expensesCleaned = expenses.filter(e => 
-        e.id !== editingExpenseId && 
-        !e.id.startsWith(`${editingExpenseId}_parc_`) &&
-        String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== String(cleanInvoiceNumber ?? '').toLowerCase()
-      );
-      saveStoredExpenses(expensesCleaned);
+      safePersistWithQuotaRecovery(() => {
+        const expensesCleaned = expenses.filter(e => 
+          e.id !== editingExpenseId && 
+          !e.id.startsWith(`${editingExpenseId}_parc_`) &&
+          String((e.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== String(cleanInvoiceNumber ?? '').toLowerCase()
+        );
+        saveStoredExpenses(expensesCleaned);
+      }, 'nonfin_cleanup_expenses');
     }
 
     const xmlAutoClassNonFin = classifyEntryEnviarContador({
@@ -10739,7 +10816,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
     }
 
-    // UNICIDADE DO REGISTRO FISCAL CONSOLIDADO
+    const compactNonFinItems = Array.isArray(parsedData.items)
+      ? parsedData.items.map(compactNfeItemForStorage)
+      : [];
+
+    // UNICIDADE DO REGISTRO FISCAL CONSOLIDADO (apenas metadados leves, zero XML bruto)
     const singleFiscalRecord: Expense = {
       id: fiscalRecordId,
       invoiceNumber: cleanInvoiceNumber,
@@ -10748,8 +10829,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ? `Devolução Mercadoria Cliente ${cleanInvoiceNumber} - ${parsedData.supplier}`
         : `${parsedData.transactionType || 'Entrada Sem Custo'} ${cleanInvoiceNumber} - ${parsedData.supplier}`,
       amount: Number(parsedData.totalAmount) || 0,
+      date: parsedData.issueDate || parsedData.entryDate,
       dueDate: parsedData.dueDate || parsedData.issueDate,
       issueDate: parsedData.issueDate,
+      entryDate: parsedData.entryDate || parsedData.issueDate,
       accessKey: parsedData.accessKey || undefined,
       recipientCnpj: parsedData.recipientCnpj || undefined,
       destinatarioCnpj: parsedData.recipientCnpj || undefined,
@@ -10764,10 +10847,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       paymentMethod: (parsedData.paymentMethod || 'dinheiro') as PaymentMethod,
       costCenterId: selectedCC?.id,
       costCenterName: selectedCC?.name || 'Geral',
-      notes: isDevolucao
-        ? `NF-e de Devolução de Mercadoria. Lançamento no Contas a Pagar BLOQUEADO. Valor de ${formatCurrencyBRL(parsedData.totalAmount)} injetado como CRÉDITO SALDO DO CLIENTE (${clientCreditInfo?.clientName || parsedData.supplier}). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`
-        : `NF-e Operacional sem custo financeiro (${parsedData.transactionType}). Lançamento no Contas a Pagar BLOQUEADO (Estoque Puro). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`,
-      nfeItems: parsedData.items,
+      notes: stripXmlAndHeavyBlobsFromText(
+        isDevolucao
+          ? `NF-e de Devolução de Mercadoria. Lançamento no Contas a Pagar BLOQUEADO. Valor de ${formatCurrencyBRL(parsedData.totalAmount)} injetado como CRÉDITO SALDO DO CLIENTE (${clientCreditInfo?.clientName || parsedData.supplier}). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`
+          : `NF-e Operacional sem custo financeiro (${parsedData.transactionType}). Lançamento no Contas a Pagar BLOQUEADO (Estoque Puro). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`
+      ),
+      nfeItems: compactNonFinItems,
       operationNature: parsedData.transactionType || parsedData.operationNature,
       transactionType: parsedData.transactionType,
       skipAccountsPayable: true,
@@ -10783,7 +10868,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       String((f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
     );
     const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
-    saveStoredFiscalRecords(updatedFiscalList);
+    safePersistWithQuotaRecovery(() => saveStoredFiscalRecords(updatedFiscalList), 'nonfin_fiscal_records');
 
     setNotasLancadas(prev => {
       const remaining = prev.filter(f => 
@@ -10924,8 +11009,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           String((d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
       ),
     ];
-    saveStoredDocumentosEntrada(updatedNonFinDocs);
+    safePersistWithQuotaRecovery(() => saveStoredDocumentosEntrada(updatedNonFinDocs), 'nonfin_documentos_entrada');
     setDocumentosEntrada(updatedNonFinDocs);
+    if (!editingExpenseId) {
+      syncCompetenceToNewDocument(nonFinIssueDate);
+    }
     if (isSupabaseConfigured) {
       insertDocumentoEntrada(docEntradaNonFin).catch(e => console.warn('Aviso insertDocumentoEntrada non-financial:', e));
     }
@@ -11255,11 +11343,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
     });
 
-    // Sincroniza SÍNCRONA e imediatamente o estoque + movimentações no localStorage
-    saveInventory(updatedInventory);
-    if (xmlStockMovements.length > 0) {
-      persistStockMovementsSync(xmlStockMovements);
-    }
+    // Sincroniza SÍNCRONA e imediatamente o estoque + movimentações no localStorage (protegido contra cota)
+    safePersistWithQuotaRecovery(() => {
+      saveInventory(updatedInventory);
+      if (xmlStockMovements.length > 0) {
+        persistStockMovementsSync(xmlStockMovements);
+      }
+    }, 'fin_inventory_sync');
     updatedInventory.forEach(prod => {
       upsertEstoqueItem(prod).catch(err => console.warn('Supabase upsertEstoqueItem XML sync:', err));
     });
@@ -11383,7 +11473,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     });
 
     // Sincroniza imediatamente e de forma síncrona com o armazenamento local antes mesmo da nuvem para refletir instantaneamente em "A Pagar"
-    try {
+    safePersistWithQuotaRecovery(() => {
       const currentStoredExp = getStoredExpenses();
       const baseExpId = expenseId.split('_parc_')[0];
       const cleanedStored = currentStoredExp.filter((e: any) => {
@@ -11396,9 +11486,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const nextStoredExpenses = [...installmentRecords, ...cleanedStored];
       saveStoredExpenses(nextStoredExpenses);
       saveCompanyDespesas(nextStoredExpenses, getActiveCompanyId(companyProfile));
-    } catch (e) {
-      console.warn('Aviso ao sincronizar parcelas no armazenamento local:', e);
-    }
+    }, 'fin_installments_expenses');
 
     // 1. Envia as parcelas individualmente para o Contas a Pagar (Financeiro), iniciando rigorosamente pelo Item 1
     onAddExpenseFromNfe(installmentRecords);
@@ -11420,6 +11508,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         void saveRawFiscalXml(parsedData.accessKey, xmlContent);
       }
     }
+
+    const compactFinItems = Array.isArray(parsedData.items)
+      ? parsedData.items.map(compactNfeItemForStorage)
+      : [];
 
     const singleFiscalRecord: Expense = {
       id: fiscalRecordId,
@@ -11445,8 +11537,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       paymentMethod: mapPayCode(detailedInstallments[0]?.paymentMethodCode || '01'),
       costCenterId: selectedCC?.id,
       costCenterName: selectedCC?.name || primaryCategory,
-      notes: `NF-e Importada via XML. Chave: ${parsedData.accessKey || 'N/A'}. Desdobrada em ${totalParcs} parcela(s) no Contas a Pagar.${stockNote}`,
-      nfeItems: parsedData.items,
+      notes: stripXmlAndHeavyBlobsFromText(`NF-e Importada via XML. Chave: ${parsedData.accessKey || 'N/A'}. Desdobrada em ${totalParcs} parcela(s) no Contas a Pagar.${stockNote}`),
+      nfeItems: compactFinItems,
       operationNature: parsedData.transactionType || parsedData.operationNature,
       transactionType: parsedData.transactionType,
       estoqueIntegrado: xmlStockMovements.length > 0 || alreadyHadStockMov,
@@ -11462,7 +11554,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       String((f.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
     );
     const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
-    saveStoredFiscalRecords(updatedFiscalList);
+    safePersistWithQuotaRecovery(() => saveStoredFiscalRecords(updatedFiscalList), 'fin_fiscal_records');
 
     // Persistência compulsória SÍNCRONA dos itens em colaca_silagem_documentos_entrada_itens ANTES de qualquer await
     let savedXmlItemsForDoc: DocumentoEntradaItem[] = [];
@@ -11527,8 +11619,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       d.id !== fiscalRecordId && 
       String((d.numero || d.numero_documento || '').replace(/\s*\(\d+\/\d+\)/g, '') ?? '').trim().toLowerCase() !== cleanNumCompare
     )];
-    saveStoredDocumentosEntrada(updatedDocsList);
+    safePersistWithQuotaRecovery(() => saveStoredDocumentosEntrada(updatedDocsList), 'fin_documentos_entrada');
     setDocumentosEntrada(updatedDocsList);
+    if (!editingExpenseId) {
+      syncCompetenceToNewDocument(issueDateFinal);
+    }
 
     // Atualiza o estado da tabela de Histórico Fiscal com unicidade estrita
     setNotasLancadas(prev => {
@@ -12661,7 +12756,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               if (draft) {
                                 saveActiveNfeDraft({
                                   ...draft,
-                                  parsedData: updated,
+                                  parsedData: compactParsedNfeForStorage(updated),
                                   transactionType: val
                                 });
                               }
