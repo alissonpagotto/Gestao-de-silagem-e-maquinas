@@ -22,7 +22,8 @@ import {
   RotateCcw,
   Clock,
   ArrowRight,
-  Wrench
+  Wrench,
+  Pencil
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Supplier } from '../../types';
 import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml } from '../../lib/printIdentity';
@@ -267,6 +268,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const [itemQuantity, setItemQuantity] = useState<number>(1);
   const [itemUnit, setItemUnit] = useState('UN');
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
+  const [editingFormItemId, setEditingFormItemId] = useState<string | null>(null);
 
   const fiscalDocGuard = useModalUnsavedGuard({
     isOpen: isCreateModalOpen,
@@ -404,10 +406,21 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     setItemQuantity(1);
     setItemUnit('UN');
     setItemUnitPrice(0);
+    setEditingFormItemId(null);
     setIsCreateModalOpen(true);
   };
 
-  // Adicionar item à tabela temporária do formulário
+  // Carregar item existente para edição na barra superior
+  const handleEditItemFromForm = (item: FiscalDocumentItem) => {
+    setSelectedProductId(item.productId || '');
+    setItemDescription(item.description || '');
+    setItemQuantity(Number(item.quantity) || 1);
+    setItemUnit(item.unit || 'UN');
+    setItemUnitPrice(Number(item.unitPrice) || 0);
+    setEditingFormItemId(item.id);
+  };
+
+  // Adicionar ou atualizar item na tabela temporária do formulário
   const handleAddItemToForm = () => {
     if (!itemDescription.trim()) {
       alert('POR FAVOR, INFORME A DESCRIÇÃO DO ITEM.');
@@ -423,7 +436,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     }
 
     const newItem: FiscalDocumentItem = {
-      id: `it_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: editingFormItemId || `it_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       productId: selectedProductId || undefined,
       description: itemDescription.trim().toUpperCase(),
       quantity: Number(itemQuantity),
@@ -432,7 +445,12 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       totalPrice: Number((itemQuantity * itemUnitPrice).toFixed(2))
     };
 
-    setFormItems(prev => [...prev, newItem]);
+    if (editingFormItemId) {
+      setFormItems(prev => prev.map(it => (it.id === editingFormItemId ? newItem : it)));
+      setEditingFormItemId(null);
+    } else {
+      setFormItems(prev => [...prev, newItem]);
+    }
     // Reseta campos do item
     setSelectedProductId('');
     setItemDescription('');
@@ -443,6 +461,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
   const handleRemoveItemFromForm = (itemId: string) => {
     setFormItems(prev => prev.filter(it => it.id !== itemId));
+    if (editingFormItemId === itemId) setEditingFormItemId(null);
   };
 
   // Mudança do seletor de produtos
@@ -1765,15 +1784,15 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
                 {/* Linha de Adição de Item */}
                 <div className="p-2 bg-white/60 dark:bg-stone-900 rounded-lg border border-gray-400 dark:border-stone-700 space-y-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    <div className="sm:col-span-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                    <div className="sm:col-span-3">
                       <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         SELECIONAR DO ESTOQUE
                       </label>
                       <select
                         value={selectedProductId}
                         onChange={(e) => handleSelectProduct(e.target.value)}
-                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white uppercase truncate outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full px-2 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white uppercase truncate outline-none focus:ring-1 focus:ring-[#0963cb]"
                       >
                         <option value="">-- DIGITAR MANUALMENTE OU SELECIONAR --</option>
                         {availableProducts.map((p) => (
@@ -1784,7 +1803,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                       </select>
                     </div>
 
-                    <div className="sm:col-span-4">
+                    <div className="sm:col-span-3">
                       <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         DESCRIÇÃO DO ITEM
                       </label>
@@ -1793,7 +1812,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         placeholder="Ex: SILAGEM DE MILHO, FRETE DIESEL..."
                         value={itemDescription}
                         onChange={(e) => setItemDescription(e.target.value.toUpperCase())}
-                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full px-2 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
@@ -1807,7 +1826,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         step="any"
                         value={itemQuantity}
                         onChange={(e) => setItemQuantity(parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-center outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full px-2 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-center outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
@@ -1819,32 +1838,45 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         type="text"
                         value={itemUnit}
                         onChange={(e) => setItemUnit(e.target.value.toUpperCase())}
-                        className="w-full px-1.5 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-center uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        className="w-full px-1.5 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-center uppercase outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-1">
                       <label className="block text-[9px] font-bold uppercase text-black dark:text-stone-300 mb-0.5">
                         VALOR UNIT. (R$)
                       </label>
-                      <div className="flex space-x-1">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={itemUnitPrice}
-                          onChange={(e) => setItemUnitPrice(parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-right outline-none focus:ring-1 focus:ring-[#0963cb]"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddItemToForm}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-md cursor-pointer shrink-0 border border-emerald-800"
-                          title="Inserir item na tabela"
-                        >
-                          +
-                        </button>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={itemUnitPrice}
+                        onChange={(e) => setItemUnitPrice(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 bg-white dark:bg-stone-800 border border-gray-400 dark:border-stone-700 rounded-md text-xs font-bold text-black dark:text-white text-right font-mono outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1">
+                      <label className="block text-[9px] font-bold uppercase text-emerald-900 dark:text-emerald-300 mb-0.5">
+                        SUBTOTAL (R$)
+                      </label>
+                      <div
+                        className="w-full px-2 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 dark:border-emerald-700 rounded-md text-xs font-mono font-black text-emerald-900 dark:text-emerald-300 text-right select-none truncate"
+                        title="Subtotal calculado automaticamente: Qtd × Valor Unitário"
+                      >
+                        {formatCurrencyBRL(Math.max(0, (Number(itemQuantity) || 0) * (Number(itemUnitPrice) || 0)))}
                       </div>
+                    </div>
+
+                    <div className="sm:col-span-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleAddItemToForm}
+                        className="w-full inline-flex items-center justify-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap cursor-pointer border border-black shadow-xs transition"
+                        title="Inserir item na lista"
+                      >
+                        <span>+ INSERIR NA LISTA</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1860,7 +1892,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         <th className="py-1 px-2 text-center">UN</th>
                         <th className="py-1 px-2 text-right">VALOR UNIT.</th>
                         <th className="py-1 px-2 text-right">SUBTOTAL</th>
-                        <th className="py-1 px-2 text-center">AÇÃO</th>
+                        <th className="py-1 px-2 text-center w-20">AÇÕES</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-300 dark:divide-stone-800">
@@ -1872,7 +1904,14 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         </tr>
                       ) : (
                         formItems.map((item, idx) => (
-                          <tr key={`${item.id || 'form_item'}_${idx}`} className="bg-white dark:bg-stone-900 hover:bg-gray-50 dark:hover:bg-stone-800 transition">
+                          <tr
+                            key={`${item.id || 'form_item'}_${idx}`}
+                            className={`transition ${
+                              editingFormItemId === item.id
+                                ? 'bg-amber-50 dark:bg-amber-950/30'
+                                : 'bg-white dark:bg-stone-900 hover:bg-gray-50 dark:hover:bg-stone-800'
+                            }`}
+                          >
                             <td className="py-1 px-2 text-[10px] font-bold text-gray-600">{idx + 1}</td>
                             <td className="py-1 px-2 font-bold text-black dark:text-stone-100">{item.description}</td>
                             <td className="py-1 px-2 text-center font-bold text-black dark:text-stone-100">{item.quantity}</td>
@@ -1882,13 +1921,24 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                               {formatCurrencyBRL(item.totalPrice)}
                             </td>
                             <td className="py-1 px-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItemFromForm(item.id)}
-                                className="text-rose-600 hover:text-rose-800 p-0.5 cursor-pointer"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                              <div className="inline-flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditItemFromForm(item)}
+                                  className="text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-950/40 p-1 rounded cursor-pointer"
+                                  title="Editar item"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItemFromForm(item.id)}
+                                  className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1 rounded cursor-pointer"
+                                  title="Remover item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))

@@ -2887,6 +2887,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [nfsePdvUnidade, setNfsePdvUnidade] = useState('HORAS');
   const [nfsePdvQtd, setNfsePdvQtd] = useState('');
   const [nfsePdvValorUnitDisplay, setNfsePdvValorUnitDisplay] = useState('');
+  const [editingNfseItemId, setEditingNfseItemId] = useState<string | null>(null);
   const pdvQtdInputRef = useRef<HTMLInputElement>(null);
   const lastAutoNfseDiscriminationRef = useRef<string>('');
 
@@ -2915,6 +2916,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [nfeReferenciada, setNfeReferenciada] = useState('');
   const [saidaItens, setSaidaItens] = useState<NotaSaidaItem[]>([]);
   const [saidaBaixarEstoque, setSaidaBaixarEstoque] = useState(false);
+  const [nfePdvCatalogVal, setNfePdvCatalogVal] = useState('');
+  const [nfePdvInventoryItemId, setNfePdvInventoryItemId] = useState('');
+  const [nfePdvFleetVehicleId, setNfePdvFleetVehicleId] = useState('');
+  const [nfePdvFleetAssetLabel, setNfePdvFleetAssetLabel] = useState('');
+  const [nfePdvCodigo, setNfePdvCodigo] = useState('');
+  const [nfePdvDescricao, setNfePdvDescricao] = useState('');
+  const [nfePdvNcm, setNfePdvNcm] = useState('');
+  const [nfePdvUnidade, setNfePdvUnidade] = useState('UN');
+  const [nfePdvQtd, setNfePdvQtd] = useState('1');
+  const [nfePdvValorUnitDisplay, setNfePdvValorUnitDisplay] = useState('');
+  const [editingNfeSaidaItemId, setEditingNfeSaidaItemId] = useState<string | null>(null);
 
   // Catálogo completo de CFOPs e Códigos LC 116/03 (Engrenagem)
   const [cfopCatalog, setCfopCatalog] = useState<CfopCatalogEntry[]>(() => getStoredCfopCatalog());
@@ -3095,11 +3107,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setNfsePdvUnidade('HORAS');
     setNfsePdvQtd('');
     setNfsePdvValorUnitDisplay('');
+    setEditingNfseItemId(null);
   };
 
   const nfsePdvQtdNum = parsePtBrNumber(nfsePdvQtd);
   const nfsePdvUnitPriceNum = desformatarMoeda(nfsePdvValorUnitDisplay);
   const nfsePdvSubtotal = Math.max(0, Number((nfsePdvQtdNum * nfsePdvUnitPriceNum).toFixed(2)));
+
+  const clearNfePdvBar = () => {
+    setNfePdvCatalogVal('');
+    setNfePdvInventoryItemId('');
+    setNfePdvFleetVehicleId('');
+    setNfePdvFleetAssetLabel('');
+    setNfePdvCodigo('');
+    setNfePdvDescricao('');
+    setNfePdvNcm('');
+    setNfePdvUnidade('UN');
+    setNfePdvQtd('1');
+    setNfePdvValorUnitDisplay('');
+    setEditingNfeSaidaItemId(null);
+  };
+
+  const nfePdvQtdNum = parsePtBrNumber(nfePdvQtd);
+  const nfePdvUnitPriceNum = desformatarMoeda(nfePdvValorUnitDisplay);
+  const nfePdvSubtotal = Math.max(0, Number((nfePdvQtdNum * nfePdvUnitPriceNum).toFixed(2)));
 
   const resetSpecificNotaSaidaFields = (targetTipo?: TipoDocumentoSaida) => {
     const activeCompany = companyProfile || getStoredCompanyProfile();
@@ -4452,6 +4483,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }, 20);
   };
 
+  const handleEditNfsePdvService = (item: NotaSaidaItem) => {
+    setNfsePdvCatalogId(item.inventoryItemId || '');
+    setNfsePdvCodigo(item.codigo || '');
+    setNfsePdvDescricao(String(item.descricao || '').toUpperCase());
+    setNfsePdvCodigoServico(item.codigoServico || nfseCodigoServico || '17.05');
+    setNfsePdvUnidade(String(item.unidade || 'HORAS').toUpperCase());
+    setNfsePdvQtd(item.quantidade > 0 ? formatBrNumberDisplay(item.quantidade) : '1');
+    setNfsePdvValorUnitDisplay(
+      item.valorUnitario > 0 ? formatCurrencyInputDisplay(item.valorUnitario) : '0,00'
+    );
+    setEditingNfseItemId(item.id);
+    setSaidaFormError('');
+    setTimeout(() => {
+      pdvQtdInputRef.current?.focus();
+      pdvQtdInputRef.current?.select();
+    }, 20);
+  };
+
   const handleAddNfsePdvService = () => {
     const descClean = nfsePdvDescricao.trim().toUpperCase();
     const qtdNum = parsePtBrNumber(nfsePdvQtd);
@@ -4472,11 +4521,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
 
     setSaidaFormError('');
-    const lineTotal = Number((qtdNum * unitPriceNum).toFixed(2));
     const resolvedUnit = (nfsePdvUnidade || 'HORAS').trim().toUpperCase();
     const resolvedLc116 = (nfsePdvCodigoServico || nfseCodigoServico || '17.05').trim();
+    const existingItem = editingNfseItemId
+      ? saidaItens.find((it) => it.id === editingNfseItemId)
+      : undefined;
+    const descAmt = Number(existingItem?.desconto || 0);
+    const lineTotal = Math.max(0, Number((qtdNum * unitPriceNum - descAmt).toFixed(2)));
     const newItem: NotaSaidaItem = {
-      ...createEmptySaidaItem('', { codigoServico: resolvedLc116, unidade: resolvedUnit }),
+      ...(existingItem ||
+        createEmptySaidaItem('', { codigoServico: resolvedLc116, unidade: resolvedUnit })),
       inventoryItemId: nfsePdvCatalogId || '',
       codigo: nfsePdvCodigo || '',
       descricao: descClean,
@@ -4484,11 +4538,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       unidade: resolvedUnit,
       quantidade: qtdNum,
       valorUnitario: unitPriceNum,
-      desconto: 0,
+      desconto: descAmt,
       valorTotal: lineTotal,
     };
 
-    const nextItens = [...saidaItens, newItem];
+    const nextItens = editingNfseItemId
+      ? saidaItens.map((it) => (it.id === editingNfseItemId ? newItem : it))
+      : [...saidaItens, newItem];
     setSaidaItens(nextItens);
     const sumTotal = nextItens.reduce((acc, item) => acc + (Number(item.valorTotal) || 0), 0);
     setSaidaValorDisplay(sumTotal > 0 ? formatCurrencyInputDisplay(sumTotal) : '');
@@ -4727,6 +4783,136 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
+  const handleSelectNfePdvCatalogItem = (rawValue: string) => {
+    if (!rawValue) {
+      clearNfePdvBar();
+      return;
+    }
+    setNfePdvCatalogVal(rawValue);
+    if (rawValue.startsWith('fleet:')) {
+      const vehId = rawValue.slice('fleet:'.length);
+      const veh = availableVehicles.find((v) => v.id === vehId);
+      if (!veh) return;
+      const details = buildFleetAssetItemDetails(veh);
+      const declaredVal = resolveVehicleDeclaredValue(veh);
+      setNfePdvFleetVehicleId(veh.id);
+      setNfePdvFleetAssetLabel(details.assetInfoLabel);
+      setNfePdvInventoryItemId('');
+      setNfePdvCodigo(details.codigo);
+      setNfePdvDescricao(details.descricao);
+      setNfePdvNcm(details.suggestedNcm);
+      setNfePdvUnidade('UN');
+      setNfePdvValorUnitDisplay(declaredVal > 0 ? formatCurrencyInputDisplay(declaredVal) : '');
+      if (!nfePdvQtd.trim()) setNfePdvQtd('1');
+      return;
+    }
+    const prodId = rawValue.startsWith('inv:') ? rawValue.slice('inv:'.length) : rawValue;
+    const prod = localInventory.find((p) => p.id === prodId);
+    if (!prod) return;
+    const unitPrice = Number(
+      prod.salePrice || prod.preco_venda_varejo || prod.preco_venda || prod.unitCost || 0
+    );
+    setNfePdvInventoryItemId(prod.id);
+    setNfePdvFleetVehicleId('');
+    setNfePdvFleetAssetLabel('');
+    setNfePdvCodigo(prod.code || prod.codigo_produto || '');
+    setNfePdvDescricao((prod.name || prod.nome_comercial || prod.nome || '').toUpperCase());
+    setNfePdvNcm(prod.ncm || prod.codigo_ncm || '');
+    setNfePdvUnidade((prod.unit || prod.unidade_medida || 'UN').toUpperCase());
+    setNfePdvValorUnitDisplay(unitPrice > 0 ? formatCurrencyInputDisplay(unitPrice) : '');
+    if (!nfePdvQtd.trim()) setNfePdvQtd('1');
+  };
+
+  const handleEditNfeSaidaItemToBar = (item: NotaSaidaItem) => {
+    const catVal = item.fleetVehicleId
+      ? `fleet:${item.fleetVehicleId}`
+      : item.inventoryItemId
+        ? isRemessaRetornoSelected
+          ? `inv:${item.inventoryItemId}`
+          : item.inventoryItemId
+        : '';
+    setNfePdvCatalogVal(catVal);
+    setNfePdvInventoryItemId(item.inventoryItemId || '');
+    setNfePdvFleetVehicleId(item.fleetVehicleId || '');
+    setNfePdvFleetAssetLabel(item.fleetAssetLabel || '');
+    setNfePdvCodigo(item.codigo || '');
+    setNfePdvDescricao(String(item.descricao || '').toUpperCase());
+    setNfePdvNcm(item.ncm || '');
+    setNfePdvUnidade(String(item.unidade || 'UN').toUpperCase());
+    setNfePdvQtd(item.quantidade > 0 ? formatBrNumberDisplay(item.quantidade) : '1');
+    setNfePdvValorUnitDisplay(
+      item.valorUnitario > 0 ? formatCurrencyInputDisplay(item.valorUnitario) : '0,00'
+    );
+    setEditingNfeSaidaItemId(item.id);
+    setSaidaFormError('');
+  };
+
+  const handleInsertNfePdvItem = () => {
+    const descClean = nfePdvDescricao.trim().toUpperCase();
+    const qtdNum = parsePtBrNumber(nfePdvQtd);
+    const unitPriceNum = desformatarMoeda(nfePdvValorUnitDisplay);
+    if (!descClean) {
+      setSaidaFormError('SELECIONE UM PRODUTO OU DIGITE A DESCRIÇÃO ANTES DE INSERIR NA LISTA.');
+      return;
+    }
+    if (qtdNum <= 0) {
+      setSaidaFormError('INFORME UMA QUANTIDADE MAIOR QUE ZERO.');
+      return;
+    }
+    if (unitPriceNum < 0) {
+      setSaidaFormError('O VALOR UNITÁRIO NÃO PODE SER NEGATIVO.');
+      return;
+    }
+    setSaidaFormError('');
+    const existingItem = editingNfeSaidaItemId
+      ? saidaItens.find((it) => it.id === editingNfeSaidaItemId)
+      : undefined;
+    const descAmt = Number(existingItem?.desconto || 0);
+    const total = Math.max(0, Number((qtdNum * unitPriceNum - descAmt).toFixed(2)));
+    const aliqIcms = Number(existingItem?.aliquotaIcms || 0);
+    const baseIcms = aliqIcms > 0 ? total : Number(existingItem?.baseIcms || 0);
+    const valorIcms =
+      aliqIcms > 0 ? Number(((baseIcms * aliqIcms) / 100).toFixed(2)) : Number(existingItem?.valorIcms || 0);
+
+    const newItem: NotaSaidaItem = {
+      ...(existingItem || createEmptySaidaItem(nfeCfop || '5102')),
+      inventoryItemId: nfePdvInventoryItemId || '',
+      fleetVehicleId: nfePdvFleetVehicleId || '',
+      fleetAssetLabel: nfePdvFleetAssetLabel || '',
+      codigo: nfePdvCodigo || '',
+      descricao: descClean,
+      ncm: nfePdvNcm || existingItem?.ncm || '',
+      cfop: existingItem?.cfop || nfeCfop || '5102',
+      unidade: (nfePdvUnidade || 'UN').toUpperCase(),
+      quantidade: qtdNum,
+      valorUnitario: unitPriceNum,
+      baseIcms,
+      valorIcms,
+      valorTotal: total,
+    };
+
+    let next: NotaSaidaItem[];
+    if (editingNfeSaidaItemId) {
+      next = saidaItens.map((it) => (it.id === editingNfeSaidaItemId ? newItem : it));
+    } else if (
+      saidaItens.length === 1 &&
+      !saidaItens[0].descricao.trim() &&
+      !saidaItens[0].inventoryItemId &&
+      !saidaItens[0].fleetVehicleId &&
+      Number(saidaItens[0].valorTotal) <= 0
+    ) {
+      next = [newItem];
+    } else {
+      next = [...saidaItens, newItem];
+    }
+    setSaidaItens(next);
+    const sumTotal = next.reduce((acc, item) => acc + (Number(item.valorTotal) || 0), 0);
+    if (sumTotal > 0) {
+      setSaidaValorDisplay(formatCurrencyInputDisplay(sumTotal));
+    }
+    clearNfePdvBar();
+  };
+
   const handleAddSaidaItemRow = () => {
     if (saidaTipoDocumento.includes('NFS-e')) {
       setSaidaItens(prev => [
@@ -4740,6 +4926,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   const handleRemoveSaidaItemRow = (index: number) => {
     const isNfse = saidaTipoDocumento.includes('NFS-e');
+    const removed = saidaItens[index];
+    if (removed && editingNfseItemId === removed.id) setEditingNfseItemId(null);
+    if (removed && editingNfeSaidaItemId === removed.id) setEditingNfeSaidaItemId(null);
     const filtered = saidaItens.filter((_, i) => i !== index);
     if (isNfse) {
       setSaidaItens(filtered);
@@ -5444,6 +5633,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [itemQuantity, setItemQuantity] = useState('1');
   const [itemUnit, setItemUnit] = useState('UN');
   const [itemUnitCostDisplay, setItemUnitCostDisplay] = useState('');
+  const [editingManualDocItem, setEditingManualDocItem] = useState<DocumentoEntradaItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [itemFormError, setItemFormError] = useState('');
 
@@ -6393,6 +6583,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
+  const handleEditManualDocItem = (item: DocumentoEntradaItem) => {
+    setItemFormError('');
+    const matchedProd =
+      localInventory.find(
+        (p) =>
+          (item.produto_id && p.id === item.produto_id) ||
+          (p.nome_comercial &&
+            String(p.nome_comercial ?? '').toLowerCase().trim() ===
+              String(item.descricao ?? '').toLowerCase().trim()) ||
+          String(p.name ?? '').toLowerCase().trim() ===
+            String(item.descricao ?? '').toLowerCase().trim()
+      ) || null;
+    setSelectedProduct(matchedProd);
+    setItemSearchQuery(item.descricao || '');
+    setItemQuantity(String(item.quantidade || 1));
+    setItemUnit((item.unidade || 'UN').toUpperCase());
+    setItemUnitCostDisplay(
+      Number(item.valor_unitario) > 0 ? formatCurrencyInputDisplay(Number(item.valor_unitario)) : ''
+    );
+    setEditingManualDocItem(item);
+    setIsItemSearchOpen(false);
+    setTimeout(() => {
+      const qtyEl = document.getElementById('manual-item-qty-input') as HTMLInputElement | null;
+      qtyEl?.focus();
+      qtyEl?.select();
+    }, 20);
+  };
+
   // Adiciona item na entrada: atualiza manualDocItems reativamente, persiste localmente e sincroniza estoque
   const handleAddItemToManualDoc = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -6447,8 +6665,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const unit = rawUnit.toUpperCase();
     const totalPrice = Math.round(qty * unitPrice * 100) / 100;
 
+    const prevEditingItem = editingManualDocItem;
+    if (prevEditingItem) {
+      await handleDeleteItemFromManualDoc(prevEditingItem);
+      setEditingManualDocItem(null);
+    }
+
     // Cria registro de item real com identificador único
-    const newItemId = generateUUID();
+    const newItemId = prevEditingItem?.id || generateUUID();
     const newItem: DocumentoEntradaItem = {
       id: newItemId,
       documento_entrada_id: currentManualDoc.id,
@@ -6475,10 +6699,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setIsAddingItem(true);
     try {
       const baseInv = getMergedBaseInventory();
-      const targetProduct = matchedStockProduct || baseInv.find(p => 
-        (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase()) ||
-        (p.name && String(p.name ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase())
-      );
+      const targetProduct =
+        (matchedStockProduct && baseInv.find(p => p.id === matchedStockProduct.id)) ||
+        baseInv.find(p =>
+          (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase()) ||
+          (p.name && String(p.name ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase())
+        );
 
       const descLower = String(realProductName ?? '').toLowerCase();
       const isCombustivel = 
@@ -15408,21 +15634,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </div>
 
                       {/* Indicador de Subtotal */}
-                      <div className="flex-1 min-w-[130px] px-3.5 py-1.5 bg-white dark:bg-stone-800/80 border border-gray-400 dark:border-stone-700 rounded-lg flex items-center justify-between h-[38px]">
-                        <span className="text-[11px] text-black dark:text-stone-400 font-bold uppercase tracking-wider">Subtotal:</span>
-                        <span className="font-mono text-emerald-700 dark:text-emerald-400 text-xs sm:text-sm font-black">
+                      <div className="flex-1 min-w-[140px] px-3.5 py-1.5 bg-emerald-50 dark:bg-stone-800/80 border border-emerald-500 dark:border-stone-700 rounded-lg flex items-center justify-between h-[38px]">
+                        <span className="text-[11px] text-emerald-900 dark:text-stone-400 font-black uppercase tracking-wider">SUBTOTAL (R$):</span>
+                        <span className="font-mono text-emerald-800 dark:text-emerald-400 text-xs sm:text-sm font-black">
                           {formatCurrencyBRL(
                             (parseFloat(itemQuantity.replace(',', '.')) || 0) * parseCurrencyInput(itemUnitCostDisplay)
                           )}
                         </span>
                       </div>
 
-                      {/* Botão verde [+ Adicionar Item] */}
+                      {/* Botão verde [+ INSERIR NA LISTA] */}
                       <button
                         type="submit"
                         id="btn-adicionar-produto-entrada"
                         disabled={isAddingItem}
-                        className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg border border-emerald-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 h-[38px]"
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap border border-black transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 h-[38px]"
                       >
                         {isAddingItem ? (
                           <>
@@ -15430,10 +15656,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             <span>Somando...</span>
                           </>
                         ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>+ Adicionar Item</span>
-                          </>
+                          <span>+ INSERIR NA LISTA</span>
                         )}
                       </button>
                     </div>
@@ -15509,34 +15732,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     <div className="flex items-center justify-center space-x-1 whitespace-nowrap">
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          const matchedProd = localInventory.find(p =>
-                                            (item.produto_id && p.id === item.produto_id) ||
-                                            (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()) ||
-                                            String(p.name ?? '').toLowerCase().trim() === String(item.descricao ?? '').toLowerCase().trim()
-                                          ) || {
-                                            id: item.produto_id || `inv_${Date.now()}`,
-                                            name: item.descricao,
-                                            nome_comercial: item.descricao,
-                                            unit: item.unidade || 'UN',
-                                            unidade_medida: item.unidade || 'UN',
-                                            category: deduceItemCategory(item.descricao),
-                                            unitCost: Number(item.valor_unitario) || 0,
-                                            salePrice: Math.round((Number(item.valor_unitario) || 0) * 1.3 * 100) / 100,
-                                            quantity: Number(item.quantidade) || 0,
-                                            minQuantity: 0,
-                                            location: 'Depósito Principal',
-                                          };
-                                          handleOpenEditProductFromManualEntry(matchedProd, item.id);
-                                        }}
+                                        onClick={() => handleEditManualDocItem(item)}
                                         className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
-                                        title="Editar Produto no Estoque"
+                                        title="Editar item na barra superior"
                                       >
                                         <Pencil className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleDeleteItemFromManualDoc(item)}
+                                        onClick={() => {
+                                          if (editingManualDocItem?.id === item.id) {
+                                            setEditingManualDocItem(null);
+                                          }
+                                          handleDeleteItemFromManualDoc(item);
+                                        }}
                                         className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
                                         title="Excluir item da entrada e estornar quantidade do estoque"
                                       >
@@ -17188,7 +17397,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           LANÇAMENTO RÁPIDO DE SERVIÇO (ESTOQUE / CATÁLOGO • ESTILO PDV)
                         </span>
                         <span className="text-[10px] font-semibold text-slate-500 dark:text-stone-400">
-                          Escolha o serviço, informe Qtd / Horas e clique em + ADICIONAR SERVIÇO
+                          Escolha o serviço, informe Qtd / Horas e clique em + INSERIR NA LISTA
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[3.5fr_0.9fr_0.9fr_1.15fr_1.15fr_auto] gap-2 items-end">
@@ -17284,7 +17493,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                         <div>
                           <span className="block text-[10px] font-black text-emerald-800 dark:text-emerald-300 uppercase mb-0.5">
-                            SUBTOTAL DA LINHA
+                            SUBTOTAL (R$)
                           </span>
                           <div
                             className="w-full h-8 px-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/70 dark:border-emerald-700 rounded-lg flex items-center justify-end font-mono font-black text-xs text-emerald-800 dark:text-emerald-300"
@@ -17298,10 +17507,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           type="button"
                           id="btn-nfse-pdv-adicionar"
                           onClick={handleAddNfsePdvService}
-                          className="h-8 px-3 bg-[#1e40af] hover:bg-[#1e3a8a] text-white rounded-lg text-[10.5px] font-black uppercase inline-flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap inline-flex items-center justify-center gap-1 border border-black transition active:scale-95 cursor-pointer shadow-xs"
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>ADICIONAR SERVIÇO</span>
+                          <span>+ INSERIR NA LISTA</span>
                         </button>
                       </div>
                     </div>
@@ -17331,7 +17539,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             <th className="p-1.5 text-right w-[100px]">V. UNIT (R$)</th>
                             <th className="p-1.5 text-right w-[82px]">DESC. (R$)</th>
                             <th className="p-1.5 text-right w-[110px]">SUBTOTAL (R$)</th>
-                            <th className="p-1.5 text-center w-[46px]">REM.</th>
+                            <th className="p-1.5 text-center w-[72px]">AÇÕES</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-stone-700">
@@ -17342,12 +17550,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 className="px-4 py-8 text-center text-xs font-semibold text-slate-500 dark:text-stone-400"
                               >
                                 Nenhum serviço incluído na nota ainda. Selecione um serviço cadastrado na barra acima, informe a Qtd/Horas e clique em{' '}
-                                <strong className="text-[#1e40af] dark:text-blue-300">+ ADICIONAR SERVIÇO</strong>.
+                                <strong className="text-emerald-700 dark:text-emerald-300">+ INSERIR NA LISTA</strong>.
                               </td>
                             </tr>
                           ) : (
                             saidaItens.map((item, idx) => (
-                              <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-stone-800/40">
+                              <tr
+                                key={item.id}
+                                className={
+                                  editingNfseItemId === item.id
+                                    ? 'bg-amber-50 dark:bg-amber-950/30'
+                                    : 'hover:bg-slate-50/70 dark:hover:bg-stone-800/40'
+                                }
+                              >
                                 <td className="p-1.5 text-center font-mono font-bold text-slate-500">
                                   {idx + 1}
                                 </td>
@@ -17431,14 +17646,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   {formatCurrencyBRL(item.valorTotal)}
                                 </td>
                                 <td className="p-1 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveSaidaItemRow(idx)}
-                                    className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded cursor-pointer"
-                                    title="Remover serviço"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="inline-flex items-center justify-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditNfsePdvService(item)}
+                                      className="p-1 text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded cursor-pointer"
+                                      title="Editar serviço na barra superior"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSaidaItemRow(idx)}
+                                      className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded cursor-pointer"
+                                      title="Remover serviço"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))
@@ -17996,6 +18221,100 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       ))}
                     </datalist>
 
+                    {/* Barra de Inserção Rápida de Produto / Item (NF-e / NFC-e) */}
+                    <div className="bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-700 rounded-lg p-2 shadow-2xs shrink-0 mb-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2.4fr_2.4fr_0.75fr_0.7fr_1.05fr_1.15fr_auto] gap-2 items-end">
+                        <div>
+                          <label className="block text-[9.5px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
+                            {isRemessaRetornoSelected ? 'SELECIONAR ESTOQUE OU FROTA' : 'PRODUTO DO ESTOQUE'}
+                          </label>
+                          <SaidaItemSearchCombobox
+                            includeFleet={isRemessaRetornoSelected}
+                            value={nfePdvCatalogVal}
+                            vehicles={availableVehicles}
+                            inventory={localInventory}
+                            formatFleetOptionLabel={formatFleetOptionLabel}
+                            onSelect={handleSelectNfePdvCatalogItem}
+                            placeholder={isRemessaRetornoSelected ? 'BUSCAR ESTOQUE OU FROTA...' : 'BUSCAR PRODUTO DO ESTOQUE...'}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9.5px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
+                            DESCRIÇÃO DO ITEM *
+                          </label>
+                          <input
+                            type="text"
+                            value={nfePdvDescricao}
+                            onChange={(e) => setNfePdvDescricao(e.target.value.toUpperCase())}
+                            placeholder="DESCRIÇÃO DO PRODUTO / ITEM..."
+                            className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold uppercase text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9.5px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
+                            QTD
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={nfePdvQtd}
+                            onChange={(e) => setNfePdvQtd(maskBrNumberWithThousands(e.target.value))}
+                            placeholder="1"
+                            className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-right text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9.5px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
+                            UN
+                          </label>
+                          <input
+                            type="text"
+                            value={nfePdvUnidade}
+                            onChange={(e) => setNfePdvUnidade(e.target.value.toUpperCase())}
+                            placeholder="UN"
+                            className="w-full h-8 px-1.5 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-center uppercase text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9.5px] font-black text-black/80 dark:text-stone-300 uppercase mb-0.5">
+                            VALOR UNIT. (R$)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={nfePdvValorUnitDisplay}
+                            onChange={(e) => setNfePdvValorUnitDisplay(maskBrCurrencyATM(e.target.value))}
+                            placeholder="0,00"
+                            className="w-full h-8 px-2 py-1 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-right text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                          />
+                        </div>
+
+                        <div>
+                          <span className="block text-[9.5px] font-black text-emerald-800 dark:text-emerald-300 uppercase mb-0.5">
+                            SUBTOTAL (R$)
+                          </span>
+                          <div
+                            className="w-full h-8 px-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/70 dark:border-emerald-700 rounded-lg flex items-center justify-end font-mono font-black text-xs text-emerald-800 dark:text-emerald-300"
+                            title="Cálculo em tempo real: Qtd × Valor Unitário"
+                          >
+                            {formatCurrencyBRL(nfePdvSubtotal)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleInsertNfePdvItem}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap inline-flex items-center justify-center gap-1 border border-black transition active:scale-95 cursor-pointer shadow-xs"
+                        >
+                          <span>+ INSERIR NA LISTA</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Grade de Produtos / Itens do Estoque */}
                     <div className="flex-1 min-h-[260px] bg-white dark:bg-stone-900 border border-black/50 dark:border-stone-700 rounded-lg overflow-auto">
                       <table className="w-full text-[11px] border-collapse">
@@ -18031,21 +18350,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               <th className="p-1.5 text-right w-[65px]">ICMS %</th>
                             )}
                             <th className="p-1.5 text-right w-[95px]">TOTAL (R$)</th>
-                            <th className="p-1 text-right whitespace-nowrap w-[116px]">
-                              <button
-                                type="button"
-                                onClick={handleAddSaidaItemRow}
-                                className="ml-auto px-2 py-1 bg-[#1e40af] hover:bg-[#1e3a8a] text-white rounded-md text-[9.5px] font-black uppercase inline-flex items-center gap-1 transition cursor-pointer shadow-2xs whitespace-nowrap"
-                              >
-                                <Plus className="w-3 h-3" />
-                                <span>ADICIONAR ITEM</span>
-                              </button>
+                            <th className="p-1 text-center whitespace-nowrap w-[84px]">
+                              AÇÕES
                             </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-stone-700">
                           {saidaItens.map((item, idx) => (
-                            <tr key={item.id}>
+                            <tr
+                              key={item.id}
+                              className={editingNfeSaidaItemId === item.id ? 'bg-amber-50 dark:bg-amber-950/30' : undefined}
+                            >
                               <td className="p-1">
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-1">
                                   {isRemessaRetornoSelected ? (
@@ -18173,15 +18488,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               <td className="p-1 text-right font-mono font-black text-emerald-700 dark:text-emerald-400">
                                 {formatCurrencyBRL(item.valorTotal)}
                               </td>
-                              <td className="p-1 text-right pr-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveSaidaItemRow(idx)}
-                                  className="p-1 text-rose-600 hover:bg-rose-50 rounded cursor-pointer"
-                                  title="Remover item"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                              <td className="p-1 text-center">
+                                <div className="inline-flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditNfeSaidaItemToBar(item)}
+                                    className="p-1 text-amber-700 hover:bg-amber-100 rounded cursor-pointer"
+                                    title="Editar item na barra superior"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveSaidaItemRow(idx)}
+                                    className="p-1 text-rose-600 hover:bg-rose-50 rounded cursor-pointer"
+                                    title="Remover item"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}

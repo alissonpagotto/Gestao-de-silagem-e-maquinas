@@ -875,7 +875,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   const periodAccumulatedBalance = periodRevenue - periodExpenses;
 
   // Global / DRE Metrics
-  const currentSeason = Array.isArray(seasons) && seasons.length > 0 ? seasons[0] : null;
   const totalRevenue = (orders || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0) +
                        (services || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0) +
                        receitasConsolidadas.reduce((acc, curr) => acc + (Number(curr.valor ?? curr.totalLiquido ?? curr.amount ?? curr.totalAmount) || 0), 0);
@@ -895,11 +894,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   const totalCosts = directCosts + machineryCosts + overheadCosts;
   const grossMargin = totalRevenue - directCosts;
   const netProfit = totalRevenue - totalCosts;
-
-  const totalTonsEstimated = (currentSeason?.estimatedTons && currentSeason.estimatedTons > 0) ? currentSeason.estimatedTons : 0;
-  const revenuePerTon = totalTonsEstimated > 0 ? totalRevenue / totalTonsEstimated : 0;
-  const costPerTon = totalTonsEstimated > 0 ? totalCosts / totalTonsEstimated : 0;
-  const profitPerTon = revenuePerTon - costPerTon;
 
   // Formatted period title label
   const periodLabel = useMemo(() => {
@@ -1209,13 +1203,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {/* Card Total Entradas */}
-            <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
+            <div className="crm-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
                   <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-black text-zinc-500 dark:text-stone-400 uppercase block leading-tight">
+                  <span className="text-[11px] font-black text-zinc-600 dark:text-stone-400 uppercase block leading-tight">
                     Total Entradas
                   </span>
                   <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight font-['Outfit']">
@@ -1226,13 +1220,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             </div>
 
             {/* Card Total Saídas */}
-            <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
+            <div className="crm-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
                   <ArrowDownRight className="w-4 h-4 stroke-[2.5]" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-black text-zinc-500 dark:text-stone-400 uppercase block leading-tight">
+                  <span className="text-[11px] font-black text-zinc-600 dark:text-stone-400 uppercase block leading-tight">
                     Total Saídas
                   </span>
                   <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight font-['Outfit']">
@@ -1243,13 +1237,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             </div>
 
             {/* Card Saldo Acumulado */}
-            <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
+            <div className="crm-card bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between text-zinc-900 dark:text-white">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
                   <BarChart2 className="w-4 h-4 stroke-[2.5]" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-black text-zinc-500 dark:text-stone-400 uppercase block leading-tight">
+                  <span className="text-[11px] font-black text-zinc-600 dark:text-stone-400 uppercase block leading-tight">
                     Saldo Acumulado
                   </span>
                   <span className={`text-base sm:text-lg font-black tracking-tight font-['Outfit'] ${
@@ -1265,49 +1259,46 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       </div>
 
       {/* Structured DRE Statement Table */}
-      <div className="crm-card bg-white dark:bg-stone-900 rounded-xl border border-zinc-200 dark:border-stone-800 overflow-hidden shadow-xs text-zinc-900 dark:text-white">
-            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-900 flex items-center justify-between">
+      <div className="crm-card bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 overflow-hidden shadow-xs text-zinc-900 dark:text-white">
+            <div className="p-4 sm:p-5 border-b border-black dark:border-stone-800 bg-[#e0e6f1] dark:bg-stone-900 flex items-center justify-between">
               <div>
                 <h3 className="font-black text-zinc-900 dark:text-white text-sm">
-                  Demonstração do Resultado do Exercício (DRE Agro Consolidado)
+                  Demonstrativo do Resultado do Exercício (DRE Gerencial)
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-stone-300 font-medium">
-                  Acompanhamento gerencial das receitas, custos diretos de campo, frota e resultado operacional
+                <p className="text-xs text-zinc-600 dark:text-stone-300 font-medium">
+                  Acompanhamento gerencial das receitas, custos diretos operacionais, frota e resultado operacional
                 </p>
               </div>
-              <span className="text-xs font-bold px-2.5 py-1 bg-white dark:bg-stone-800 text-zinc-800 dark:text-white border border-zinc-200 dark:border-stone-700 rounded-lg">
-                {currentSeason?.name || 'Safra Atual'}
-              </span>
             </div>
 
-            <div className="divide-y divide-blue-200/60 dark:divide-stone-800 text-xs sm:text-sm">
+            <div className="divide-y divide-black/15 dark:divide-stone-800 text-xs sm:text-sm">
               
               {/* Revenue */}
               <div className="p-4 flex items-center justify-between bg-emerald-100/60 dark:bg-emerald-950/40 font-bold text-emerald-950 dark:text-emerald-200">
-                <span>(+) RECEITA BRUTA DE VENDAS & SERVIÇOS DE SILAGEM</span>
+                <span>(+) RECEITA BRUTA DE VENDAS & SERVIÇOS</span>
                 <span className="font-black">{formatCurrencyBRL(totalRevenue)}</span>
               </div>
 
               {/* Direct Costs */}
-              <div className="p-4 flex items-center justify-between pl-6 bg-white/40 dark:bg-stone-850 text-black dark:text-white font-medium">
-                <span>(-) Custos Diretos de Campo (Insumos, Sementes, Adubos, Lona, Inoculante)</span>
+              <div className="p-4 flex items-center justify-between pl-6 bg-[#e0e6f1] dark:bg-stone-850 text-black dark:text-white font-medium">
+                <span>(-) Custos Diretos Operacionais (Insumos, Mercadorias & Materiais)</span>
                 <span className="text-rose-700 dark:text-rose-400 font-bold">{formatCurrencyBRL(directCosts)}</span>
               </div>
 
               {/* Gross Margin */}
-              <div className="p-4 flex items-center justify-between bg-blue-100/50 dark:bg-stone-800 font-bold text-black dark:text-white">
+              <div className="p-4 flex items-center justify-between bg-blue-100/60 dark:bg-stone-800 font-bold text-black dark:text-white">
                 <span>(=) MARGEM BRUTA DE CONTRIBUIÇÃO</span>
                 <span className="text-emerald-800 dark:text-emerald-300 font-black">{formatCurrencyBRL(grossMargin)}</span>
               </div>
 
               {/* Machinery Costs */}
-              <div className="p-4 flex items-center justify-between pl-6 bg-white/40 dark:bg-stone-850 text-black dark:text-white font-medium">
-                <span>(-) Manutenção da Frota & Peças de Ensiladeira</span>
+              <div className="p-4 flex items-center justify-between pl-6 bg-[#e0e6f1] dark:bg-stone-850 text-black dark:text-white font-medium">
+                <span>(-) Manutenção da Frota & Equipamentos</span>
                 <span className="text-rose-700 dark:text-rose-400 font-bold">{formatCurrencyBRL(machineryCosts)}</span>
               </div>
 
               {/* Overhead */}
-              <div className="p-4 flex items-center justify-between pl-6 bg-white/40 dark:bg-stone-850 text-black dark:text-white font-medium">
+              <div className="p-4 flex items-center justify-between pl-6 bg-[#e0e6f1] dark:bg-stone-850 text-black dark:text-white font-medium">
                 <span>(-) Despesas Operacionais, Fretes Terceirizados & Administrativo</span>
                 <span className="text-rose-700 dark:text-rose-400 font-bold">{formatCurrencyBRL(overheadCosts)}</span>
               </div>
@@ -1320,39 +1311,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
                 </span>
               </div>
 
-            </div>
-          </div>
-
-          {/* Unit Cost & Silage Metrics */}
-          <div className="crm-card bg-white dark:bg-stone-900 p-5 rounded-xl border border-zinc-200 dark:border-stone-800 shadow-xs text-zinc-900 dark:text-white">
-            <h3 className="font-black text-zinc-900 dark:text-white text-sm mb-3">
-              Unitizadores por Tonelada de Silagem
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-              <div className="p-3.5 bg-zinc-50 dark:bg-stone-800 rounded-xl border border-zinc-200 dark:border-stone-700">
-                <span className="text-[11px] font-black text-zinc-500 dark:text-stone-300 uppercase">
-                  Preço Médio de Venda
-                </span>
-                <p className="text-xl font-black text-zinc-900 dark:text-white mt-1 font-['Outfit']">
-                  {formatCurrencyBRL(revenuePerTon)}/ton
-                </p>
-              </div>
-              <div className="p-3.5 bg-zinc-50 dark:bg-stone-800 rounded-xl border border-zinc-200 dark:border-stone-700">
-                <span className="text-[11px] font-black text-zinc-500 dark:text-stone-300 uppercase">
-                  Custo Total de Produção
-                </span>
-                <p className="text-xl font-black text-zinc-900 dark:text-white mt-1 font-['Outfit']">
-                  {formatCurrencyBRL(costPerTon)}/ton
-                </p>
-              </div>
-              <div className="p-3.5 bg-zinc-50 dark:bg-stone-800 rounded-xl border border-zinc-200 dark:border-stone-700">
-                <span className="text-[11px] font-black text-zinc-500 dark:text-stone-300 uppercase">
-                  Lucro Líquido Unitário
-                </span>
-                <p className="text-xl font-black text-zinc-900 dark:text-white mt-1 font-['Outfit']">
-                  {formatCurrencyBRL(profitPerTon)}/ton
-                </p>
-              </div>
             </div>
           </div>
 

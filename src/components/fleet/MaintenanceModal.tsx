@@ -36,7 +36,8 @@ import {
   ArrowRight,
   CheckCheck,
   Gauge,
-  Download
+  Download,
+  Pencil
 } from 'lucide-react';
 import { 
   MaintenanceLog, 
@@ -456,6 +457,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   const [osPartSearchQuery, setOsPartSearchQuery] = useState<string>('');
   const [osPartSelectedProduct, setOsPartSelectedProduct] = useState<InventoryItem | null>(null);
   const [osPartInputUnitCost, setOsPartInputUnitCost] = useState<string>('');
+  const [editingOsPartId, setEditingOsPartId] = useState<string | null>(null);
   const [isOsPartDropdownOpen, setIsOsPartDropdownOpen] = useState<boolean>(false);
   const [osPartHighlightedIndex, setOsPartHighlightedIndex] = useState<number>(0);
   const osPartSearchContainerRef = useRef<HTMLDivElement>(null);
@@ -1368,6 +1370,93 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     setIsOsPartDropdownOpen(false);
   };
 
+  const restoreStockForPartItem = (itemToRestore?: MaintenancePartItem) => {
+    if (
+      itemToRestore &&
+      itemToRestore.stockDeducted &&
+      (itemToRestore.origin === 'almoxarifado_interno' || !itemToRestore.origin)
+    ) {
+      const qtyToRestore = parseCleanPriceNumber(itemToRestore.quantity);
+      if (qtyToRestore > 0) {
+        const currentStored = getStoredInventory();
+        const baseStock =
+          currentStored.length > 0
+            ? currentStored
+            : inventory && inventory.length > 0
+              ? inventory
+              : [];
+        if (baseStock.length > 0) {
+          const updatedStock = [...baseStock];
+          const targetIdx = updatedStock.findIndex(
+            (inv) =>
+              (itemToRestore.inventoryItemId && inv.id === itemToRestore.inventoryItemId) ||
+              (inv.code !== undefined &&
+                inv.code !== null &&
+                itemToRestore.description &&
+                String(inv.code ?? '').trim().toLowerCase() ===
+                  String(itemToRestore.description ?? '').trim().toLowerCase()) ||
+              (inv.name &&
+                itemToRestore.description &&
+                String(inv.name ?? '').trim().toLowerCase() ===
+                  String(itemToRestore.description ?? '').trim().toLowerCase())
+          );
+          if (targetIdx !== -1) {
+            const restoredQty =
+              Math.round(
+                ((Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) ||
+                  0) +
+                  qtyToRestore) *
+                  100
+              ) / 100;
+            const restoredItem: InventoryItem = {
+              ...updatedStock[targetIdx],
+              quantity: restoredQty,
+              quantidade_atual: restoredQty,
+              updatedAt: new Date().toISOString(),
+            };
+            updatedStock[targetIdx] = restoredItem;
+            saveStoredInventory(updatedStock);
+            setStoredInventory(updatedStock);
+            onSaveInventory?.(updatedStock);
+            window.dispatchEvent(new CustomEvent('silagem_inventory_changed'));
+            upsertEstoqueItem(restoredItem).catch((err) =>
+              console.warn('Supabase upsertEstoqueItem restore notice:', err)
+            );
+          }
+        }
+      }
+    }
+  };
+
+  const handleEditPartItem = (index: number) => {
+    const item = partsItems[index];
+    if (!item) return;
+    const matchedStock = item.inventoryItemId
+      ? allInventoryList.find((inv) => inv.id === item.inventoryItemId) || null
+      : allInventoryList.find(
+          (inv) =>
+            (inv.name &&
+              item.description &&
+              String(inv.name ?? '').trim().toLowerCase() ===
+                String(item.description ?? '').trim().toLowerCase()) ||
+            (inv.nome_comercial &&
+              item.description &&
+              String(inv.nome_comercial ?? '').trim().toLowerCase() ===
+                String(item.description ?? '').trim().toLowerCase())
+        ) || null;
+    setOsPartSelectedProduct(matchedStock);
+    setOsPartSearchQuery(String(item.description || '').toUpperCase());
+    setOsPartInputQtde(String(item.quantity || 1));
+    const uCost = parseCleanPriceNumber(item.unitCost);
+    setOsPartInputUnitCost(uCost > 0 ? uCost.toFixed(2).replace('.', ',') : '0,00');
+    setEditingOsPartId(item.id);
+    setIsOsPartDropdownOpen(false);
+    setTimeout(() => {
+      osPartQtyInputRef.current?.focus();
+      osPartQtyInputRef.current?.select();
+    }, 20);
+  };
+
   const handleInsertOsPart = () => {
     const rawDesc = osPartSearchQuery.trim();
     if (!rawDesc && !osPartSelectedProduct) return;
@@ -1394,20 +1483,42 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     const finalUnit = resolvedProduct?.unit || resolvedProduct?.unidade_medida || 'un';
     const totalCost = Math.round(qty * unitCost * 100) / 100;
 
-    const newItem: MaintenancePartItem = {
-      id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-      inventoryItemId: resolvedProduct?.id,
-      description: finalDescription,
-      origin: 'almoxarifado_interno',
-      quantity: qty,
-      unit: finalUnit,
-      unitCost: unitCost,
-      totalCost: totalCost,
-      stockDeducted: false,
-    };
+    if (editingOsPartId) {
+      const oldItem = partsItems.find((p) => p.id === editingOsPartId);
+      if (oldItem?.stockDeducted) {
+        restoreStockForPartItem(oldItem);
+      }
+      const updatedItem: MaintenancePartItem = {
+        ...(oldItem || {}),
+        id: editingOsPartId,
+        inventoryItemId: resolvedProduct?.id ?? oldItem?.inventoryItemId,
+        description: finalDescription,
+        origin: oldItem?.origin || 'almoxarifado_interno',
+        quantity: qty,
+        unit: finalUnit,
+        unitCost: unitCost,
+        totalCost: totalCost,
+        stockDeducted: false,
+      };
+      setUsePartsItemList(true);
+      setPartsItems((prev) => prev.map((p) => (p.id === editingOsPartId ? updatedItem : p)));
+      setEditingOsPartId(null);
+    } else {
+      const newItem: MaintenancePartItem = {
+        id: `part_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        inventoryItemId: resolvedProduct?.id,
+        description: finalDescription,
+        origin: 'almoxarifado_interno',
+        quantity: qty,
+        unit: finalUnit,
+        unitCost: unitCost,
+        totalCost: totalCost,
+        stockDeducted: false,
+      };
 
-    setUsePartsItemList(true);
-    setPartsItems(prev => [...prev, newItem]);
+      setUsePartsItemList(true);
+      setPartsItems(prev => [...prev, newItem]);
+    }
 
     // Limpa campos superiores para a próxima busca
     setOsPartInputQtde('1');
@@ -1445,36 +1556,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
   const handleRemovePartItem = (index: number) => {
     const itemToRemove = partsItems[index];
-    // Se o item já havia sido baixado do estoque interno, devolve o saldo ao estoque
-    if (itemToRemove && itemToRemove.stockDeducted && (itemToRemove.origin === 'almoxarifado_interno' || !itemToRemove.origin)) {
-      const qtyToRestore = parseCleanPriceNumber(itemToRemove.quantity);
-      if (qtyToRestore > 0) {
-        const currentStored = getStoredInventory();
-        const baseStock = currentStored.length > 0 ? currentStored : (inventory && inventory.length > 0 ? inventory : []);
-        if (baseStock.length > 0) {
-          const updatedStock = [...baseStock];
-          const targetIdx = updatedStock.findIndex(inv => 
-            (itemToRemove.inventoryItemId && inv.id === itemToRemove.inventoryItemId) ||
-            (inv.code !== undefined && inv.code !== null && itemToRemove.description && String(inv.code ?? '').trim().toLowerCase() === String(itemToRemove.description ?? '').trim().toLowerCase()) ||
-            (inv.name && itemToRemove.description && String(inv.name ?? '').trim().toLowerCase() === String(itemToRemove.description ?? '').trim().toLowerCase())
-          );
-          if (targetIdx !== -1) {
-            const restoredQty = Math.round(((Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) || 0) + qtyToRestore) * 100) / 100;
-            const restoredItem: InventoryItem = {
-              ...updatedStock[targetIdx],
-              quantity: restoredQty,
-              quantidade_atual: restoredQty,
-              updatedAt: new Date().toISOString()
-            };
-            updatedStock[targetIdx] = restoredItem;
-            saveStoredInventory(updatedStock);
-            setStoredInventory(updatedStock);
-            onSaveInventory?.(updatedStock);
-            window.dispatchEvent(new CustomEvent('silagem_inventory_changed'));
-            upsertEstoqueItem(restoredItem).catch(err => console.warn('Supabase upsertEstoqueItem restore notice:', err));
-          }
-        }
-      }
+    restoreStockForPartItem(itemToRemove);
+    if (itemToRemove && editingOsPartId === itemToRemove.id) {
+      setEditingOsPartId(null);
     }
     setPartsItems(prev => prev.filter((_, i) => i !== index));
   };
@@ -3028,7 +3112,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                   </div>
 
                   {/* Input [ 🔍 PESQUISAR PRODUTO / PEÇA / SERVIÇO ] */}
-                  <div ref={osPartSearchContainerRef} className="col-span-9 sm:col-span-6 relative">
+                  <div ref={osPartSearchContainerRef} className="col-span-9 sm:col-span-4 relative">
                     <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center justify-between">
                       <span className="flex items-center space-x-1.5">
                         <Search className="w-3 h-3 text-sky-600 dark:text-sky-400" />
@@ -3147,7 +3231,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                   </div>
 
                   {/* Input [ PREÇO UNITÁRIO (R$) ] */}
-                  <div className="col-span-6 sm:col-span-2">
+                  <div className="col-span-4 sm:col-span-2">
                     <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1">
                       PREÇO UNITÁRIO (R$)
                     </label>
@@ -3172,18 +3256,36 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Botão [ + ADICIONAR ITEM (ENTER) ] */}
-                  <div className="col-span-6 sm:col-span-3">
+                  {/* Campo Calculado [ SUBTOTAL (R$) ] */}
+                  <div className="col-span-4 sm:col-span-2">
+                    <label className="block text-[10px] sm:text-[11px] font-black uppercase text-emerald-800 dark:text-emerald-300 tracking-wider mb-1 text-right">
+                      SUBTOTAL (R$)
+                    </label>
+                    <div
+                      className="w-full h-[33px] px-2.5 rounded-xl border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-end font-mono font-black text-xs text-emerald-900 dark:text-emerald-300 select-none"
+                      title="Subtotal calculado automaticamente: Qtde × Valor Unitário"
+                    >
+                      {formatCurrencyBRL(
+                        Math.max(
+                          0,
+                          (parseCleanPriceNumber(osPartInputQtde) || 0) *
+                            parseCleanPriceNumber(osPartInputUnitCost)
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Botão [ + INSERIR NA LISTA ] */}
+                  <div className="col-span-4 sm:col-span-3">
                     <button
                       type="button"
                       onClick={() => {
                         setIsOsPartDropdownOpen(false);
                         handleInsertOsPart();
                       }}
-                      className="w-full h-[33px] inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold text-white uppercase rounded-xl bg-gradient-to-b from-sky-500 via-sky-600 to-sky-700 hover:from-sky-400 hover:to-sky-600 border border-sky-400/80 shadow-[inset_0_1px_0px_rgba(255,255,255,0.3),0_1px_2px_rgba(0,0,0,0.15)] transition cursor-pointer active:scale-95 shrink-0"
+                      className="w-full h-[33px] inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap border border-black shadow-xs transition cursor-pointer active:scale-95 shrink-0"
                     >
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>+ ADICIONAR ITEM (ENTER)</span>
+                      <span>+ INSERIR NA LISTA</span>
                     </button>
                   </div>
 
@@ -3214,7 +3316,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           <th className="py-2.5 px-3 text-center w-[10%] whitespace-nowrap">QTDE</th>
                           <th className="py-2.5 px-3 text-right w-[12%] whitespace-nowrap">VALOR UNITÁRIO (R$)</th>
                           <th className="py-2.5 px-3 text-right w-[10%] whitespace-nowrap">VALOR TOTAL (R$)</th>
-                          <th className="py-2.5 px-2 text-center w-[4%] whitespace-nowrap">AÇÃO</th>
+                          <th className="py-2.5 px-2 text-center w-[76px] whitespace-nowrap">AÇÕES</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200/70 dark:divide-stone-800">
@@ -3225,7 +3327,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                           return (
                             <tr
                               key={item.id || index}
-                              className="even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800 transition border-b border-slate-200 dark:border-stone-800"
+                              className={`transition border-b border-slate-200 dark:border-stone-800 ${
+                                editingOsPartId === item.id
+                                  ? 'bg-amber-50 dark:bg-amber-950/30'
+                                  : 'even:bg-[#f2f2f2] odd:bg-white dark:even:bg-stone-800/50 dark:odd:bg-stone-900 hover:bg-slate-200/60 dark:hover:bg-stone-800'
+                              }`}
                             >
                               {/* [CÓDIGO/ID] */}
                               <td className="py-2 px-3 align-middle whitespace-nowrap">
@@ -3309,16 +3415,26 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                 </span>
                               </td>
 
-                              {/* [AÇÃO] */}
+                              {/* [AÇÕES] */}
                               <td className="py-2 px-2 align-middle text-center whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemovePartItem(index)}
-                                  className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-300/80 transition cursor-pointer active:scale-95 inline-flex items-center justify-center shadow-2xs"
-                                  title="Remover peça da OS"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="inline-flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditPartItem(index)}
+                                    className="p-1.5 rounded-lg text-amber-700 hover:text-amber-800 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 border border-amber-300/80 transition cursor-pointer active:scale-95 inline-flex items-center justify-center shadow-2xs"
+                                    title="Editar item na barra superior"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePartItem(index)}
+                                    className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-300/80 transition cursor-pointer active:scale-95 inline-flex items-center justify-center shadow-2xs"
+                                    title="Remover peça da OS"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );

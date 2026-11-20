@@ -15,7 +15,8 @@ import {
   Save,
   Check,
   Search,
-  Settings
+  Settings,
+  Pencil
 } from 'lucide-react';
 import { ServiceOrder, CompanyProfile, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
@@ -89,6 +90,9 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
 
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [newItemQtd, setNewItemQtd] = useState('1');
+  const [newItemPreco, setNewItemPreco] = useState('');
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
 
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -133,7 +137,10 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
       if (Array.isArray(parsedP)) {
         setAvailableProducts(parsedP);
         if (parsedP.length > 0 && !selectedProductId) {
-          setSelectedProductId(String(parsedP[0].id));
+          const firstProd = parsedP[0];
+          setSelectedProductId(String(firstProd.id));
+          const firstPrice = Number(firstProd.preco_venda || firstProd.preco || firstProd.price || firstProd.salePrice || 0);
+          setNewItemPreco(firstPrice > 0 ? firstPrice.toFixed(2) : '0.00');
         }
       }
     } catch {}
@@ -274,23 +281,73 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
 
   const handleRemoveItem = (index: number) => {
     setItems(prev => prev.filter((_, i) => i !== index));
+    if (editingItemIndex === index) {
+      setEditingItemIndex(null);
+    } else if (editingItemIndex !== null && editingItemIndex > index) {
+      setEditingItemIndex(editingItemIndex - 1);
+    }
+  };
+
+  const handleEditItemToBar = (index: number) => {
+    const target = items[index];
+    if (!target) return;
+    const matchedProd = availableProducts.find(
+      p =>
+        String(p.id) === String(target.id) ||
+        (target.codigo && String(p.codigo || p.code || '').toUpperCase() === String(target.codigo).toUpperCase())
+    );
+    if (matchedProd) {
+      setSelectedProductId(String(matchedProd.id));
+    }
+    setNewItemQtd(String(target.qtd || 1));
+    setNewItemPreco(Number(target.precoUnitario || 0).toFixed(2));
+    setEditingItemIndex(index);
   };
 
   const handleAddItemFromStock = () => {
-    if (!selectedProductId) return;
+    const qty = Math.max(0.01, Number(String(newItemQtd || '1').replace(',', '.')) || 1);
+    const parsedPrice = Number(String(newItemPreco || '0').replace(',', '.'));
     const prod = availableProducts.find(p => String(p.id) === String(selectedProductId));
+
+    if (editingItemIndex !== null && items[editingItemIndex]) {
+      const existing = items[editingItemIndex];
+      const finalPrice = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : existing.precoUnitario;
+      const updatedItem: SaleItem = prod
+        ? {
+            id: String(prod.id),
+            codigo: String(prod.codigo || prod.code || ''),
+            descricao: String(prod.nome_comercial || prod.name || prod.item || existing.descricao),
+            qtd: qty,
+            precoUnitario: finalPrice,
+            totalItem: Number((qty * finalPrice).toFixed(2)),
+          }
+        : {
+            ...existing,
+            qtd: qty,
+            precoUnitario: finalPrice,
+            totalItem: Number((qty * finalPrice).toFixed(2)),
+          };
+      setItems(prev => prev.map((it, i) => (i === editingItemIndex ? updatedItem : it)));
+      setEditingItemIndex(null);
+      setNewItemQtd('1');
+      return;
+    }
+
     if (!prod) return;
+    const defaultPrice = Number(prod.preco_venda || prod.preco || prod.price || prod.salePrice || 0);
+    const finalPrice = newItemPreco !== '' && Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : defaultPrice;
 
     const newItem: SaleItem = {
       id: String(prod.id),
       codigo: String(prod.codigo || prod.code || ''),
       descricao: String(prod.nome_comercial || prod.name || prod.item || 'Produto'),
-      qtd: 1,
-      precoUnitario: Number(prod.preco_venda || prod.preco || prod.price || 0),
-      totalItem: Number(prod.preco_venda || prod.preco || prod.price || 0),
+      qtd: qty,
+      precoUnitario: finalPrice,
+      totalItem: Number((qty * finalPrice).toFixed(2)),
     };
 
     setItems(prev => [...prev, newItem]);
+    setNewItemQtd('1');
   };
 
   // Manipulação de Fretes
@@ -767,7 +824,7 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
           </div>
 
           {/* BLOCO 2: GRADE DE ITENS VENDIDOS */}
-          <div className="border border-black rounded-xl bg-[#e0e6f1] p-3 shadow-xs space-y-2">
+          <div className="border border-black rounded-xl bg-[#e0e6f1] p-3 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between border-b border-black/25 pb-1.5">
               <div className="flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5 text-slate-900" />
@@ -775,14 +832,27 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                   2. GRADE DE PRODUTOS & QUANTIDADES ({items.length} {items.length === 1 ? 'ITEM' : 'ITENS'})
                 </span>
               </div>
+            </div>
 
-              {/* Seletor rápido para incluir outro produto do estoque se necessário */}
-              {availableProducts.length > 0 && (
-                <div className="flex items-center gap-1.5">
+            {/* Barra de Inserção / Edição Rápida de Produtos */}
+            {availableProducts.length > 0 && (
+              <div className="bg-white/80 p-2 rounded-lg border border-black/30 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                <div className="sm:col-span-5">
+                  <label className="block text-[9px] font-black uppercase text-slate-800 mb-0.5">
+                    PRODUTO *
+                  </label>
                   <select
                     value={selectedProductId}
-                    onChange={e => setSelectedProductId(e.target.value)}
-                    className="px-2 py-0.5 rounded border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-850 text-[10px] font-bold text-zinc-900 dark:text-white uppercase outline-none max-w-[180px] truncate"
+                    onChange={e => {
+                      const nextId = e.target.value;
+                      setSelectedProductId(nextId);
+                      const prod = availableProducts.find(p => String(p.id) === String(nextId));
+                      if (prod) {
+                        const pr = Number(prod.preco_venda || prod.preco || prod.price || prod.salePrice || 0);
+                        setNewItemPreco(pr > 0 ? pr.toFixed(2) : '0.00');
+                      }
+                    }}
+                    className="w-full px-2 py-1.5 rounded border border-gray-400 bg-white text-xs font-bold text-zinc-900 uppercase outline-none focus:ring-1 focus:ring-emerald-600"
                   >
                     {availableProducts.map(p => (
                       <option key={p.id} value={p.id}>
@@ -790,18 +860,67 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="sm:col-span-1">
+                  <label className="block text-[9px] font-black uppercase text-slate-800 mb-0.5">
+                    QTD
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    value={newItemQtd}
+                    onChange={e => setNewItemQtd(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded border border-gray-400 bg-white text-xs font-bold text-center text-zinc-900 font-mono outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[9px] font-black uppercase text-slate-800 mb-0.5">
+                    VALOR UNIT. (R$)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newItemPreco}
+                    onChange={e => setNewItemPreco(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full px-2 py-1.5 rounded border border-gray-400 bg-white text-xs font-bold text-right text-zinc-900 font-mono outline-none focus:ring-1 focus:ring-emerald-600"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[9px] font-black uppercase text-emerald-900 mb-0.5">
+                    SUBTOTAL (R$)
+                  </label>
+                  <div
+                    className="w-full px-2.5 py-1.5 rounded border border-emerald-500 bg-emerald-50 text-xs font-mono font-black text-emerald-900 text-right select-none"
+                    title="Subtotal calculado automaticamente: Qtd × Valor Unitário"
+                  >
+                    {formatCurrencyBRL(
+                      Math.max(
+                        0,
+                        (Number(String(newItemQtd || '0').replace(',', '.')) || 0) *
+                          (Number(String(newItemPreco || '0').replace(',', '.')) || 0)
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2 flex justify-end">
                   <button
                     type="button"
                     onClick={handleAddItemFromStock}
-                    className="px-2 py-0.5 rounded bg-slate-200 hover:bg-amber-500 hover:text-white text-slate-800 text-[10px] font-black uppercase transition cursor-pointer flex items-center gap-1 border border-slate-400"
-                    title="Adicionar produto selecionado"
+                    className="w-full inline-flex items-center justify-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap border border-black cursor-pointer transition shadow-xs"
+                    title="Inserir item na lista"
                   >
-                    <Plus className="w-3 h-3" />
-                    <span>ADICIONAR</span>
+                    <span>+ INSERIR NA LISTA</span>
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* TABELA HORIZONTAL COMPACTA COM FUNDO ZEBRADO */}
             <div className="rounded border border-slate-200 dark:border-stone-700 overflow-hidden">
@@ -812,7 +931,7 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                     <th className="py-1 px-2.5 w-28 text-center">QUANTIDADE</th>
                     <th className="py-1 px-2.5 w-32 text-right">PREÇO UNIT. (R$)</th>
                     <th className="py-1 px-2.5 w-32 text-right">TOTAL ITEM</th>
-                    <th className="py-1 px-2 text-center w-12">AÇÃO</th>
+                    <th className="py-1 px-2 text-center w-20">AÇÕES</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-stone-800 font-semibold text-[11px]">
@@ -826,7 +945,11 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                     items.map((item, idx) => (
                       <tr
                         key={item.id || idx}
-                        className="even:bg-[#eaeaea] odd:bg-white dark:even:bg-stone-850 dark:odd:bg-stone-900 transition-colors"
+                        className={`transition-colors ${
+                          editingItemIndex === idx
+                            ? 'bg-amber-50 dark:bg-amber-950/30'
+                            : 'even:bg-[#eaeaea] odd:bg-white dark:even:bg-stone-850 dark:odd:bg-stone-900'
+                        }`}
                       >
                         {/* Descrição */}
                         <td className="py-1 px-2.5 text-slate-900 dark:text-white uppercase">
@@ -867,16 +990,26 @@ export const SaleDetailsEditModal: React.FC<SaleDetailsEditModalProps> = ({
                           {formatCurrencyBRL(item.qtd * item.precoUnitario)}
                         </td>
 
-                        {/* Exclusão */}
+                        {/* Edição & Exclusão */}
                         <td className="py-1 px-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(idx)}
-                            className="w-5 h-5 rounded-full inline-flex items-center justify-center bg-rose-100 hover:bg-rose-600 text-rose-600 hover:text-white transition cursor-pointer text-xs font-black"
-                            title="Remover este item da venda"
-                          >
-                            ✕
-                          </button>
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditItemToBar(idx)}
+                              className="p-1 text-amber-700 hover:bg-amber-100 rounded transition cursor-pointer"
+                              title="Editar este item na barra superior"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="p-1 text-rose-600 hover:bg-rose-100 rounded transition cursor-pointer"
+                              title="Remover este item da venda"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

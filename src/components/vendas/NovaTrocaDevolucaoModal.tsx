@@ -21,6 +21,7 @@ import {
   User,
   LogOut,
   FileEdit,
+  Pencil,
 } from 'lucide-react';
 import {
   BoletoAbatidoInfo,
@@ -297,6 +298,9 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
   // Card 1: Operação e Envolvido
   const [tipoOperacao, setTipoOperacao] = useState<TrocaOperacaoTipo>('devolucao_cliente');
+  const [naturezaFiscalPreset, setNaturezaFiscalPreset] = useState<
+    'devolucao_venda' | 'troca_direta' | 'devolucao_compra' | 'devolucao_compra_st'
+  >('devolucao_venda');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [avulsoNome, setAvulsoNome] = useState<string>('Consumidor Avulso');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
@@ -317,6 +321,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [precoDevolvido, setPrecoDevolvido] = useState<string>('');
   const [retornarAoEstoque, setRetornarAoEstoque] = useState<boolean>(true);
   const [itensDevolvidos, setItensDevolvidos] = useState<TrocaDevolucaoItem[]>([]);
+  const [editingDevolvidoId, setEditingDevolvidoId] = useState<string | null>(null);
 
   // Card 3: Produtos Levados na Troca (Troca Direta - Combobox Unificado)
   const [searchLevado, setSearchLevado] = useState<string>('');
@@ -325,6 +330,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [qtdLevada, setQtdLevada] = useState<string>('1');
   const [precoLevado, setPrecoLevado] = useState<string>('');
   const [itensLevados, setItensLevados] = useState<TrocaDevolucaoItem[]>([]);
+  const [editingLevadoId, setEditingLevadoId] = useState<string | null>(null);
 
   // Refs para fechar dropdowns ao clicar fora
   const envolvidoBoxRef = useRef<HTMLDivElement>(null);
@@ -434,6 +440,18 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     if (initialDraft) {
       const draftTipo: TrocaOperacaoTipo = initialDraft.tipoOperacao || 'devolucao_cliente';
       setTipoOperacao(draftTipo);
+      const draftCfop = String(initialDraft.cfopDevolucao || '');
+      if (draftTipo === 'devolucao_fornecedor') {
+        setNaturezaFiscalPreset(
+          draftCfop.startsWith('5.411') || draftCfop.startsWith('6.411')
+            ? 'devolucao_compra_st'
+            : 'devolucao_compra'
+        );
+      } else if (draftTipo === 'troca_direta') {
+        setNaturezaFiscalPreset('troca_direta');
+      } else {
+        setNaturezaFiscalPreset('devolucao_venda');
+      }
       if (draftTipo === 'devolucao_fornecedor') {
         const matchedSup =
           loadedSups.find((s) => String(s.id) === String(initialDraft.envolvidoId)) ||
@@ -487,12 +505,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       setPrecoDevolvido('');
       setRetornarAoEstoque(true);
       setItensDevolvidos(Array.isArray(initialDraft.itensDevolvidos) ? initialDraft.itensDevolvidos : []);
+      setEditingDevolvidoId(null);
       setSearchLevado('');
       setSelectedProdLevadoId('');
       setIsProdLevadoDropdownOpen(false);
       setQtdLevada('1');
       setPrecoLevado('');
       setItensLevados(Array.isArray(initialDraft.itensLevados) ? initialDraft.itensLevados : []);
+      setEditingLevadoId(null);
       setModoCreditoOuEstorno(
         initialDraft.destinoFinanceiro === 'estorno_dinheiro' ? 'estorno' : 'vale_credito'
       );
@@ -509,13 +529,19 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       setTipoDocumentoEmitir(initialDraft.tipoDocumento || 'comprovante_interno');
       setCfopDevolucao(
         initialDraft.cfopDevolucao ||
-          (draftTipo === 'devolucao_fornecedor' ? '5.202' : '1.202')
+          (draftTipo === 'devolucao_fornecedor'
+            ? '5.202'
+            : draftTipo === 'troca_direta'
+              ? '1.949'
+              : '1.202')
       );
       setNaturezaOperacao(
         initialDraft.naturezaOperacao ||
           (draftTipo === 'devolucao_fornecedor'
-            ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
-            : 'DEVOLUÇÃO DE VENDA')
+            ? 'DEVOLUÇÃO DE COMPRA PARA FORNECEDOR'
+            : draftTipo === 'troca_direta'
+              ? 'TROCA DE MERCADORIA / GARANTIA'
+              : 'DEVOLUÇÃO DE VENDA DE MERCADORIA')
       );
       setChaveNfeReferenciada(initialDraft.chaveNfeReferenciada || '');
       setAutoPrintA4(true);
@@ -524,6 +550,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     } else {
       const initialTipo: TrocaOperacaoTipo = defaultTipoOperacao || 'devolucao_cliente';
       setTipoOperacao(initialTipo);
+      setNaturezaFiscalPreset(
+        initialTipo === 'devolucao_fornecedor'
+          ? 'devolucao_compra'
+          : initialTipo === 'troca_direta'
+            ? 'troca_direta'
+            : 'devolucao_venda'
+      );
       setSelectedClientId('');
       setAvulsoNome('Consumidor Avulso');
       setSelectedSupplierId('');
@@ -548,23 +581,33 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       setPrecoDevolvido('');
       setRetornarAoEstoque(true);
       setItensDevolvidos([]);
+      setEditingDevolvidoId(null);
       setSearchLevado('');
       setSelectedProdLevadoId('');
       setIsProdLevadoDropdownOpen(false);
       setQtdLevada('1');
       setPrecoLevado('');
       setItensLevados([]);
+      setEditingLevadoId(null);
       setModoCreditoOuEstorno('vale_credito');
       setFormaEstorno('DINHEIRO');
       setFormaPagamentoDiferenca('DINHEIRO');
       setDestinoFornecedor('credito_fornecedor');
       setSelectedBoletoId('');
       setTipoDocumentoEmitir('comprovante_interno');
-      setCfopDevolucao(initialTipo === 'devolucao_fornecedor' ? '5.202' : '1.202');
+      setCfopDevolucao(
+        initialTipo === 'devolucao_fornecedor'
+          ? '5.202'
+          : initialTipo === 'troca_direta'
+            ? '1.949'
+            : '1.202'
+      );
       setNaturezaOperacao(
         initialTipo === 'devolucao_fornecedor'
-          ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
-          : 'DEVOLUÇÃO DE VENDA'
+          ? 'DEVOLUÇÃO DE COMPRA PARA FORNECEDOR'
+          : initialTipo === 'troca_direta'
+            ? 'TROCA DE MERCADORIA / GARANTIA'
+            : 'DEVOLUÇÃO DE VENDA DE MERCADORIA'
       );
       setChaveNfeReferenciada('');
       setAutoPrintA4(true);
@@ -1010,28 +1053,30 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     );
   }, [relatedOriginDocs, selectedOriginDocId, numeroOrigem]);
 
-  // Sugestão automática de CFOP e Natureza da Operação ao trocar o tipo de operação
+  // Sugestão automática de CFOP e Natureza da Operação ao trocar a natureza fiscal selecionada
   useEffect(() => {
-    if (tipoOperacao === 'devolucao_fornecedor') {
+    if (naturezaFiscalPreset === 'devolucao_compra_st') {
+      setCfopDevolucao((prev) => (prev === '6.411' ? '6.411' : '5.411'));
+      setNaturezaOperacao('DEVOLUÇÃO DE COMPRA COM SUBSTITUIÇÃO TRIBUTÁRIA');
+    } else if (naturezaFiscalPreset === 'devolucao_compra') {
       setCfopDevolucao((prev) =>
-        !prev || prev.startsWith('1') || prev.startsWith('2') ? '5.202' : prev
-      );
-      setNaturezaOperacao((prev) =>
-        !prev || prev === 'DEVOLUÇÃO DE VENDA'
-          ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
+        !prev || prev.startsWith('1') || prev.startsWith('2') || prev.endsWith('411')
+          ? '5.202'
           : prev
       );
+      setNaturezaOperacao('DEVOLUÇÃO DE COMPRA PARA FORNECEDOR');
+    } else if (naturezaFiscalPreset === 'troca_direta') {
+      setCfopDevolucao((prev) => (prev === '2.949' ? '2.949' : '1.949'));
+      setNaturezaOperacao('TROCA DE MERCADORIA / GARANTIA');
     } else {
       setCfopDevolucao((prev) =>
-        !prev || prev.startsWith('5') || prev.startsWith('6') ? '1.202' : prev
-      );
-      setNaturezaOperacao((prev) =>
-        !prev || prev === 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
-          ? 'DEVOLUÇÃO DE VENDA'
+        !prev || prev.startsWith('5') || prev.startsWith('6') || prev.endsWith('949')
+          ? '1.202'
           : prev
       );
+      setNaturezaOperacao('DEVOLUÇÃO DE VENDA DE MERCADORIA');
     }
-  }, [tipoOperacao]);
+  }, [naturezaFiscalPreset]);
 
   // Preenchimento automático da Chave de Acesso da NF-e Referenciada ao selecionar uma NF de origem
   useEffect(() => {
@@ -1222,10 +1267,45 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     setIsProdLevadoDropdownOpen(false);
   };
 
+  const subtotalDevolvidoPreview = useMemo(() => {
+    const qty = Number(String(qtdDevolvida || '0').replace(',', '.'));
+    const unitPrice = Number(String(precoDevolvido || '0').replace(',', '.'));
+    if (!Number.isFinite(qty) || !Number.isFinite(unitPrice) || qty <= 0 || unitPrice < 0) {
+      return 0;
+    }
+    return Number((qty * unitPrice).toFixed(2));
+  }, [qtdDevolvida, precoDevolvido]);
+
+  const subtotalLevadoPreview = useMemo(() => {
+    const qty = Number(String(qtdLevada || '0').replace(',', '.'));
+    const unitPrice = Number(String(precoLevado || '0').replace(',', '.'));
+    if (!Number.isFinite(qty) || !Number.isFinite(unitPrice) || qty <= 0 || unitPrice < 0) {
+      return 0;
+    }
+    return Number((qty * unitPrice).toFixed(2));
+  }, [qtdLevada, precoLevado]);
+
+  const handleEditItemDevolvido = (item: TrocaDevolucaoItem) => {
+    setErrorMsg(null);
+    const matched = inventoryList.find((i) => String(i.id) === String(item.productId));
+    setSelectedProdDevolvidoId(matched ? String(matched.id) : String(item.productId || ''));
+    const codePrefix = item.productCode ? `[${item.productCode}] ` : '';
+    setSearchDevolvido(`${codePrefix}${item.productName}`);
+    setQtdDevolvida(String(item.quantity));
+    setPrecoDevolvido(Number(item.unitPrice || 0).toFixed(2));
+    setRetornarAoEstoque(item.returnToStock !== false);
+    setEditingDevolvidoId(item.id);
+    setIsProdDevolvidoDropdownOpen(false);
+  };
+
   const handleAddItemDevolvido = () => {
     setErrorMsg(null);
     const prod = inventoryList.find((i) => String(i.id) === String(selectedProdDevolvidoId));
-    if (!prod) {
+    const existingEditingItem = editingDevolvidoId
+      ? itensDevolvidos.find((it) => it.id === editingDevolvidoId)
+      : undefined;
+
+    if (!prod && !existingEditingItem) {
       setErrorMsg('Selecione um produto do estoque para adicionar aos itens devolvidos.');
       return;
     }
@@ -1241,28 +1321,49 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     }
 
     const newItem: TrocaDevolucaoItem = {
-      id: `dev_item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      productId: prod.id,
-      productCode: getItemCode(prod),
-      productName: getItemDisplayName(prod),
-      unit: prod.unit || prod.unidade_medida || 'UN',
+      id: existingEditingItem?.id || `dev_item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      productId: prod ? prod.id : existingEditingItem!.productId,
+      productCode: prod ? getItemCode(prod) : existingEditingItem!.productCode,
+      productName: prod ? getItemDisplayName(prod) : existingEditingItem!.productName,
+      unit: prod ? prod.unit || prod.unidade_medida || 'UN' : existingEditingItem!.unit,
       quantity: qty,
       unitPrice,
       totalPrice: Number((qty * unitPrice).toFixed(2)),
       returnToStock: retornarAoEstoque,
     };
 
-    setItensDevolvidos((prev) => [...prev, newItem]);
+    if (editingDevolvidoId) {
+      setItensDevolvidos((prev) => prev.map((it) => (it.id === editingDevolvidoId ? newItem : it)));
+      setEditingDevolvidoId(null);
+    } else {
+      setItensDevolvidos((prev) => [...prev, newItem]);
+    }
     setSelectedProdDevolvidoId('');
     setSearchDevolvido('');
     setQtdDevolvida('1');
     setPrecoDevolvido('');
   };
 
+  const handleEditItemLevado = (item: TrocaDevolucaoItem) => {
+    setErrorMsg(null);
+    const matched = inventoryList.find((i) => String(i.id) === String(item.productId));
+    setSelectedProdLevadoId(matched ? String(matched.id) : String(item.productId || ''));
+    const codePrefix = item.productCode ? `[${item.productCode}] ` : '';
+    setSearchLevado(`${codePrefix}${item.productName}`);
+    setQtdLevada(String(item.quantity));
+    setPrecoLevado(Number(item.unitPrice || 0).toFixed(2));
+    setEditingLevadoId(item.id);
+    setIsProdLevadoDropdownOpen(false);
+  };
+
   const handleAddItemLevado = () => {
     setErrorMsg(null);
     const prod = inventoryList.find((i) => String(i.id) === String(selectedProdLevadoId));
-    if (!prod) {
+    const existingEditingItem = editingLevadoId
+      ? itensLevados.find((it) => it.id === editingLevadoId)
+      : undefined;
+
+    if (!prod && !existingEditingItem) {
       setErrorMsg('Selecione um produto do estoque para adicionar aos itens levados na troca.');
       return;
     }
@@ -1278,18 +1379,23 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     }
 
     const newItem: TrocaDevolucaoItem = {
-      id: `lev_item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      productId: prod.id,
-      productCode: getItemCode(prod),
-      productName: getItemDisplayName(prod),
-      unit: prod.unit || prod.unidade_medida || 'UN',
+      id: existingEditingItem?.id || `lev_item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      productId: prod ? prod.id : existingEditingItem!.productId,
+      productCode: prod ? getItemCode(prod) : existingEditingItem!.productCode,
+      productName: prod ? getItemDisplayName(prod) : existingEditingItem!.productName,
+      unit: prod ? prod.unit || prod.unidade_medida || 'UN' : existingEditingItem!.unit,
       quantity: qty,
       unitPrice,
       totalPrice: Number((qty * unitPrice).toFixed(2)),
       returnToStock: false,
     };
 
-    setItensLevados((prev) => [...prev, newItem]);
+    if (editingLevadoId) {
+      setItensLevados((prev) => prev.map((it) => (it.id === editingLevadoId ? newItem : it)));
+      setEditingLevadoId(null);
+    } else {
+      setItensLevados((prev) => [...prev, newItem]);
+    }
     setSelectedProdLevadoId('');
     setSearchLevado('');
     setQtdLevada('1');
@@ -2113,7 +2219,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           <section className="bg-[#e0e6f1] border border-black rounded-md p-3 space-y-2.5">
             <div className="flex items-center justify-between border-b border-black/25 pb-1.5">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                1. Tipo de Operação e Envolvido
+                1. Natureza da Operação e Envolvido
               </h3>
               <span className="text-[10px] font-bold uppercase text-slate-700">
                 Dados Principais & Origem
@@ -2123,15 +2229,39 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
               <div className="sm:col-span-5">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                  Tipo de Operação *
+                  NATUREZA DA OPERAÇÃO *
                 </label>
                 <select
-                  value={tipoOperacao}
+                  value={naturezaFiscalPreset}
                   onChange={(e) => {
-                    const nextTipo = e.target.value as TrocaOperacaoTipo;
+                    const nextPreset = e.target.value as
+                      | 'devolucao_venda'
+                      | 'troca_direta'
+                      | 'devolucao_compra'
+                      | 'devolucao_compra_st';
+                    setNaturezaFiscalPreset(nextPreset);
+                    const nextTipo: TrocaOperacaoTipo =
+                      nextPreset === 'troca_direta'
+                        ? 'troca_direta'
+                        : nextPreset === 'devolucao_compra' || nextPreset === 'devolucao_compra_st'
+                          ? 'devolucao_fornecedor'
+                          : 'devolucao_cliente';
                     const wasFornecedor = tipoOperacao === 'devolucao_fornecedor';
                     const isNextFornecedor = nextTipo === 'devolucao_fornecedor';
                     setTipoOperacao(nextTipo);
+                    if (nextPreset === 'devolucao_compra_st') {
+                      setCfopDevolucao('5.411');
+                      setNaturezaOperacao('DEVOLUÇÃO DE COMPRA COM SUBSTITUIÇÃO TRIBUTÁRIA');
+                    } else if (nextPreset === 'devolucao_compra') {
+                      setCfopDevolucao('5.202');
+                      setNaturezaOperacao('DEVOLUÇÃO DE COMPRA PARA FORNECEDOR');
+                    } else if (nextPreset === 'troca_direta') {
+                      setCfopDevolucao('1.949');
+                      setNaturezaOperacao('TROCA DE MERCADORIA / GARANTIA');
+                    } else {
+                      setCfopDevolucao('1.202');
+                      setNaturezaOperacao('DEVOLUÇÃO DE VENDA DE MERCADORIA');
+                    }
                     if (isNextFornecedor) {
                       setRetornarAoEstoque(true);
                     }
@@ -2150,14 +2280,17 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                   }}
                   className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
                 >
-                  <option value="devolucao_cliente">
-                    Devolução de Cliente (Gera Crédito / Vale-Troca ou Estorno)
+                  <option value="devolucao_venda">
+                    DEVOLUÇÃO DE VENDA DE MERCADORIA (Cliente — CFOP 1.202 / 2.202)
                   </option>
                   <option value="troca_direta">
-                    Troca Direta por Outro Produto (Cliente)
+                    TROCA DIRETA DE MERCADORIA / GARANTIA (Cliente — CFOP 1.949 / 2.949)
                   </option>
-                  <option value="devolucao_fornecedor">
-                    Devolução para Fornecedor (Peça com Defeito / Garantia)
+                  <option value="devolucao_compra">
+                    DEVOLUÇÃO DE COMPRA PARA FORNECEDOR (CFOP 5.202 / 6.202)
+                  </option>
+                  <option value="devolucao_compra_st">
+                    DEVOLUÇÃO DE COMPRA COM ST (Fornecedor — CFOP 5.411 / 6.411)
                   </option>
                 </select>
               </div>
@@ -2640,7 +2773,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
               {/* CAMPO UNIFICADO INTELIGENTE: PRODUTO DEVOLVIDO * */}
-              <div ref={prodDevolvidoBoxRef} className="sm:col-span-7 relative">
+              <div ref={prodDevolvidoBoxRef} className="sm:col-span-5 relative">
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <label className="block text-[10px] font-bold uppercase text-slate-900">
                     Produto Devolvido *
@@ -2674,13 +2807,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                     }`}
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                    {(searchDevolvido || selectedProdDevolvidoId) && (
+                    {(searchDevolvido || selectedProdDevolvidoId || editingDevolvidoId) && (
                       <button
                         type="button"
                         onClick={() => {
                           setSearchDevolvido('');
                           setSelectedProdDevolvidoId('');
                           setPrecoDevolvido('');
+                          setEditingDevolvidoId(null);
                           setIsProdDevolvidoDropdownOpen(true);
                         }}
                         className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
@@ -2817,7 +2951,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 )}
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-1">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                   Qtd.
                 </label>
@@ -2827,7 +2961,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                   min="0.01"
                   value={qtdDevolvida}
                   onChange={(e) => setQtdDevolvida(e.target.value)}
-                  className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600 text-center"
                 />
               </div>
 
@@ -2842,19 +2976,30 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                   value={precoDevolvido}
                   onChange={(e) => setPrecoDevolvido(e.target.value)}
                   placeholder="0,00"
-                  className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                  className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600 text-right font-mono"
                 />
               </div>
 
-              <div className="sm:col-span-1">
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold uppercase text-emerald-900 mb-1">
+                  SUBTOTAL (R$)
+                </label>
+                <div
+                  className="w-full bg-emerald-50 border border-emerald-500 text-emerald-900 text-xs font-mono font-black rounded px-2.5 py-1.5 text-right select-none"
+                  title="Subtotal calculado automaticamente: Qtd × Valor Unitário"
+                >
+                  {formatCurrencyBRL(subtotalDevolvidoPreview)}
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 flex justify-end">
                 <button
                   type="button"
                   onClick={handleAddItemDevolvido}
-                  className="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded border border-black cursor-pointer transition"
-                  title="Adicionar item devolvido"
+                  className="w-full inline-flex items-center justify-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap border border-black cursor-pointer transition shadow-xs"
+                  title="Inserir item devolvido na lista"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="sm:hidden">Adicionar</span>
+                  <span>+ INSERIR NA LISTA</span>
                 </button>
               </div>
             </div>
@@ -2869,12 +3014,19 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                       <th className="px-2.5 py-1.5 text-right">Unitário</th>
                       <th className="px-2.5 py-1.5 text-right">Subtotal</th>
                       <th className="px-2.5 py-1.5 text-center">Destino Estoque</th>
-                      <th className="px-2 py-1.5 text-right w-10"></th>
+                      <th className="px-2 py-1.5 text-center w-20">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {itensDevolvidos.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
+                      <tr
+                        key={item.id}
+                        className={
+                          editingDevolvidoId === item.id
+                            ? 'bg-amber-50'
+                            : 'hover:bg-slate-50'
+                        }
+                      >
                         <td className="px-2.5 py-1.5 font-bold text-black">
                           {item.productCode ? `[${item.productCode}] ` : ''}
                           {item.productName}
@@ -2903,17 +3055,28 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                             </span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setItensDevolvidos((prev) => prev.filter((i) => i.id !== item.id))
-                            }
-                            className="p-1 text-rose-700 hover:bg-rose-50 rounded cursor-pointer"
-                            title="Remover item"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <td className="px-2 py-1.5 text-center">
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditItemDevolvido(item)}
+                              className="p-1 text-amber-700 hover:bg-amber-100 rounded cursor-pointer"
+                              title="Editar item"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setItensDevolvidos((prev) => prev.filter((i) => i.id !== item.id));
+                                if (editingDevolvidoId === item.id) setEditingDevolvidoId(null);
+                              }}
+                              className="p-1 text-rose-700 hover:bg-rose-50 rounded cursor-pointer"
+                              title="Remover item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2939,7 +3102,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
             {tipoOperacao === 'troca_direta' && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                  <div ref={prodLevadoBoxRef} className="sm:col-span-7 relative">
+                  <div ref={prodLevadoBoxRef} className="sm:col-span-5 relative">
                     <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                       Produto Levado pelo Cliente *
                     </label>
@@ -2960,13 +3123,14 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                         }`}
                       />
                       <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                        {(searchLevado || selectedProdLevadoId) && (
+                        {(searchLevado || selectedProdLevadoId || editingLevadoId) && (
                           <button
                             type="button"
                             onClick={() => {
                               setSearchLevado('');
                               setSelectedProdLevadoId('');
                               setPrecoLevado('');
+                              setEditingLevadoId(null);
                               setIsProdLevadoDropdownOpen(true);
                             }}
                             className="p-0.5 text-slate-500 hover:text-rose-700 rounded cursor-pointer"
@@ -3023,7 +3187,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                     )}
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-1">
                     <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                       Qtd.
                     </label>
@@ -3033,7 +3197,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                       min="0.01"
                       value={qtdLevada}
                       onChange={(e) => setQtdLevada(e.target.value)}
-                      className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                      className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600 text-center"
                     />
                   </div>
 
@@ -3048,19 +3212,30 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                       value={precoLevado}
                       onChange={(e) => setPrecoLevado(e.target.value)}
                       placeholder="0,00"
-                      className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                      className="w-full bg-white border border-gray-400 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600 text-right font-mono"
                     />
                   </div>
 
-                  <div className="sm:col-span-1">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase text-emerald-900 mb-1">
+                      SUBTOTAL (R$)
+                    </label>
+                    <div
+                      className="w-full bg-emerald-50 border border-emerald-500 text-emerald-900 text-xs font-mono font-black rounded px-2.5 py-1.5 text-right select-none"
+                      title="Subtotal calculado automaticamente: Qtd × Valor Unitário"
+                    >
+                      {formatCurrencyBRL(subtotalLevadoPreview)}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 flex justify-end">
                     <button
                       type="button"
                       onClick={handleAddItemLevado}
-                      className="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold rounded border border-black cursor-pointer transition"
-                      title="Adicionar produto levado na troca"
+                      className="w-full inline-flex items-center justify-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-md text-xs whitespace-nowrap border border-black cursor-pointer transition shadow-xs"
+                      title="Inserir produto levado na lista"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span className="sm:hidden">Adicionar</span>
+                      <span>+ INSERIR NA LISTA</span>
                     </button>
                   </div>
                 </div>
@@ -3075,12 +3250,19 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                           <th className="px-2.5 py-1.5 text-right">Unitário</th>
                           <th className="px-2.5 py-1.5 text-right">Subtotal</th>
                           <th className="px-2.5 py-1.5 text-center">Estoque</th>
-                          <th className="px-2 py-1.5 text-right w-10"></th>
+                          <th className="px-2 py-1.5 text-center w-20">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {itensLevados.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50">
+                          <tr
+                            key={item.id}
+                            className={
+                              editingLevadoId === item.id
+                                ? 'bg-amber-50'
+                                : 'hover:bg-slate-50'
+                            }
+                          >
                             <td className="px-2.5 py-1.5 font-bold text-black">
                               {item.productCode ? `[${item.productCode}] ` : ''}
                               {item.productName}
@@ -3099,17 +3281,28 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                                 Baixa Automática
                               </span>
                             </td>
-                            <td className="px-2 py-1.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setItensLevados((prev) => prev.filter((i) => i.id !== item.id))
-                                }
-                                className="p-1 text-rose-700 hover:bg-rose-50 rounded cursor-pointer"
-                                title="Remover item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                            <td className="px-2 py-1.5 text-center">
+                              <div className="inline-flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditItemLevado(item)}
+                                  className="p-1 text-amber-700 hover:bg-amber-100 rounded cursor-pointer"
+                                  title="Editar item"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setItensLevados((prev) => prev.filter((i) => i.id !== item.id));
+                                    if (editingLevadoId === item.id) setEditingLevadoId(null);
+                                  }}
+                                  className="p-1 text-rose-700 hover:bg-rose-50 rounded cursor-pointer"
+                                  title="Remover item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -3529,6 +3722,8 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                             <>
                               <option value="1.202">1.202 — Dev. Venda (Dentro UF)</option>
                               <option value="2.202">2.202 — Dev. Venda (Fora UF)</option>
+                              <option value="1.949">1.949 — Troca Direta / Garantia (Dentro UF)</option>
+                              <option value="2.949">2.949 — Troca Direta / Garantia (Fora UF)</option>
                               <option value="1.411">1.411 — Dev. Venda c/ ST (Dentro UF)</option>
                               <option value="2.411">2.411 — Dev. Venda c/ ST (Fora UF)</option>
                             </>
