@@ -1,7 +1,12 @@
 import { CompanyProfile, TrocaDevolucaoRecord } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
 import { COMPANY_LOGO_REF, resolveMediaUrlAsync } from '../../lib/imageStorage';
-import { resolveSubscriberPrintHeader, buildSystemPrintFooterHtml, buildSystemPrintFooterText } from '../../lib/printIdentity';
+import {
+  resolveSubscriberPrintHeader,
+  buildSystemPrintFooterHtml,
+  buildSystemPrintFooterText,
+  formatSystemSupportPhoneMask,
+} from '../../lib/printIdentity';
 import { executePrint } from '../../lib/printService';
 
 function escapeHtml(raw?: string | null): string {
@@ -11,6 +16,39 @@ function escapeHtml(raw?: string | null): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function formatCnpjCpfDisplay(raw?: string | null): string {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 14) {
+    return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  }
+  if (digits.length === 11) {
+    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+  }
+  return trimmed;
+}
+
+function formatPhoneDisplay(raw?: string | null): string {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length >= 10 && digits.length <= 11) {
+    return formatSystemSupportPhoneMask(digits);
+  }
+  return trimmed;
+}
+
+function formatZipDisplay(raw?: string | null): string {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 8) {
+    return digits.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+  }
+  return trimmed;
 }
 
 export function getTipoOperacaoLabel(tipo: TrocaDevolucaoRecord['tipoOperacao']): string {
@@ -27,20 +65,53 @@ export function getTipoOperacaoLabel(tipo: TrocaDevolucaoRecord['tipoOperacao'])
 }
 
 async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | null) {
-  const company = companyProfile || getStoredCompanyProfile();
+  const stored = getStoredCompanyProfile();
+  const company = companyProfile || stored;
   const header = resolveSubscriberPrintHeader(company);
   const logoDataUrl =
     (await resolveMediaUrlAsync(header.logoUrl || company?.logoUrl)) ||
     (await resolveMediaUrlAsync(COMPANY_LOGO_REF)) ||
     '';
 
+  const pickField = (...keys: string[]): string => {
+    const passed = (companyProfile || {}) as Record<string, any>;
+    const storedObj = (stored || {}) as Record<string, any>;
+    for (const k of keys) {
+      if (typeof passed[k] === 'string' && passed[k].trim()) return passed[k].trim();
+    }
+    for (const k of keys) {
+      if (typeof storedObj[k] === 'string' && storedObj[k].trim()) return storedObj[k].trim();
+    }
+    return '';
+  };
+
+  const rawAddress = pickField('address', 'endereco', 'street', 'logradouro');
+  const rawNumber = pickField('number', 'numero');
+  const rawNeighborhood = pickField('neighborhood', 'bairro');
+  const rawCity = pickField('city', 'cidade');
+  const rawState = pickField('state', 'estado', 'uf');
+  const rawZip = formatZipDisplay(pickField('zipCode', 'cep'));
+
+  const streetPart = rawAddress ? `${rawAddress}${rawNumber ? `, ${rawNumber}` : ''}` : '';
+  const cityStatePart = rawCity ? `${rawCity}${rawState ? `/${rawState}` : ''}` : rawState;
+  const formattedAddress =
+    [
+      streetPart,
+      rawNeighborhood,
+      cityStatePart,
+      rawZip ? `CEP: ${rawZip}` : '',
+    ]
+      .filter(Boolean)
+      .join(' - ') || header.fullAddress;
+
   return {
     companyName: header.corporateName || header.displayTitle,
-    tradeName: header.displayTitle,
-    cnpj: header.cnpjCpf,
-    phone: header.phone,
+    tradeName: header.tradeName,
+    cnpj: formatCnpjCpfDisplay(header.cnpjCpf),
+    stateRegistration: header.stateRegistration,
+    phone: formatPhoneDisplay(header.phone),
     email: header.email,
-    fullAddress: header.fullAddress,
+    fullAddress: formattedAddress,
     logoDataUrl,
   };
 }
@@ -518,11 +589,17 @@ export async function buildDanfeDevolucaoOficialHtml(
   const isFornecedor =
     record.envolvidoTipo === 'fornecedor' || record.tipoOperacao === 'devolucao_fornecedor';
 
-  const { companyName, tradeName, cnpj, phone, fullAddress, logoDataUrl } =
-    await resolveActiveCompanyAndLogo(companyProfile);
+  const {
+    companyName,
+    tradeName,
+    cnpj,
+    stateRegistration,
+    phone,
+    fullAddress,
+    logoDataUrl,
+  } = await resolveActiveCompanyAndLogo(companyProfile);
 
-  const companyIe =
-    (companyProfile as any)?.stateRegistration || (companyProfile as any)?.ie || 'ISENTO';
+  const companyIe = String(stateRegistration || '').trim() || 'ISENTO';
 
   const numeroNfe =
     record.notaDevolucaoNumber || record.protocolo.replace(/\D/g, '').padStart(6, '0');
@@ -574,15 +651,53 @@ export async function buildDanfeDevolucaoOficialHtml(
   <meta charset="UTF-8" />
   <title>DANFE NF-e Nº ${escapeHtml(numeroNfe)} - ${escapeHtml(record.protocolo)}</title>
   <style>
-    @page { size: A4 portrait; margin: 7mm; }
+    @page { size: A4 portrait; margin: 8mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; font-size: 9px; line-height: 1.25; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #000;
+      background: #fff;
+      font-size: 9px;
+      line-height: 1.25;
+    }
     .toolbar { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; background: #e0e6f1; border-bottom: 1.5px solid #000; margin-bottom: 8px; }
     .btn { padding: 6px 14px; border: 1.5px solid #000; border-radius: 5px; font-weight: 800; font-size: 11px; cursor: pointer; background: #0f172a; color: #fff; }
     .btn.sec { background: #fff; color: #000; }
-    @media print { .toolbar { display: none !important; } }
+    @media print {
+      @page { size: A4 portrait; margin: 8mm; }
+      html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+      .toolbar { display: none !important; }
+    }
 
-    .danfe-page { width: 100%; border: 1.5px solid #000; padding: 5px; }
+    .danfe-page {
+      width: 100%;
+      min-height: 278mm;
+      border: 1.5px solid #000;
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .danfe-top { flex-shrink: 0; }
+    .danfe-products-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .products-table-wrap {
+      flex: 1;
+      border-left: 1px solid #000;
+      border-right: 1px solid #000;
+      border-bottom: 1px solid #000;
+      background: #fff;
+    }
+    .danfe-bottom { flex-shrink: 0; }
+
     .canhoto { display: grid; grid-template-columns: 1fr 140px; border: 1px solid #000; margin-bottom: 5px; }
     .canhoto-left { border-right: 1px solid #000; display: flex; flex-direction: column; }
     .canhoto-top { padding: 4px 6px; font-size: 7.5px; border-bottom: 1px solid #000; }
@@ -592,9 +707,9 @@ export async function buildDanfeDevolucaoOficialHtml(
     .canhoto-right { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 4px; }
     .cut-line { border-top: 1px dashed #000; margin: 5px 0; text-align: center; font-size: 7px; color: #333; }
 
-    .header-grid { display: grid; grid-template-columns: 38% 20% 42%; border: 1px solid #000; }
+    .header-grid { display: grid; grid-template-columns: 40% 19% 41%; border: 1px solid #000; }
     .hdr-emit { border-right: 1px solid #000; padding: 6px; display: flex; align-items: center; gap: 8px; }
-    .hdr-logo { width: 52px; height: 52px; object-fit: contain; border: 1px solid #cbd5e1; padding: 2px; border-radius: 4px; shrink: 0; }
+    .hdr-logo { width: 54px; height: 54px; object-fit: contain; border: 1px solid #cbd5e1; padding: 2px; border-radius: 4px; flex-shrink: 0; }
     .hdr-danfe { border-right: 1px solid #000; padding: 5px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
     .hdr-key { padding: 5px; display: flex; flex-direction: column; justify-content: space-between; }
 
@@ -611,10 +726,10 @@ export async function buildDanfeDevolucaoOficialHtml(
     .cell { padding: 3px 5px; border-right: 1px solid #000; min-height: 24px; }
     .cell:last-child { border-right: none; }
 
-    table { width: 100%; border-collapse: collapse; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; }
-    th { background: #f1f5f9; border-bottom: 1px solid #000; border-right: 1px solid #000; font-size: 7px; text-transform: uppercase; padding: 3px 4px; text-align: left; }
-    th:last-child, td:last-child { border-right: none; }
-    td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #000; padding: 3.5px 4px; font-size: 8.5px; }
+    table.products-table { width: 100%; border-collapse: collapse; }
+    table.products-table th { background: #f1f5f9; border-bottom: 1px solid #000; border-right: 1px solid #000; font-size: 7px; text-transform: uppercase; padding: 3px 4px; text-align: left; }
+    table.products-table th:last-child, table.products-table td:last-child { border-right: none; }
+    table.products-table td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #000; padding: 4px 4px; font-size: 8.5px; }
     .c { text-align: center; }
     .r { text-align: right; }
 
@@ -628,189 +743,197 @@ export async function buildDanfeDevolucaoOficialHtml(
   </div>
 
   <div class="danfe-page">
-    <div class="canhoto">
-      <div class="canhoto-left">
-        <div class="canhoto-top">
-          RECEBEMOS DE <strong>${escapeHtml((tradeName || companyName).toUpperCase())}</strong> OS PRODUTOS / MERCADORIAS CONSTANTES DA NOTA FISCAL ELETRÔNICA DE DEVOLUÇÃO INDICADA AO LADO — EMISSÃO: ${escapeHtml(dataEmissao)} — VALOR TOTAL: <strong>${formatCurrencyBRL(valorTotal)}</strong> — DESTINATÁRIO/REMETENTE: <strong>${escapeHtml(record.envolvidoNome.toUpperCase())}</strong>
+    <div class="danfe-top">
+      <div class="canhoto">
+        <div class="canhoto-left">
+          <div class="canhoto-top">
+            RECEBEMOS DE <strong>${escapeHtml((companyName || tradeName).toUpperCase())}</strong> OS PRODUTOS / MERCADORIAS CONSTANTES DA NOTA FISCAL ELETRÔNICA DE DEVOLUÇÃO INDICADA AO LADO — EMISSÃO: ${escapeHtml(dataEmissao)} — VALOR TOTAL: <strong>${formatCurrencyBRL(valorTotal)}</strong> — DESTINATÁRIO/REMETENTE: <strong>${escapeHtml(record.envolvidoNome.toUpperCase())}</strong>
+          </div>
+          <div class="canhoto-bottom">
+            <div class="canhoto-cell"><span class="lbl">DATA DE RECEBIMENTO</span></div>
+            <div class="canhoto-cell"><span class="lbl">IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR</span></div>
+          </div>
         </div>
-        <div class="canhoto-bottom">
-          <div class="canhoto-cell"><span class="lbl">DATA DE RECEBIMENTO</span></div>
-          <div class="canhoto-cell"><span class="lbl">IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR</span></div>
-        </div>
-      </div>
-      <div class="canhoto-right">
-        <strong style="font-size:11px;">NF-e</strong>
-        <div style="font-size:10px;font-weight:900;">Nº ${escapeHtml(numeroNfe)}</div>
-        <div style="font-size:8.5px;font-weight:700;">SÉRIE ${escapeHtml(serieNfe)}</div>
-      </div>
-    </div>
-
-    <div class="cut-line">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
-
-    <div class="header-grid">
-      <div class="hdr-emit">
-        ${logoDataUrl ? `<img src="${logoDataUrl}" class="hdr-logo" alt="Logo" />` : ''}
-        <div>
-          <div style="font-size:10.5px;font-weight:900;text-transform:uppercase;margin-bottom:2px;">${escapeHtml(tradeName || companyName)}</div>
-          <div style="font-size:7.8px;font-weight:700;">${escapeHtml(companyName)}</div>
-          ${fullAddress ? `<div style="font-size:7.5px;margin-top:2px;">${escapeHtml(fullAddress)}</div>` : ''}
-          ${phone ? `<div style="font-size:7.5px;">FONE: ${escapeHtml(phone)}</div>` : ''}
-          <div style="font-size:7.5px;margin-top:2px;"><strong>CNPJ:</strong> ${escapeHtml(cnpj || 'Não informado')} &nbsp;|&nbsp; <strong>IE:</strong> ${escapeHtml(companyIe)}</div>
-        </div>
-      </div>
-      <div class="hdr-danfe">
-        <div>
-          <p class="danfe-title">DANFE</p>
-          <p class="danfe-sub">Documento Auxiliar da Nota Fiscal Eletrônica</p>
-        </div>
-        <div class="tipo-box">
-          <div style="text-align:left;font-size:7px;font-weight:700;">0 - ENTRADA<br/>1 - SAÍDA</div>
-          <div class="tipo-num">${tipoNfCodigo}</div>
-        </div>
-        <div>
+        <div class="canhoto-right">
+          <strong style="font-size:11px;">NF-e</strong>
           <div style="font-size:10px;font-weight:900;">Nº ${escapeHtml(numeroNfe)}</div>
-          <div style="font-size:8.5px;font-weight:700;">SÉRIE ${escapeHtml(serieNfe)} &nbsp;|&nbsp; FOLHA 1/1</div>
-          <div style="font-size:7px;font-weight:700;margin-top:2px;">FINALIDADE: 4 - DEVOLUÇÃO</div>
+          <div style="font-size:8.5px;font-weight:700;">SÉRIE ${escapeHtml(serieNfe)}</div>
         </div>
       </div>
-      <div class="hdr-key">
-        <div>
-          <span class="lbl">CONTROLE DO FISCO / CÓDIGO DE BARRAS</span>
-          <div style="margin:3px 0;">${buildDanfeBarcodeSvg(chaveNfe)}</div>
+
+      <div class="cut-line">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+
+      <div class="header-grid">
+        <div class="hdr-emit">
+          ${logoDataUrl ? `<img src="${logoDataUrl}" class="hdr-logo" alt="Logo" />` : ''}
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-size:9.8px;font-weight:900;text-transform:uppercase;line-height:1.2;margin-bottom:2px;">${escapeHtml(companyName || tradeName)}</div>
+            ${tradeName && companyName && tradeName.toUpperCase() !== companyName.toUpperCase() ? `<div style="font-size:7.6px;font-weight:700;color:#1e293b;margin-bottom:2px;">${escapeHtml(tradeName)}</div>` : ''}
+            ${fullAddress ? `<div style="font-size:7.4px;line-height:1.25;margin-top:2px;">${escapeHtml(fullAddress)}</div>` : ''}
+            ${phone ? `<div style="font-size:7.5px;margin-top:2px;"><strong>TELEFONE:</strong> ${escapeHtml(phone)}</div>` : ''}
+            <div style="font-size:7.5px;margin-top:2px;"><strong>CNPJ:</strong> ${escapeHtml(cnpj || 'Não informado')} &nbsp;|&nbsp; <strong>IE:</strong> ${escapeHtml(companyIe)}</div>
+          </div>
         </div>
-        <div style="border-top:1px solid #000;padding-top:3px;">
-          <span class="lbl">CHAVE DE ACESSO (MODELO 55)</span>
-          <div class="val-mono">${escapeHtml(formatAccessKeyGroups(chaveNfe))}</div>
+        <div class="hdr-danfe">
+          <div>
+            <p class="danfe-title">DANFE</p>
+            <p class="danfe-sub">Documento Auxiliar da Nota Fiscal Eletrônica</p>
+          </div>
+          <div class="tipo-box">
+            <div style="text-align:left;font-size:7px;font-weight:700;">0 - ENTRADA<br/>1 - SAÍDA</div>
+            <div class="tipo-num">${tipoNfCodigo}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:900;">Nº ${escapeHtml(numeroNfe)}</div>
+            <div style="font-size:8.5px;font-weight:700;">SÉRIE ${escapeHtml(serieNfe)} &nbsp;|&nbsp; FOLHA 1/1</div>
+            <div style="font-size:7px;font-weight:700;margin-top:2px;">FINALIDADE: 4 - DEVOLUÇÃO</div>
+          </div>
         </div>
-        <div style="border-top:1px solid #000;padding-top:3px;font-size:7px;">
-          Consulta de autenticidade no portal nacional da NF-e <strong>www.nfe.fazenda.gov.br/portal</strong> ou na Sefaz Autorizadora.
-        </div>
-      </div>
-    </div>
-
-    <div class="row" style="grid-template-columns: 58% 42%;">
-      <div class="cell">
-        <span class="lbl">NATUREZA DA OPERAÇÃO</span>
-        <span class="val">${escapeHtml(natureza)} (CFOP ${escapeHtml(cfop)})</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
-        <span class="val-mono">${escapeHtml(protocoloAut)} - ${escapeHtml(dataEmissao)} ${escapeHtml(horaEmissao)}</span>
-      </div>
-    </div>
-
-    <div class="row" style="grid-template-columns: 33% 33% 34%;">
-      <div class="cell">
-        <span class="lbl">INSCRIÇÃO ESTADUAL</span>
-        <span class="val">${escapeHtml(companyIe)}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">TIPO DE OPERAÇÃO FISCAL</span>
-        <span class="val">${escapeHtml(tipoNfLabel)} — ${escapeHtml(getTipoOperacaoLabel(record.tipoOperacao))}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">CNPJ DO EMITENTE</span>
-        <span class="val">${escapeHtml(cnpj || 'Não informado')}</span>
-      </div>
-    </div>
-
-    <div class="sec-title">DESTINATÁRIO / REMETENTE (${isFornecedor ? 'FORNECEDOR' : 'CLIENTE'})</div>
-    <div class="row" style="grid-template-columns: 56% 24% 20%;">
-      <div class="cell">
-        <span class="lbl">NOME / RAZÃO SOCIAL</span>
-        <span class="val">${escapeHtml(record.envolvidoNome.toUpperCase())}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">CNPJ / CPF</span>
-        <span class="val">${escapeHtml(record.envolvidoDocumento || 'NÃO INFORMADO')}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">DATA DA EMISSÃO</span>
-        <span class="val">${escapeHtml(dataEmissao)}</span>
-      </div>
-    </div>
-    <div class="row" style="grid-template-columns: 56% 24% 20%;">
-      <div class="cell">
-        <span class="lbl">TELEFONE / CONTATO</span>
-        <span class="val">${escapeHtml(record.envolvidoTelefone || '—')}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">PROTOCOLO INTERNO</span>
-        <span class="val">${escapeHtml(record.protocolo)}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">DATA ENTRADA / SAÍDA</span>
-        <span class="val">${escapeHtml(dataEmissao)}</span>
-      </div>
-    </div>
-
-    <div class="sec-title">DOCUMENTO FISCAL REFERENCIADO (NF-e DE ORIGEM)</div>
-    <div class="row" style="grid-template-columns: 72% 28%;">
-      <div class="cell">
-        <span class="lbl">CHAVE DE ACESSO DA NF-e REFERENCIADA (44 DÍGITOS)</span>
-        <span class="val-mono">${chaveRef ? escapeHtml(formatAccessKeyGroups(chaveRef)) : 'NÃO INFORMADA'}</span>
-      </div>
-      <div class="cell">
-        <span class="lbl">Nº DOC / VENDA ORIGEM</span>
-        <span class="val">${escapeHtml(record.numeroVendaOuNotaOrigem || '—')}</span>
-      </div>
-    </div>
-
-    <div class="sec-title">CÁLCULO DO IMPOSTO / TOTAIS DA DEVOLUÇÃO</div>
-    <div class="row" style="grid-template-columns: repeat(5, 1fr);">
-      <div class="cell"><span class="lbl">BASE DE CÁLC. DO ICMS</span><span class="val">R$ 0,00</span></div>
-      <div class="cell"><span class="lbl">VALOR DO ICMS</span><span class="val">R$ 0,00</span></div>
-      <div class="cell"><span class="lbl">VALOR DO FRETE</span><span class="val">R$ 0,00</span></div>
-      <div class="cell"><span class="lbl">VALOR TOTAL DOS PRODUTOS</span><span class="val">${formatCurrencyBRL(valorTotal)}</span></div>
-      <div class="cell" style="background:#f8fafc;"><span class="lbl">VALOR TOTAL DA NOTA</span><span class="val" style="font-size:11px;">${formatCurrencyBRL(valorTotal)}</span></div>
-    </div>
-
-    <div class="sec-title">DADOS DOS PRODUTOS / MERCADORIAS DEVOLVIDAS</div>
-    <table>
-      <thead>
-        <tr>
-          <th class="c" style="width:8%;">CÓD.</th>
-          <th>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
-          <th class="c" style="width:9%;">NCM/SH</th>
-          <th class="c" style="width:5%;">CST</th>
-          <th class="c" style="width:6%;">CFOP</th>
-          <th class="c" style="width:5%;">UN</th>
-          <th class="r" style="width:8%;">QTD.</th>
-          <th class="r" style="width:11%;">V. UNIT.</th>
-          <th class="r" style="width:12%;">V. TOTAL</th>
-          <th class="r" style="width:7%;">BC ICMS</th>
-          <th class="r" style="width:7%;">V. ICMS</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsRows || `<tr><td colspan="11" class="c" style="padding:10px;">Nenhum item detalhado.</td></tr>`}
-      </tbody>
-    </table>
-
-    <div class="sec-title">DADOS ADICIONAIS / INFORMAÇÕES COMPLEMENTARES</div>
-    <div class="row" style="grid-template-columns: 65% 35%;">
-      <div class="cell" style="min-height:56px;">
-        <span class="lbl">INFORMAÇÕES COMPLEMENTARES</span>
-        <div style="font-size:8px;margin-top:2px;line-height:1.4;">
-          <strong>Motivo da Devolução:</strong> ${escapeHtml(record.motivo)}<br/>
-          <strong>Destino Financeiro:</strong> ${escapeHtml(record.destinoFinanceiroLabel || '—')}<br/>
-          ${chaveRef ? `<strong>NF-e de Origem Referenciada:</strong> ${escapeHtml(chaveRef)}<br/>` : ''}
-          ${record.observacoes ? `<strong>Observações:</strong> ${escapeHtml(record.observacoes)}` : ''}
+        <div class="hdr-key">
+          <div>
+            <span class="lbl">CONTROLE DO FISCO / CÓDIGO DE BARRAS</span>
+            <div style="margin:3px 0;">${buildDanfeBarcodeSvg(chaveNfe)}</div>
+          </div>
+          <div style="border-top:1px solid #000;padding-top:3px;">
+            <span class="lbl">CHAVE DE ACESSO (MODELO 55)</span>
+            <div class="val-mono">${escapeHtml(formatAccessKeyGroups(chaveNfe))}</div>
+          </div>
+          <div style="border-top:1px solid #000;padding-top:3px;font-size:7px;">
+            Consulta de autenticidade no portal nacional da NF-e <strong>www.nfe.fazenda.gov.br/portal</strong> ou na Sefaz Autorizadora.
+          </div>
         </div>
       </div>
-      <div class="cell" style="min-height:56px;">
-        <span class="lbl">RESERVADO AO FISCO</span>
-        <div style="font-size:7.5px;margin-top:4px;color:#334155;">
-          NF-e de Devolução Oficial (Modelo 55).<br/>
-          Status: <strong>NF-e EMITIDA / AUTORIZADA</strong><br/>
-          Operador: ${escapeHtml(record.operador || 'Sistema')}
+
+      <div class="row" style="grid-template-columns: 58% 42%;">
+        <div class="cell">
+          <span class="lbl">NATUREZA DA OPERAÇÃO</span>
+          <span class="val">${escapeHtml(natureza)} (CFOP ${escapeHtml(cfop)})</span>
         </div>
+        <div class="cell">
+          <span class="lbl">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
+          <span class="val-mono">${escapeHtml(protocoloAut)} - ${escapeHtml(dataEmissao)} ${escapeHtml(horaEmissao)}</span>
+        </div>
+      </div>
+
+      <div class="row" style="grid-template-columns: 33% 33% 34%;">
+        <div class="cell">
+          <span class="lbl">INSCRIÇÃO ESTADUAL</span>
+          <span class="val">${escapeHtml(companyIe)}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">TIPO DE OPERAÇÃO FISCAL</span>
+          <span class="val">${escapeHtml(tipoNfLabel)} — ${escapeHtml(getTipoOperacaoLabel(record.tipoOperacao))}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">CNPJ DO EMITENTE</span>
+          <span class="val">${escapeHtml(cnpj || 'Não informado')}</span>
+        </div>
+      </div>
+
+      <div class="sec-title">DESTINATÁRIO / REMETENTE (${isFornecedor ? 'FORNECEDOR' : 'CLIENTE'})</div>
+      <div class="row" style="grid-template-columns: 56% 24% 20%;">
+        <div class="cell">
+          <span class="lbl">NOME / RAZÃO SOCIAL</span>
+          <span class="val">${escapeHtml(record.envolvidoNome.toUpperCase())}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">CNPJ / CPF</span>
+          <span class="val">${escapeHtml(record.envolvidoDocumento || 'NÃO INFORMADO')}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">DATA DA EMISSÃO</span>
+          <span class="val">${escapeHtml(dataEmissao)}</span>
+        </div>
+      </div>
+      <div class="row" style="grid-template-columns: 56% 24% 20%;">
+        <div class="cell">
+          <span class="lbl">TELEFONE / CONTATO</span>
+          <span class="val">${escapeHtml(record.envolvidoTelefone || '—')}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">PROTOCOLO INTERNO</span>
+          <span class="val">${escapeHtml(record.protocolo)}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">DATA ENTRADA / SAÍDA</span>
+          <span class="val">${escapeHtml(dataEmissao)}</span>
+        </div>
+      </div>
+
+      <div class="sec-title">DOCUMENTO FISCAL REFERENCIADO (NF-e DE ORIGEM)</div>
+      <div class="row" style="grid-template-columns: 72% 28%;">
+        <div class="cell">
+          <span class="lbl">CHAVE DE ACESSO DA NF-e REFERENCIADA (44 DÍGITOS)</span>
+          <span class="val-mono">${chaveRef ? escapeHtml(formatAccessKeyGroups(chaveRef)) : 'NÃO INFORMADA'}</span>
+        </div>
+        <div class="cell">
+          <span class="lbl">Nº DOC / VENDA ORIGEM</span>
+          <span class="val">${escapeHtml(record.numeroVendaOuNotaOrigem || '—')}</span>
+        </div>
+      </div>
+
+      <div class="sec-title">CÁLCULO DO IMPOSTO / TOTAIS DA DEVOLUÇÃO</div>
+      <div class="row" style="grid-template-columns: repeat(5, 1fr);">
+        <div class="cell"><span class="lbl">BASE DE CÁLC. DO ICMS</span><span class="val">R$ 0,00</span></div>
+        <div class="cell"><span class="lbl">VALOR DO ICMS</span><span class="val">R$ 0,00</span></div>
+        <div class="cell"><span class="lbl">VALOR DO FRETE</span><span class="val">R$ 0,00</span></div>
+        <div class="cell"><span class="lbl">VALOR TOTAL DOS PRODUTOS</span><span class="val">${formatCurrencyBRL(valorTotal)}</span></div>
+        <div class="cell" style="background:#f8fafc;"><span class="lbl">VALOR TOTAL DA NOTA</span><span class="val" style="font-size:11px;">${formatCurrencyBRL(valorTotal)}</span></div>
       </div>
     </div>
 
-    <div class="footer-note">
-      <span>${buildSystemPrintFooterText()}</span>
-      <span>${isPreview ? 'Pré-visualização em ' : 'Impresso em '}${escapeHtml(new Date().toLocaleString('pt-BR'))}</span>
+    <div class="danfe-products-section">
+      <div class="sec-title">DADOS DOS PRODUTOS / MERCADORIAS DEVOLVIDAS</div>
+      <div class="products-table-wrap">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th class="c" style="width:8%;">CÓD.</th>
+              <th>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+              <th class="c" style="width:9%;">NCM/SH</th>
+              <th class="c" style="width:5%;">CST</th>
+              <th class="c" style="width:6%;">CFOP</th>
+              <th class="c" style="width:5%;">UN</th>
+              <th class="r" style="width:8%;">QTD.</th>
+              <th class="r" style="width:11%;">V. UNIT.</th>
+              <th class="r" style="width:12%;">V. TOTAL</th>
+              <th class="r" style="width:7%;">BC ICMS</th>
+              <th class="r" style="width:7%;">V. ICMS</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows || `<tr><td colspan="11" class="c" style="padding:10px;">Nenhum item detalhado.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="danfe-bottom">
+      <div class="sec-title">DADOS ADICIONAIS / INFORMAÇÕES COMPLEMENTARES</div>
+      <div class="row" style="grid-template-columns: 65% 35%;">
+        <div class="cell" style="min-height:64px;">
+          <span class="lbl">INFORMAÇÕES COMPLEMENTARES</span>
+          <div style="font-size:8px;margin-top:2px;line-height:1.4;">
+            <strong>Motivo da Devolução:</strong> ${escapeHtml(record.motivo)}<br/>
+            <strong>Destino Financeiro:</strong> ${escapeHtml(record.destinoFinanceiroLabel || '—')}<br/>
+            ${chaveRef ? `<strong>NF-e de Origem Referenciada:</strong> ${escapeHtml(chaveRef)}<br/>` : ''}
+            ${record.observacoes ? `<strong>Observações:</strong> ${escapeHtml(record.observacoes)}` : ''}
+          </div>
+        </div>
+        <div class="cell" style="min-height:64px;">
+          <span class="lbl">RESERVADO AO FISCO</span>
+          <div style="font-size:7.5px;margin-top:4px;color:#334155;">
+            NF-e de Devolução Oficial (Modelo 55).<br/>
+            Status: <strong>NF-e EMITIDA / AUTORIZADA</strong><br/>
+            Operador: ${escapeHtml(record.operador || 'Sistema')}
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        <span>${buildSystemPrintFooterText()}</span>
+        <span>${isPreview ? 'Pré-visualização em ' : 'Impresso em '}${escapeHtml(new Date().toLocaleString('pt-BR'))}</span>
+      </div>
     </div>
   </div>
   ${

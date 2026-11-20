@@ -2217,17 +2217,27 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
           {/* CARD 1 — TIPO DE OPERAÇÃO E ENVOLVIDO */}
           <section className="bg-[#e0e6f1] border border-black rounded-md p-3 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-black/25 pb-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/25 pb-1.5">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
                 1. Natureza da Operação e Envolvido
               </h3>
-              <span className="text-[10px] font-bold uppercase text-slate-700">
-                Dados Principais & Origem
-              </span>
+              <div className="flex items-center gap-2">
+                {tipoDocumentoEmitir === 'nfe_oficial' && (
+                  <span className="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-black uppercase">
+                    NF-e 55 (Fin. 4) •{' '}
+                    {tipoOperacao === 'devolucao_fornecedor'
+                      ? '1 - Saída (Fornecedor)'
+                      : '0 - Entrada (Cliente)'}
+                  </span>
+                )}
+                <span className="text-[10px] font-bold uppercase text-slate-700">
+                  Dados Principais & Origem
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              <div className="sm:col-span-5">
+              <div className="sm:col-span-4">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                   NATUREZA DA OPERAÇÃO *
                 </label>
@@ -2297,7 +2307,33 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
               <div className="sm:col-span-3">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                  Data da Operação *
+                  TIPO DE DOCUMENTO *
+                </label>
+                <select
+                  value={tipoDocumentoEmitir}
+                  onChange={(e) =>
+                    setTipoDocumentoEmitir(
+                      e.target.value as 'comprovante_interno' | 'nfe_oficial'
+                    )
+                  }
+                  className={`w-full bg-white border text-black text-xs font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-600 cursor-pointer ${
+                    tipoDocumentoEmitir === 'nfe_oficial'
+                      ? 'border-emerald-700'
+                      : 'border-gray-400'
+                  }`}
+                >
+                  <option value="comprovante_interno">
+                    Comprovante Interno / Recibo Não Fiscal
+                  </option>
+                  <option value="nfe_oficial">
+                    Nota Fiscal Oficial NF-e 55
+                  </option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
+                  DATA DA OPERAÇÃO *
                 </label>
                 <input
                   type="date"
@@ -2308,9 +2344,9 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 />
               </div>
 
-              <div className="sm:col-span-4">
+              <div className="sm:col-span-3">
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                  Motivo *
+                  MOTIVO *
                 </label>
                 <div className="flex items-center gap-1">
                   <select
@@ -2350,7 +2386,12 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
               {/* CAMPO BUSCA DIGITÁVEL: FORNECEDOR * OU CLIENTE * (INICIANDO EM BRANCO) */}
               {tipoOperacao === 'devolucao_fornecedor' ? (
-                <div ref={envolvidoBoxRef} className="sm:col-span-5 relative">
+                <div
+                  ref={envolvidoBoxRef}
+                  className={`${
+                    tipoDocumentoEmitir === 'nfe_oficial' ? 'sm:col-span-3' : 'sm:col-span-5'
+                  } relative`}
+                >
                   <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                     Fornecedor *
                   </label>
@@ -2456,7 +2497,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                   <div
                     ref={envolvidoBoxRef}
                     className={`${
-                      selectedClientId === 'consumidor_avulso' ? 'sm:col-span-3' : 'sm:col-span-5'
+                      tipoDocumentoEmitir === 'nfe_oficial'
+                        ? selectedClientId === 'consumidor_avulso'
+                          ? 'sm:col-span-2'
+                          : 'sm:col-span-3'
+                        : selectedClientId === 'consumidor_avulso'
+                          ? 'sm:col-span-3'
+                          : 'sm:col-span-5'
                     } relative`}
                   >
                     <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
@@ -2609,7 +2656,17 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
               )}
 
               {/* CAMPO INTELIGENTE: Nº VENDA / NOTA DE ORIGEM COM AUTOCOMPLETAR */}
-              <div ref={originBoxRef} className="sm:col-span-4 relative">
+              <div
+                ref={originBoxRef}
+                className={`${
+                  tipoDocumentoEmitir === 'nfe_oficial'
+                    ? tipoOperacao !== 'devolucao_fornecedor' &&
+                      selectedClientId === 'consumidor_avulso'
+                      ? 'sm:col-span-2'
+                      : 'sm:col-span-3'
+                    : 'sm:col-span-4'
+                } relative`}
+              >
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <label className="block text-[10px] font-bold uppercase text-slate-900 truncate">
                     Nº Venda / Nota de Origem (Opcional)
@@ -2723,7 +2780,73 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                 )}
               </div>
 
-              <div className="sm:col-span-3">
+              {tipoDocumentoEmitir === 'nfe_oficial' && (
+                <>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
+                      CFOP DE DEVOLUÇÃO *
+                    </label>
+                    <select
+                      value={cfopDevolucao}
+                      onChange={(e) => setCfopDevolucao(e.target.value)}
+                      className="w-full bg-white border border-emerald-700 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer"
+                    >
+                      {tipoOperacao === 'devolucao_fornecedor' ? (
+                        <>
+                          <option value="5.202">5.202 — Dev. Compra (Dentro UF)</option>
+                          <option value="6.202">6.202 — Dev. Compra (Fora UF)</option>
+                          <option value="5.411">5.411 — Dev. Compra c/ ST (Dentro UF)</option>
+                          <option value="6.411">6.411 — Dev. Compra c/ ST (Fora UF)</option>
+                          <option value="5.556">5.556 — Dev. Uso/Consumo (Dentro UF)</option>
+                          <option value="6.556">6.556 — Dev. Uso/Consumo (Fora UF)</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="1.202">1.202 — Dev. Venda (Dentro UF)</option>
+                          <option value="2.202">2.202 — Dev. Venda (Fora UF)</option>
+                          <option value="1.949">1.949 — Troca Direta / Garantia (Dentro UF)</option>
+                          <option value="2.949">2.949 — Troca Direta / Garantia (Fora UF)</option>
+                          <option value="1.411">1.411 — Dev. Venda c/ ST (Dentro UF)</option>
+                          <option value="2.411">2.411 — Dev. Venda c/ ST (Fora UF)</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <label className="block text-[10px] font-bold uppercase text-slate-900 truncate">
+                        CHAVE DE ACESSO NF-E REFERENCIADA (44 DÍGITOS)
+                      </label>
+                      <span
+                        className={`text-[10px] font-mono font-black shrink-0 ${
+                          chaveNfeReferenciada.replace(/\D/g, '').length === 44
+                            ? 'text-emerald-700'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {chaveNfeReferenciada.replace(/\D/g, '').length}/44
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={44}
+                      value={chaveNfeReferenciada}
+                      onChange={(e) =>
+                        setChaveNfeReferenciada(e.target.value.replace(/\D/g, '').slice(0, 44))
+                      }
+                      placeholder="Auto-preenchida ao selecionar NF origem ou digite 44 dígitos"
+                      className="w-full bg-white border border-emerald-700 text-black text-xs font-mono font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div
+                className={
+                  tipoDocumentoEmitir === 'nfe_oficial' ? 'sm:col-span-12' : 'sm:col-span-3'
+                }
+              >
                 <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
                   Observações (Opcional)
                 </label>
@@ -3622,162 +3745,6 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
                   )}
                 </div>
               ) : null}
-
-              {/* ESCOLHA EXPLÍCITA DO DOCUMENTO: COMPROVANTE INTERNO vs NF-e DE DEVOLUÇÃO OFICIAL (MODELO 55) */}
-              <div className="pt-2.5 border-t border-slate-300 space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-black uppercase tracking-wide text-slate-900">
-                    Tipo de Documento a Emitir *
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-600">
-                    {tipoDocumentoEmitir === 'nfe_oficial'
-                      ? 'Gera NF-e Modelo 55 na Central de Documentos + DANFE Oficial'
-                      : 'Gera Recibo Não Fiscal A4 e mantém disponível para emitir NF-e depois'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                  <label
-                    className={`flex items-start gap-2.5 p-2.5 rounded-md border-2 cursor-pointer transition ${
-                      tipoDocumentoEmitir === 'comprovante_interno'
-                        ? 'bg-slate-100 border-black text-slate-950 shadow-xs'
-                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="tipoDocumentoEmitir"
-                      checked={tipoDocumentoEmitir === 'comprovante_interno'}
-                      onChange={() => setTipoDocumentoEmitir('comprovante_interno')}
-                      className="mt-0.5 accent-slate-900 shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs font-black text-slate-950">
-                        📄 Comprovante Interno / Recibo Não Fiscal (Protocolo {nextProtoPreview})
-                      </div>
-                      <p className="text-[10px] font-semibold text-slate-600 mt-0.5 leading-snug">
-                        Imprime comprovante A4 para conferência e assinatura, movimenta estoque e financeiro, e salva como &quot;Aguardando Decisão Fiscal&quot;.
-                      </p>
-                    </div>
-                  </label>
-
-                  <label
-                    className={`flex items-start gap-2.5 p-2.5 rounded-md border-2 cursor-pointer transition ${
-                      tipoDocumentoEmitir === 'nfe_oficial'
-                        ? 'bg-emerald-50 border-emerald-700 text-emerald-950 shadow-xs'
-                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="tipoDocumentoEmitir"
-                      checked={tipoDocumentoEmitir === 'nfe_oficial'}
-                      onChange={() => setTipoDocumentoEmitir('nfe_oficial')}
-                      className="mt-0.5 accent-emerald-700 shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs font-black text-emerald-950">
-                        🧾 Emitir Nota Fiscal de Devolução Oficial (NF-e 55)
-                      </div>
-                      <p className="text-[10px] font-semibold text-emerald-900/80 mt-0.5 leading-snug">
-                        Registra a NF-e oficial na Central de Documentos, marca como &quot;NF-e Emitida&quot; e abre o DANFE oficial para impressão ou PDF.
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {tipoDocumentoEmitir === 'nfe_oficial' && (
-                  <div className="bg-[#e0e6f1] border border-black rounded-md p-3 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2 border-b border-black/20 pb-1.5">
-                      <span className="text-[11px] font-black uppercase text-slate-900">
-                        Dados Fiscais Obrigatórios da NF-e de Devolução (Modelo 55 — Finalidade 4)
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-black uppercase">
-                        {tipoOperacao === 'devolucao_fornecedor'
-                          ? '1 - NF-e de Saída (Fornecedor)'
-                          : '0 - NF-e de Entrada (Cliente)'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
-                      <div className="md:col-span-3">
-                        <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                          CFOP de Devolução *
-                        </label>
-                        <select
-                          value={cfopDevolucao}
-                          onChange={(e) => setCfopDevolucao(e.target.value)}
-                          className="w-full bg-white border border-slate-500 text-black text-xs font-bold rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                        >
-                          {tipoOperacao === 'devolucao_fornecedor' ? (
-                            <>
-                              <option value="5.202">5.202 — Dev. Compra (Dentro UF)</option>
-                              <option value="6.202">6.202 — Dev. Compra (Fora UF)</option>
-                              <option value="5.411">5.411 — Dev. Compra c/ ST (Dentro UF)</option>
-                              <option value="6.411">6.411 — Dev. Compra c/ ST (Fora UF)</option>
-                              <option value="5.556">5.556 — Dev. Uso/Consumo (Dentro UF)</option>
-                              <option value="6.556">6.556 — Dev. Uso/Consumo (Fora UF)</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="1.202">1.202 — Dev. Venda (Dentro UF)</option>
-                              <option value="2.202">2.202 — Dev. Venda (Fora UF)</option>
-                              <option value="1.949">1.949 — Troca Direta / Garantia (Dentro UF)</option>
-                              <option value="2.949">2.949 — Troca Direta / Garantia (Fora UF)</option>
-                              <option value="1.411">1.411 — Dev. Venda c/ ST (Dentro UF)</option>
-                              <option value="2.411">2.411 — Dev. Venda c/ ST (Fora UF)</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
-
-                      <div className="md:col-span-4">
-                        <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">
-                          Natureza da Operação *
-                        </label>
-                        <input
-                          type="text"
-                          value={naturezaOperacao}
-                          onChange={(e) => setNaturezaOperacao(e.target.value)}
-                          placeholder={
-                            tipoOperacao === 'devolucao_fornecedor'
-                              ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
-                              : 'DEVOLUÇÃO DE VENDA'
-                          }
-                          className="w-full bg-white border border-slate-500 text-black text-xs font-bold uppercase rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                        />
-                      </div>
-
-                      <div className="md:col-span-5">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[10px] font-bold uppercase text-slate-900">
-                            Chave de Acesso NF-e Referenciada (44 dígitos)
-                          </label>
-                          <span
-                            className={`text-[10px] font-mono font-black ${
-                              chaveNfeReferenciada.replace(/\D/g, '').length === 44
-                                ? 'text-emerald-700'
-                                : 'text-slate-600'
-                            }`}
-                          >
-                            {chaveNfeReferenciada.replace(/\D/g, '').length}/44
-                          </span>
-                        </div>
-                        <input
-                          type="text"
-                          maxLength={44}
-                          value={chaveNfeReferenciada}
-                          onChange={(e) =>
-                            setChaveNfeReferenciada(e.target.value.replace(/\D/g, '').slice(0, 44))
-                          }
-                          placeholder="Auto-preenchida ao selecionar NF origem ou digite os 44 dígitos"
-                          className="w-full bg-white border border-slate-500 text-black text-xs font-mono font-bold rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </section>
 
