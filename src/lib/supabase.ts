@@ -126,6 +126,8 @@ const CANONICAL_AGRO_KEY_MAP: Record<string, string> = {
   despesas: 'agrocontrol_expenses',
   abastecimentos: 'agrocontrol_abastecimentos',
   estoque: 'agrocontrol_produtos',
+  documentos_entrada: 'agrocontrol_notas_entradas',
+  documentos_entrada_itens: 'colaca_silagem_documentos_entrada_itens',
 };
 
 function getOfflineTableData(entity: string): any[] {

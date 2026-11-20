@@ -129,7 +129,8 @@ import {
   getStoredEmployees,
   getStoredServices,
   getStoredCompanyProfile,
-  getStoredMaintenanceLogs
+  getStoredMaintenanceLogs,
+  safeLocalStorageSetItem
 } from '../../lib/storage';
 import {
   PendingMaintenanceFromEntryNfePayload,
@@ -486,8 +487,8 @@ export function injectClientCreditFromNfe(
       operation: 'DEVOLUÇÃO MERCADORIA DE CLIENTE',
       createdAt: new Date().toISOString()
     });
-    localStorage.setItem('agrocontrol_clientes_creditos', JSON.stringify(list));
-    localStorage.setItem('silagem_facil_clean_v1_cliente_creditos', JSON.stringify(list));
+    safeLocalStorageSetItem('agrocontrol_clientes_creditos', JSON.stringify(list));
+    try { localStorage.removeItem('silagem_facil_clean_v1_cliente_creditos'); } catch {}
   } catch (_) {}
 
   return { clientName, previousBalance: prevBal, newBalance: newBal };
@@ -520,6 +521,13 @@ export const mapPaymentMethodCode = (code: string): PaymentMethod => {
 
 const NFE_CACHE_STORAGE_KEY = 'silagem_nfe_parsed_cache_map';
 const DELETED_NFE_STORAGE_KEY = 'agrocontrol_deleted_nfe_ids';
+const inMemoryNfeCache = new Map<string, ParsedNfeData>();
+
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.removeItem(NFE_CACHE_STORAGE_KEY);
+  }
+} catch {}
 
 export function getDeletedNfeKeys(): Set<string> {
   try {
@@ -537,32 +545,29 @@ export function recordDeletedNfeKey(key: string): void {
   try {
     const set = getDeletedNfeKeys();
     set.add(String(key ?? '').trim().toLowerCase());
-    localStorage.setItem(DELETED_NFE_STORAGE_KEY, JSON.stringify(Array.from(set)));
+    safeLocalStorageSetItem(DELETED_NFE_STORAGE_KEY, JSON.stringify(Array.from(set)));
   } catch (_) {}
 }
 
 function getCachedNfeMap(): Record<string, ParsedNfeData> {
-  try {
-    const raw = localStorage.getItem(NFE_CACHE_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (e) {
-    return {};
-  }
+  const obj: Record<string, ParsedNfeData> = {};
+  inMemoryNfeCache.forEach((v, k) => {
+    obj[k] = v;
+  });
+  return obj;
 }
 
 function saveCachedNfe(nfe: ParsedNfeData, expenseId?: string) {
   try {
-    const map = getCachedNfeMap();
-    if (expenseId) map[expenseId] = nfe;
+    if (expenseId) inMemoryNfeCache.set(expenseId, nfe);
     if (nfe.invoiceNumber) {
-      map[String(nfe.invoiceNumber ?? '').toLowerCase().trim()] = nfe;
+      inMemoryNfeCache.set(String(nfe.invoiceNumber ?? '').toLowerCase().trim(), nfe);
       const cleanNum = nfe.invoiceNumber.replace(/\D/g, '');
-      if (cleanNum) map[cleanNum] = nfe;
+      if (cleanNum) inMemoryNfeCache.set(cleanNum, nfe);
     }
-    if (nfe.accessKey) map[nfe.accessKey] = nfe;
-    localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(map));
+    if (nfe.accessKey) inMemoryNfeCache.set(nfe.accessKey, nfe);
   } catch (e) {
-    console.error('Failed to cache NFe data', e);
+    console.warn('Failed to cache NFe data in memory', e);
   }
 }
 
@@ -599,8 +604,35 @@ function buildNfeDataFromExpense(
     : `3524${Date.now().toString().slice(-8)}0001955500100001837492810`.slice(0, 44)
   );
 
-  // 1. Verifica se já temos os itens salvos diretamente no objeto da despesa (exp.nfeItems)
-  if (exp.nfeItems && isValidItemsList(exp.nfeItems, supplier)) {
+  // 1. Verifica se já temos os itens salvos diretamente no objeto ou no registro fiscal consolidado / itens de entrada
+  let resolvedSourceItems: ParsedNfeItem[] | undefined =
+    exp.nfeItems && isValidItemsList(exp.nfeItems, supplier) ? exp.nfeItems : undefined;
+
+  if (!resolvedSourceItems) {
+    const refNotaId = (exp as any).notaId || (exp as any).documento_entrada_id || (exp as any).nota_fiscal_id || exp.id;
+    const storedFiscalMatch = getStoredFiscalRecordsFromStorage().find(
+      (f) => f.id === refNotaId || f.id === exp.id || (cleanNum && String(f.invoiceNumber || '').replace(/\D/g, '') === cleanNum)
+    );
+    if (storedFiscalMatch?.nfeItems && isValidItemsList(storedFiscalMatch.nfeItems, supplier)) {
+      resolvedSourceItems = storedFiscalMatch.nfeItems;
+    } else if (refNotaId) {
+      const storedDocItems = getStoredDocumentosEntradaItens(refNotaId);
+      if (storedDocItems.length > 0) {
+        resolvedSourceItems = storedDocItems.map((it) => ({
+          linkedInventoryId: it.produto_id,
+          code: it.codigo_produto || '001',
+          ncm: it.ncm || '00000000',
+          description: it.descricao,
+          quantity: Number(it.quantidade) || 1,
+          unit: (it.unidade || 'UN').toUpperCase(),
+          unitPrice: Number(it.valor_unitario) || 0,
+          totalPrice: Number(it.valor_total) || 0,
+        }));
+      }
+    }
+  }
+
+  if (resolvedSourceItems && isValidItemsList(resolvedSourceItems, supplier)) {
     const reconstructed: ParsedNfeData = {
       accessKey,
       invoiceNumber,
@@ -616,17 +648,17 @@ function buildNfeDataFromExpense(
       paymentMethod: exp.paymentMethod,
       costCenterId: exp.costCenterId,
       costCenterName: exp.costCenterName,
-      itemsSummary: `${exp.nfeItems.length} produto(s) registrado(s) na nota`,
+      itemsSummary: `${resolvedSourceItems.length} produto(s) registrado(s) na nota`,
       suggestedCategory,
       operationNature: exp.operationNature || undefined,
       transactionType: (exp as any).transactionType || exp.operationNature || undefined,
-      items: exp.nfeItems
+      items: resolvedSourceItems
     };
     saveCachedNfe(reconstructed, exp.id);
     return reconstructed;
   }
 
-  // 2. Verifica se os itens foram serializados em exp.notes
+  // 2. Verifica se os itens foram serializados em exp.notes (retrocompatibilidade com registros antigos)
   const jsonMatch = exp.notes?.match(/<!--\s*NFE_ITEMS_JSON:(.*?)\s*-->/s) || 
                     exp.notes?.match(/\[ITENS_NFE:(.*?)\]/s);
   if (jsonMatch && jsonMatch[1]) {
@@ -663,7 +695,7 @@ function buildNfeDataFromExpense(
     }
   }
 
-  // 3. Verifica no cache local se existe lista válida de itens
+  // 3. Verifica no cache em memória se existe lista válida de itens
   const cachedCandidate = (exp.id && map[exp.id]) ||
                           (exp.invoiceNumber && map[String(exp.invoiceNumber ?? '').toLowerCase().trim()]) ||
                           (cleanNum && map[cleanNum]) ||
@@ -1431,20 +1463,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [activeDocDirection, setActiveDocDirection] = useState<CentralDocumentDirection>('entrada');
   const [activeDocFilter, setActiveDocFilter] = useState<CentralDocumentFilter>('todos');
 
-  // Competência ativa global sincronizada entre todas as abas
+  // Competência ativa global sincronizada entre todas as abas (Todos os Períodos sempre desativado por padrão)
   const [fiscalCompetence, setFiscalCompetence] = useState<string>(() => getCurrentCompetence());
-  const [periodMode, setPeriodMode] = useState<'competence' | 'todos'>(() => {
-    try {
-      const saved = localStorage.getItem('agrocontrol_fiscal_period_mode');
-      if (saved === 'todos' || saved === 'competence') return saved;
-    } catch {}
-    return 'competence';
-  });
+  const [periodMode, setPeriodMode] = useState<'competence' | 'todos'>('competence');
   const userInteractedPeriodRef = useRef(false);
 
   useEffect(() => {
     try {
-      localStorage.setItem('agrocontrol_fiscal_period_mode', periodMode);
+      safeLocalStorageSetItem('agrocontrol_fiscal_period_mode', periodMode);
     } catch {}
   }, [periodMode]);
 
@@ -1662,10 +1688,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return buildUnifiedFiscalRecords(combined);
   }, [expenses, notasLancadas]);
 
-  const [xmlContent, setXmlContent] = useState(() => {
-    const draft = getActiveNfeDraft();
-    return draft?.xmlContent || '';
-  });
+  const [xmlContent, setXmlContent] = useState('');
   const [parsedData, setParsedData] = useState<ParsedNfeData | null>(() => {
     const draft = getActiveNfeDraft();
     const p = draft?.parsedData || (draft?.invoiceNumber ? draft : null);
@@ -2137,11 +2160,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       onSaveSuppliers(updated);
     }
     saveStoredSuppliers(updated);
-    try {
-      localStorage.setItem('agrocontrol_fornecedores', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
   };
 
   // Estado local do inventário sincronizado com props ou storage (leitura síncrona no F5)
@@ -6031,7 +6049,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (notasAtuais.length === 0) notasAtuais = getStoredDocumentosEntrada();
       const notasFiltradas = notasAtuais.filter(d => d.id !== savedDoc.id);
       const notasAtualizadas = [savedDoc, ...notasFiltradas];
-      localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(notasAtualizadas));
       saveStoredDocumentosEntrada(notasAtualizadas);
       setDocumentosEntrada(notasAtualizadas);
 
@@ -6705,7 +6722,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const notasAtuaisBase = getStoredDocumentosEntrada();
       const notasFiltradas = notasAtuaisBase.filter(d => d.id !== finalDoc.id);
       const notasAtualizadas = [finalDoc, ...notasFiltradas];
-      localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(notasAtualizadas));
       saveStoredDocumentosEntrada(notasAtualizadas);
       setDocumentosEntrada(notasAtualizadas);
 
@@ -6774,44 +6790,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         };
       });
 
-      // TRAVA DE ID ÚNICO NO LOCALSTORAGE 'agrocontrol_financeiro':
-      // Filtrar e remover qualquer lançamento antigo/duplicado vinculado ao ID desta nota específica antes de injetar os novos
-      let financeiroAtual: any[] = [];
-      try {
-        const rawFin = localStorage.getItem('agrocontrol_financeiro');
-        if (rawFin) {
-          const parsedFin = JSON.parse(rawFin);
-          if (Array.isArray(parsedFin)) financeiroAtual = parsedFin;
-        }
-      } catch (_) {}
-
       const docDigits = normalizeFiscalInvoiceDigits(docNumero);
       const docSupplierTok = normalizeSupplierToken(trimmedSupplier);
-      const financeiroLimpo = financeiroAtual.filter((f: any) => {
-        if (
-          f.notaId === activeDocId ||
-          f.documento_entrada_id === activeDocId ||
-          f.nota_fiscal_id === activeDocId ||
-          f.nfeId === activeDocId ||
-          (typeof f.id === 'string' && f.id.includes(activeDocId))
-        ) {
-          return false;
-        }
-        if (docDigits && docDigits.length >= 3) {
-          const fDigits = normalizeFiscalInvoiceDigits(f.invoiceNumber);
-          const fSupTok = normalizeSupplierToken(f.supplier || f.fornecedor);
-          if (fDigits === docDigits && (!docSupplierTok || !fSupTok || fSupTok === docSupplierTok)) {
-            return false;
-          }
-        }
-        return true;
-      });
 
-      // Agora insere os novos registros únicos sem risco de duplicar
-      const financeiroAtualizado = [...novosLancamentosFinanceiros, ...financeiroLimpo];
-      localStorage.setItem('agrocontrol_financeiro', JSON.stringify(financeiroAtualizado));
-
-      // Sincroniza também no armazenamento de despesas principal do sistema
+      // Sincroniza no armazenamento de despesas principal do sistema (sem espelhos duplicados)
       const storedExpenses = getStoredExpenses();
       const storedExpensesLimpo = storedExpenses.filter((e: any) => {
         if (
@@ -7123,61 +7105,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       // Limpeza no armazenamento de documentos de entrada
       deleteLocalDocumentoEntrada(docId);
 
-      // Limpeza estrita no agrocontrol_notas_entradas
-      try {
-        const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
-        if (rawNotas) {
-          const parsed = JSON.parse(rawNotas);
-          if (Array.isArray(parsed)) {
-            const filtradas = parsed.filter((d: any) => 
-              d.id !== docId && 
-              d.numero !== docNum && 
-              (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
-            );
-            localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
-          }
-        }
-      } catch (_) {}
-
-      // Limpeza estrita no colaca_silagem_documentos_entrada
-      try {
-        const rawColaca = localStorage.getItem('colaca_silagem_documentos_entrada');
-        if (rawColaca) {
-          const parsedColaca = JSON.parse(rawColaca);
-          if (Array.isArray(parsedColaca)) {
-            const filtradasColaca = parsedColaca.filter((d: any) => 
-              d.id !== docId && 
-              d.numero !== docNum && 
-              (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
-            );
-            localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
-          }
-        }
-      } catch (_) {}
-
       // Limpeza estrita no colaca_silagem_documentos_entrada_itens
       try {
-        const rawItens = localStorage.getItem('colaca_silagem_documentos_entrada_itens');
-        if (rawItens) {
-          const parsedItens = JSON.parse(rawItens);
-          if (Array.isArray(parsedItens)) {
-            const filtradasItens = parsedItens.filter((i: any) => i.id !== docId && i.documento_entrada_id !== docId);
-            localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(filtradasItens));
-          }
+        const existingItens = getStoredDocumentosEntradaItens();
+        const filtradasItens = existingItens.filter((i: any) => i.id !== docId && i.documento_entrada_id !== docId);
+        if (filtradasItens.length !== existingItens.length) {
+          saveStoredDocumentosEntradaItens(filtradasItens);
         }
       } catch (_) {}
 
-      // Limpeza no cache da NF-e
+      // Limpeza no cache em memória da NF-e
       try {
-        const cached = getCachedNfeMap();
-        delete cached[docId];
-        if (cleanNum) delete cached[cleanNum];
-        if (digits) delete cached[digits];
-        if (docNum) delete cached[String(docNum ?? '').toLowerCase().trim()];
-        localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
+        inMemoryNfeCache.delete(docId);
+        if (cleanNum) inMemoryNfeCache.delete(cleanNum);
+        if (digits) inMemoryNfeCache.delete(digits);
+        if (docNum) inMemoryNfeCache.delete(String(docNum ?? '').toLowerCase().trim());
       } catch (_) {}
 
-      // Limpeza estrita em todas as chaves financeiras do localStorage
+      // Limpeza estrita nas chaves financeiras do localStorage
       try {
         const stored = getStoredExpenses();
         const updatedStored = stored.filter(e => {
@@ -7189,10 +7134,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           if (cleanNum && eClean === cleanNum) return false;
           return true;
         });
-        saveStoredExpenses(updatedStored);
-        localStorage.setItem('agrocontrol_contas_a_pagar', JSON.stringify(updatedStored));
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedStored));
-        localStorage.setItem('agrocontrol_despesas', JSON.stringify(updatedStored));
+        saveStoredExpenses(updatedStored, updatedStored.length === 0);
       } catch (_) {}
 
       if (onDeleteExpense) {
@@ -7280,7 +7222,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            localStorage.setItem(storageKey, JSON.stringify(parsed.filter((d: any) => d.id !== docId)));
+            safeLocalStorageSetItem(storageKey, JSON.stringify(parsed.filter((d: any) => d.id !== docId)));
           }
         }
       } catch {}
@@ -7290,7 +7232,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (rawEnt) {
           const parsedEnt = JSON.parse(rawEnt);
           if (Array.isArray(parsedEnt)) {
-            localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(parsedEnt.filter((d: any) => d.id !== docId)));
+            safeLocalStorageSetItem('agrocontrol_notas_entradas', JSON.stringify(parsedEnt.filter((d: any) => d.id !== docId)));
           }
         }
       } catch {}
@@ -7301,8 +7243,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         (e as any).documento_entrada_id !== docId &&
         !e.id.startsWith(`fiscal_doc_${docId}`)
       );
-      saveStoredExpenses(updatedExp);
-      localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExp));
+      saveStoredExpenses(updatedExp, updatedExp.length === 0);
 
       if (isSupabaseConfigured) {
         const count = Math.max(1, doc.installmentsCount || doc.installments?.length || 1);
@@ -8407,57 +8348,73 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
-  // Lista filtrada pela competência ativa (MM/AAAA) ou Todos os Períodos — ENTRADAS
-  const matchesEntryCompetence = useCallback((item: (typeof unifiedEntries)[number], comp: string): boolean => {
-    if (matchesCompetence(item.date, comp)) return true;
-
-    if (item.rawExpense) {
-      const exp = item.rawExpense;
-      if (matchesCompetence((exp as any).issueDate, comp)) return true;
-      if (matchesCompetence((exp as any).entryDate, comp)) return true;
-      if (matchesCompetence(exp.dueDate, comp)) return true;
-      if (matchesCompetence(exp.paymentDate, comp)) return true;
-      if (matchesCompetence(exp.createdAt, comp)) return true;
-    }
-
-    if (item.rawManualDoc) {
-      const doc = item.rawManualDoc;
-      if (matchesCompetence(doc.data, comp)) return true;
-      if (matchesCompetence(doc.data_entrada, comp)) return true;
-      if (matchesCompetence(doc.data_emissao, comp)) return true;
-      if (matchesCompetence(doc.data_vencimento, comp)) return true;
-      if (matchesCompetence(doc.created_at, comp)) return true;
-    }
-
-    if (item.rawLegacyFiscalDoc) {
-      const fDoc = item.rawLegacyFiscalDoc;
-      if (matchesCompetence(fDoc.issueDate, comp)) return true;
-      if (matchesCompetence(fDoc.createdAt, comp)) return true;
-    }
-
-    if (item.rawMdfeDoc) {
-      const mDoc = item.rawMdfeDoc;
-      if (matchesCompetence(mDoc.dataEmissao, comp)) return true;
-      if (matchesCompetence(mDoc.createdAt, comp)) return true;
-    }
-
-    if (!item.date || item.date.trim() === '') {
-      return true;
-    }
-
-    return false;
+  // Extrai MM/AAAA de qualquer string de data (YYYY-MM-DD ou DD/MM/YYYY)
+  const extractCompetenceFromDateStr = useCallback((raw?: string): string | null => {
+    if (!raw || typeof raw !== 'string') return null;
+    const clean = raw.trim();
+    const iso = clean.match(/^(\d{4})-(\d{2})/);
+    if (iso) return `${iso[2]}/${iso[1]}`;
+    const br = clean.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (br) return `${br[2]}/${br[3]}`;
+    return null;
   }, []);
 
-  const matchesSaidaCompetence = useCallback((item: (typeof unifiedSaidaEntries)[number], comp: string): boolean => {
-    if (matchesCompetence(item.date, comp)) return true;
-    if (item.rawNotaSaida) {
-      const ns = item.rawNotaSaida;
-      if (matchesCompetence(ns.dataEmissao, comp)) return true;
-      if (matchesCompetence(ns.dataVencimento, comp)) return true;
-      if (matchesCompetence(ns.createdAt, comp)) return true;
+  // Resolve a data fiscal primária única do documento (emissão/entrada) — jamais usa dueDate/paymentDate para duplicar em outros meses
+  const resolveEntryFiscalDate = useCallback((item: (typeof unifiedEntries)[number]): string => {
+    if (item.rawExpense) {
+      const exp = item.rawExpense as any;
+      return String(
+        exp.issueDate ||
+        exp.data_emissao ||
+        exp.entryDate ||
+        exp.data_entrada ||
+        exp.date ||
+        item.issueDate ||
+        item.entryDate ||
+        item.date ||
+        exp.createdAt ||
+        exp.dueDate ||
+        ''
+      ).trim();
     }
-    if (!item.date || item.date.trim() === '') return true;
-    return false;
+    if (item.rawManualDoc) {
+      const doc = item.rawManualDoc as any;
+      return String(
+        doc.data_emissao ||
+        doc.issueDate ||
+        doc.data ||
+        doc.data_entrada ||
+        item.issueDate ||
+        item.entryDate ||
+        item.date ||
+        doc.created_at ||
+        doc.data_vencimento ||
+        ''
+      ).trim();
+    }
+    if (item.rawLegacyFiscalDoc) {
+      const fDoc = item.rawLegacyFiscalDoc;
+      return String(fDoc.issueDate || item.issueDate || item.date || fDoc.createdAt || '').trim();
+    }
+    if (item.rawMdfeDoc) {
+      const mDoc = item.rawMdfeDoc;
+      return String(mDoc.dataEmissao || item.issueDate || item.date || mDoc.createdAt || '').trim();
+    }
+    return String(item.issueDate || item.entryDate || item.date || '').trim();
+  }, []);
+
+  // Lista filtrada estritamente pela competência ativa (MM/AAAA) quando Todos os Períodos está desativado — ENTRADAS
+  const matchesEntryCompetence = useCallback((item: (typeof unifiedEntries)[number], comp: string): boolean => {
+    const fiscalDate = resolveEntryFiscalDate(item);
+    if (!fiscalDate) return false;
+    return matchesCompetence(fiscalDate, comp);
+  }, [resolveEntryFiscalDate]);
+
+  const matchesSaidaCompetence = useCallback((item: (typeof unifiedSaidaEntries)[number], comp: string): boolean => {
+    const ns = item.rawNotaSaida;
+    const fiscalDate = String(ns?.dataEmissao || item.issueDate || item.date || ns?.createdAt || '').trim();
+    if (!fiscalDate) return false;
+    return matchesCompetence(fiscalDate, comp);
   }, []);
 
   const competenceFilteredEntries = useMemo(() => {
@@ -8471,8 +8428,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return unifiedSaidaEntries.filter(item => matchesSaidaCompetence(item, fiscalCompetence));
   }, [unifiedSaidaEntries, fiscalCompetence, periodMode, matchesSaidaCompetence]);
 
-  // Auto-exibição de 'Todos os Períodos' caso a competência inicial esteja vazia mas existam notas em outros meses,
-  // ou caso uma nova nota seja importada/lançada fora da competência atualmente selecionada
+  // Se uma nova nota for importada/lançada durante a sessão em outro mês enquanto "Todos os Períodos" está desligado,
+  // move o seletor de competência para o mês da nota recém-lançada sem ativar "Todos os Períodos".
   const prevFiscalEntryIdsRef = useRef<Set<string>>(new Set([
     ...unifiedEntries.map(e => `e_${e.id}`),
     ...unifiedSaidaEntries.map(s => `s_${s.id}`),
@@ -8488,27 +8445,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     prevFiscalEntryIdsRef.current = currentIds;
 
     if ((addedEntries.length > 0 || addedSaidas.length > 0) && periodMode === 'competence') {
-      const hasOutside =
-        addedEntries.some(e => !matchesEntryCompetence(e, fiscalCompetence)) ||
-        addedSaidas.some(s => !matchesSaidaCompetence(s, fiscalCompetence));
-      if (hasOutside) {
-        setPeriodMode('todos');
-        return;
+      const outsideEntry = addedEntries.find(e => !matchesEntryCompetence(e, fiscalCompetence));
+      const outsideSaida = addedSaidas.find(s => !matchesSaidaCompetence(s, fiscalCompetence));
+      const targetDate = outsideEntry
+        ? resolveEntryFiscalDate(outsideEntry)
+        : outsideSaida
+          ? String(outsideSaida.rawNotaSaida?.dataEmissao || outsideSaida.issueDate || outsideSaida.date || '')
+          : '';
+      const targetComp = extractCompetenceFromDateStr(targetDate);
+      if (targetComp && targetComp !== fiscalCompetence) {
+        setFiscalCompetence(targetComp);
       }
     }
-
-    if (!userInteractedPeriodRef.current && periodMode === 'competence') {
-      const totalAll = unifiedEntries.length + unifiedSaidaEntries.length;
-      if (totalAll > 0) {
-        const hasAnyInCurrent =
-          unifiedEntries.some(e => matchesEntryCompetence(e, fiscalCompetence)) ||
-          unifiedSaidaEntries.some(s => matchesSaidaCompetence(s, fiscalCompetence));
-        if (!hasAnyInCurrent) {
-          setPeriodMode('todos');
-        }
-      }
-    }
-  }, [unifiedEntries, unifiedSaidaEntries, fiscalCompetence, periodMode, matchesEntryCompetence, matchesSaidaCompetence]);
+  }, [unifiedEntries, unifiedSaidaEntries, fiscalCompetence, periodMode, matchesEntryCompetence, matchesSaidaCompetence, resolveEntryFiscalDate, extractCompetenceFromDateStr]);
 
   // Base ativa de acordo com a direção selecionada (Entrada vs. Saída)
   const activeDirectionEntries = useMemo(() => {
@@ -8561,7 +8510,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Redireciona diretamente para o módulo Cadastros Base na aba Centros de Custo
   const handleNavigateToCadastrosBaseCentrosCusto = () => {
-    // 1. Captura TODO o estado atual da nota preenchida na tela e salva em cache LocalStorage
+    // 1. Captura estado enxuto da nota na tela (sem xmlContent bruto) e salva em rascunho seguro
     if (parsedData) {
       const draftData: ParsedNfeData = {
         ...parsedData,
@@ -8571,7 +8520,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ...draftData,
         parsedData: draftData,
         selectedCostCenterId: selectedCostCenterId || parsedData.costCenterId || '',
-        xmlContent,
         editingExpenseId,
         userInstallmentCount,
         savedAt: new Date().toISOString(),
@@ -9485,16 +9433,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             promoPrice: match?.promoPrice,
           };
         });
-
-        // Persistência local imediata offline da lista de itens extraídos
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(result.items));
-            saveCompanyData('documentos_entrada_itens', result.items);
-          }
-        } catch (err) {
-          console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens no parse direto:', err);
-        }
       }
 
       // =========================================================================
@@ -10034,15 +9972,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       setParsedData(updatedParsed);
       saveCachedNfe(updatedParsed, editingExpenseId || undefined);
-
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
-          saveCompanyData('documentos_entrada_itens', updatedItems);
-        }
-      } catch (err) {
-        console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens:', err);
-      }
     }
 
     // Sincronização automática com a Frota (Pneus Disponíveis - Estoque)
@@ -10367,15 +10296,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     setParsedData(updatedParsed);
     saveCachedNfe(updatedParsed, editingExpenseId || undefined);
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
-        saveCompanyData('documentos_entrada_itens', updatedItems);
-      }
-    } catch (err) {
-      console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens no handleItemChange:', err);
-    }
   };
 
   // =========================================================================
@@ -10405,16 +10325,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setParsedData(updatedParsed);
     saveCachedNfe(updatedParsed, editingExpenseId || undefined);
 
-    // Persistência local (offline) imediata na chave 'colaca_silagem_documentos_entrada_itens'
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
-        saveCompanyData('documentos_entrada_itens', updatedItems);
-      }
-    } catch (err) {
-      console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens no lote:', err);
-    }
-
     if (normalizedCat) {
       setSuccessMessage(`Categoria prioritária "${normalizedCat}" aplicada com sucesso a todos os ${updatedItems.length} itens da nota!`);
       setTimeout(() => setSuccessMessage(''), 3500);
@@ -10440,15 +10350,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     setParsedData(updatedParsed);
     saveCachedNfe(updatedParsed, editingExpenseId || undefined);
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
-        saveCompanyData('documentos_entrada_itens', updatedItems);
-      }
-    } catch (err) {
-      console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens individual:', err);
-    }
   };
 
   // Validação para impedir o lançamento de nota duplicada
@@ -10800,8 +10701,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const stockNote = updatedSummary.length > 0
       ? ` Entrada de estoque registrada: ${updatedSummary.join(', ')}.`
       : '';
-    const itemsJson = JSON.stringify(parsedData.items || []);
-    const itemsEmbed = `<!-- NFE_ITEMS_JSON:${itemsJson} -->`;
 
     let clientCreditInfo: { clientName: string; previousBalance: number; newBalance: number } | null = null;
     if (isDevolucao) {
@@ -10866,8 +10765,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       costCenterId: selectedCC?.id,
       costCenterName: selectedCC?.name || 'Geral',
       notes: isDevolucao
-        ? `NF-e de Devolução de Mercadoria. Lançamento no Contas a Pagar BLOQUEADO. Valor de ${formatCurrencyBRL(parsedData.totalAmount)} injetado como CRÉDITO SALDO DO CLIENTE (${clientCreditInfo?.clientName || parsedData.supplier}). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`
-        : `NF-e Operacional sem custo financeiro (${parsedData.transactionType}). Lançamento no Contas a Pagar BLOQUEADO (Estoque Puro). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`,
+        ? `NF-e de Devolução de Mercadoria. Lançamento no Contas a Pagar BLOQUEADO. Valor de ${formatCurrencyBRL(parsedData.totalAmount)} injetado como CRÉDITO SALDO DO CLIENTE (${clientCreditInfo?.clientName || parsedData.supplier}). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`
+        : `NF-e Operacional sem custo financeiro (${parsedData.transactionType}). Lançamento no Contas a Pagar BLOQUEADO (Estoque Puro). Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`,
       nfeItems: parsedData.items,
       operationNature: parsedData.transactionType || parsedData.operationNature,
       transactionType: parsedData.transactionType,
@@ -11404,9 +11303,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const entryDateFinal = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
     const dueDateFinal = detailedInstallments[0]?.dueDate || parsedData.dueDate || calculateDefaultDueDate(issueDateFinal);
 
-    const itemsJson = JSON.stringify(parsedData.items || []);
-    const itemsEmbed = `<!-- NFE_ITEMS_JSON:${itemsJson} -->`;
-
     // AUTOMAÇÃO FINANCEIRA: Determinação exata da categoria ('Combustível & Arla' ou 'Insumos & Entradas') para cálculo correto no gráfico de despesas
     const primaryCategory = determineFinancialCategory(
       parsedData.items?.map(i => ({
@@ -11477,10 +11373,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         costCenterId: selectedCC?.id,
         costCenterName: selectedCC?.name || primaryCategory,
         accessKey: parsedData.accessKey || undefined,
-        notes: `Lançamento de parcela via NF-e XML. Parcela ${parcelNum}/${totalParcs}. Prazo: ${inst.daysInterval} dias.${contabNote}${obsNote} Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`,
+        notes: `Lançamento de parcela via NF-e XML. Parcela ${parcelNum}/${totalParcs}. Prazo: ${inst.daysInterval} dias.${contabNote}${obsNote} Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}`,
         receiptUrl: inst.documentFileUrl,
         receiptName: inst.documentFileName,
-        nfeItems: parsedData.items,
         operationNature: parsedData.transactionType || parsedData.operationNature,
         transactionType: parsedData.transactionType,
         createdAt: prevMatchedInst?.createdAt || new Date().toISOString(),
@@ -11550,7 +11445,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       paymentMethod: mapPayCode(detailedInstallments[0]?.paymentMethodCode || '01'),
       costCenterId: selectedCC?.id,
       costCenterName: selectedCC?.name || primaryCategory,
-      notes: `NF-e Importada via XML. Chave: ${parsedData.accessKey || 'N/A'}. Desdobrada em ${totalParcs} parcela(s) no Contas a Pagar.${stockNote}\n${itemsEmbed}`,
+      notes: `NF-e Importada via XML. Chave: ${parsedData.accessKey || 'N/A'}. Desdobrada em ${totalParcs} parcela(s) no Contas a Pagar.${stockNote}`,
       nfeItems: parsedData.items,
       operationNature: parsedData.transactionType || parsedData.operationNature,
       transactionType: parsedData.transactionType,
@@ -11988,16 +11883,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     if (accessKey) recordDeletedNfeKey(accessKey);
     if (targetKey) recordDeletedNfeKey(targetKey);
 
-    // 4. LIMPEZA NO CACHE DA NF-E
+    // 4. LIMPEZA NO CACHE EM MEMÓRIA DA NF-E
     try {
-      const cached = getCachedNfeMap();
-      delete cached[notaId];
-      if (cleanNum) delete cached[cleanNum];
-      if (digits) delete cached[digits];
-      if (docNum) delete cached[String(docNum ?? '').toLowerCase().trim()];
-      if (accessKey) delete cached[accessKey];
-      if (targetKey) delete cached[targetKey];
-      localStorage.setItem(NFE_CACHE_STORAGE_KEY, JSON.stringify(cached));
+      inMemoryNfeCache.delete(notaId);
+      if (cleanNum) inMemoryNfeCache.delete(cleanNum);
+      if (digits) inMemoryNfeCache.delete(digits);
+      if (docNum) inMemoryNfeCache.delete(String(docNum ?? '').toLowerCase().trim());
+      if (accessKey) inMemoryNfeCache.delete(accessKey);
+      if (targetKey) inMemoryNfeCache.delete(targetKey);
     } catch (_) {}
 
     // 5. ATUALIZA ESTADOS DO REACT IMEDIATAMENTE (Desaparece da tabela em tempo real)
@@ -12034,43 +11927,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     deleteLocalDocumentoEntrada(notaId);
 
     try {
-      const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
-      if (rawNotas) {
-        const parsed = JSON.parse(rawNotas);
-        if (Array.isArray(parsed)) {
-          const filtradas = parsed.filter((d: any) => 
-            d.id !== notaId && 
-            d.numero !== docNum && 
-            (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
-          );
-          localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtradas));
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const rawColaca = localStorage.getItem('colaca_silagem_documentos_entrada');
-      if (rawColaca) {
-        const parsedColaca = JSON.parse(rawColaca);
-        if (Array.isArray(parsedColaca)) {
-          const filtradasColaca = parsedColaca.filter((d: any) => 
-            d.id !== notaId && 
-            d.numero !== docNum && 
-            (!cleanNum || String(getCleanInvoiceNumber(d.numero) ?? '').toLowerCase() !== cleanNum)
-          );
-          localStorage.setItem('colaca_silagem_documentos_entrada', JSON.stringify(filtradasColaca));
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const rawItens = localStorage.getItem('colaca_silagem_documentos_entrada_itens');
-      if (rawItens) {
-        const parsedItens = JSON.parse(rawItens);
-        if (Array.isArray(parsedItens)) {
-          const filtradasItens = parsedItens.filter((i: any) => i.id !== notaId && i.documento_entrada_id !== notaId);
-          localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(filtradasItens));
-        }
+      const existingItens = getStoredDocumentosEntradaItens();
+      const filtradasItens = existingItens.filter((i: any) => i.id !== notaId && i.documento_entrada_id !== notaId);
+      if (filtradasItens.length !== existingItens.length) {
+        saveStoredDocumentosEntradaItens(filtradasItens);
       }
     } catch (_) {}
 
@@ -12112,10 +11972,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         if (digits && String(e.invoiceNumber || '').replace(/\D/g, '') === digits) return false;
         return true;
       });
-      saveStoredExpenses(updatedStored);
-      localStorage.setItem('agrocontrol_contas_a_pagar', JSON.stringify(updatedStored));
-      localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedStored));
-      localStorage.setItem('agrocontrol_despesas', JSON.stringify(updatedStored));
+      saveStoredExpenses(updatedStored, updatedStored.length === 0);
     } catch (err) {
       console.error('Erro ao atualizar storage após excluir nota:', err);
     }
@@ -12246,7 +12103,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             const nextArr = parsed.map((r: any) =>
               r && r.id === legId ? { ...r, enviarContador: target.nextValue, enviarContadorMotivo: motivo } : r
             );
-            localStorage.setItem(k, JSON.stringify(nextArr));
+            safeLocalStorageSetItem(k, JSON.stringify(nextArr));
           }
         } catch {}
       }

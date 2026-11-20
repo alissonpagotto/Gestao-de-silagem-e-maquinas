@@ -756,10 +756,6 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       const merged = [...generatedExpenses, ...filtered];
       saveStoredExpenses(merged);
-      try {
-        localStorage.setItem('agrocontrol_contas_a_pagar', JSON.stringify(merged));
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(merged));
-      } catch (_) {}
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: merged }));
         window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated', { detail: merged }));

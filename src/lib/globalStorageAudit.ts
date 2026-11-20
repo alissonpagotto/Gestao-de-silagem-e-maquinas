@@ -475,10 +475,10 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     name: 'Registros Fiscais Consolidados (NF-e)',
     categoryIndex: 7,
     keys: [
-      'silagem_facil_clean_v1_nfe_fiscal_records',
       'agrocontrol_fiscal_docs',
       'agrocontrol_nfe_records',
       'agrocontrol_notas_fiscais',
+      'silagem_facil_clean_v1_nfe_fiscal_records',
     ],
     type: 'array',
   },
@@ -815,16 +815,15 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
           } catch {}
         }
 
-        // Se encontrou objeto estruturado de plano de contas, espelha para as chaves canônicas de plano de contas
+        // Se encontrou objeto estruturado de plano de contas, grava na chave primária
         if (bestPlanoContasObj && bestPlanoContasObj.categorias?.length > 0) {
           const serializedObj = JSON.stringify(bestPlanoContasObj);
-          ['agrocontrol_plano_contas', 'colaca_silagem_plano_contas', `colaca_silagem_plano_contas_${companyId}`].forEach(k => {
-            const current = localStorage.getItem(k);
-            if (!current || current === '[]' || current === '{}' || current === 'null') {
-              localStorage.setItem(k, serializedObj);
+          const currentPrimary = localStorage.getItem('agrocontrol_plano_contas');
+          if (!currentPrimary || currentPrimary === '[]' || currentPrimary === '{}' || currentPrimary === 'null') {
+            if (safeLocalStorageSetItem('agrocontrol_plano_contas', serializedObj)) {
               synchronizedKeysCount++;
             }
-          });
+          }
 
           // Também alimenta o array de categorias simples caso esteja vazio
           if (bestCategoriesArray.length === 0) {
@@ -839,16 +838,15 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
           }
         }
 
-        // Se tem array de categorias simples, garante que não seja apagado e espelha
+        // Se tem array de categorias simples, garante que não seja apagado na chave primária
         if (bestCategoriesArray.length > 0) {
           const serializedArr = JSON.stringify(bestCategoriesArray);
-          ['agrocontrol_categorias_despesas', 'silagem_facil_clean_v1_categories'].forEach(k => {
-            const current = localStorage.getItem(k);
-            if (!current || current === '[]' || current === '{}' || current === 'null') {
-              localStorage.setItem(k, serializedArr);
+          const currentCat = localStorage.getItem('agrocontrol_categorias_despesas');
+          if (!currentCat || currentCat === '[]' || currentCat === '{}' || currentCat === 'null') {
+            if (safeLocalStorageSetItem('agrocontrol_categorias_despesas', serializedArr)) {
               synchronizedKeysCount++;
             }
-          });
+          }
         }
         continue;
       }
@@ -918,15 +916,36 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
         }
       }
 
-      if (hasAuthoritativePrimary) {
+      const shouldPruneRedundantMirror = (k: string): boolean => {
+        if (!primaryKey || k === primaryKey) return false;
+        if (k === 'agrocontrol_cliente_creditos') return false;
+        return (
+          k.startsWith('silagem_facil_clean_v1_') ||
+          k.startsWith('colaca_silagem_') ||
+          k.endsWith(`_${companyId}`) ||
+          [
+            'agrocontrol_nfe_records',
+            'agrocontrol_notas_fiscais',
+            'agrocontrol_despesas',
+            'agrocontrol_contas_a_pagar',
+            'agrocontrol_financeiro',
+            'silagem_facil_documentos_entrada_v1',
+          ].includes(k)
+        );
+      };
+
+      if (hasAuthoritativePrimary && primaryKey) {
         totalRecoveredRecords += authoritativePrimaryArray.length;
         const serialized = JSON.stringify(authoritativePrimaryArray);
+        if (rawPrimary !== serialized) {
+          if (safeLocalStorageSetItem(primaryKey, serialized)) {
+            synchronizedKeysCount++;
+          }
+        }
+        // Remove espelhos legados redundantes para não estourar a cota de 5MB do navegador
         for (const k of expandedKeys) {
-          const currentRaw = localStorage.getItem(k);
-          if (currentRaw !== serialized) {
-            if (safeLocalStorageSetItem(k, serialized)) {
-              synchronizedKeysCount++;
-            }
+          if (shouldPruneRedundantMirror(k) && localStorage.getItem(k) !== null) {
+            try { localStorage.removeItem(k); } catch {}
           }
         }
         continue;
@@ -951,7 +970,7 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
       }
 
       // Se há dados em pelo menos uma chave deste grupo (recuperação legada quando a chave primária ainda não existia)
-      if (collectedArrays.length > 0) {
+      if (collectedArrays.length > 0 && primaryKey) {
         let merged = mergeAndDeduplicate(collectedArrays);
 
         if (group.transform) {
@@ -961,14 +980,12 @@ export function executeGlobalStorageAudit(): StorageAuditResult {
         if (merged.length > 0) {
           totalRecoveredRecords += merged.length;
           const serialized = JSON.stringify(merged);
-
-          for (const k of expandedKeys) {
-            const currentRaw = localStorage.getItem(k);
-            const currentArr = parseArraySafe(currentRaw);
-
-            if (currentArr.length < merged.length || !currentRaw || currentRaw === '[]' || currentRaw === 'null') {
-              if (safeLocalStorageSetItem(k, serialized)) {
-                synchronizedKeysCount++;
+          if (safeLocalStorageSetItem(primaryKey, serialized)) {
+            synchronizedKeysCount++;
+            // Remove espelhos redundantes após consolidar na chave primária
+            for (const k of expandedKeys) {
+              if (shouldPruneRedundantMirror(k) && localStorage.getItem(k) !== null) {
+                try { localStorage.removeItem(k); } catch {}
               }
             }
           }

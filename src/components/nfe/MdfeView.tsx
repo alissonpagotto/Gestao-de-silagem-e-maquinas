@@ -22,7 +22,7 @@ import {
   Copy
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, safeLocalStorageSetItem } from '../../lib/storage';
 import { 
   CompetenceSelector, 
   getPrevCompetence, 
@@ -95,7 +95,7 @@ export const getStoredMdfe = (): MdfeRecord[] => {
       return true;
     });
     if (cleaned.length !== parsed.length) {
-      localStorage.setItem(MDFE_STORAGE_KEY, JSON.stringify(cleaned));
+      safeLocalStorageSetItem(MDFE_STORAGE_KEY, JSON.stringify(cleaned));
     }
     return cleaned;
   } catch {
@@ -105,7 +105,7 @@ export const getStoredMdfe = (): MdfeRecord[] => {
 
 export const saveStoredMdfe = (data: MdfeRecord[]) => {
   try {
-    localStorage.setItem(MDFE_STORAGE_KEY, JSON.stringify(data));
+    safeLocalStorageSetItem(MDFE_STORAGE_KEY, JSON.stringify(data));
   } catch (err) {
     console.error('Erro ao salvar MDF-e:', err);
   }

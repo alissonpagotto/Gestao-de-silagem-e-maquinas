@@ -37,7 +37,8 @@ import {
   saveStoredMachineries,
   getActiveCompanyId,
   saveCompanyEstoque,
-  removeStockEntryMovementsForInvoice
+  removeStockEntryMovementsForInvoice,
+  safeLocalStorageSetItem
 } from '../../lib/storage';
 import { 
   CompetenceSelector, 
@@ -585,7 +586,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     // 1. Salvar no array da respectiva categoria
     const updatedDocs = [newRecord, ...documents];
     setDocuments(updatedDocs);
-    localStorage.setItem(storageKey, JSON.stringify(updatedDocs));
+    safeLocalStorageSetItem(storageKey, JSON.stringify(updatedDocs));
 
     // Salvar também em agrocontrol_notas_entradas com chave padronizada
     try {
@@ -593,7 +594,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       const listUnified = rawUnified ? JSON.parse(rawUnified) : [];
       if (Array.isArray(listUnified)) {
         listUnified.unshift(newRecord);
-        localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(listUnified));
+        safeLocalStorageSetItem('agrocontrol_notas_entradas', JSON.stringify(listUnified));
       }
     } catch (err) {
       console.warn('Erro ao unificar nota de entrada:', err);
@@ -641,8 +642,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
         if (inventoryChanged) {
           saveStoredInventory(storedInventory);
-          localStorage.setItem('agrocontrol_produtos', JSON.stringify(storedInventory));
-          localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(storedInventory));
           window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: storedInventory }));
         }
       } catch (err) {
@@ -679,7 +678,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
         const updatedExpenses = [...newExpenses, ...storedExpenses];
         saveStoredExpenses(updatedExpenses as any);
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
         if (onAddExpenseFromNfe && newExpenses.length > 0) {
           onAddExpenseFromNfe(newExpenses);
@@ -715,10 +713,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             storedMachineries[vIdx].accumulatedCost = (storedMachineries[vIdx].accumulatedCost || 0) + finalTotal;
             (storedMachineries[vIdx] as any).totalFreightExpenses = ((storedMachineries[vIdx] as any).totalFreightExpenses || 0) + finalTotal;
             saveStoredMachineries(storedMachineries);
-            localStorage.setItem('agrocontrol_frotas_veiculos', JSON.stringify(storedMachineries));
-            localStorage.setItem('agrocontrol_veiculos', JSON.stringify(storedMachineries));
-            localStorage.setItem('agrocontrol_frotas', JSON.stringify(storedMachineries));
-            localStorage.setItem('colaca_silagem_frotas_veiculos', JSON.stringify(storedMachineries));
             window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: storedMachineries }));
           }
         } catch (err) {
@@ -758,7 +752,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
         const updatedExpenses = [...newExpenses, ...storedExpenses];
         saveStoredExpenses(updatedExpenses as any);
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
         if (onAddExpenseFromNfe && newExpenses.length > 0) {
           onAddExpenseFromNfe(newExpenses);
@@ -814,7 +807,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
         const updatedExpenses = [...newExpenses, ...storedExpenses];
         saveStoredExpenses(updatedExpenses as any);
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
         if (onAddExpenseFromNfe && newExpenses.length > 0) {
           onAddExpenseFromNfe(newExpenses);
@@ -850,10 +842,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
             (storedMachineries[vIdx] as any).totalMaintenanceExpenses = ((storedMachineries[vIdx] as any).totalMaintenanceExpenses || 0) + finalTotal;
             (storedMachineries[vIdx] as any).maintenanceCost = ((storedMachineries[vIdx] as any).maintenanceCost || 0) + finalTotal;
             saveStoredMachineries(storedMachineries);
-            localStorage.setItem('agrocontrol_frotas_veiculos', JSON.stringify(storedMachineries));
-            localStorage.setItem('agrocontrol_veiculos', JSON.stringify(storedMachineries));
-            localStorage.setItem('agrocontrol_frotas', JSON.stringify(storedMachineries));
-            localStorage.setItem('colaca_silagem_frotas_veiculos', JSON.stringify(storedMachineries));
             window.dispatchEvent(new CustomEvent('silagem_machineries_updated', { detail: storedMachineries }));
           }
         } catch (err) {
@@ -893,7 +881,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
         const updatedExpenses = [...newExpenses, ...storedExpenses];
         saveStoredExpenses(updatedExpenses as any);
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
         if (onAddExpenseFromNfe && newExpenses.length > 0) {
           onAddExpenseFromNfe(newExpenses);
@@ -943,7 +930,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       return d;
     });
     setDocuments(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    safeLocalStorageSetItem(storageKey, JSON.stringify(updated));
 
     // Injeta estoque (+) dos produtos do pedido
     try {
@@ -968,7 +955,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       if (inventoryChanged) {
         saveStoredInventory(storedInventory);
-        localStorage.setItem('agrocontrol_produtos', JSON.stringify(storedInventory));
         window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: storedInventory }));
       }
     } catch (err) {
@@ -1006,7 +992,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
       const updatedExpenses = [...newExpenses, ...storedExpenses];
       saveStoredExpenses(updatedExpenses as any);
-      localStorage.setItem('agrocontrol_financeiro', JSON.stringify(updatedExpenses));
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
       if (onAddExpenseFromNfe && newExpenses.length > 0) {
         onAddExpenseFromNfe(newExpenses);
@@ -1112,8 +1097,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         if (inventoryChanged) {
           saveStoredInventory(storedInventory);
           saveCompanyEstoque(storedInventory, activeTenantId);
-          localStorage.setItem('agrocontrol_produtos', JSON.stringify(storedInventory));
-          localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(storedInventory));
           window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: storedInventory }));
         }
       } catch (err) {
@@ -1130,7 +1113,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
     const updated = documents.filter(d => d.id !== deletingDocId);
     setDocuments(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    safeLocalStorageSetItem(storageKey, JSON.stringify(updated));
 
     // Remove também da chave unificada
     try {
@@ -1139,7 +1122,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
         const list = JSON.parse(rawUnified);
         if (Array.isArray(list)) {
           const filtered = list.filter(d => d.id !== deletingDocId);
-          localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(filtered));
+          safeLocalStorageSetItem('agrocontrol_notas_entradas', JSON.stringify(filtered));
         }
       }
     } catch {}
@@ -1161,7 +1144,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
       });
       if (removedIds.length > 0) {
         saveStoredExpenses(keptExpenses);
-        localStorage.setItem('agrocontrol_financeiro', JSON.stringify(keptExpenses));
         window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: keptExpenses }));
         if (isSupabaseConfigured) {
           removedIds.forEach(rid => deleteContaAPagar(rid, activeTenantId).catch(() => {}));

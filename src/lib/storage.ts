@@ -187,12 +187,269 @@ export function normalizeFuelProdIdToUUID(rawId?: string, nome?: string): string
   return CANONICAL_FUEL_PROD_UUIDS.S10;
 }
 
+export function stripXmlAndHeavyBlobsFromText(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  return raw
+    .replace(/<!--\s*NFE_ITEMS_JSON:[\s\S]*?\s*-->/gi, '')
+    .replace(/\[ITENS_NFE:[\s\S]*?\]/gi, '')
+    .replace(/<nfeProc[\s\S]*?<\/nfeProc>/gi, '')
+    .replace(/<NFe[\s\S]*?<\/NFe>/gi, '')
+    .replace(/<Signature[\s\S]*?<\/Signature>/gi, '')
+    .replace(/<X509Certificate[\s\S]*?<\/X509Certificate>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+export function compactNfeItemForStorage(item: any): any {
+  if (!item || typeof item !== 'object') return item;
+  const compact: Record<string, any> = {};
+  if (item.id !== undefined) compact.id = item.id;
+  if (item.linkedInventoryId !== undefined) compact.linkedInventoryId = item.linkedInventoryId;
+  if (item.produto_id !== undefined) compact.produto_id = item.produto_id;
+  if (item.code !== undefined) compact.code = item.code;
+  if (item.codigo_produto !== undefined) compact.codigo_produto = item.codigo_produto;
+  if (item.barcode !== undefined) compact.barcode = item.barcode;
+  if (item.ncm !== undefined) compact.ncm = item.ncm;
+  if (item.description !== undefined) compact.description = item.description;
+  if (item.descricao !== undefined) compact.descricao = item.descricao;
+  if (item.quantity !== undefined) compact.quantity = item.quantity;
+  if (item.quantidade !== undefined) compact.quantidade = item.quantidade;
+  if (item.unit !== undefined) compact.unit = item.unit;
+  if (item.unidade !== undefined) compact.unidade = item.unidade;
+  if (item.unitPrice !== undefined) compact.unitPrice = item.unitPrice;
+  if (item.valor_unitario !== undefined) compact.valor_unitario = item.valor_unitario;
+  if (item.totalPrice !== undefined) compact.totalPrice = item.totalPrice;
+  if (item.valor_total !== undefined) compact.valor_total = item.valor_total;
+  if (item.category !== undefined) compact.category = item.category;
+  if (item.categoria !== undefined) compact.categoria = item.categoria;
+  if (item.salePrice !== undefined) compact.salePrice = item.salePrice;
+  if (item.wholesalePrice !== undefined) compact.wholesalePrice = item.wholesalePrice;
+  if (item.promoPrice !== undefined) compact.promoPrice = item.promoPrice;
+  if (item.markupPercent !== undefined) compact.markupPercent = item.markupPercent;
+  if (item.custoComImposto !== undefined) compact.custoComImposto = item.custoComImposto;
+  if (item.custoSemImposto !== undefined) compact.custoSemImposto = item.custoSemImposto;
+  if (item.valorImpostosTotal !== undefined) compact.valorImpostosTotal = item.valorImpostosTotal;
+  if (item.freteDiluidoItem !== undefined) compact.freteDiluidoItem = item.freteDiluidoItem;
+  if (item.enterStock !== undefined) compact.enterStock = item.enterStock;
+  return compact;
+}
+
+function compactExpenseForStorage(item: any, stripItemsArray = false): any {
+  if (!item || typeof item !== 'object') return item;
+  const {
+    xmlContent: _x1,
+    rawXml: _x2,
+    xml: _x3,
+    certificateBase64: _c1,
+    certificadoBase64: _c2,
+    nfeProc: _np,
+    signatureXml: _sx,
+    x509Certificate: _xc,
+    ...rest
+  } = item;
+
+  if (typeof rest.notes === 'string') {
+    rest.notes = stripXmlAndHeavyBlobsFromText(rest.notes);
+  }
+  if (typeof rest.observacoes === 'string') {
+    rest.observacoes = stripXmlAndHeavyBlobsFromText(rest.observacoes);
+  }
+  if (stripItemsArray) {
+    delete rest.nfeItems;
+    delete rest.items;
+  } else {
+    if (Array.isArray(rest.nfeItems)) {
+      rest.nfeItems = rest.nfeItems.map(compactNfeItemForStorage);
+    }
+    if (Array.isArray(rest.items)) {
+      rest.items = rest.items.map(compactNfeItemForStorage);
+    }
+  }
+  return rest;
+}
+
+function compactDocumentoEntradaForStorage(doc: any): any {
+  if (!doc || typeof doc !== 'object') return doc;
+  const {
+    xmlContent: _x1,
+    rawXml: _x2,
+    xml: _x3,
+    certificateBase64: _c1,
+    certificadoBase64: _c2,
+    nfeProc: _np,
+    signatureXml: _sx,
+    x509Certificate: _xc,
+    ...rest
+  } = doc;
+
+  if (typeof rest.observacoes === 'string') {
+    rest.observacoes = stripXmlAndHeavyBlobsFromText(rest.observacoes);
+  }
+  if (Array.isArray(rest.itens)) {
+    rest.itens = rest.itens.map((it: any) => ({
+      id: it.id,
+      documento_entrada_id: it.documento_entrada_id,
+      produto_id: it.produto_id,
+      descricao: it.descricao || it.description || '',
+      codigo_produto: it.codigo_produto || it.code || undefined,
+      ncm: it.ncm || undefined,
+      quantidade: Number(it.quantidade ?? it.quantity) || 0,
+      unidade: it.unidade || it.unit || 'UN',
+      valor_unitario: Number(it.valor_unitario ?? it.unitPrice) || 0,
+      valor_total: Number(it.valor_total ?? it.totalPrice) || 0,
+    }));
+  }
+  return rest;
+}
+
+function purgeDispensableStorageCaches(excludeKey?: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    // 1. Caches pesados obsoletos e rascunhos temporários dispensáveis
+    const heavyDispensableKeys = [
+      'silagem_nfe_parsed_cache_map',
+      'silagem_facil_documentos_entrada_itens_v1',
+      'silagem_facil_clean_v1_documentos_entrada_itens',
+      'colaca_silagem_nfe_active_draft',
+      'colaca_silagem_manual_entry_draft',
+      'silagem_facil_active_nfe_draft',
+    ];
+    for (const dk of heavyDispensableKeys) {
+      if (dk !== excludeKey && localStorage.getItem(dk) !== null) {
+        localStorage.removeItem(dk);
+      }
+    }
+
+    const purgeSubstrings = [
+      'debug_',
+      '_temp_',
+      'colaca_silagem_backup_',
+      'agrocontrol_backup_cache_',
+      'colaca_silagem_rascunho_',
+      'colaca_silagem_cache_',
+      'silagem_facil_cache_',
+      'silagem_facil_clean_v1_backup_',
+      'silagem_facil_backup_',
+      'agrocontrol_cache_',
+      'backup_',
+      '_backup',
+      '_temp',
+      'temp_',
+      'nfe_parsed_cache',
+    ];
+
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k || k === excludeKey) continue;
+      const lower = String(k).toLowerCase();
+      if (purgeSubstrings.some(p => lower.includes(p))) {
+        localStorage.removeItem(k);
+        continue;
+      }
+      // Remove qualquer cópia escopada duplicada de documentos_entrada_itens
+      if (lower.startsWith('colaca_silagem_documentos_entrada_itens_')) {
+        localStorage.removeItem(k);
+        continue;
+      }
+      // Remove qualquer entrada contendo XML bruto de NF-e ou certificado X509 salvo indevidamente
+      if (lower !== 'agrocontrol_certificado_a1_meta') {
+        const val = localStorage.getItem(k);
+        if (val && val.length > 80000 && (val.includes('<nfeProc') || val.includes('<X509Certificate'))) {
+          localStorage.removeItem(k);
+        }
+      }
+    }
+
+    // 2. Limpar cópias espelho legadas duplicadas (silagem_facil_clean_v1_*)
+    const legacyMirrors = [
+      'silagem_facil_clean_v1_inventory',
+      'silagem_facil_clean_v1_machineries',
+      'silagem_facil_clean_v1_tire_inventory',
+      'silagem_facil_clean_v1_fuel_logs',
+      'silagem_facil_clean_v1_maintenance_logs',
+      'silagem_facil_clean_v1_expenses',
+      'silagem_facil_clean_v1_employees',
+      'silagem_facil_clean_v1_clients',
+      'silagem_facil_clean_v1_orders',
+      'silagem_facil_clean_v1_services',
+      'silagem_facil_clean_v1_suppliers',
+      'silagem_facil_clean_v1_salary_advances',
+      'silagem_facil_clean_v1_bank_accounts',
+      'silagem_facil_clean_v1_bank_transactions',
+      'silagem_facil_clean_v1_nfe_fiscal_records',
+      'silagem_facil_clean_v1_documentos_entrada',
+      'silagem_facil_documentos_entrada_v1',
+    ];
+    for (const legacyKey of legacyMirrors) {
+      if (legacyKey !== excludeKey) {
+        localStorage.removeItem(legacyKey);
+      }
+    }
+
+    // 3. Limpar espelhos redundantes quando a chave canônica agrocontrol_* já existe (zero perda de dados)
+    const canonicalRedundantMirrors: Array<[string, string[]]> = [
+      ['agrocontrol_clientes', ['colaca_silagem_clientes', 'silagem_facil_clean_v1_clients']],
+      ['agrocontrol_pedidos', ['colaca_silagem_pedidos', 'silagem_facil_clean_v1_orders']],
+      ['agrocontrol_expenses', ['agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'agrocontrol_financeiro', 'colaca_silagem_despesas', 'silagem_facil_clean_v1_expenses']],
+      ['agrocontrol_fornecedores', ['colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers']],
+      ['agrocontrol_funcionarios', ['colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees']],
+      ['agrocontrol_produtos', ['colaca_silagem_estoque_produtos', 'colaca_silagem_estoque', 'silagem_facil_clean_v1_inventory']],
+      ['agrocontrol_abastecimentos', ['agrocontrol_fuel_logs', 'colaca_silagem_abastecimentos', 'silagem_facil_clean_v1_fuel_logs']],
+      ['agrocontrol_adiantamentos', ['colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances']],
+      ['agrocontrol_fiscal_docs', ['agrocontrol_nfe_records', 'agrocontrol_notas_fiscais', 'silagem_facil_clean_v1_nfe_fiscal_records']],
+      ['agrocontrol_notas_entradas', ['colaca_silagem_documentos_entrada', 'silagem_facil_documentos_entrada_v1', 'silagem_facil_clean_v1_documentos_entrada']],
+    ];
+    for (const [primaryKey, duplicates] of canonicalRedundantMirrors) {
+      const primaryVal = localStorage.getItem(primaryKey);
+      if (primaryVal && primaryVal !== '[]' && primaryVal !== '{}' && primaryVal !== 'null') {
+        for (const dupKey of duplicates) {
+          if (dupKey !== excludeKey) {
+            localStorage.removeItem(dupKey);
+          }
+        }
+        // Também remove variantes escopadas com sufixo _{companyId} dessas chaves espelho
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (!k || k === excludeKey || k === primaryKey) continue;
+          if (
+            k.startsWith(`${primaryKey}_`) ||
+            duplicates.some(d => k.startsWith(`${d}_`))
+          ) {
+            localStorage.removeItem(k);
+          }
+        }
+      }
+    }
+
+    // 4. Limpar chaves duplicadas com escopo de empresa antigo (ex: colaca_silagem_*_default)
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (
+        k &&
+        k !== excludeKey &&
+        (k.endsWith('_default') ||
+          k.endsWith('_company_default_fazenda') ||
+          k.includes('_undefined'))
+      ) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {
+    // non-blocking
+  }
+}
+
 /**
  * Grava de forma segura no LocalStorage tratando QuotaExceededError
  * e liberando espaço de contingência automaticamente se necessário.
  */
 export function safeLocalStorageSetItem(key: string, value: string): boolean {
   if (typeof window === 'undefined' || !window.localStorage) return false;
+  // Jamais gravar o mapa pesado obsoleto no localStorage
+  if (key === 'silagem_nfe_parsed_cache_map') {
+    try { localStorage.removeItem(key); } catch {}
+    return true;
+  }
   try {
     localStorage.setItem(key, value);
     return true;
@@ -209,105 +466,29 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
     }
 
     try {
-      // 1. Purgar chaves efêmeras, caches, rascunhos e snapshots de backup antigos (preservando dados reais)
-      const purgeSubstrings = [
-        'debug_',
-        '_temp_',
-        'colaca_silagem_backup_',
-        'agrocontrol_backup_cache_',
-        'colaca_silagem_rascunho_',
-        'colaca_silagem_cache_',
-        'silagem_facil_cache_',
-        'silagem_facil_clean_v1_backup_',
-        'silagem_facil_backup_',
-        'agrocontrol_cache_',
-        'backup_',
-        '_backup',
-        '_temp',
-        'temp_'
-      ];
+      purgeDispensableStorageCaches(key);
 
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && purgeSubstrings.some(p => String(k ?? '').toLowerCase().includes(p))) {
-          localStorage.removeItem(k);
-        }
-      }
-
-      // 2. Limpar cópias espelho legadas duplicadas (silagem_facil_clean_v1_*)
-      const legacyMirrors = [
-        'silagem_facil_clean_v1_inventory',
-        'silagem_facil_clean_v1_machineries',
-        'silagem_facil_clean_v1_tire_inventory',
-        'silagem_facil_clean_v1_fuel_logs',
-        'silagem_facil_clean_v1_maintenance_logs',
-        'silagem_facil_clean_v1_expenses',
-        'silagem_facil_clean_v1_employees',
-        'silagem_facil_clean_v1_clients',
-        'silagem_facil_clean_v1_orders',
-        'silagem_facil_clean_v1_services',
-        'silagem_facil_clean_v1_suppliers',
-        'silagem_facil_clean_v1_salary_advances',
-        'silagem_facil_clean_v1_bank_accounts',
-        'silagem_facil_clean_v1_bank_transactions'
-      ];
-      for (const legacyKey of legacyMirrors) {
-        if (legacyKey !== key) {
-          localStorage.removeItem(legacyKey);
-        }
-      }
-
-      // 3. Limpar espelhos redundantes quando a chave canônica agrocontrol_* já existe (zero perda de dados)
-      const canonicalRedundantMirrors: Array<[string, string[]]> = [
-        ['agrocontrol_clientes', ['colaca_silagem_clientes', 'silagem_facil_clean_v1_clients']],
-        ['agrocontrol_pedidos', ['colaca_silagem_pedidos', 'silagem_facil_clean_v1_orders']],
-        ['agrocontrol_expenses', ['agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'colaca_silagem_despesas', 'silagem_facil_clean_v1_expenses']],
-        ['agrocontrol_fornecedores', ['colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers']],
-        ['agrocontrol_funcionarios', ['colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees']],
-        ['agrocontrol_produtos', ['colaca_silagem_estoque_produtos', 'colaca_silagem_estoque', 'silagem_facil_clean_v1_inventory']],
-        ['agrocontrol_abastecimentos', ['agrocontrol_fuel_logs', 'colaca_silagem_abastecimentos', 'silagem_facil_clean_v1_fuel_logs']],
-        ['agrocontrol_adiantamentos', ['colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances']],
-        ['agrocontrol_fiscal_docs', ['agrocontrol_nfe_records', 'agrocontrol_notas_fiscais']],
-      ];
-      for (const [primaryKey, duplicates] of canonicalRedundantMirrors) {
-        const primaryVal = localStorage.getItem(primaryKey);
-        if (primaryVal && primaryVal !== '[]' && primaryVal !== '{}') {
-          for (const dupKey of duplicates) {
-            if (dupKey !== key) {
-              localStorage.removeItem(dupKey);
-            }
-          }
-        }
-      }
-
-      // 4. Limpar chaves duplicadas com escopo de empresa antigo (ex: colaca_silagem_*_default)
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (
-          k &&
-          k !== key &&
-          (k.endsWith('_default') ||
-            k.endsWith('_company_default_fazenda') ||
-            k.includes('_undefined'))
-        ) {
-          localStorage.removeItem(k);
-        }
-      }
-
-      // Tenta gravar novamente após a limpeza de espelhos redundantes
+      // Tenta gravar novamente após a limpeza de caches e espelhos redundantes
       localStorage.setItem(key, value);
       return true;
     } catch {
       try {
-        // 5. Se ainda assim a cota estiver no limite, verifica se o valor contém fotos/imagens base64 grandes
-        if (value.includes('data:image')) {
-          const stripped = value.replace(/"data:image\/[^;]+;base64,[^"]+"/g, '""');
-          localStorage.setItem(key, stripped);
-          return true;
+        // Compacta comentários embutidos <!-- NFE_ITEMS_JSON:... --> / XML / base64 se ainda houver pressão de cota
+        let compacted = value;
+        if (compacted.includes('NFE_ITEMS_JSON') || compacted.includes('<nfeProc') || compacted.includes('<X509Certificate')) {
+          compacted = compacted
+            .replace(/<!--\s*NFE_ITEMS_JSON:[\s\S]*?\s*-->/gi, '')
+            .replace(/<nfeProc[\s\S]*?<\/nfeProc>/gi, '')
+            .replace(/<Signature[\s\S]*?<\/Signature>/gi, '')
+            .replace(/<X509Certificate[\s\S]*?<\/X509Certificate>/gi, '');
         }
-        return false;
+        if (compacted.includes('data:image')) {
+          compacted = compacted.replace(/"data:image\/[^;]+;base64,[^"]+"/g, '""');
+        }
+        localStorage.setItem(key, compacted);
+        return true;
       } catch {
-        // 6. Contingência final: mantém os dados na memória reativa da aplicação sem quebrar
+        // Contingência final: mantém os dados na memória reativa da aplicação sem quebrar
         return false;
       }
     }
@@ -316,32 +497,94 @@ export function safeLocalStorageSetItem(key: string, value: string): boolean {
 
 /**
  * Executa limpeza preventiva uma única vez na inicialização do navegador:
- * remove apenas cópias espelho legadas redundantes quando a chave canônica
- * `agrocontrol_*` já existe e contém dados válidos (zero perda de dados).
+ * - Remove caches pesados (como silagem_nfe_parsed_cache_map)
+ * - Migra dados de espelhos legados caso a chave canônica esteja vazia
+ * - Compacta notas/despesas existentes removendo XMLs brutos e NFE_ITEMS_JSON duplicados
+ * - Remove cópias espelho redundantes (zero perda de dados).
  */
 export function runStartupStorageQuotaCleanup(): void {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
+    // 1. Remove caches pesados dispensáveis imediatamente
+    localStorage.removeItem('silagem_nfe_parsed_cache_map');
+    localStorage.removeItem('silagem_facil_documentos_entrada_itens_v1');
+    localStorage.removeItem('silagem_facil_clean_v1_documentos_entrada_itens');
+
     const mirrorPairs: Array<[string, string[]]> = [
       ['agrocontrol_clientes', ['colaca_silagem_clientes', 'silagem_facil_clean_v1_clients']],
       ['agrocontrol_pedidos', ['colaca_silagem_pedidos', 'silagem_facil_clean_v1_orders']],
-      ['agrocontrol_expenses', ['agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'colaca_silagem_despesas', 'silagem_facil_clean_v1_expenses']],
+      ['agrocontrol_expenses', ['agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'agrocontrol_financeiro', 'colaca_silagem_despesas', 'silagem_facil_clean_v1_expenses']],
       ['agrocontrol_fornecedores', ['colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers']],
       ['agrocontrol_funcionarios', ['colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees']],
       ['agrocontrol_produtos', ['colaca_silagem_estoque_produtos', 'colaca_silagem_estoque', 'silagem_facil_clean_v1_inventory']],
       ['agrocontrol_abastecimentos', ['agrocontrol_fuel_logs', 'colaca_silagem_abastecimentos', 'silagem_facil_clean_v1_fuel_logs']],
       ['agrocontrol_adiantamentos', ['colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances']],
+      ['agrocontrol_fiscal_docs', ['agrocontrol_nfe_records', 'agrocontrol_notas_fiscais', 'silagem_facil_clean_v1_nfe_fiscal_records']],
+      ['agrocontrol_notas_entradas', ['colaca_silagem_documentos_entrada', 'silagem_facil_documentos_entrada_v1', 'silagem_facil_clean_v1_documentos_entrada']],
     ];
+
+    // Antes de limpar espelhos, promove qualquer espelho populado para a chave canônica caso ela esteja ausente/vazia
     for (const [primaryKey, duplicates] of mirrorPairs) {
       const primaryVal = localStorage.getItem(primaryKey);
-      if (primaryVal && primaryVal !== '[]' && primaryVal !== '{}' && primaryVal !== 'null') {
+      const hasPrimary = Boolean(primaryVal && primaryVal !== '[]' && primaryVal !== '{}' && primaryVal !== 'null');
+      if (!hasPrimary) {
         for (const dupKey of duplicates) {
-          if (localStorage.getItem(dupKey) !== null) {
-            localStorage.removeItem(dupKey);
+          const dupVal = localStorage.getItem(dupKey);
+          if (dupVal && dupVal !== '[]' && dupVal !== '{}' && dupVal !== 'null') {
+            try {
+              localStorage.setItem(primaryKey, dupVal);
+              break;
+            } catch {}
           }
         }
       }
     }
+
+    // 2. Compacta agrocontrol_expenses existente removendo NFE_ITEMS_JSON e nfeItems duplicados de parcelas financeiras
+    const rawExpenses = localStorage.getItem('agrocontrol_expenses');
+    if (rawExpenses && (rawExpenses.includes('NFE_ITEMS_JSON') || rawExpenses.includes('<nfeProc') || rawExpenses.includes('"nfeItems"'))) {
+      try {
+        const parsedExp = JSON.parse(rawExpenses);
+        if (Array.isArray(parsedExp)) {
+          const compactedExp = parsedExp.map((e: any) => {
+            if (!e || typeof e !== 'object') return e;
+            const hasFiscalLink = Boolean(e.notaId || e.documento_entrada_id || e.nota_fiscal_id || String(e.id || '').includes('_parc_') || String(e.id || '').startsWith('exp_nfe_'));
+            return compactExpenseForStorage(e, hasFiscalLink);
+          });
+          localStorage.setItem('agrocontrol_expenses', JSON.stringify(compactedExp));
+        }
+      } catch {}
+    }
+
+    // 3. Compacta agrocontrol_fiscal_docs removendo NFE_ITEMS_JSON redundante das notas e XML bruto
+    const rawFiscal = localStorage.getItem('agrocontrol_fiscal_docs');
+    if (rawFiscal && (rawFiscal.includes('NFE_ITEMS_JSON') || rawFiscal.includes('<nfeProc') || rawFiscal.includes('xmlContent'))) {
+      try {
+        const parsedFiscal = JSON.parse(rawFiscal);
+        if (Array.isArray(parsedFiscal)) {
+          const compactedFiscal = parsedFiscal.map((f: any) => compactExpenseForStorage(f, false));
+          localStorage.setItem('agrocontrol_fiscal_docs', JSON.stringify(compactedFiscal));
+        }
+      } catch {}
+    }
+
+    // 4. Compacta rascunho ativo caso contenha xmlContent pesado
+    const rawDraft = localStorage.getItem('colaca_silagem_rascunho_nota_ativa');
+    if (rawDraft && (rawDraft.includes('xmlContent') || rawDraft.includes('<nfeProc'))) {
+      try {
+        const parsedDraft = JSON.parse(rawDraft);
+        if (parsedDraft && typeof parsedDraft === 'object') {
+          delete parsedDraft.xmlContent;
+          delete parsedDraft.rawXml;
+          localStorage.setItem('colaca_silagem_rascunho_nota_ativa', JSON.stringify(parsedDraft));
+        }
+      } catch {
+        localStorage.removeItem('colaca_silagem_rascunho_nota_ativa');
+      }
+    }
+
+    // 5. Remove espelhos duplicados agora que os canônicos estão garantidos
+    purgeDispensableStorageCaches();
   } catch {
     // non-blocking
   }
@@ -555,15 +798,7 @@ export function getStoredExpenses(): Expense[] {
     }).map(sanitizeExpenseRecord);
 
     if (hasInvalid && cleaned.length !== parsed.length) {
-      const cleanedJson = JSON.stringify(cleaned);
-      safeLocalStorageSetItem('agrocontrol_expenses', cleanedJson);
-      safeLocalStorageSetItem('agrocontrol_despesas', cleanedJson);
-      safeLocalStorageSetItem('agrocontrol_contas_a_pagar', cleanedJson);
-      safeLocalStorageSetItem('agrocontrol_financeiro', cleanedJson);
-      safeLocalStorageSetItem('colaca_silagem_despesas', cleanedJson);
-      safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, cleanedJson);
-      const cId = (getActiveCompanyId() || 'default').trim();
-      safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, cleanedJson);
+      saveStoredExpenses(cleaned, cleaned.length === 0);
     }
 
     return cleaned;
@@ -591,6 +826,15 @@ export function saveStoredExpenses(expenses: Expense[], allowEmpty = false): voi
           item.status === 'compensado_estoque' ||
           item.status === 'Liquidado / Abatido por Devolução')
       );
+    }).map((item: any) => {
+      const hasFiscalLink = Boolean(
+        item.notaId ||
+        item.documento_entrada_id ||
+        item.nota_fiscal_id ||
+        String(item.id || '').includes('_parc_') ||
+        String(item.id || '').startsWith('exp_nfe_')
+      );
+      return compactExpenseForStorage(item, hasFiscalLink);
     });
 
     // Proteção contra sobrescrita acidental com array vazio no F5 / modo offline
@@ -610,6 +854,7 @@ export function saveStoredExpenses(expenses: Expense[], allowEmpty = false): voi
       try {
         localStorage.removeItem('agrocontrol_despesas');
         localStorage.removeItem('agrocontrol_contas_a_pagar');
+        localStorage.removeItem('agrocontrol_financeiro');
         localStorage.removeItem('colaca_silagem_despesas');
         localStorage.removeItem(STORAGE_KEYS.EXPENSES);
         localStorage.removeItem(`colaca_silagem_despesas_${cId}`);
@@ -712,9 +957,9 @@ export function getStoredFiscalRecords(): Expense[] {
 export function saveStoredFiscalRecords(records: Expense[], allowEmpty = false): void {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    const clean = (Array.isArray(records) ? records : []).filter(
-      (item: any) => item && typeof item === 'object' && item.id
-    );
+    const clean = (Array.isArray(records) ? records : [])
+      .filter((item: any) => item && typeof item === 'object' && item.id)
+      .map((item: any) => compactExpenseForStorage(item, false));
 
     if (!allowEmpty && clean.length === 0) {
       const existing = getStoredFiscalRecords();
@@ -724,8 +969,16 @@ export function saveStoredFiscalRecords(records: Expense[], allowEmpty = false):
     }
 
     const json = JSON.stringify(clean);
-    for (const key of getAllFiscalRecordKeys()) {
-      safeLocalStorageSetItem(key, json);
+    const canonicalFiscalKey = 'agrocontrol_fiscal_docs';
+    if (safeLocalStorageSetItem(canonicalFiscalKey, json)) {
+      // Remove espelhos redundantes para evitar multiplicação e QuotaExceededError
+      for (const key of getAllFiscalRecordKeys()) {
+        if (key !== canonicalFiscalKey) {
+          try {
+            localStorage.removeItem(key);
+          } catch (_) {}
+        }
+      }
     }
     if (typeof window !== 'undefined') {
       queueMicrotask(() => {
@@ -798,11 +1051,10 @@ export function getStoredCategories(): ExpenseCategory[] {
     }
 
     const result = sortCategoriesAZ(Array.from(officialMap.values()));
-    // Atualiza storage com a matriz oficial
     try {
       const json = JSON.stringify(result);
-      localStorage.setItem('agrocontrol_categorias_despesas', json);
-      localStorage.setItem(STORAGE_KEYS.CATEGORIES, json);
+      safeLocalStorageSetItem('agrocontrol_categorias_despesas', json);
+      safeLocalStorageSetItem(STORAGE_KEYS.CATEGORIES, json);
     } catch (_) {}
 
     return result;
@@ -858,7 +1110,27 @@ export function saveStoredCostCenters(centers: CostCenter[]): void {
 export function saveActiveNfeDraft(draft: any): void {
   try {
     if (!draft) return;
-    safeLocalStorageSetItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA, JSON.stringify(draft));
+    // Jamais gravar xmlContent / XML bruto (<nfeProc>, <Signature>, <X509Certificate>) no localStorage
+    const {
+      xmlContent: _x1,
+      rawXml: _x2,
+      xml: _x3,
+      certificateBase64: _c1,
+      ...restDraft
+    } = draft;
+    if (restDraft.parsedData && typeof restDraft.parsedData === 'object') {
+      const p = { ...restDraft.parsedData };
+      delete p.xmlContent;
+      delete p.rawXml;
+      if (Array.isArray(p.items)) {
+        p.items = p.items.map(compactNfeItemForStorage);
+      }
+      restDraft.parsedData = p;
+    }
+    if (Array.isArray(restDraft.items)) {
+      restDraft.items = restDraft.items.map(compactNfeItemForStorage);
+    }
+    safeLocalStorageSetItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA, JSON.stringify(restDraft));
   } catch (e) {
     console.warn('Failed to save active NFe draft', e);
   }
@@ -5603,7 +5875,7 @@ export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingC
         const cleaned = parsed.filter(d => !isCorruptedOrGhostDocumento(d));
         if (cleaned.length !== parsed.length) {
           totalPurged += (parsed.length - cleaned.length);
-          localStorage.setItem(key, JSON.stringify(cleaned));
+          safeLocalStorageSetItem(key, JSON.stringify(cleaned));
         }
         remainingCount = Math.max(remainingCount, cleaned.length);
       }
@@ -5622,7 +5894,7 @@ export function purgeGhostDocumentosEntrada(): { purgedCount: number; remainingC
           if (Array.isArray(parsed)) {
             const cleaned = parsed.filter(d => !isCorruptedOrGhostDocumento(d));
             if (cleaned.length !== parsed.length) {
-              localStorage.setItem(k, JSON.stringify(cleaned));
+              safeLocalStorageSetItem(k, JSON.stringify(cleaned));
             }
           }
         }
@@ -5699,7 +5971,7 @@ export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
 export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[], allowEmpty = false): void => {
   if (typeof window === 'undefined' || !window.localStorage) return;
   const deletedNfeIds = getDeletedFiscalIdsForGuard();
-  // Garante que nenhum fantasma ou registro deletado seja persistido
+  // Garante que nenhum fantasma ou registro deletado seja persistido e compacta o payload
   const cleanDocs: DocumentoEntradaRecord[] = [];
   const seen = new Set<string>();
   for (const d of docs) {
@@ -5708,7 +5980,7 @@ export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[], allo
     if (deletedNfeIds.has(String(d.id).trim().toLowerCase())) continue;
     if (isCorruptedOrGhostDocumento(d)) continue;
     seen.add(d.id);
-    cleanDocs.push(d);
+    cleanDocs.push(compactDocumentoEntradaForStorage(d));
   }
 
   // Proteção estrita contra sobrescrita vazia acidental
@@ -5720,8 +5992,15 @@ export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[], allo
   }
 
   const serialized = JSON.stringify(cleanDocs);
-  for (const key of getAllDocumentosEntradaKeys()) {
-    safeLocalStorageSetItem(key, serialized);
+  if (safeLocalStorageSetItem(AGROCONTROL_NOTAS_ENTRADAS_KEY, serialized)) {
+    // Remove cópias espelho redundantes (leitura continua compatível com todas as chaves via getAllDocumentosEntradaKeys)
+    for (const key of getAllDocumentosEntradaKeys()) {
+      if (key !== AGROCONTROL_NOTAS_ENTRADAS_KEY) {
+        try {
+          localStorage.removeItem(key);
+        } catch (_) {}
+      }
+    }
   }
   if (typeof window !== 'undefined') {
     queueMicrotask(() => {
@@ -5754,7 +6033,7 @@ export const deleteLocalDocumentoEntrada = (id: string): void => {
       if (Array.isArray(parsedItens)) {
         const cleanedItens = parsedItens.filter((i: any) => i.id !== id && i.documento_entrada_id !== id);
         if (cleanedItens.length !== parsedItens.length) {
-          localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(cleanedItens));
+          safeLocalStorageSetItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(cleanedItens));
         }
       }
     }
@@ -5798,18 +6077,39 @@ export const saveStoredDocumentosEntradaItens = (items: DocumentoEntradaItem[]):
   const uniqueItems: DocumentoEntradaItem[] = [];
   for (const item of (items || [])) {
     if (!item) continue;
-    const key = item.id ? String(item.id).trim() : '';
+    const compactItem: DocumentoEntradaItem = {
+      id: item.id,
+      documento_entrada_id: item.documento_entrada_id,
+      produto_id: item.produto_id,
+      descricao: item.descricao,
+      codigo_produto: item.codigo_produto,
+      ncm: item.ncm,
+      quantidade: item.quantidade,
+      unidade: item.unidade,
+      valor_unitario: item.valor_unitario,
+      valor_total: item.valor_total,
+      created_at: item.created_at,
+    };
+    const key = compactItem.id ? String(compactItem.id).trim() : '';
     if (key) {
       if (!seenIds.has(key)) {
         seenIds.add(key);
-        uniqueItems.push(item);
+        uniqueItems.push(compactItem);
       }
     } else {
-      uniqueItems.push(item);
+      uniqueItems.push(compactItem);
     }
   }
-  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, uniqueItems);
-  saveStoredList(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, uniqueItems);
+  const serialized = JSON.stringify(uniqueItems);
+  if (safeLocalStorageSetItem(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, serialized)) {
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS);
+      const cId = (getActiveCompanyId() || '').trim();
+      if (cId) {
+        localStorage.removeItem(`${STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS}_${cId}`);
+      }
+    } catch (_) {}
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('colaca_silagem_documentos_entrada_itens_updated', { detail: uniqueItems }));
   }
@@ -6049,9 +6349,25 @@ export function saveCompanyData<T>(entity: string, data: T[], companyId?: string
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
     const cId = (companyId || getActiveCompanyId() || 'default').trim();
+    if (entity === 'documentos_entrada_itens') {
+      saveStoredDocumentosEntradaItens(data as any);
+      return;
+    }
+    if (entity === 'despesas') {
+      saveStoredExpenses(data as any);
+      return;
+    }
+    if (entity === 'documentos_entrada') {
+      saveStoredDocumentosEntrada(data as any);
+      return;
+    }
     const json = JSON.stringify(data);
-    safeLocalStorageSetItem(`colaca_silagem_${entity}_${cId}`, json);
     safeLocalStorageSetItem(`colaca_silagem_${entity}`, json);
+    if (cId && cId !== 'default') {
+      try {
+        localStorage.removeItem(`colaca_silagem_${entity}_${cId}`);
+      } catch {}
+    }
     window.dispatchEvent(new CustomEvent('silagem_local_offline_sync', { detail: { entity, companyId: cId } }));
   } catch (e) {
     console.warn(`Aviso não-bloqueante ao gravar dados locais em colaca_silagem_${entity}:`, e);
@@ -6084,7 +6400,7 @@ export function getCompanyData<T>(entity: string, fallbackGetter?: () => T[], co
 // Entidades específicas com vinculação imediata à memória local do PC:
 export const saveCompanyFrotas = (frotas: Machinery[], companyId?: string): void => {
   saveCompanyData('frotas', frotas, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(frotas)); } catch {}
+  safeLocalStorageSetItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(frotas));
 };
 export const getCompanyFrotas = (companyId?: string): Machinery[] => sanitizeMachineryList(getCompanyData<Machinery>('frotas', getStoredMachineries, companyId));
 
@@ -6096,19 +6412,19 @@ export const getCompanyFuncionarios = (companyId?: string): Employee[] => getSto
 
 export const saveCompanyRhFolhas = (folhas: PayrollRecord[], companyId?: string): void => {
   saveCompanyData('rh_folhas', folhas, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.PAYROLLS, JSON.stringify(folhas)); } catch {}
+  safeLocalStorageSetItem(STORAGE_KEYS.PAYROLLS, JSON.stringify(folhas));
 };
 export const getCompanyRhFolhas = (companyId?: string): PayrollRecord[] => getCompanyData<PayrollRecord>('rh_folhas', getStoredPayrolls, companyId);
 
 export const saveCompanyRhFaltas = (faltas: AbsenceRecord[], companyId?: string): void => {
   saveCompanyData('rh_faltas', faltas, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(faltas)); } catch {}
+  safeLocalStorageSetItem(STORAGE_KEYS.ABSENCES, JSON.stringify(faltas));
 };
 export const getCompanyRhFaltas = (companyId?: string): AbsenceRecord[] => getCompanyData<AbsenceRecord>('rh_faltas', getStoredAbsences, companyId);
 
 export const saveCompanyRhFerias = (ferias: VacationRecord[], companyId?: string): void => {
   saveCompanyData('rh_ferias', ferias, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(ferias)); } catch {}
+  safeLocalStorageSetItem(STORAGE_KEYS.VACATIONS, JSON.stringify(ferias));
 };
 export const getCompanyRhFerias = (companyId?: string): VacationRecord[] => getCompanyData<VacationRecord>('rh_ferias', getStoredVacations, companyId);
 

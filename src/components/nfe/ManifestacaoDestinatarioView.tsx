@@ -30,7 +30,8 @@ import {
   getStoredInventory, 
   saveStoredInventory, 
   getStoredExpenses, 
-  saveStoredExpenses 
+  saveStoredExpenses,
+  safeLocalStorageSetItem
 } from '../../lib/storage';
 import { 
   CompetenceSelector, 
@@ -104,7 +105,7 @@ export const getStoredManifestacoes = (): NotaManifestacaoSefaz[] => {
       return true;
     });
     if (cleaned.length !== parsed.length) {
-      localStorage.setItem(MANIFESTACOES_STORAGE_KEY, JSON.stringify(cleaned));
+      safeLocalStorageSetItem(MANIFESTACOES_STORAGE_KEY, JSON.stringify(cleaned));
     }
     return cleaned;
   } catch {
@@ -114,7 +115,7 @@ export const getStoredManifestacoes = (): NotaManifestacaoSefaz[] => {
 
 export const saveStoredManifestacoes = (data: NotaManifestacaoSefaz[]) => {
   try {
-    localStorage.setItem(MANIFESTACOES_STORAGE_KEY, JSON.stringify(data));
+    safeLocalStorageSetItem(MANIFESTACOES_STORAGE_KEY, JSON.stringify(data));
   } catch (err) {
     console.error('Erro ao salvar manifestações SEFAZ:', err);
   }

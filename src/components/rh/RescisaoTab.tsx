@@ -142,7 +142,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     let allExpenses: Expense[] = expList || [];
     if (!allExpenses || allExpenses.length === 0) {
       try {
-        const raw = localStorage.getItem('agrocontrol_despesas') || localStorage.getItem('agrocontrol_financeiro') || localStorage.getItem('colaca_silagem_despesas') || localStorage.getItem(STORAGE_KEYS.EXPENSES);
+        const raw = localStorage.getItem('agrocontrol_expenses') || localStorage.getItem('agrocontrol_despesas') || localStorage.getItem('agrocontrol_financeiro') || localStorage.getItem('colaca_silagem_despesas') || localStorage.getItem(STORAGE_KEYS.EXPENSES);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) allExpenses = parsed;
