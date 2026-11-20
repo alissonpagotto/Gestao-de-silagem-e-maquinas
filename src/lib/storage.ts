@@ -40,7 +40,8 @@ import {
   ClienteCredito,
   TrocaDevolucaoRecord,
   PendenciaDevolucaoRecord,
-  NotaSaidaRecord
+  NotaSaidaRecord,
+  StockEntryMovement
 } from '../types';
 import { backfillEmployeesBadgeNumbers } from '../components/rh/badgeHelpers';
 import { 
@@ -432,6 +433,7 @@ function sanitizeExpenseRecord(item: any): Expense {
 
 export function getStoredExpenses(): Expense[] {
   try {
+    const cId = (getActiveCompanyId() || '').trim();
     const candidateKeys = [
       'agrocontrol_expenses',
       'agrocontrol_despesas',
@@ -439,6 +441,7 @@ export function getStoredExpenses(): Expense[] {
       'agrocontrol_financeiro',
       'colaca_silagem_despesas',
       STORAGE_KEYS.EXPENSES,
+      ...(cId && cId !== 'default' ? [`colaca_silagem_despesas_${cId}`, `agrocontrol_expenses_${cId}`] : []),
     ];
 
     let raw: string | null = null;
@@ -501,10 +504,10 @@ export function getStoredExpenses(): Expense[] {
 
 let lastSavedExpensesJson = '';
 
-export function saveStoredExpenses(expenses: Expense[]): void {
+export function saveStoredExpenses(expenses: Expense[], allowEmpty = false): void {
   try {
     // Filtra apenas registros nulos ou sem valor válido (> 0), preservando todos os fornecedores reais
-    const cleaned = expenses.filter((item: any) => {
+    const cleaned = (Array.isArray(expenses) ? expenses : []).filter((item: any) => {
       if (!item || !item.id) return false;
       const val = typeof item.amount === 'number'
         ? item.amount
@@ -519,7 +522,16 @@ export function saveStoredExpenses(expenses: Expense[]): void {
       );
     });
 
+    // Proteção contra sobrescrita acidental com array vazio no F5 / modo offline
+    if (!allowEmpty && cleaned.length === 0) {
+      const existing = getStoredExpenses();
+      if (existing.length > 0) {
+        return;
+      }
+    }
+
     const json = JSON.stringify(cleaned);
+    const cId = (getActiveCompanyId() || 'default').trim();
     const hasPrimaryKeys =
       localStorage.getItem('agrocontrol_expenses') === json &&
       localStorage.getItem('agrocontrol_despesas') === json &&
@@ -535,8 +547,10 @@ export function saveStoredExpenses(expenses: Expense[]): void {
     safeLocalStorageSetItem('agrocontrol_financeiro', json);
     safeLocalStorageSetItem('colaca_silagem_despesas', json);
     safeLocalStorageSetItem(STORAGE_KEYS.EXPENSES, json);
-    const cId = (getActiveCompanyId() || 'default').trim();
     safeLocalStorageSetItem(`colaca_silagem_despesas_${cId}`, json);
+    if (cId && cId !== 'default') {
+      safeLocalStorageSetItem(`agrocontrol_expenses_${cId}`, json);
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: cleaned }));
       window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated', { detail: cleaned }));
@@ -2738,28 +2752,42 @@ export function getServicesFromStockLocalStorage(): string[] {
   return [];
 }
 
+function getAllInventoryStorageKeys(): string[] {
+  const keys = [
+    'agrocontrol_produtos',
+    'agrocontrol_products',
+    'agrocontrol_inventory',
+    STOCK_PRODUCTS_STORAGE_KEY,
+    STORAGE_KEYS.INVENTORY,
+    'colaca_silagem_estoque',
+  ];
+  try {
+    const cId = (getActiveCompanyId() || '').trim();
+    if (cId && cId !== 'default') {
+      keys.push(`colaca_silagem_estoque_${cId}`);
+      keys.push(`agrocontrol_products_${cId}`);
+      keys.push(`agrocontrol_inventory_${cId}`);
+    }
+  } catch (_) {}
+  return Array.from(new Set(keys));
+}
+
 export function getStoredInventory(): InventoryItem[] {
   try {
-    const candidateKeys = [
-      'agrocontrol_produtos',
-      STOCK_PRODUCTS_STORAGE_KEY,
-      STORAGE_KEYS.INVENTORY,
-      'colaca_silagem_estoque'
-    ];
-    let raw: string | null = null;
+    const candidateKeys = getAllInventoryStorageKeys();
+    let best: InventoryItem[] = [];
     for (const key of candidateKeys) {
       const val = localStorage.getItem(key);
       if (val && val !== '[]' && val !== '{}' && val !== 'null') {
-        raw = val;
-        break;
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed) && parsed.length > best.length) {
+            best = parsed;
+          }
+        } catch (_) {}
       }
     }
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
-    return [];
+    return best;
   } catch (e) {
     return [];
   }
@@ -2767,31 +2795,150 @@ export function getStoredInventory(): InventoryItem[] {
 
 let lastSavedInventoryJson = '';
 
-export function saveStoredInventory(items: InventoryItem[]): void {
+export function saveStoredInventory(items: InventoryItem[], allowEmpty = false): void {
   try {
-    const cleanItems = Array.isArray(items) ? items : [];
+    const cleanItems = (Array.isArray(items) ? items : []).filter((i: any) => i && typeof i === 'object' && i.id);
+
+    // Proteção contra sobrescrita acidental com array vazio no F5 / modo offline
+    if (!allowEmpty && cleanItems.length === 0) {
+      const existing = getStoredInventory();
+      if (existing.length > 0) {
+        return;
+      }
+    }
+
     const json = JSON.stringify(cleanItems);
-    if (json === lastSavedInventoryJson) return;
+    const allKeys = getAllInventoryStorageKeys();
+    const allSynced = allKeys.every((k) => localStorage.getItem(k) === json);
+    if (json === lastSavedInventoryJson && allSynced) return;
     lastSavedInventoryJson = json;
 
-    safeLocalStorageSetItem('agrocontrol_produtos', json);
-    safeLocalStorageSetItem(STOCK_PRODUCTS_STORAGE_KEY, json);
-    safeLocalStorageSetItem(STORAGE_KEYS.INVENTORY, json);
+    for (const key of allKeys) {
+      safeLocalStorageSetItem(key, json);
+    }
 
-    window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: cleanItems }));
-    window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: cleanItems }));
-    
-    // Sincroniza também a lista de serviços do estoque
-    const serviceNames = cleanItems
-      .filter(i => (i.tipo_item === 'SERVIÇO' || i.category === 'SERVIÇO' || i.categoria === 'SERVIÇO'))
-      .map(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase())
-      .filter(Boolean);
-    if (serviceNames.length > 0) {
-      window.dispatchEvent(new CustomEvent('colaca_silagem_servicos_estoque_updated', { detail: serviceNames }));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: cleanItems }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_produtos_updated', { detail: cleanItems }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_inventory_updated', { detail: cleanItems }));
+      window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: cleanItems }));
+
+      // Sincroniza também a lista de serviços do estoque
+      const serviceNames = cleanItems
+        .filter(i => (i.tipo_item === 'SERVIÇO' || i.category === 'SERVIÇO' || i.categoria === 'SERVIÇO'))
+        .map(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase())
+        .filter(Boolean);
+      if (serviceNames.length > 0) {
+        window.dispatchEvent(new CustomEvent('colaca_silagem_servicos_estoque_updated', { detail: serviceNames }));
+      }
     }
   } catch (e) {
     console.warn('Aviso não-bloqueante ao salvar estoque no LocalStorage:', e);
   }
+}
+
+// ==============================================================================
+// MOVIMENTAÇÕES DE ENTRADA DE ESTOQUE VINCULADAS A NOTAS FISCAIS (NF-e / MANUAIS)
+// ==============================================================================
+const STOCK_MOVEMENTS_BASE_KEYS = [
+  'agrocontrol_stock_movements',
+  'agrocontrol_estoque_movimentacoes',
+] as const;
+
+function getAllStockMovementKeys(): string[] {
+  const keys: string[] = [...STOCK_MOVEMENTS_BASE_KEYS];
+  try {
+    const cId = (getActiveCompanyId() || '').trim();
+    if (cId && cId !== 'default') {
+      keys.push(`agrocontrol_stock_movements_${cId}`);
+    }
+  } catch (_) {}
+  return keys;
+}
+
+export function getStoredStockMovements(): StockEntryMovement[] {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const map = new Map<string, StockEntryMovement>();
+    for (const key of getAllStockMovementKeys()) {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === '[]' || raw === 'null') continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) continue;
+        for (const mov of parsed) {
+          if (mov && typeof mov === 'object' && mov.id && !map.has(mov.id)) {
+            map.set(mov.id, mov as StockEntryMovement);
+          }
+        }
+      } catch (_) {}
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''))
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+export function saveStoredStockMovements(movements: StockEntryMovement[], allowEmpty = false): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    const clean = (Array.isArray(movements) ? movements : []).filter((m: any) => m && m.id);
+    if (!allowEmpty && clean.length === 0) {
+      const existing = getStoredStockMovements();
+      if (existing.length > 0) return;
+    }
+    const json = JSON.stringify(clean);
+    for (const key of getAllStockMovementKeys()) {
+      safeLocalStorageSetItem(key, json);
+    }
+    window.dispatchEvent(new CustomEvent('agrocontrol_stock_movements_updated', { detail: clean }));
+  } catch (e) {
+    console.warn('Erro ao salvar movimentações de estoque:', e);
+  }
+}
+
+export function recordStockEntryMovements(newMovements: StockEntryMovement[]): StockEntryMovement[] {
+  if (!Array.isArray(newMovements) || newMovements.length === 0) {
+    return getStoredStockMovements();
+  }
+  const existing = getStoredStockMovements();
+  const map = new Map<string, StockEntryMovement>();
+  newMovements.forEach((m) => {
+    if (m && m.id) map.set(m.id, m);
+  });
+  existing.forEach((m) => {
+    if (m && m.id && !map.has(m.id)) {
+      map.set(m.id, m);
+    }
+  });
+  const merged = Array.from(map.values());
+  saveStoredStockMovements(merged);
+  return merged;
+}
+
+export function hasStockMovementForInvoice(
+  ref: { notaId?: string; invoiceNumber?: string; accessKey?: string },
+  movements?: StockEntryMovement[]
+): boolean {
+  const list = movements ?? getStoredStockMovements();
+  if (!list || list.length === 0) return false;
+  const cleanId = String(ref.notaId || '').trim().toLowerCase();
+  const cleanDigits = String(ref.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+  const cleanKey = String(ref.accessKey || '').replace(/\D/g, '').trim();
+
+  return list.some((m) => {
+    if (cleanId && String(m.notaId || '').trim().toLowerCase() === cleanId) return true;
+    if (cleanKey && cleanKey.length === 44 && String(m.accessKey || '').replace(/\D/g, '').trim() === cleanKey) {
+      return true;
+    }
+    if (cleanDigits && cleanDigits.length >= 3) {
+      const mDigits = String(m.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+      if (mDigits && mDigits === cleanDigits) return true;
+    }
+    return false;
+  });
 }
 
 /**
@@ -5532,7 +5679,10 @@ export const getCompanyClientes = (companyId?: string): Client[] => {
   return withCodes;
 };
 
-export const saveCompanyDespesas = (despesas: Expense[], companyId?: string): void => {
+export const saveCompanyDespesas = (despesas: Expense[], companyId?: string, allowEmpty = false): void => {
+  if (!allowEmpty && Array.isArray(despesas) && despesas.length === 0 && getStoredExpenses().length > 0) {
+    return;
+  }
   saveCompanyData('despesas', despesas, companyId);
   try {
     const json = JSON.stringify(despesas);
@@ -5552,9 +5702,12 @@ export const saveCompanyServicos = (servicos: ServiceOrder[], companyId?: string
 };
 export const getCompanyServicos = (companyId?: string): ServiceOrder[] => sanitizeServiceOrders(getCompanyData<ServiceOrder>('servicos', getStoredServices, companyId));
 
-export const saveCompanyEstoque = (itens: InventoryItem[], companyId?: string): void => {
+export const saveCompanyEstoque = (itens: InventoryItem[], companyId?: string, allowEmpty = false): void => {
+  if (!allowEmpty && Array.isArray(itens) && itens.length === 0 && getStoredInventory().length > 0) {
+    return;
+  }
   saveCompanyData('estoque', itens, companyId);
-  try { localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(itens)); } catch {}
+  saveStoredInventory(itens, allowEmpty);
 };
 export const getCompanyEstoque = (companyId?: string): InventoryItem[] => getCompanyData<InventoryItem>('estoque', getStoredInventory, companyId);
 

@@ -1993,7 +1993,12 @@ export default function App() {
   useEffect(() => { saveStoredEmployees(employees); }, [employees]);
   useEffect(() => { saveStoredFleetTeams(fleetTeams); }, [fleetTeams]);
   useEffect(() => { saveStoredSuppliers(suppliers); }, [suppliers]);
-  useEffect(() => { saveStoredInventory(inventory); }, [inventory]);
+  useEffect(() => {
+    if (!isInitialLoadDone.current && inventory.length === 0 && getStoredInventory().length > 0) {
+      return;
+    }
+    saveStoredInventory(inventory);
+  }, [inventory]);
   useEffect(() => { saveStoredServices(services); }, [services]);
   useEffect(() => { saveStoredFuelLogs(fuelLogs); }, [fuelLogs]);
   useEffect(() => { saveStoredMaintenanceLogs(maintenanceLogs); }, [maintenanceLogs]);
@@ -3090,6 +3095,7 @@ export default function App() {
     lastSyncedState.current.inventory = ser;
     lastSyncedState.current.rel_inventory = ser;
     saveStoredInventory(newInventory);
+    saveCompanyEstoque(newInventory, activeTenantId);
     setInventory(newInventory);
   };
 
@@ -4368,7 +4374,7 @@ export default function App() {
                 viewMode="import"
                 inventory={inventory}
                 onSaveInventory={(inv) => {
-                  setTimeout(() => handleSaveInventory(inv), 0);
+                  handleSaveInventory(inv);
                 }}
                 suppliers={suppliers}
                 onSaveSuppliers={(sups) => {
@@ -4401,7 +4407,8 @@ export default function App() {
                       }
                       return true;
                     });
-                    saveStoredExpenses(nextList);
+                    saveStoredExpenses(nextList, true);
+                    saveCompanyDespesas(nextList, activeTenantId, true);
                     return nextList;
                   });
                 }}

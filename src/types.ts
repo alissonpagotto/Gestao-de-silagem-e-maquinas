@@ -189,6 +189,13 @@ export interface Expense {
     bankAccountName?: string;
     notes?: string;
   }[];
+  notaId?: string;
+  documento_entrada_id?: string;
+  nota_fiscal_id?: string;
+  numero_parcela?: string;
+  forma_pagamento?: string;
+  estoqueIntegrado?: boolean;
+  stockIntegrated?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -2236,6 +2243,8 @@ export interface DocumentoEntradaRecord {
   vehiclePlate?: string;
   vehicleModel?: string;
   status?: 'Rascunho' | 'Finalizado' | string;
+  estoqueIntegrado?: boolean;
+  stockIntegrated?: boolean;
   created_at?: string;
   updated_at?: string;
   itens?: DocumentoEntradaItem[];
@@ -2245,12 +2254,35 @@ export interface DocumentoEntradaItem {
   id: string;
   documento_entrada_id: string;
   produto_id?: string;
+  codigo_produto?: string;
+  ncm?: string;
   descricao: string;
   quantidade: number;
   unidade?: string;
   valor_unitario: number;
   valor_total: number;
   created_at?: string;
+}
+
+export interface StockEntryMovement {
+  id: string;
+  companyId?: string;
+  notaId: string;
+  invoiceNumber: string;
+  accessKey?: string;
+  supplier?: string;
+  productId: string;
+  productCode?: string;
+  productName: string;
+  ncm?: string;
+  quantity: number;
+  unit: string;
+  unitCost: number;
+  totalCost: number;
+  date: string;
+  type: 'entrada';
+  source: 'xml' | 'manual' | 'reintegracao';
+  createdAt: string;
 }
 
 // ==============================================================================

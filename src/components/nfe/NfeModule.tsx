@@ -48,7 +48,8 @@ import {
   ArrowUpRight,
   User,
   Send,
-  Lock
+  Lock,
+  RefreshCw
 } from 'lucide-react';
 import { 
   Expense, 
@@ -73,13 +74,18 @@ import {
   CfopCatalogEntry,
   CfopOperacaoTipo,
   Lc116ServiceCodeEntry,
-  MaintenanceLog
+  MaintenanceLog,
+  StockEntryMovement
 } from '../../types';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
   getStoredInventory, 
   saveStoredInventory, 
+  saveCompanyEstoque,
+  getStoredStockMovements,
+  recordStockEntryMovements,
+  hasStockMovementForInvoice,
   saveStoredExpenses, 
   getStoredExpenses,
   saveCompanyDespesas,
@@ -237,6 +243,7 @@ import {
   DEFAULT_STOCK_SERVICES
 } from './TireReformOrderView';
 import {
+  hasMatchingPayableForFiscalDoc,
   normalizeFiscalInvoiceDigits,
   normalizeSupplierToken,
   reconcileMissingFiscalPayables,
@@ -2099,24 +2106,450 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
-  // Estado local do inventário sincronizado com props ou storage
+  // Estado local do inventário sincronizado com props ou storage (leitura síncrona no F5)
   const [localInventory, setLocalInventory] = useState<InventoryItem[]>(() => {
-    return (inventory && inventory.length > 0) ? inventory : getStoredInventory();
+    const stored = getStoredInventory();
+    if (inventory && inventory.length >= stored.length && inventory.length > 0) return inventory;
+    return stored.length > 0 ? stored : (inventory || []);
   });
+  const localInventoryRef = useRef(localInventory);
+  localInventoryRef.current = localInventory;
 
   useEffect(() => {
     if (inventory && inventory.length > 0) {
       setLocalInventory(inventory);
+      localInventoryRef.current = inventory;
     }
   }, [inventory]);
 
+  useEffect(() => {
+    const syncInvFromStorage = () => {
+      const stored = getStoredInventory();
+      if (stored.length > 0) {
+        setLocalInventory(stored);
+        localInventoryRef.current = stored;
+      }
+    };
+    window.addEventListener('agrocontrol_inventory_updated', syncInvFromStorage);
+    window.addEventListener('agrocontrol_produtos_updated', syncInvFromStorage);
+    window.addEventListener('storage', syncInvFromStorage);
+    return () => {
+      window.removeEventListener('agrocontrol_inventory_updated', syncInvFromStorage);
+      window.removeEventListener('agrocontrol_produtos_updated', syncInvFromStorage);
+      window.removeEventListener('storage', syncInvFromStorage);
+    };
+  }, []);
+
+  const getMergedBaseInventory = useCallback((): InventoryItem[] => {
+    const stored = getStoredInventory();
+    const map = new Map<string, InventoryItem>();
+    stored.forEach((p) => { if (p && p.id) map.set(p.id, p); });
+    (localInventoryRef.current || []).forEach((p) => { if (p && p.id) map.set(p.id, p); });
+    return Array.from(map.values());
+  }, []);
+
   const saveInventory = (updated: InventoryItem[]) => {
+    // Gravação síncrona em todas as chaves de estoque antes de qualquer atualização assíncrona
+    const activeCid = getActiveCompanyId(companyProfile);
+    saveStoredInventory(updated);
+    saveCompanyEstoque(updated, activeCid);
+    localInventoryRef.current = updated;
     setLocalInventory(updated);
     if (onSaveInventory) {
       onSaveInventory(updated);
     }
-    saveStoredInventory(updated);
   };
+
+  // Movimentações de entrada de estoque vinculadas a notas fiscais (leitura síncrona no F5)
+  const [stockMovements, setStockMovements] = useState<StockEntryMovement[]>(() => getStoredStockMovements());
+  useEffect(() => {
+    const handleMovUpdate = () => setStockMovements(getStoredStockMovements());
+    window.addEventListener('agrocontrol_stock_movements_updated', handleMovUpdate);
+    window.addEventListener('storage', handleMovUpdate);
+    return () => {
+      window.removeEventListener('agrocontrol_stock_movements_updated', handleMovUpdate);
+      window.removeEventListener('storage', handleMovUpdate);
+    };
+  }, []);
+
+  const persistStockMovementsSync = useCallback((newMovs: StockEntryMovement[]) => {
+    if (!newMovs || newMovs.length === 0) return;
+    const merged = recordStockEntryMovements(newMovs);
+    setStockMovements(merged);
+  }, []);
+
+  const extractItemsFromUnifiedEntry = useCallback((entry: any): Array<{
+    linkedInventoryId?: string;
+    code?: string;
+    barcode?: string;
+    ncm?: string;
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    totalPrice: number;
+    category?: string;
+  }> => {
+    const rawItems: any[] = [];
+    if (Array.isArray(entry?.rawExpense?.nfeItems) && entry.rawExpense.nfeItems.length > 0) {
+      rawItems.push(...entry.rawExpense.nfeItems);
+    } else if (Array.isArray(entry?.rawManualDoc?.itens) && entry.rawManualDoc.itens.length > 0) {
+      rawItems.push(...entry.rawManualDoc.itens);
+    } else if (Array.isArray(entry?.rawLegacyFiscalDoc?.items) && entry.rawLegacyFiscalDoc.items.length > 0) {
+      rawItems.push(...entry.rawLegacyFiscalDoc.items);
+    }
+
+    if (rawItems.length === 0 && entry?.id) {
+      const storedDocItems = getStoredDocumentosEntradaItens().filter(
+        (it) => it.documento_entrada_id === entry.id
+      );
+      if (storedDocItems.length > 0) rawItems.push(...storedDocItems);
+    }
+
+    if (rawItems.length === 0 && typeof entry?.rawExpense?.notes === 'string') {
+      const match = entry.rawExpense.notes.match(/<!--\s*NFE_ITEMS_JSON:([\s\S]*?)\s*-->/);
+      if (match && match[1]) {
+        try {
+          const parsed = JSON.parse(match[1]);
+          if (Array.isArray(parsed)) rawItems.push(...parsed);
+        } catch (_) {}
+      }
+    }
+
+    if (rawItems.length === 0) {
+      const cachedMap = getCachedNfeMap();
+      const cleanNum = String(entry?.documentNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
+      const digits = normalizeFiscalInvoiceDigits(cleanNum);
+      const accessKey = entry?.rawExpense?.accessKey || entry?.rawManualDoc?.chave_acesso;
+      const cached =
+        (entry?.id && cachedMap[entry.id]) ||
+        (cleanNum && cachedMap[cleanNum.toLowerCase()]) ||
+        (digits && cachedMap[digits]) ||
+        (accessKey && cachedMap[accessKey]);
+      if (Array.isArray(cached?.items) && cached.items.length > 0) {
+        rawItems.push(...cached.items);
+      }
+    }
+
+    return rawItems
+      .filter((it) => it && (it.description || it.descricao || it.xProd || it.name))
+      .map((it) => {
+        const qty = Number(it.quantity ?? it.quantidade ?? it.qCom ?? 1) || 1;
+        const unitPrice = Number(
+          it.custoComImposto ?? it.custo_com_imposto ?? it.unitPrice ?? it.valor_unitario ?? it.vUnCom ?? 0
+        ) || 0;
+        const totalPrice = Number(it.totalPrice ?? it.valor_total ?? it.vProd ?? qty * unitPrice) || qty * unitPrice;
+        return {
+          linkedInventoryId: it.linkedInventoryId || it.produto_id || it.inventoryItemId || undefined,
+          code: it.code || it.codigo_produto || it.cProd || undefined,
+          barcode: it.barcode || it.codigo_barras || undefined,
+          ncm: it.ncm || it.codigo_ncm || undefined,
+          description: String(it.description || it.descricao || it.xProd || it.name || '').trim(),
+          quantity: qty,
+          unit: String(it.unit || it.unidade || it.uCom || 'UN').toUpperCase(),
+          unitPrice,
+          totalPrice,
+          category: it.categoria || it.category || undefined,
+        };
+      });
+  }, []);
+
+  const allExpensesSnapshotForBadges = useMemo(() => {
+    const map = new Map<string, Expense>();
+    [...getStoredExpenses(), ...(expenses || [])].forEach((e) => {
+      if (e && e.id) map.set(e.id, e);
+    });
+    return Array.from(map.values());
+  }, [expenses, notasLancadas, documentosEntrada]);
+
+  const getEntryIntegrationStatus = useCallback((entry: any) => {
+    const accessKey = entry?.rawExpense?.accessKey || entry?.rawManualDoc?.chave_acesso || undefined;
+    const isBlockedFin = Boolean(
+      entry?.rawExpense?.skipAccountsPayable ||
+      entry?.rawExpense?.isDreOnly ||
+      isFinancialBlockedOperation(
+        entry?.rawExpense?.transactionType ||
+        entry?.rawExpense?.operationNature ||
+        entry?.rawManualDoc?.natureza_operacao
+      ) ||
+      entry?.rawManualDoc?.status === 'Rascunho' ||
+      entry?.rawLegacyFiscalDoc?.category === 'pedido_compra'
+    );
+
+    const hasStockMov = hasStockMovementForInvoice(
+      { notaId: entry?.id, invoiceNumber: entry?.documentNumber, accessKey },
+      stockMovements
+    );
+    const hasStockFlag = Boolean(
+      entry?.rawExpense?.estoqueIntegrado ||
+      entry?.rawExpense?.stockIntegrated ||
+      entry?.rawManualDoc?.estoqueIntegrado ||
+      entry?.rawManualDoc?.stockIntegrated ||
+      (typeof entry?.rawExpense?.notes === 'string' &&
+        entry.rawExpense.notes.includes('Entrada de estoque registrada:'))
+    );
+    const hasStock = hasStockMov || hasStockFlag;
+
+    const cleanNum = String(entry?.documentNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
+    const hasFinancial = isBlockedFin
+      ? true
+      : hasMatchingPayableForFiscalDoc(
+          {
+            id: entry?.id || '',
+            invoiceNumber: cleanNum,
+            invoiceDigits: normalizeFiscalInvoiceDigits(cleanNum),
+            accessKey,
+            supplier: entry?.supplier || '',
+            amount: Number(entry?.amount) || 0,
+            issueDate: entry?.issueDate || entry?.date || '',
+          },
+          allExpensesSnapshotForBadges
+        );
+
+    return {
+      hasStock,
+      hasFinancial,
+      isBlockedFin,
+    };
+  }, [stockMovements, allExpensesSnapshotForBadges]);
+
+  const handleReintegrateEntry = useCallback(async (entry: any) => {
+    if (!entry || !entry.id) return;
+    const status = getEntryIntegrationStatus(entry);
+    const cleanNum = String(entry.documentNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim() || 'NF';
+    const accessKey = entry?.rawExpense?.accessKey || entry?.rawManualDoc?.chave_acesso || undefined;
+    const activeCid = getActiveCompanyId(companyProfile) || 'default';
+    const entryDateStr = String(entry.entryDate || entry.issueDate || entry.date || new Date().toISOString().split('T')[0]).split('T')[0];
+
+    let stockAddedCount = 0;
+    let stockUpdatedMsg = '';
+    let financialAddedCount = 0;
+
+    // 1. REINTEGRAÇÃO DE ESTOQUE (IDEMPOTENTE — não duplica se já houver movimentação registrada)
+    if (!status.hasStock) {
+      const itemsToProcess = extractItemsFromUnifiedEntry(entry);
+      if (itemsToProcess.length > 0) {
+        const updatedInventory = [...getMergedBaseInventory()];
+        const movementsToRecord: StockEntryMovement[] = [];
+        const changedProducts: InventoryItem[] = [];
+
+        itemsToProcess.forEach((item, idx) => {
+          const itemNameLower = item.description.toLowerCase().trim();
+          const itemCodeUpper = String(item.code || '').trim().toUpperCase();
+          const itemBarcode = String(item.barcode || '').trim();
+
+          let invIndex = item.linkedInventoryId
+            ? updatedInventory.findIndex((p) => p.id === item.linkedInventoryId)
+            : -1;
+          if (invIndex === -1 && itemBarcode && itemBarcode !== 'SEM GTIN') {
+            invIndex = updatedInventory.findIndex(
+              (p) => p.barcode && String(p.barcode).trim() === itemBarcode
+            );
+          }
+          if (invIndex === -1 && itemCodeUpper) {
+            invIndex = updatedInventory.findIndex(
+              (p) => String(p.code || p.codigo_produto || '').trim().toUpperCase() === itemCodeUpper
+            );
+          }
+          if (invIndex === -1 && itemNameLower) {
+            invIndex = updatedInventory.findIndex(
+              (p) =>
+                String(p.nome_comercial || '').toLowerCase().trim() === itemNameLower ||
+                String(p.name || '').toLowerCase().trim() === itemNameLower
+            );
+          }
+
+          const addQty = Number(item.quantity) || 1;
+          const unitCost = Number(item.unitPrice) || 0;
+          let finalProductId = '';
+          let finalProductCode = item.code;
+
+          if (invIndex !== -1) {
+            const invItem = { ...updatedInventory[invIndex] };
+            const currentQty = Number(invItem.quantity ?? invItem.quantidade_atual) || 0;
+            const nextQty = Math.round((currentQty + addQty) * 100) / 100;
+            invItem.quantity = nextQty;
+            invItem.quantidade_atual = nextQty;
+            if (unitCost > 0) {
+              invItem.unitCost = unitCost;
+              invItem.preco_custo_inicial = unitCost;
+              invItem.custo_nominal = unitCost;
+              invItem.custo_com_imposto = unitCost;
+            }
+            if (item.ncm && !invItem.ncm) {
+              invItem.ncm = item.ncm;
+              invItem.codigo_ncm = item.ncm;
+            }
+            updatedInventory[invIndex] = invItem;
+            changedProducts.push(invItem);
+            finalProductId = invItem.id;
+            finalProductCode = invItem.code || invItem.codigo_produto || item.code;
+          } else {
+            const dieselMatch = identificarTipoDiesel(item.description);
+            const autoCat = normalizeToInventoryCategory(
+              item.category || (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
+            );
+            const newProdId = `inv_reint_${Date.now()}_${idx}`;
+            const salePrice = Math.round((unitCost * 1.3) * 100) / 100;
+            const newInvItem: InventoryItem = {
+              id: newProdId,
+              companyId: activeCid,
+              name: item.description,
+              nome_comercial: item.description,
+              fiscalName: item.description,
+              code: item.code || `PRD${Date.now().toString().slice(-4)}_${idx}`,
+              codigo_produto: item.code || `PRD${Date.now().toString().slice(-4)}_${idx}`,
+              barcode: item.barcode || undefined,
+              ncm: item.ncm || undefined,
+              codigo_ncm: item.ncm || undefined,
+              unit: item.unit || 'UN',
+              unidade_medida: item.unit || 'UN',
+              category: autoCat,
+              categoria: autoCat,
+              unitCost,
+              preco_custo_inicial: unitCost,
+              custo_nominal: unitCost,
+              custo_com_imposto: unitCost,
+              profitMargin: 30,
+              salePrice,
+              preco_venda_varejo: salePrice,
+              quantity: addQty,
+              quantidade_atual: addQty,
+              minQuantity: 5,
+              maxQuantity: 100,
+              location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal',
+            };
+            updatedInventory.push(newInvItem);
+            changedProducts.push(newInvItem);
+            finalProductId = newProdId;
+            finalProductCode = newInvItem.code;
+          }
+
+          movementsToRecord.push({
+            id: `mov_${entry.id}_${idx}_${finalProductId}`,
+            companyId: activeCid,
+            notaId: entry.id,
+            invoiceNumber: cleanNum,
+            accessKey,
+            supplier: entry.supplier,
+            productId: finalProductId,
+            productCode: finalProductCode,
+            productName: item.description,
+            ncm: item.ncm,
+            quantity: addQty,
+            unit: item.unit || 'UN',
+            unitCost,
+            totalCost: Number(item.totalPrice) || Math.round(addQty * unitCost * 100) / 100,
+            date: entryDateStr,
+            type: 'entrada',
+            source: 'reintegracao',
+            createdAt: new Date().toISOString(),
+          });
+          stockAddedCount++;
+        });
+
+        saveInventory(updatedInventory);
+        persistStockMovementsSync(movementsToRecord);
+
+        // Marca a nota como integrada ao estoque de forma síncrona
+        const storedFiscal = getStoredFiscalRecords();
+        if (storedFiscal.some((f) => f.id === entry.id)) {
+          const updatedFiscal = storedFiscal.map((f) =>
+            f.id === entry.id ? { ...f, estoqueIntegrado: true, stockIntegrated: true } : f
+          );
+          saveStoredFiscalRecords(updatedFiscal);
+          setNotasLancadas((prev) =>
+            prev.map((f) => (f.id === entry.id ? { ...f, estoqueIntegrado: true, stockIntegrated: true } : f))
+          );
+        }
+        const storedDocs = getStoredDocumentosEntrada();
+        if (storedDocs.some((d) => d.id === entry.id)) {
+          const updatedDocs = storedDocs.map((d) =>
+            d.id === entry.id ? { ...d, estoqueIntegrado: true, stockIntegrated: true } : d
+          );
+          saveStoredDocumentosEntrada(updatedDocs);
+          setDocumentosEntrada(updatedDocs);
+        }
+
+        if (isSupabaseConfigured) {
+          changedProducts.forEach((prod) => {
+            upsertEstoqueItem(prod).catch((err) => console.warn('Reintegrate upsertEstoqueItem:', err));
+          });
+        }
+        stockUpdatedMsg = `📦 Estoque atualizado (${stockAddedCount} item(ns))`;
+      } else {
+        stockUpdatedMsg = '📦 Sem itens cadastrados na nota para dar entrada no Estoque';
+      }
+    }
+
+    // 2. REINTEGRAÇÃO FINANCEIRA (IDEMPOTENTE — só cria se não houver título vinculado)
+    if (!status.isBlockedFin && !status.hasFinancial) {
+      const targetFiscal = entry.rawExpense ? [entry.rawExpense] : [];
+      const targetDocs = entry.rawManualDoc ? [entry.rawManualDoc] : [];
+      const targetLegacy = entry.rawLegacyFiscalDoc ? [entry.rawLegacyFiscalDoc] : [];
+      const result = reconcileMissingFiscalPayables({
+        currentExpenses: expensesRef.current,
+        fiscalRecords: targetFiscal,
+        documentosEntrada: targetDocs,
+        legacyFiscalDocs: targetLegacy,
+        cachedNfeMap: getCachedNfeMap(),
+        costCenters: costCentersRef.current.length > 0 ? costCentersRef.current : getStoredCostCenters(),
+        deletedNfeKeys: new Set<string>(),
+        deletedDocIds: new Set<string>(),
+        isBlockedOperationFn: isFinancialBlockedOperation,
+      });
+
+      if (result.createdPayables.length > 0) {
+        financialAddedCount = result.createdPayables.length;
+        onAddExpenseFromNfe(result.createdPayables);
+        if (isSupabaseConfigured) {
+          result.createdPayables.forEach((rec) => {
+            const notaRef = (rec as any).nota_fiscal_id || (rec as any).notaId || null;
+            upsertContaAPagar({
+              id: rec.id,
+              nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+              numero_parcela: (rec as any).numero_parcela || '01/01',
+              valor_parcela: Number(rec.amount) || 0,
+              data_vencimento: rec.dueDate || (rec as any).data_vencimento,
+              forma_pagamento: (rec as any).forma_pagamento || rec.paymentMethod || 'boleto',
+              centro_custo: rec.costCenterName || rec.categoryName || 'Geral',
+              categoria: rec.categoryName || 'Geral',
+              tipo_despesa: rec.categoryName || 'Geral',
+              status_pago: rec.status === 'pago',
+            }).catch((err) => console.warn('Reintegrate upsertContaAPagar:', err));
+          });
+        }
+      }
+    }
+
+    if (stockAddedCount > 0 || financialAddedCount > 0) {
+      const parts: string[] = [];
+      if (stockAddedCount > 0) parts.push(stockUpdatedMsg);
+      if (financialAddedCount > 0) parts.push(`💰 Contas a Pagar sincronizado (${financialAddedCount} título(s))`);
+      setErrorMessage('');
+      setSuccessMessage(`Reintegração concluída para ${cleanNum}: ${parts.join(' | ')}.`);
+      setTimeout(() => setSuccessMessage(''), 6000);
+    } else if (status.hasStock && (status.hasFinancial || status.isBlockedFin)) {
+      setErrorMessage('');
+      setSuccessMessage(
+        `Documento ${cleanNum} já está 100% integrado no Estoque e no Financeiro — nenhuma duplicação gerada.`
+      );
+      setTimeout(() => setSuccessMessage(''), 4500);
+    } else {
+      setErrorMessage('');
+      setSuccessMessage(
+        `Verificação concluída para ${cleanNum}${stockUpdatedMsg ? `: ${stockUpdatedMsg}` : ''}.`
+      );
+      setTimeout(() => setSuccessMessage(''), 5000);
+    }
+  }, [
+    companyProfile,
+    extractItemsFromUnifiedEntry,
+    getEntryIntegrationStatus,
+    getMergedBaseInventory,
+    onAddExpenseFromNfe,
+    persistStockMovementsSync,
+  ]);
 
   // =========================================================================
   // MODAL DE NOVA ENTRADA MANUAL (FLUXO STEPPER INTELIGENTE EM ETAPAS)
@@ -5724,17 +6157,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setItemUnitCostDisplay('');
     setIsItemSearchOpen(false);
 
-    // Persistência local imediata offline-first
-    saveLocalDocumentoEntradaItem(newItem);
-
-    // Sincronização em segundo plano no Supabase e no Saldo de Estoque
+    // Sincronização SÍNCRONA imediata no Saldo de Estoque (antes de qualquer chamada assíncrona Supabase)
     setIsAddingItem(true);
     try {
-      // 1. Grava no Supabase (se configurado)
-      await insertDocumentoEntradaItem(newItem);
-
-      // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque' (estoque_produtos)
-      let targetProduct = matchedStockProduct || localInventory.find(p => 
+      const baseInv = getMergedBaseInventory();
+      const targetProduct = matchedStockProduct || baseInv.find(p => 
         (p.nome_comercial && String(p.nome_comercial ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase()) ||
         (p.name && String(p.name ?? '').toLowerCase().trim() === String(realProductName ?? '').toLowerCase())
       );
@@ -5747,84 +6174,86 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         identificarTipoDiesel(realProductName, targetProduct?.category) !== null;
 
       let updatedInventory: InventoryItem[];
+      let savedProduct: InventoryItem;
 
-      if (isCombustivel) {
-        const syncResult = await sincronizarEntradaCombustivelSupabase({
-          produtoId: targetProduct?.id,
-          descricao: realProductName,
-          categoria: 'Combustível & Arla',
-          quantidadeLitros: qty,
-          custoUnitario: unitPrice,
-        });
-
-        const finalEstoqueQty = syncResult.novoSaldoEstoque ?? ((Number(targetProduct?.quantidade_atual ?? targetProduct?.quantity) || 0) + qty);
-
-        if (targetProduct) {
-          const updatedProduct: InventoryItem = {
-            ...targetProduct,
-            quantity: finalEstoqueQty,
-            quantidade_atual: finalEstoqueQty,
-            unitCost: unitPrice > 0 ? unitPrice : targetProduct.unitCost,
-            preco_custo_inicial: unitPrice > 0 ? unitPrice : (targetProduct.preco_custo_inicial ?? targetProduct.unitCost),
-          };
-          updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
-          saveInventory(updatedInventory);
-        } else {
-          const newProdId = syncResult.produtoId || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          const newProduct: InventoryItem = {
-            id: newProdId,
-            name: realProductName,
-            nome_comercial: realProductName,
-            unit: 'L',
-            unidade_medida: 'L',
-            category: 'Combustível & Arla',
-            categoria: 'Combustível & Arla',
-            quantity: finalEstoqueQty,
-            quantidade_atual: finalEstoqueQty,
-            minQuantity: 2000,
-            unitCost: unitPrice,
-            preco_custo_inicial: unitPrice,
-            salePrice: unitPrice > 0 ? unitPrice * 1.3 : 0,
-            preco_venda_varejo: unitPrice > 0 ? unitPrice * 1.3 : 0,
-            location: 'Tanque da Fazenda',
-          };
-          updatedInventory = [...localInventory, newProduct];
-          saveInventory(updatedInventory);
-        }
-      } else if (targetProduct) {
-        const updatedProduct: InventoryItem = {
+      if (targetProduct) {
+        const nextQty = Math.round(((Number(targetProduct.quantidade_atual ?? targetProduct.quantity) || 0) + qty) * 100) / 100;
+        savedProduct = {
           ...targetProduct,
-          quantity: (Number(targetProduct.quantity) || 0) + qty,
-          quantidade_atual: (Number(targetProduct.quantidade_atual ?? targetProduct.quantity) || 0) + qty,
+          quantity: nextQty,
+          quantidade_atual: nextQty,
           unitCost: unitPrice > 0 ? unitPrice : targetProduct.unitCost,
           preco_custo_inicial: unitPrice > 0 ? unitPrice : (targetProduct.preco_custo_inicial ?? targetProduct.unitCost),
+          custo_nominal: unitPrice > 0 ? unitPrice : (targetProduct.custo_nominal ?? targetProduct.unitCost),
+          custo_com_imposto: unitPrice > 0 ? unitPrice : (targetProduct.custo_com_imposto ?? targetProduct.unitCost),
         };
-        updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
-        saveInventory(updatedInventory);
-        await upsertEstoqueItem(updatedProduct);
+        updatedInventory = baseInv.map(p => p.id === targetProduct.id ? savedProduct : p);
       } else {
-        // Produto novo cadastrado diretamente no estoque com a quantidade somada
         const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        const newProduct: InventoryItem = {
+        savedProduct = {
           id: newProdId,
+          companyId: getActiveCompanyId(companyProfile) || 'default',
           name: realProductName,
           nome_comercial: realProductName,
-          unit: unit,
-          unidade_medida: unit,
-          category: 'outro',
-          categoria: 'outro',
+          unit: isCombustivel ? 'L' : unit,
+          unidade_medida: isCombustivel ? 'L' : unit,
+          category: isCombustivel ? 'Combustível & Arla' : 'outro',
+          categoria: isCombustivel ? 'Combustível & Arla' : 'outro',
           quantity: qty,
           quantidade_atual: qty,
-          minQuantity: 0,
+          minQuantity: isCombustivel ? 2000 : 0,
           unitCost: unitPrice,
           preco_custo_inicial: unitPrice,
-          salePrice: unitPrice > 0 ? unitPrice * 1.3 : 0,
-          preco_venda_varejo: unitPrice > 0 ? unitPrice * 1.3 : 0,
-          location: 'Barracão Principal',
+          custo_nominal: unitPrice,
+          custo_com_imposto: unitPrice,
+          salePrice: unitPrice > 0 ? Math.round(unitPrice * 1.3 * 100) / 100 : 0,
+          preco_venda_varejo: unitPrice > 0 ? Math.round(unitPrice * 1.3 * 100) / 100 : 0,
+          location: isCombustivel ? 'Tanque da Fazenda' : 'Barracão Principal',
         };
-        updatedInventory = [...localInventory, newProduct];
-        saveInventory(updatedInventory);
-        await upsertEstoqueItem(newProduct);
+        updatedInventory = [...baseInv, savedProduct];
+      }
+
+      // 1. Gravação SÍNCRONA do estoque + vínculo do produto + movimentação de entrada
+      newItem.produto_id = savedProduct.id;
+      saveLocalDocumentoEntradaItem(newItem);
+      saveInventory(updatedInventory);
+      persistStockMovementsSync([
+        {
+          id: `mov_manual_${currentManualDoc.id}_${newItem.id}`,
+          companyId: getActiveCompanyId(companyProfile) || 'default',
+          notaId: currentManualDoc.id,
+          invoiceNumber: currentManualDoc.numero || currentManualDoc.numero_documento || currentManualDoc.tipo_documento || 'DOC',
+          accessKey: currentManualDoc.chave_acesso || undefined,
+          supplier: currentManualDoc.fornecedor || manualSupplier,
+          productId: savedProduct.id,
+          productCode: savedProduct.code || savedProduct.codigo_produto,
+          productName: realProductName,
+          ncm: savedProduct.ncm || savedProduct.codigo_ncm,
+          quantity: qty,
+          unit: isCombustivel ? 'L' : unit,
+          unitCost: unitPrice,
+          totalCost: totalPrice,
+          date: currentManualDoc.data || manualDate || new Date().toISOString().split('T')[0],
+          type: 'entrada',
+          source: 'manual',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      // 2. Sincronização assíncrona em segundo plano no Supabase (não bloqueia nem reverte o localStorage)
+      if (isSupabaseConfigured) {
+        insertDocumentoEntradaItem(newItem).catch(err => console.warn('Aviso insertDocumentoEntradaItem:', err));
+        if (isCombustivel) {
+          sincronizarEntradaCombustivelSupabase({
+            produtoId: savedProduct.id,
+            descricao: realProductName,
+            categoria: 'Combustível & Arla',
+            quantidadeLitros: qty,
+            custoUnitario: unitPrice,
+          }).catch(err => console.warn('Aviso sincronizarEntradaCombustivelSupabase:', err));
+        } else {
+          upsertEstoqueItem(savedProduct).catch(err => console.warn('Aviso upsertEstoqueItem manual:', err));
+        }
       }
     } catch (err) {
       console.warn('Aviso ao sincronizar produto no estoque/supabase:', err);
@@ -5975,6 +6404,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       const docNumero = currentManualDoc?.numero || currentManualDoc?.numero_documento || (activeDocId ? activeDocId.slice(0, 8).toUpperCase() : `DOC-${Date.now().toString().slice(-6)}`);
 
+      const hasManualStockItems = Array.isArray(manualDocItems) && manualDocItems.length > 0;
+      const savedManualItemsForDoc: DocumentoEntradaItem[] = hasManualStockItems
+        ? manualDocItems.map(mItem => ({
+            ...mItem,
+            documento_entrada_id: activeDocId || '',
+          }))
+        : [];
+
       if (currentManualDoc) {
         finalDoc = {
           ...currentManualDoc,
@@ -5990,25 +6427,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           valor_total: finalAmount,
           observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
           status: 'Finalizado',
+          estoqueIntegrado: hasManualStockItems,
+          stockIntegrated: hasManualStockItems,
+          itens: savedManualItemsForDoc.length > 0 ? savedManualItemsForDoc : currentManualDoc.itens,
           updated_at: new Date().toISOString(),
           ...vehicleFields,
         };
         activeDocId = finalDoc.id;
-        await updateDocumentoEntrada(currentManualDoc.id, {
-          numero: docNumero,
-          numero_documento: docNumero,
-          fornecedor: trimmedSupplier,
-          data: manualDate,
-          data_vencimento: firstDueDate,
-          tipo_documento: manualDocumentType,
-          valor_total: finalAmount,
-          observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
-          status: 'Finalizado',
-          ...vehicleFields,
-        }).catch(e => console.warn('Aviso updateDocumentoEntrada:', e));
       } else {
         const newDocId = toValidUUID(generateUUID());
         activeDocId = newDocId;
+        savedManualItemsForDoc.forEach(it => { it.documento_entrada_id = newDocId; });
         finalDoc = {
           id: newDocId,
           numero: docNumero,
@@ -6023,29 +6452,52 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           valor_total: finalAmount,
           observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
           status: 'Finalizado',
+          estoqueIntegrado: hasManualStockItems,
+          stockIntegrated: hasManualStockItems,
+          itens: savedManualItemsForDoc.length > 0 ? savedManualItemsForDoc : undefined,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           ...vehicleFields,
         };
-        await insertDocumentoEntrada(finalDoc).catch(e => console.warn('Aviso insertDocumentoEntrada:', e));
       }
 
-      // 1. CORREÇÃO DA EXIBIÇÃO NO HISTÓRICO (PRINT 1):
-      // Salva o cabeçalho completo da nota estritamente nas chaves de persistência e atualiza o estado
-      const rawNotas = localStorage.getItem('agrocontrol_notas_entradas');
-      let notasAtuais: DocumentoEntradaRecord[] = [];
-      if (rawNotas) {
+      // 1. GRAVAÇÃO SÍNCRONA IMEDIATA (DOCUMENTO + ITENS + MOVIMENTAÇÕES DE ESTOQUE) ANTES DE QUALQUER AWAIT
+      if (savedManualItemsForDoc.length > 0) {
         try {
-          const parsed = JSON.parse(rawNotas);
-          if (Array.isArray(parsed)) notasAtuais = parsed;
-        } catch {
-          notasAtuais = [];
+          const existingItems = getStoredDocumentosEntradaItens();
+          const otherItems = existingItems.filter(i => i.documento_entrada_id !== activeDocId);
+          saveStoredDocumentosEntradaItens([...savedManualItemsForDoc, ...otherItems]);
+
+          // Garante que cada item tenha movimentação de entrada vinculada à nota finalizada
+          persistStockMovementsSync(
+            savedManualItemsForDoc.map((mItem, mIdx) => ({
+              id: `mov_manual_${activeDocId}_${mItem.id || mIdx}`,
+              companyId: getActiveCompanyId(companyProfile) || 'default',
+              notaId: activeDocId || finalDoc.id,
+              invoiceNumber: docNumero,
+              accessKey: finalDoc.chave_acesso || undefined,
+              supplier: trimmedSupplier,
+              productId: mItem.produto_id || `manual_prod_${mIdx}`,
+              productCode: mItem.codigo_produto,
+              productName: mItem.descricao,
+              ncm: mItem.ncm,
+              quantity: Number(mItem.quantidade) || 1,
+              unit: mItem.unidade || 'UN',
+              unitCost: Number(mItem.valor_unitario) || 0,
+              totalCost: Number(mItem.valor_total) || 0,
+              date: manualDate,
+              type: 'entrada' as const,
+              source: 'manual' as const,
+              createdAt: new Date().toISOString(),
+            }))
+          );
+        } catch (e) {
+          console.warn('Aviso ao sincronizar itens/movimentações da entrada manual:', e);
         }
       }
-      if (notasAtuais.length === 0) {
-        notasAtuais = getStoredDocumentosEntrada();
-      }
-      const notasFiltradas = notasAtuais.filter(d => d.id !== finalDoc.id);
+
+      const notasAtuaisBase = getStoredDocumentosEntrada();
+      const notasFiltradas = notasAtuaisBase.filter(d => d.id !== finalDoc.id);
       const notasAtualizadas = [finalDoc, ...notasFiltradas];
       localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(notasAtualizadas));
       saveStoredDocumentosEntrada(notasAtualizadas);
@@ -6207,8 +6659,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         onAddExpenseFromNfe(novosLancamentosFinanceiros);
       }
 
-      // Persistência segura no schema do Supabase (se configurado) sem duplicações
+      // Persistência segura no schema do Supabase (se configurado) sem bloquear a gravação local já concluída
       if (isSupabaseConfigured) {
+        if (currentManualDoc) {
+          await updateDocumentoEntrada(currentManualDoc.id, {
+            numero: docNumero,
+            numero_documento: docNumero,
+            fornecedor: trimmedSupplier,
+            data: manualDate,
+            data_vencimento: firstDueDate,
+            tipo_documento: manualDocumentType,
+            valor_total: finalAmount,
+            observacoes: manualNotes.trim() || `Entrada manual: ${manualDocumentType}`,
+            status: 'Finalizado',
+            ...vehicleFields,
+          }).catch(e => console.warn('Aviso updateDocumentoEntrada:', e));
+        } else {
+          await insertDocumentoEntrada(finalDoc).catch(e => console.warn('Aviso insertDocumentoEntrada:', e));
+        }
+
         await Promise.all(
           novosLancamentosFinanceiros.map(item =>
             upsertContaAPagar({
@@ -6226,33 +6695,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         );
       }
 
-      // Persistência local imediata dos itens na chave 'colaca_silagem_documentos_entrada_itens'
-      let savedManualItemsForDoc: DocumentoEntradaItem[] = [];
-      if (manualDocItems && manualDocItems.length > 0) {
-        try {
-          const existingItems = getStoredDocumentosEntradaItens();
-          const otherItems = existingItems.filter(i => i.documento_entrada_id !== activeDocId);
-          const itemsToSave: DocumentoEntradaItem[] = manualDocItems.map(mItem => ({
-            ...mItem,
-            documento_entrada_id: activeDocId,
-          }));
-          savedManualItemsForDoc = itemsToSave;
-          saveStoredDocumentosEntradaItens([...itemsToSave, ...otherItems]);
-        } catch (e) {
-          console.warn('Aviso ao sincronizar itens no colaca_silagem_documentos_entrada_itens:', e);
-        }
-      }
-
-      const finalDocWithItems: DocumentoEntradaRecord = {
-        ...finalDoc,
-        itens: savedManualItemsForDoc.length > 0 ? savedManualItemsForDoc : finalDoc.itens,
-      };
-      if (savedManualItemsForDoc.length > 0) {
-        const docsWithItems = [finalDocWithItems, ...notasAtualizadas.filter(d => d.id !== finalDocWithItems.id)];
-        localStorage.setItem('agrocontrol_notas_entradas', JSON.stringify(docsWithItems));
-        saveStoredDocumentosEntrada(docsWithItems);
-        setDocumentosEntrada(docsWithItems);
-      }
+      const finalDocWithItems: DocumentoEntradaRecord = finalDoc;
 
       // Limpeza completa de rascunhos temporários do cache
       clearActiveNfeDraft();
@@ -9784,152 +10227,234 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return;
     }
 
-    // ENTRADA AUTOMÁTICA NO ESTOQUE (Itens Vinculados e Novos Itens Extraídos)
-    let updatedInventory = [...localInventory];
+    // ENTRADA AUTOMÁTICA NO ESTOQUE (Itens Vinculados e Novos Itens Extraídos) — GRAVAÇÃO SÍNCRONA
+    const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
+    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
+    const nonFinActiveCid = getActiveCompanyId(companyProfile) || 'default';
+    const nonFinDateStr = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
+
+    let updatedInventory = [...getMergedBaseInventory()];
     const updatedSummary: string[] = [];
+    const nonFinStockMovements: StockEntryMovement[] = [];
 
     parsedData.items?.forEach((item, idx) => {
-      if (item.linkedInventoryId) {
-        const invIndex = updatedInventory.findIndex(i => i.id === item.linkedInventoryId);
-        if (invIndex !== -1) {
-          const invItem = { ...updatedInventory[invIndex] };
+      if ((item as any).enterStock === false || (item as any).entrarNoEstoque === false) return;
 
-          // Apenas incrementa estoque se NÃO for edição (ou se for novo produto cadastrado nesta sessão)
-          if (!editingExpenseId || sessionCreatedProductIds.has(item.linkedInventoryId)) {
-            const currentQty = Number(invItem.quantity) || 0;
-            const addQty = Number(item.quantity) || 0;
-            invItem.quantity = Math.round((currentQty + addQty) * 100) / 100;
-            invItem.quantidade_atual = invItem.quantity;
-            updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
+      let resolvedInvIndex = item.linkedInventoryId
+        ? updatedInventory.findIndex(i => i.id === item.linkedInventoryId)
+        : -1;
+      if (resolvedInvIndex === -1 && item.barcode && String(item.barcode).trim() !== 'SEM GTIN') {
+        resolvedInvIndex = updatedInventory.findIndex(
+          i => i.barcode && String(i.barcode).trim() === String(item.barcode).trim()
+        );
+      }
+      if (resolvedInvIndex === -1 && item.code) {
+        const cUp = String(item.code).trim().toUpperCase();
+        resolvedInvIndex = updatedInventory.findIndex(
+          i => String(i.code || i.codigo_produto || '').trim().toUpperCase() === cUp
+        );
+      }
+      if (resolvedInvIndex === -1 && item.description) {
+        const dLow = String(item.description).toLowerCase().trim();
+        resolvedInvIndex = updatedInventory.findIndex(
+          i =>
+            String(i.nome_comercial || '').toLowerCase().trim() === dLow ||
+            String(i.name || '').toLowerCase().trim() === dLow
+        );
+      }
 
-            // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
-            const descLower = String(item.description ?? '').toLowerCase();
-            const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
-            if (isFuelOrArla && addQty > 0) {
-              sincronizarEntradaCombustivelSupabase({
-                produtoId: invItem.id,
-                descricao: item.description,
-                categoria: 'Combustível & Arla',
-                quantidadeLitros: addQty,
-                custoUnitario: Number(item.unitPrice) || 0
-              });
-            }
-          }
+      if (resolvedInvIndex !== -1) {
+        const invItem = { ...updatedInventory[resolvedInvIndex] };
+        item.linkedInventoryId = invItem.id;
 
-          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
-          const newUnitCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
-          if (newUnitCost > 0) {
-            invItem.unitCost = newUnitCost;
-            invItem.preco_custo_inicial = newUnitCost;
-            invItem.custo_nominal = newUnitCost;
-            invItem.custo_com_imposto = newUnitCost;
-            invItem.custo_sem_imposto = item.custoSemImposto ?? item.custo_sem_imposto ?? invItem.custo_sem_imposto ?? 0;
-            invItem.valor_impostos_total = item.valorImpostosTotal ?? item.valor_impostos_total ?? invItem.valor_impostos_total ?? 0;
-            invItem.frete_diluido_item = item.freteDiluidoItem ?? item.frete_diluido_item ?? invItem.frete_diluido_item ?? 0;
-          }
+        const addQty = Number(item.quantity) || 0;
+        const shouldIncrement =
+          !editingExpenseId ||
+          sessionCreatedProductIds.has(invItem.id) ||
+          !hasStockMovementForInvoice({ notaId: fiscalRecordId, invoiceNumber: cleanInvoiceNumber, accessKey: parsedData.accessKey });
 
-          // Sincronização automática dos preços de venda (V. Final, % Markup, V. Atacado, V. Promo)
-          if (item.markupPercent !== undefined) {
-            invItem.profitMargin = item.markupPercent;
-          }
-          if (item.salePrice !== undefined && Number(item.salePrice) >= 0) {
-            invItem.salePrice = Number(item.salePrice);
-            invItem.preco_venda_varejo = Number(item.salePrice);
-            if (invItem.unitCost > 0 && item.markupPercent === undefined) {
-              invItem.profitMargin = Math.round(((invItem.salePrice - invItem.unitCost) / invItem.unitCost) * 100 * 10) / 10;
-            }
-          } else if (invItem.profitMargin !== undefined && invItem.unitCost > 0) {
-            invItem.salePrice = Math.round((invItem.unitCost * (1 + invItem.profitMargin / 100)) * 100) / 100;
-            invItem.preco_venda_varejo = invItem.salePrice;
-          }
+        if (shouldIncrement && addQty > 0) {
+          const currentQty = Number(invItem.quantity ?? invItem.quantidade_atual) || 0;
+          invItem.quantity = Math.round((currentQty + addQty) * 100) / 100;
+          invItem.quantidade_atual = invItem.quantity;
+          updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
 
-          if (item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0) {
-            invItem.wholesalePrice = Number(item.wholesalePrice);
-          }
-
-          if (item.promoPrice !== undefined && Number(item.promoPrice) >= 0) {
-            invItem.promoPrice = Number(item.promoPrice);
-          }
-
-          updatedInventory[invIndex] = invItem;
-        }
-      } else {
-        if (!editingExpenseId) {
-          const dieselMatch = identificarTipoDiesel(item.description);
-          const autoCat = normalizeToInventoryCategory(
-            item.categoria ||
-            item.category ||
-            parsedData.priorityCategory ||
-            parsedData.categoriaPrioritaria ||
-            (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
-          );
-          const autoUnit = (item.unit || 'UN').toUpperCase();
-          const autoQty = Number(item.quantity) || 1;
-          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
-          const autoCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
-          const newProdId = `inv_auto_${Date.now()}_${idx}`;
-
-          const autoProfitMargin = item.markupPercent !== undefined ? item.markupPercent : 30;
-          const autoSalePrice = item.salePrice !== undefined && Number(item.salePrice) >= 0
-            ? Number(item.salePrice)
-            : Math.round((autoCost * (1 + autoProfitMargin / 100)) * 100) / 100;
-
-          const newInvItem: InventoryItem = {
-            id: newProdId,
-            name: item.description,
-            nome_comercial: item.description,
-            fiscalName: item.description,
-            code: item.code || `PRD${Date.now().toString().slice(-4)}`,
-            barcode: item.barcode || undefined,
-            unit: autoUnit,
-            unidade_medida: autoUnit,
-            category: autoCat,
-            categoria: autoCat,
-            unitCost: autoCost,
-            preco_custo_inicial: autoCost,
-            custo_nominal: autoCost,
-            custo_com_imposto: autoCost,
-            custo_sem_imposto: item.custoSemImposto ?? item.custo_sem_imposto ?? 0,
-            valor_impostos_total: item.valorImpostosTotal ?? item.valor_impostos_total ?? 0,
-            frete_diluido_item: item.freteDiluidoItem ?? item.frete_diluido_item ?? 0,
-            profitMargin: autoProfitMargin,
-            salePrice: autoSalePrice,
-            preco_venda_varejo: autoSalePrice,
-            wholesalePrice: item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0 ? Number(item.wholesalePrice) : undefined,
-            promoPrice: item.promoPrice !== undefined && Number(item.promoPrice) >= 0 ? Number(item.promoPrice) : undefined,
-            quantity: autoQty,
-            quantidade_atual: autoQty,
-            minQuantity: 5,
-            maxQuantity: 100,
-            location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal'
-          };
-
-          updatedInventory.push(newInvItem);
-          item.linkedInventoryId = newProdId;
-          updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
-
-          const newDescLower = String(item.description ?? '').toLowerCase();
-          const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
-          if (isNewFuelOrArla && autoQty > 0) {
+          const descLower = String(item.description ?? '').toLowerCase();
+          const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
+          if (isFuelOrArla && addQty > 0) {
             sincronizarEntradaCombustivelSupabase({
-              produtoId: newProdId,
+              produtoId: invItem.id,
               descricao: item.description,
               categoria: 'Combustível & Arla',
-              quantidadeLitros: autoQty,
+              quantidadeLitros: addQty,
               custoUnitario: Number(item.unitPrice) || 0
             });
           }
+        }
+
+        const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+        const newUnitCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
+        if (newUnitCost > 0) {
+          invItem.unitCost = newUnitCost;
+          invItem.preco_custo_inicial = newUnitCost;
+          invItem.custo_nominal = newUnitCost;
+          invItem.custo_com_imposto = newUnitCost;
+          invItem.custo_sem_imposto = item.custoSemImposto ?? item.custo_sem_imposto ?? invItem.custo_sem_imposto ?? 0;
+          invItem.valor_impostos_total = item.valorImpostosTotal ?? item.valor_impostos_total ?? invItem.valor_impostos_total ?? 0;
+          invItem.frete_diluido_item = item.freteDiluidoItem ?? item.frete_diluido_item ?? invItem.frete_diluido_item ?? 0;
+        }
+        if (item.ncm && !invItem.ncm) {
+          invItem.ncm = item.ncm;
+          invItem.codigo_ncm = item.ncm;
+        }
+
+        if (item.markupPercent !== undefined) {
+          invItem.profitMargin = item.markupPercent;
+        }
+        if (item.salePrice !== undefined && Number(item.salePrice) >= 0) {
+          invItem.salePrice = Number(item.salePrice);
+          invItem.preco_venda_varejo = Number(item.salePrice);
+          if (invItem.unitCost > 0 && item.markupPercent === undefined) {
+            invItem.profitMargin = Math.round(((invItem.salePrice - invItem.unitCost) / invItem.unitCost) * 100 * 10) / 10;
+          }
+        } else if (invItem.profitMargin !== undefined && invItem.unitCost > 0) {
+          invItem.salePrice = Math.round((invItem.unitCost * (1 + invItem.profitMargin / 100)) * 100) / 100;
+          invItem.preco_venda_varejo = invItem.salePrice;
+        }
+
+        if (item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0) {
+          invItem.wholesalePrice = Number(item.wholesalePrice);
+        }
+
+        if (item.promoPrice !== undefined && Number(item.promoPrice) >= 0) {
+          invItem.promoPrice = Number(item.promoPrice);
+        }
+
+        updatedInventory[resolvedInvIndex] = invItem;
+        if (addQty > 0) {
+          nonFinStockMovements.push({
+            id: `mov_xml_${fiscalRecordId}_${idx}_${invItem.id}`,
+            companyId: nonFinActiveCid,
+            notaId: fiscalRecordId,
+            invoiceNumber: cleanInvoiceNumber,
+            accessKey: parsedData.accessKey || undefined,
+            supplier: parsedData.supplier,
+            productId: invItem.id,
+            productCode: invItem.code || invItem.codigo_produto || item.code,
+            productName: invItem.nome_comercial || invItem.name || item.description,
+            ncm: item.ncm || invItem.ncm,
+            quantity: addQty,
+            unit: (item.unit || invItem.unit || 'UN').toUpperCase(),
+            unitCost: newUnitCost,
+            totalCost: Number(item.totalPrice) || Math.round(addQty * newUnitCost * 100) / 100,
+            date: nonFinDateStr,
+            type: 'entrada',
+            source: 'xml',
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } else {
+        const dieselMatch = identificarTipoDiesel(item.description);
+        const autoCat = normalizeToInventoryCategory(
+          item.categoria ||
+          item.category ||
+          parsedData.priorityCategory ||
+          parsedData.categoriaPrioritaria ||
+          (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
+        );
+        const autoUnit = (item.unit || 'UN').toUpperCase();
+        const autoQty = Number(item.quantity) || 1;
+        const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+        const autoCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
+        const newProdId = `inv_auto_${Date.now()}_${idx}`;
+        const autoCode = item.code || `PRD${Date.now().toString().slice(-4)}`;
+
+        const autoProfitMargin = item.markupPercent !== undefined ? item.markupPercent : 30;
+        const autoSalePrice = item.salePrice !== undefined && Number(item.salePrice) >= 0
+          ? Number(item.salePrice)
+          : Math.round((autoCost * (1 + autoProfitMargin / 100)) * 100) / 100;
+
+        const newInvItem: InventoryItem = {
+          id: newProdId,
+          companyId: nonFinActiveCid,
+          name: item.description,
+          nome_comercial: item.description,
+          fiscalName: item.description,
+          code: autoCode,
+          codigo_produto: autoCode,
+          barcode: item.barcode || undefined,
+          ncm: item.ncm || undefined,
+          codigo_ncm: item.ncm || undefined,
+          unit: autoUnit,
+          unidade_medida: autoUnit,
+          category: autoCat,
+          categoria: autoCat,
+          unitCost: autoCost,
+          preco_custo_inicial: autoCost,
+          custo_nominal: autoCost,
+          custo_com_imposto: autoCost,
+          custo_sem_imposto: item.custoSemImposto ?? item.custo_sem_imposto ?? 0,
+          valor_impostos_total: item.valorImpostosTotal ?? item.valor_impostos_total ?? 0,
+          frete_diluido_item: item.freteDiluidoItem ?? item.frete_diluido_item ?? 0,
+          profitMargin: autoProfitMargin,
+          salePrice: autoSalePrice,
+          preco_venda_varejo: autoSalePrice,
+          wholesalePrice: item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0 ? Number(item.wholesalePrice) : undefined,
+          promoPrice: item.promoPrice !== undefined && Number(item.promoPrice) >= 0 ? Number(item.promoPrice) : undefined,
+          quantity: autoQty,
+          quantidade_atual: autoQty,
+          minQuantity: 5,
+          maxQuantity: 100,
+          location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal'
+        };
+
+        updatedInventory.push(newInvItem);
+        item.linkedInventoryId = newProdId;
+        updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
+
+        nonFinStockMovements.push({
+          id: `mov_xml_${fiscalRecordId}_${idx}_${newProdId}`,
+          companyId: nonFinActiveCid,
+          notaId: fiscalRecordId,
+          invoiceNumber: cleanInvoiceNumber,
+          accessKey: parsedData.accessKey || undefined,
+          supplier: parsedData.supplier,
+          productId: newProdId,
+          productCode: autoCode,
+          productName: item.description,
+          ncm: item.ncm || undefined,
+          quantity: autoQty,
+          unit: autoUnit,
+          unitCost: autoCost,
+          totalCost: Number(item.totalPrice) || Math.round(autoQty * autoCost * 100) / 100,
+          date: nonFinDateStr,
+          type: 'entrada',
+          source: 'xml',
+          createdAt: new Date().toISOString(),
+        });
+
+        const newDescLower = String(item.description ?? '').toLowerCase();
+        const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
+        if (isNewFuelOrArla && autoQty > 0) {
+          sincronizarEntradaCombustivelSupabase({
+            produtoId: newProdId,
+            descricao: item.description,
+            categoria: 'Combustível & Arla',
+            quantidadeLitros: autoQty,
+            custoUnitario: Number(item.unitPrice) || 0
+          });
         }
       }
     });
 
     saveInventory(updatedInventory);
+    if (nonFinStockMovements.length > 0) {
+      persistStockMovementsSync(nonFinStockMovements);
+    }
     updatedInventory.forEach(prod => {
       upsertEstoqueItem(prod).catch(err => console.warn('Supabase upsertEstoqueItem non-financial XML sync:', err));
     });
 
-    const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
-    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanInvoiceNumber.replace(/\D/g, '') || Date.now()}`;
     const selectedCC = localCostCenters.find(c => c.id === selectedCostCenterId) || localCostCenters[0];
     const isDevolucao = isClientReturnOperation(parsedData.transactionType);
     const stockNote = updatedSummary.length > 0
@@ -10007,6 +10532,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       operationNature: parsedData.transactionType || parsedData.operationNature,
       transactionType: parsedData.transactionType,
       skipAccountsPayable: true,
+      estoqueIntegrado: nonFinStockMovements.length > 0,
+      stockIntegrated: nonFinStockMovements.length > 0,
       createdAt: new Date().toISOString(),
     };
 
@@ -10143,6 +10670,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       natureza_operacao: parsedData.transactionType || parsedData.operationNature,
       observacoes: `NF-e ${cleanInvoiceNumber} (${parsedData.transactionType || 'Entrada sem Custo'}). Fornecedor: ${parsedData.supplier}.`,
       status: 'Finalizado',
+      estoqueIntegrado: nonFinStockMovements.length > 0,
+      stockIntegrated: nonFinStockMovements.length > 0,
       itens: savedNonFinancialItems.length > 0 ? savedNonFinancialItems : undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -10264,148 +10793,234 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const handleConfirmAndSaveInstallments = async (detailedInstallments: NfeDetailedInstallment[]) => {
     if (!parsedData) return;
 
-    // ENTRADA AUTOMÁTICA NO ESTOQUE (Itens Vinculados e Novos Itens Extraídos)
-    let updatedInventory = [...localInventory];
+    // IDENTIFICADORES CANÔNICOS DA NF-e (calculados antes para vincular Estoque + Financeiro + Fiscal atomicamente)
+    const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
+    const cleanDigitsOnly = cleanInvoiceNumber.replace(/\D/g, '');
+    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanDigitsOnly || Date.now()}`;
+    const xmlActiveCid = getActiveCompanyId(companyProfile) || 'default';
+    const xmlEntryDateStr = parsedData.entryDate || parsedData.issueDate || new Date().toISOString().split('T')[0];
+
+    // 1. INTEGRAÇÃO ATÔMICA DE ESTOQUE (Saldo + Custo Unitário + Cadastro Automático + Movimentação vinculada à NF-e)
+    let updatedInventory = [...getMergedBaseInventory()];
     const updatedSummary: string[] = [];
+    const xmlStockMovements: StockEntryMovement[] = [];
+    const alreadyHadStockMov = hasStockMovementForInvoice({
+      notaId: fiscalRecordId,
+      invoiceNumber: cleanInvoiceNumber,
+      accessKey: parsedData.accessKey,
+    });
 
     parsedData.items?.forEach((item, idx) => {
-      if (item.linkedInventoryId) {
-        const invIndex = updatedInventory.findIndex(i => i.id === item.linkedInventoryId);
-        if (invIndex !== -1) {
-          const invItem = { ...updatedInventory[invIndex] };
+      if ((item as any).enterStock === false || (item as any).entrarNoEstoque === false) return;
 
-          // Apenas incrementa estoque se NÃO for edição (ou se for novo produto cadastrado nesta sessão)
-          if (!editingExpenseId || sessionCreatedProductIds.has(item.linkedInventoryId)) {
-            const currentQty = Number(invItem.quantity) || 0;
-            const addQty = Number(item.quantity) || 0;
-            invItem.quantity = Math.round((currentQty + addQty) * 100) / 100;
-            invItem.quantidade_atual = invItem.quantity;
-            updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
+      let resolvedInvIndex = item.linkedInventoryId
+        ? updatedInventory.findIndex(i => i.id === item.linkedInventoryId)
+        : -1;
+      if (resolvedInvIndex === -1 && item.barcode && String(item.barcode).trim() !== 'SEM GTIN') {
+        resolvedInvIndex = updatedInventory.findIndex(
+          i => i.barcode && String(i.barcode).trim() === String(item.barcode).trim()
+        );
+      }
+      if (resolvedInvIndex === -1 && item.code) {
+        const cUp = String(item.code).trim().toUpperCase();
+        resolvedInvIndex = updatedInventory.findIndex(
+          i => String(i.code || i.codigo_produto || '').trim().toUpperCase() === cUp
+        );
+      }
+      if (resolvedInvIndex === -1 && item.description) {
+        const dLow = String(item.description).toLowerCase().trim();
+        resolvedInvIndex = updatedInventory.findIndex(
+          i =>
+            String(i.nome_comercial || '').toLowerCase().trim() === dLow ||
+            String(i.name || '').toLowerCase().trim() === dLow
+        );
+      }
 
-            // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
-            const descLower = String(item.description ?? '').toLowerCase();
-            const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
-            if (isFuelOrArla && addQty > 0) {
-              sincronizarEntradaCombustivelSupabase({
-                produtoId: invItem.id,
-                descricao: item.description,
-                categoria: 'Combustível & Arla',
-                quantidadeLitros: addQty,
-                custoUnitario: Number(item.unitPrice) || 0
-              });
-            }
-          }
+      if (resolvedInvIndex !== -1) {
+        const invItem = { ...updatedInventory[resolvedInvIndex] };
+        item.linkedInventoryId = invItem.id;
+        const addQty = Number(item.quantity) || 0;
 
-          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
-          const newUnitCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
-          if (newUnitCost > 0) {
-            invItem.unitCost = newUnitCost;
-            invItem.preco_custo_inicial = newUnitCost;
-            invItem.custo_nominal = newUnitCost;
-            invItem.custo_com_imposto = newUnitCost;
-            invItem.custo_sem_imposto = item.custoSemImposto ?? item.custo_sem_imposto ?? invItem.custo_sem_imposto ?? 0;
-            invItem.valor_impostos_total = item.valorImpostosTotal ?? item.valor_impostos_total ?? invItem.valor_impostos_total ?? 0;
-            invItem.frete_diluido_item = item.freteDiluidoItem ?? item.frete_diluido_item ?? invItem.frete_diluido_item ?? 0;
-          }
+        // Incrementa estoque na importação nova, em item novo na sessão, ou se ainda não houve movimentação gravada para esta NF
+        if ((!editingExpenseId || sessionCreatedProductIds.has(invItem.id) || !alreadyHadStockMov) && addQty > 0) {
+          const currentQty = Number(invItem.quantity ?? invItem.quantidade_atual) || 0;
+          invItem.quantity = Math.round((currentQty + addQty) * 100) / 100;
+          invItem.quantidade_atual = invItem.quantity;
+          updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
 
-          // Sincronização automática dos preços de venda (V. Final, % Markup, V. Atacado, V. Promo)
-          if (item.markupPercent !== undefined) {
-            invItem.profitMargin = item.markupPercent;
-          }
-          if (item.salePrice !== undefined && Number(item.salePrice) >= 0) {
-            invItem.salePrice = Number(item.salePrice);
-            invItem.preco_venda_varejo = Number(item.salePrice);
-            if (invItem.unitCost > 0 && item.markupPercent === undefined) {
-              invItem.profitMargin = Math.round(((invItem.salePrice - invItem.unitCost) / invItem.unitCost) * 100 * 10) / 10;
-            }
-          } else if (invItem.profitMargin !== undefined && invItem.unitCost > 0) {
-            invItem.salePrice = Math.round((invItem.unitCost * (1 + invItem.profitMargin / 100)) * 100) / 100;
-            invItem.preco_venda_varejo = invItem.salePrice;
-          }
-
-          if (item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0) {
-            invItem.wholesalePrice = Number(item.wholesalePrice);
-          }
-
-          if (item.promoPrice !== undefined && Number(item.promoPrice) >= 0) {
-            invItem.promoPrice = Number(item.promoPrice);
-          }
-
-          updatedInventory[invIndex] = invItem;
-        }
-      } else {
-        if (!editingExpenseId) {
-          const dieselMatch = identificarTipoDiesel(item.description);
-          const autoCat = normalizeToInventoryCategory(
-            item.categoria ||
-            item.category ||
-            parsedData.priorityCategory ||
-            parsedData.categoriaPrioritaria ||
-            (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
-          );
-          const autoUnit = (item.unit || 'UN').toUpperCase();
-          const autoQty = Number(item.quantity) || 1;
-          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
-          const autoCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
-          const newProdId = `inv_auto_${Date.now()}_${idx}`;
-
-          const autoProfitMargin = item.markupPercent !== undefined ? item.markupPercent : 30;
-          const autoSalePrice = item.salePrice !== undefined && Number(item.salePrice) >= 0
-            ? Number(item.salePrice)
-            : Math.round((autoCost * (1 + autoProfitMargin / 100)) * 100) / 100;
-
-          const newInvItem: InventoryItem = {
-            id: newProdId,
-            name: item.description,
-            nome_comercial: item.description,
-            fiscalName: item.description,
-            code: item.code || `PRD${Date.now().toString().slice(-4)}`,
-            barcode: item.barcode || undefined,
-            unit: autoUnit,
-            unidade_medida: autoUnit,
-            category: autoCat,
-            categoria: autoCat,
-            unitCost: autoCost,
-            preco_custo_inicial: autoCost,
-            custo_nominal: autoCost,
-            custo_com_imposto: autoCost,
-            custo_sem_imposto: item.custoSemImposto ?? item.custo_sem_imposto ?? 0,
-            valor_impostos_total: item.valorImpostosTotal ?? item.valor_impostos_total ?? 0,
-            frete_diluido_item: item.freteDiluidoItem ?? item.frete_diluido_item ?? 0,
-            profitMargin: autoProfitMargin,
-            salePrice: autoSalePrice,
-            preco_venda_varejo: autoSalePrice,
-            wholesalePrice: item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0 ? Number(item.wholesalePrice) : undefined,
-            promoPrice: item.promoPrice !== undefined && Number(item.promoPrice) >= 0 ? Number(item.promoPrice) : undefined,
-            quantity: autoQty,
-            quantidade_atual: autoQty,
-            minQuantity: 5,
-            maxQuantity: 100,
-            location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal'
-          };
-
-          updatedInventory.push(newInvItem);
-          item.linkedInventoryId = newProdId;
-          updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
-
-          // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
-          const newDescLower = String(item.description ?? '').toLowerCase();
-          const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
-          if (isNewFuelOrArla && autoQty > 0) {
+          const descLower = String(item.description ?? '').toLowerCase();
+          const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
+          if (isFuelOrArla && addQty > 0) {
             sincronizarEntradaCombustivelSupabase({
-              produtoId: newProdId,
+              produtoId: invItem.id,
               descricao: item.description,
               categoria: 'Combustível & Arla',
-              quantidadeLitros: autoQty,
+              quantidadeLitros: addQty,
               custoUnitario: Number(item.unitPrice) || 0
             });
           }
         }
+
+        const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+        const newUnitCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
+        if (newUnitCost > 0) {
+          invItem.unitCost = newUnitCost;
+          invItem.preco_custo_inicial = newUnitCost;
+          invItem.custo_nominal = newUnitCost;
+          invItem.custo_com_imposto = newUnitCost;
+          invItem.custo_sem_imposto = item.custoSemImposto ?? item.custo_sem_imposto ?? invItem.custo_sem_imposto ?? 0;
+          invItem.valor_impostos_total = item.valorImpostosTotal ?? item.valor_impostos_total ?? invItem.valor_impostos_total ?? 0;
+          invItem.frete_diluido_item = item.freteDiluidoItem ?? item.frete_diluido_item ?? invItem.frete_diluido_item ?? 0;
+        }
+        if (item.ncm && !invItem.ncm) {
+          invItem.ncm = item.ncm;
+          invItem.codigo_ncm = item.ncm;
+        }
+
+        if (item.markupPercent !== undefined) {
+          invItem.profitMargin = item.markupPercent;
+        }
+        if (item.salePrice !== undefined && Number(item.salePrice) >= 0) {
+          invItem.salePrice = Number(item.salePrice);
+          invItem.preco_venda_varejo = Number(item.salePrice);
+          if (invItem.unitCost > 0 && item.markupPercent === undefined) {
+            invItem.profitMargin = Math.round(((invItem.salePrice - invItem.unitCost) / invItem.unitCost) * 100 * 10) / 10;
+          }
+        } else if (invItem.profitMargin !== undefined && invItem.unitCost > 0) {
+          invItem.salePrice = Math.round((invItem.unitCost * (1 + invItem.profitMargin / 100)) * 100) / 100;
+          invItem.preco_venda_varejo = invItem.salePrice;
+        }
+
+        if (item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0) {
+          invItem.wholesalePrice = Number(item.wholesalePrice);
+        }
+
+        if (item.promoPrice !== undefined && Number(item.promoPrice) >= 0) {
+          invItem.promoPrice = Number(item.promoPrice);
+        }
+
+        updatedInventory[resolvedInvIndex] = invItem;
+        if (addQty > 0) {
+          xmlStockMovements.push({
+            id: `mov_xml_${fiscalRecordId}_${idx}_${invItem.id}`,
+            companyId: xmlActiveCid,
+            notaId: fiscalRecordId,
+            invoiceNumber: cleanInvoiceNumber,
+            accessKey: parsedData.accessKey || undefined,
+            supplier: parsedData.supplier,
+            productId: invItem.id,
+            productCode: invItem.code || invItem.codigo_produto || item.code,
+            productName: invItem.nome_comercial || invItem.name || item.description,
+            ncm: item.ncm || invItem.ncm,
+            quantity: addQty,
+            unit: (item.unit || invItem.unit || 'UN').toUpperCase(),
+            unitCost: newUnitCost,
+            totalCost: Number(item.totalPrice) || Math.round(addQty * newUnitCost * 100) / 100,
+            date: xmlEntryDateStr,
+            type: 'entrada',
+            source: 'xml',
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } else {
+        const dieselMatch = identificarTipoDiesel(item.description);
+        const autoCat = normalizeToInventoryCategory(
+          item.categoria ||
+          item.category ||
+          parsedData.priorityCategory ||
+          parsedData.categoriaPrioritaria ||
+          (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
+        );
+        const autoUnit = (item.unit || 'UN').toUpperCase();
+        const autoQty = Number(item.quantity) || 1;
+        const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+        const autoCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
+        const newProdId = `inv_auto_${Date.now()}_${idx}`;
+        const autoCode = item.code || `PRD${Date.now().toString().slice(-4)}`;
+
+        const autoProfitMargin = item.markupPercent !== undefined ? item.markupPercent : 30;
+        const autoSalePrice = item.salePrice !== undefined && Number(item.salePrice) >= 0
+          ? Number(item.salePrice)
+          : Math.round((autoCost * (1 + autoProfitMargin / 100)) * 100) / 100;
+
+        const newInvItem: InventoryItem = {
+          id: newProdId,
+          companyId: xmlActiveCid,
+          name: item.description,
+          nome_comercial: item.description,
+          fiscalName: item.description,
+          code: autoCode,
+          codigo_produto: autoCode,
+          barcode: item.barcode || undefined,
+          ncm: item.ncm || undefined,
+          codigo_ncm: item.ncm || undefined,
+          unit: autoUnit,
+          unidade_medida: autoUnit,
+          category: autoCat,
+          categoria: autoCat,
+          unitCost: autoCost,
+          preco_custo_inicial: autoCost,
+          custo_nominal: autoCost,
+          custo_com_imposto: autoCost,
+          custo_sem_imposto: item.custoSemImposto ?? item.custo_sem_imposto ?? 0,
+          valor_impostos_total: item.valorImpostosTotal ?? item.valor_impostos_total ?? 0,
+          frete_diluido_item: item.freteDiluidoItem ?? item.frete_diluido_item ?? 0,
+          profitMargin: autoProfitMargin,
+          salePrice: autoSalePrice,
+          preco_venda_varejo: autoSalePrice,
+          wholesalePrice: item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0 ? Number(item.wholesalePrice) : undefined,
+          promoPrice: item.promoPrice !== undefined && Number(item.promoPrice) >= 0 ? Number(item.promoPrice) : undefined,
+          quantity: autoQty,
+          quantidade_atual: autoQty,
+          minQuantity: 5,
+          maxQuantity: 100,
+          location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal'
+        };
+
+        updatedInventory.push(newInvItem);
+        item.linkedInventoryId = newProdId;
+        updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
+
+        xmlStockMovements.push({
+          id: `mov_xml_${fiscalRecordId}_${idx}_${newProdId}`,
+          companyId: xmlActiveCid,
+          notaId: fiscalRecordId,
+          invoiceNumber: cleanInvoiceNumber,
+          accessKey: parsedData.accessKey || undefined,
+          supplier: parsedData.supplier,
+          productId: newProdId,
+          productCode: autoCode,
+          productName: item.description,
+          ncm: item.ncm || undefined,
+          quantity: autoQty,
+          unit: autoUnit,
+          unitCost: autoCost,
+          totalCost: Number(item.totalPrice) || Math.round(autoQty * autoCost * 100) / 100,
+          date: xmlEntryDateStr,
+          type: 'entrada',
+          source: 'xml',
+          createdAt: new Date().toISOString(),
+        });
+
+        const newDescLower = String(item.description ?? '').toLowerCase();
+        const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
+        if (isNewFuelOrArla && autoQty > 0) {
+          sincronizarEntradaCombustivelSupabase({
+            produtoId: newProdId,
+            descricao: item.description,
+            categoria: 'Combustível & Arla',
+            quantidadeLitros: autoQty,
+            custoUnitario: Number(item.unitPrice) || 0
+          });
+        }
       }
     });
 
-    // Sincroniza sempre o estoque com as quantidades e novas precificações
+    // Sincroniza SÍNCRONA e imediatamente o estoque + movimentações no localStorage
     saveInventory(updatedInventory);
+    if (xmlStockMovements.length > 0) {
+      persistStockMovementsSync(xmlStockMovements);
+    }
     updatedInventory.forEach(prod => {
       upsertEstoqueItem(prod).catch(err => console.warn('Supabase upsertEstoqueItem XML sync:', err));
     });
@@ -10419,9 +11034,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       ? ` Entrada de estoque registrada: ${updatedSummary.join(', ')}.`
       : '';
 
-    const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
-    const cleanDigitsOnly = cleanInvoiceNumber.replace(/\D/g, '');
-    const fiscalRecordId = editingExpenseId ? editingExpenseId.split('_parc_')[0] : `nfe_fisc_${cleanDigitsOnly || Date.now()}`;
     const targetCanonicalKey = getCanonicalNfeKey({
       invoiceNumber: cleanInvoiceNumber,
       accessKey: parsedData.accessKey,
@@ -10602,6 +11214,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       nfeItems: parsedData.items,
       operationNature: parsedData.transactionType || parsedData.operationNature,
       transactionType: parsedData.transactionType,
+      estoqueIntegrado: xmlStockMovements.length > 0 || alreadyHadStockMov,
+      stockIntegrated: xmlStockMovements.length > 0 || alreadyHadStockMov,
       createdAt: new Date().toISOString(),
     };
 
@@ -10615,7 +11229,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const updatedFiscalList = [singleFiscalRecord, ...filteredFiscal];
     saveStoredFiscalRecords(updatedFiscalList);
 
-    // 3. PERSISTÊNCIA DEFINITIVA DO CABEÇALHO DA NOTA (tabela documentos_entrada + LocalStorage):
+    // Persistência compulsória SÍNCRONA dos itens em colaca_silagem_documentos_entrada_itens ANTES de qualquer await
+    let savedXmlItemsForDoc: DocumentoEntradaItem[] = [];
+    if (parsedData.items && parsedData.items.length > 0) {
+      try {
+        const xmlItemsPayload: DocumentoEntradaItem[] = parsedData.items.map((item, idx) => ({
+          id: `item_nfe_${cleanInvoiceNumber}_${idx}_${Date.now()}`,
+          documento_entrada_id: fiscalRecordId,
+          produto_id: item.linkedInventoryId,
+          descricao: item.description,
+          codigo_produto: item.code || undefined,
+          ncm: item.ncm,
+          quantidade: Number(item.quantity) || 1,
+          unidade: item.unit || 'UN',
+          valor_unitario: Number(item.unitPrice) || 0,
+          valor_total: Number(item.totalPrice) || (Number(item.quantity) * Number(item.unitPrice)) || 0,
+          created_at: new Date().toISOString()
+        }));
+        savedXmlItemsForDoc = xmlItemsPayload;
+
+        const existingAllItems = getStoredDocumentosEntradaItens();
+        const filteredExisting = existingAllItems.filter(i => i.documento_entrada_id !== fiscalRecordId);
+        saveStoredDocumentosEntradaItens([...xmlItemsPayload, ...filteredExisting]);
+      } catch (err) {
+        console.warn('Erro ao salvar itens no colaca_silagem_documentos_entrada_itens:', err);
+      }
+    }
+
+    // 3. PERSISTÊNCIA DEFINITIVA SÍNCRONA DO CABEÇALHO DA NOTA (LocalStorage + Estado)
     const docEntradaFinal: DocumentoEntradaRecord = {
       id: fiscalRecordId,
       numero: cleanInvoiceNumber,
@@ -10639,6 +11280,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       natureza_operacao: parsedData.transactionType || parsedData.operationNature,
       observacoes: `NF-e ${cleanInvoiceNumber} importada via XML. Fornecedor: ${parsedData.supplier}. Total: ${formatCurrencyBRL(parsedData.totalAmount)}.`,
       status: 'Finalizado',
+      estoqueIntegrado: xmlStockMovements.length > 0 || alreadyHadStockMov,
+      stockIntegrated: xmlStockMovements.length > 0 || alreadyHadStockMov,
+      itens: savedXmlItemsForDoc.length > 0 ? savedXmlItemsForDoc : undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -10758,45 +11402,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       };
     });
 
-    // Persistência compulsória em colaca_silagem_documentos_entrada_itens
-    let savedXmlItemsForDoc: DocumentoEntradaItem[] = [];
-    if (parsedData.items && parsedData.items.length > 0) {
-      try {
-        const xmlItemsPayload: DocumentoEntradaItem[] = parsedData.items.map((item, idx) => ({
-          id: `item_nfe_${cleanInvoiceNumber}_${idx}_${Date.now()}`,
-          documento_entrada_id: fiscalRecordId,
-          produto_id: item.linkedInventoryId,
-          descricao: item.description,
-          codigo_produto: item.code || undefined,
-          ncm: item.ncm,
-          quantidade: Number(item.quantity) || 1,
-          unidade: item.unit || 'UN',
-          valor_unitario: Number(item.unitPrice) || 0,
-          valor_total: Number(item.totalPrice) || (Number(item.quantity) * Number(item.unitPrice)) || 0,
-          created_at: new Date().toISOString()
-        }));
-        savedXmlItemsForDoc = xmlItemsPayload;
-
-        const existingAllItems = getStoredDocumentosEntradaItens();
-        const filteredExisting = existingAllItems.filter(i => i.documento_entrada_id !== fiscalRecordId);
-        saveStoredDocumentosEntradaItens([...xmlItemsPayload, ...filteredExisting]);
-      } catch (err) {
-        console.warn('Erro ao salvar itens no colaca_silagem_documentos_entrada_itens:', err);
-      }
-    }
-
-    const docEntradaWithItems: DocumentoEntradaRecord = {
-      ...docEntradaFinal,
-      itens: savedXmlItemsForDoc.length > 0 ? savedXmlItemsForDoc : undefined,
-    };
-    if (savedXmlItemsForDoc.length > 0) {
-      const updatedDocsWithItems = [
-        docEntradaWithItems,
-        ...updatedDocsList.filter(d => d.id !== docEntradaWithItems.id),
-      ];
-      saveStoredDocumentosEntrada(updatedDocsWithItems);
-      setDocumentosEntrada(updatedDocsWithItems);
-    }
+    const docEntradaWithItems: DocumentoEntradaRecord = docEntradaFinal;
 
     const pendingPrintXml = itemsForLabels.length > 0
       ? {
@@ -12721,6 +13327,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">ENTRADA / SAÍDA</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">VALOR</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">STATUS</th>
+                  <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">INTEGRAÇÃO</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-center whitespace-nowrap">CONTADOR</th>
                   <th className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 border-b border-black py-2 px-2 text-right whitespace-nowrap">AÇÕES</th>
                 </tr>
@@ -12728,7 +13335,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <tbody className="bg-[#e0e6f1] dark:bg-stone-900 divide-y divide-black/15 dark:divide-stone-800">
                 {filteredUnifiedEntries.length === 0 ? (
                   <tr key="unified_entries_empty_row">
-                    <td colSpan={9} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
+                    <td colSpan={10} className="py-8 text-center bg-[#e0e6f1] text-stone-600 font-semibold uppercase text-xs">
                       {activeDocDirection === 'saida'
                         ? 'NENHUMA NOTA DE SAÍDA REGISTRADA NESTA COMPETÊNCIA. CLIQUE EM "+ LANÇAR NOTA DE SAÍDA" PARA EMITIR/REGISTRAR.'
                         : 'NENHUM REGISTRO ENCONTRADO'}
@@ -12738,6 +13345,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   filteredUnifiedEntries.map((entry, idx) => {
                     const isXml = entry.sourceType === 'xml';
                     const rawNotaSaida = (entry as any).rawNotaSaida as NotaSaidaRecord | undefined;
+                    const integrationStatus = !rawNotaSaida && entry.sourceType !== 'mdfe'
+                      ? getEntryIntegrationStatus(entry)
+                      : null;
                     const tooltipText = (entry as any).tooltip || entry.description;
                     const compCnpj = (companyProfile || getStoredCompanyProfile())?.cnpjCpf;
                     const isVaiContador = rawNotaSaida
@@ -12888,6 +13498,50 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             }`}>
                               {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
                             </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-center whitespace-nowrap text-xs">
+                          {integrationStatus ? (
+                            <div className="inline-flex items-center justify-center gap-1 flex-nowrap">
+                              <span
+                                className={`h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
+                                  integrationStatus.hasStock
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-700'
+                                    : 'bg-slate-200 dark:bg-stone-800 text-slate-700 dark:text-stone-300 border-slate-400 dark:border-stone-600'
+                                }`}
+                                title={
+                                  integrationStatus.hasStock
+                                    ? 'Entrada no Estoque confirmada com movimentação vinculada à nota'
+                                    : 'Sem entrada registrada no Estoque — clique em Reintegrar para processar'
+                                }
+                              >
+                                {integrationStatus.hasStock ? '📦 Estoque OK' : 'Sem Estoque'}
+                              </span>
+                              <span
+                                className={`h-6 inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md border whitespace-nowrap ${
+                                  integrationStatus.isBlockedFin
+                                    ? 'bg-slate-200 dark:bg-stone-800 text-slate-600 dark:text-stone-400 border-slate-400 dark:border-stone-600'
+                                    : integrationStatus.hasFinancial
+                                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400 dark:border-emerald-700'
+                                      : 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-400 dark:border-amber-700'
+                                }`}
+                                title={
+                                  integrationStatus.isBlockedFin
+                                    ? 'Operação sem lançamento financeiro no Contas a Pagar'
+                                    : integrationStatus.hasFinancial
+                                      ? 'Título(s) vinculado(s) em Contas a Pagar / Despesas'
+                                      : 'Título financeiro pendente — clique em Reintegrar para lançar no Contas a Pagar'
+                                }
+                              >
+                                {integrationStatus.isBlockedFin
+                                  ? 'Sem Fin.'
+                                  : integrationStatus.hasFinancial
+                                    ? '💰 Financeiro OK'
+                                    : 'Pendente'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-stone-500">—</span>
                           )}
                         </td>
                         <td
@@ -13064,6 +13718,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               >
                                 <Eye className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span>VER</span>
+                              </button>
+                            )}
+
+                            {integrationStatus && (
+                              <button
+                                type="button"
+                                id={`btn-reintegrate-doc-${entry.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleReintegrateEntry(entry);
+                                }}
+                                className={`h-6 inline-flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold uppercase transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap ${
+                                  !integrationStatus.hasStock || (!integrationStatus.hasFinancial && !integrationStatus.isBlockedFin)
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-800'
+                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-200 border-slate-400 dark:border-stone-600'
+                                }`}
+                                title={`Reintegrar Estoque & Financeiro da nota ${entry.documentNumber} (sem duplicar itens já lançados)`}
+                              >
+                                <RefreshCw className="w-3 h-3 shrink-0" />
+                                <span>Reintegrar</span>
                               </button>
                             )}
 

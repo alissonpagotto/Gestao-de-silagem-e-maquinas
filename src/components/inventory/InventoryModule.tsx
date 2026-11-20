@@ -35,6 +35,8 @@ import {
   formatCurrencyBRL, 
   getStoredMaintenanceLogs, 
   getStoredFuelLogs,
+  getStoredInventory,
+  getStoredStockMovements,
   ensureDieselProductsInInventory,
   ensureServicesInInventory,
   saveStoredInventory
@@ -178,28 +180,29 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   useEffect(() => {
     const handleStockUpdate = (e: any) => {
       try {
-        const raw = localStorage.getItem('agrocontrol_produtos') || localStorage.getItem('colaca_silagem_estoque_produtos');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setLocalInventory(parsed);
-          }
-        } else if (e?.detail && Array.isArray(e.detail)) {
+        const stored = getStoredInventory();
+        if (Array.isArray(stored) && stored.length > 0) {
+          setLocalInventory(stored);
+        } else if (e?.detail && Array.isArray(e.detail) && e.detail.length > 0) {
           setLocalInventory(e.detail);
         }
       } catch {}
     };
     window.addEventListener('agrocontrol_produtos_updated', handleStockUpdate);
+    window.addEventListener('agrocontrol_inventory_updated', handleStockUpdate);
     window.addEventListener('colaca_silagem_estoque_produtos_updated', handleStockUpdate);
     window.addEventListener('silagem_inventory_changed', handleStockUpdate);
     window.addEventListener('silagem_inventory_updated', handleStockUpdate);
     window.addEventListener('inventory_updated', handleStockUpdate);
+    window.addEventListener('storage', handleStockUpdate);
     return () => {
       window.removeEventListener('agrocontrol_produtos_updated', handleStockUpdate);
+      window.removeEventListener('agrocontrol_inventory_updated', handleStockUpdate);
       window.removeEventListener('colaca_silagem_estoque_produtos_updated', handleStockUpdate);
       window.removeEventListener('silagem_inventory_changed', handleStockUpdate);
       window.removeEventListener('silagem_inventory_updated', handleStockUpdate);
       window.removeEventListener('inventory_updated', handleStockUpdate);
+      window.removeEventListener('storage', handleStockUpdate);
     };
   }, []);
 
@@ -363,6 +366,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         });
       });
     }
+
+    // 3. Verificar entradas de estoque originadas de NF-e / Entradas Manuais
+    const stockEntryMovs = getStoredStockMovements();
+    const viewNameNorm = String(viewingItem.nome_comercial || viewingItem.name || '').toLowerCase().trim();
+    const viewCodeNorm = String(viewingItem.code || viewingItem.codigo_produto || '').toLowerCase().trim();
+    stockEntryMovs.forEach((mov) => {
+      const matchId = mov.productId && mov.productId === viewingItem.id;
+      const matchCode = viewCodeNorm && mov.productCode && String(mov.productCode).toLowerCase().trim() === viewCodeNorm;
+      const matchName = viewNameNorm && mov.productName && String(mov.productName).toLowerCase().trim() === viewNameNorm;
+      if (matchId || matchCode || matchName) {
+        movements.push({
+          id: `nfe_in_${mov.id}`,
+          date: mov.date || (mov.createdAt ? mov.createdAt.split('T')[0] : 'Data n/d'),
+          type: 'entrada',
+          description: `Entrada via NF-e / Doc ${mov.invoiceNumber}${mov.supplier ? ` (${mov.supplier})` : ''}`,
+          quantity: mov.quantity,
+          unit: mov.unit || viewingItem.unit || 'UN',
+          cost: mov.totalCost || (mov.quantity * (mov.unitCost || 0)),
+          ref: mov.invoiceNumber ? `NF ${mov.invoiceNumber}` : undefined,
+        });
+      }
+    });
 
     // Ordenar por data decrescente
     movements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
