@@ -867,7 +867,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             ? 'mx-auto w-10 justify-center px-1.5 py-2'
                             : 'w-[calc(100%-1rem)] mx-2 justify-between px-3 py-2'
                         }
-                        rounded-md text-xs transition-all flex items-center cursor-pointer group select-none
+                        rounded-md text-sm transition-all flex items-center cursor-pointer group select-none
                         ${
                           isRestricted
                             ? 'bg-rose-50/70 text-slate-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/80 border border-dashed border-rose-400/70 font-semibold'
