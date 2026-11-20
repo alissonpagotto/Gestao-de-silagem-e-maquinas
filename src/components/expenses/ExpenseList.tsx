@@ -19,10 +19,12 @@ import {
   Check,
   Building2,
   Layers,
-  MessageCircle
+  MessageCircle,
+  RotateCcw
 } from 'lucide-react';
 import { Expense, ExpenseCategory, ExpenseStatus, CostCenter, CompanyProfile, Employee, FleetTeam } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
+import { formatReversalTooltip } from '../../lib/financialAudit';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 
 interface ExpenseListProps {
@@ -645,12 +647,23 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
                   {/* Status (Puramente Informativo) */}
                   <td className="py-1.5 px-3 whitespace-nowrap">
-                    <span
-                      title="Status informativo — A baixa/liquidação deve ser realizada em Financeiro > A Pagar"
-                      className="inline-flex cursor-default select-none"
-                    >
-                      {getStatusBadge(getEffectiveStatus(exp))}
-                    </span>
+                    <div className="inline-flex items-center gap-1">
+                      <span
+                        title={formatReversalTooltip(exp) || 'Status informativo — A baixa/liquidação deve ser realizada em Financeiro > A Pagar'}
+                        className="inline-flex cursor-default select-none"
+                      >
+                        {getStatusBadge(getEffectiveStatus(exp))}
+                      </span>
+                      {exp.lastReversal && (
+                        <span
+                          className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 border border-amber-400 text-amber-900 uppercase cursor-help"
+                          title={formatReversalTooltip(exp)}
+                        >
+                          <RotateCcw className="w-2.5 h-2.5 text-amber-700" />
+                          <span>Estornado</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Actions */}
@@ -745,12 +758,23 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   <span className="font-black text-black dark:text-white text-base block font-['Outfit']">
                     {formatCurrencyBRL(exp.amount)}
                   </span>
-                  <span
-                    title="Status informativo — A baixa/liquidação deve ser realizada em Financeiro > A Pagar"
-                    className="inline-flex cursor-default select-none"
-                  >
-                    {getStatusBadge(getEffectiveStatus(exp))}
-                  </span>
+                  <div className="inline-flex flex-col items-end gap-1">
+                    <span
+                      title={formatReversalTooltip(exp) || 'Status informativo — A baixa/liquidação deve ser realizada em Financeiro > A Pagar'}
+                      className="inline-flex cursor-default select-none"
+                    >
+                      {getStatusBadge(getEffectiveStatus(exp))}
+                    </span>
+                    {exp.lastReversal && (
+                      <span
+                        className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 border border-amber-400 text-amber-900 uppercase cursor-help"
+                        title={formatReversalTooltip(exp)}
+                      >
+                        <RotateCcw className="w-2.5 h-2.5 text-amber-700" />
+                        <span>Estornado</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

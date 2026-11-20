@@ -39,9 +39,11 @@ import {
   Machinery,
   CompanyProfile,
   BankTransaction,
-  PaymentMethod
+  PaymentMethod,
+  ReversalAuditEntry
 } from '../../types';
 import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getStoredFinanceiroCheques, saveStoredFinanceiroCheques, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
+import { recordFinancialReversalAudit, reverseCashRegisterSettlement, getLoggedAuditUserName, formatCurrentAuditDateTimeBR } from '../../lib/financialAudit';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchContasAPagar, saveFinanceiroCheque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { BankAccountsTab } from './BankAccountsTab';
@@ -104,7 +106,10 @@ interface FinancialSummaryProps {
     usedChequeIds?: string[];
     usedChequesSummary?: string;
   }) => void;
-  onReverseExpense?: (id: string) => void;
+  onReverseExpense?: (
+    id: string,
+    audit?: { user: string; dateTime: string; isoTimestamp?: string; reason: string }
+  ) => void;
   onAddExpenseFromBankBill?: (expense: Partial<Expense>) => void;
   onLinkExpensesToAccount?: (expenseIds: string[], accountId: string) => void;
   onSaveSettlements?: (settlements: ThirdPartySettlement[]) => void;
@@ -504,15 +509,38 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     }
   };
 
-  // Estorno de Despesa com estorno do saldo bancário e devolução de cheques de terceiros para custódia
-  const handleReverseExpenseInternal = (expenseId: string) => {
+  // Estorno de Despesa com estorno do saldo bancário/caixa e devolução de cheques de terceiros para custódia
+  const handleReverseExpenseInternal = (
+    expenseId: string,
+    audit?: { user: string; dateTime: string; isoTimestamp?: string; reason: string }
+  ) => {
     if (onReverseExpense) {
-      onReverseExpense(expenseId);
+      onReverseExpense(expenseId, audit);
       return;
     }
 
-    const exp = expenses.find((e) => e.id === expenseId);
+    const exp = expenses.find((e) => e.id === expenseId) || localExpenses.find((e) => e.id === expenseId);
     if (!exp) return;
+
+    const now = new Date();
+    const auditUser = audit?.user || getLoggedAuditUserName();
+    const auditDateTime = audit?.dateTime || formatCurrentAuditDateTimeBR(now);
+    const auditReason = audit?.reason || 'Estorno manual';
+    const reversalEntry: ReversalAuditEntry = {
+      id: `rev_pag_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      targetType: 'pagar',
+      targetId: exp.id,
+      description: exp.description,
+      amount: Number(exp.amount) || 0,
+      user: auditUser,
+      dateTime: auditDateTime,
+      isoTimestamp: audit?.isoTimestamp || now.toISOString(),
+      reason: auditReason,
+      previousStatus: exp.status,
+      previousPaymentDate: exp.paymentDate,
+      bankAccountId: exp.bankAccountId,
+      bankAccountName: exp.bankAccountName,
+    };
 
     // Se a despesa foi quitada com cheque(s) de terceiros da custódia, retorna os cheques para EM_NOSSO_PODER
     if (Array.isArray(exp.usedChequeIds) && exp.usedChequeIds.length > 0) {
@@ -529,7 +557,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           dataRepasse: '',
           despesa_id: '',
           despesaId: '',
-          updated_at: new Date().toISOString(),
+          updated_at: now.toISOString(),
         };
         saveFinanceiroCheque(reverted).catch(() => {});
         return reverted;
@@ -539,54 +567,87 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       window.dispatchEvent(new Event('storage'));
     }
 
-    const updatedExpenses = expenses.map((e) => {
-      if (e.id === expenseId) {
-        return {
-          ...e,
-          status: 'pendente' as const,
-          usedChequeIds: undefined,
-          usedChequesSummary: undefined,
-          chequeOrigin: undefined,
-        };
-      }
-      return e;
-    });
-
-    if (onSaveExpenses) {
-      onSaveExpenses(updatedExpenses);
-    } else {
-      saveStoredExpenses(updatedExpenses);
-      onToggleExpenseStatus(expenseId);
-    }
-
-    // Devolve o saldo à conta se tiver sido debitado
+    // Devolve o saldo à conta se tiver sido debitado e remove a movimentação correspondente do extrato
     if (exp.bankAccountId) {
       const updatedAccounts = bankAccounts.map((acc) => {
         if (acc.id === exp.bankAccountId) {
           return {
             ...acc,
-            balance: acc.balance + exp.amount,
+            balance: Number(((Number(acc.balance) || 0) + (Number(exp.amount) || 0)).toFixed(2)),
           };
         }
         return acc;
       });
       onSaveBankAccounts(updatedAccounts);
 
-      // Registra estorno no extrato
-      const refundTx: BankTransaction = {
-        id: `tx_rev_${Date.now()}`,
-        bankAccountId: exp.bankAccountId,
-        bankAccountName: exp.bankAccountName || 'Conta Bancária',
-        date: new Date().toISOString().split('T')[0],
-        description: `Estorno Pagamento: ${exp.supplier || exp.description}`,
-        type: 'entrada',
+      const matchedTxIdx = internalBankTransactions.findIndex(
+        (tx) =>
+          (tx.expenseId === exp.id || tx.sourceId === exp.id) &&
+          tx.type === 'saida'
+      );
+      if (matchedTxIdx >= 0) {
+        const nextTxs = internalBankTransactions.filter((_, i) => i !== matchedTxIdx);
+        handleSaveTransactions(nextTxs);
+      } else {
+        const refundTx: BankTransaction = {
+          id: `tx_rev_${Date.now()}`,
+          bankAccountId: exp.bankAccountId,
+          bankAccountName: exp.bankAccountName || 'Conta Bancária',
+          date: now.toISOString().split('T')[0],
+          description: `Estorno Pagamento (${auditUser}): ${exp.supplier || exp.description} — Motivo: ${auditReason}`,
+          type: 'entrada',
+          amount: exp.amount,
+          category: 'Estorno de Pagamento',
+          expenseId: exp.id,
+          sourceId: exp.id,
+          sourceType: 'ajuste',
+          createdAt: now.toISOString(),
+        };
+        handleSaveTransactions([refundTx, ...internalBankTransactions]);
+      }
+    } else {
+      reverseCashRegisterSettlement({
+        type: 'pagar',
+        targetId: exp.id,
         amount: exp.amount,
-        category: 'Estorno de Pagamento',
-        expenseId: exp.id,
-        sourceType: 'manual',
-        createdAt: new Date().toISOString(),
-      };
-      handleSaveTransactions([refundTx, ...internalBankTransactions]);
+        description: exp.description,
+        partyName: exp.supplier,
+        paymentMethod: exp.paymentMethod,
+        bankAccountId: exp.bankAccountId,
+        reason: auditReason,
+        user: auditUser,
+      });
+    }
+
+    const updatedExpenses = expenses.map((e) => {
+      if (e.id === expenseId) {
+        return {
+          ...e,
+          status: 'pendente' as const,
+          paymentDate: undefined,
+          bankAccountId: undefined,
+          bankAccountName: undefined,
+          paidByEmployeeId: undefined,
+          paidByEmployeeName: undefined,
+          paymentAuthenticationCode: undefined,
+          usedChequeIds: undefined,
+          usedChequesSummary: undefined,
+          chequeOrigin: undefined,
+          lastReversal: reversalEntry,
+          reversalHistory: [reversalEntry, ...(e.reversalHistory || [])],
+          updatedAt: now.toISOString(),
+        };
+      }
+      return e;
+    });
+
+    recordFinancialReversalAudit(reversalEntry);
+
+    if (onSaveExpenses) {
+      onSaveExpenses(updatedExpenses);
+    } else {
+      saveStoredExpenses(updatedExpenses);
+      onToggleExpenseStatus(expenseId);
     }
   };
 

@@ -1729,6 +1729,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         items: expenseItems.length > 0 ? expenseItems : undefined,
         employeePayrollDeductions: finalRhDeductions.length > 0 ? finalRhDeductions : undefined,
         employeePayrollDeductionsTotal: finalRhTotal > 0 ? finalRhTotal : undefined,
+        lastReversal: editingExpense?.lastReversal,
+        reversalHistory: editingExpense?.reversalHistory,
         createdAt: editingExpense ? editingExpense.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -1865,6 +1867,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
           )}
           
+          {editingExpense?.lastReversal && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-600 bg-amber-50 text-amber-950 text-[11px] font-semibold shadow-2xs">
+              <RotateCcw className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-black uppercase">
+                  Estornado por {editingExpense.lastReversal.user}
+                  {editingExpense.lastReversal.dateTime ? ` em ${editingExpense.lastReversal.dateTime}` : ''}
+                </span>
+                <span className="block text-[10px] text-amber-900 mt-0.5">
+                  Motivo: {editingExpense.lastReversal.reason}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* BLOCO 1 (CARD): CATEGORIA + DATA DA DESPESA + DATA DE VENCIMENTO + VALOR TOTAL */}
           <div className="bg-[#e0e6f1] border border-black rounded-xl p-2.5 grid grid-cols-12 gap-2 shadow-2xs">
             <div className="col-span-12 sm:col-span-5">

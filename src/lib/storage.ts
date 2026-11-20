@@ -3027,6 +3027,33 @@ export function hasStockMovementForInvoice(
   });
 }
 
+export function removeStockEntryMovementsForInvoice(
+  ref: { notaId?: string; invoiceNumber?: string; accessKey?: string }
+): void {
+  const list = getStoredStockMovements();
+  if (!list || list.length === 0) return;
+
+  const cleanId = String(ref.notaId || '').trim().toLowerCase();
+  const cleanDigits = String(ref.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+  const cleanKey = String(ref.accessKey || '').replace(/\D/g, '').trim();
+
+  const filtered = list.filter((m) => {
+    if (cleanId && String(m.notaId || '').trim().toLowerCase() === cleanId) return false;
+    if (cleanKey && cleanKey.length === 44 && String(m.accessKey || '').replace(/\D/g, '').trim() === cleanKey) {
+      return false;
+    }
+    if (cleanDigits) {
+      const mDigits = String(m.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+      if (mDigits && mDigits === cleanDigits) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length !== list.length) {
+    saveStoredStockMovements(filtered, true);
+  }
+}
+
 // ==============================================================================
 // BALANÇO / INVENTÁRIO FÍSICO DE ESTOQUE (PERSISTÊNCIA CONTÍNUA MULTI-DIAS)
 // Chave oficial: 'agrocontrol_inventory_balances'

@@ -24,7 +24,8 @@ import {
   VacationRecord,
   LeaveRecord,
   SalaryAdvance,
-  PaymentMethod
+  PaymentMethod,
+  ReversalAuditEntry
 } from './types';
 import { Subscriber, SubscriberModulesConfig } from './types/masterAdmin';
 import { getStoredSubscribers } from './lib/masterAdminStorage';
@@ -125,8 +126,16 @@ import {
   saveCompanyAbastecimentos,
   getCompanyAbastecimentos,
   getStoredDocumentosEntrada,
-  getStoredFiscalRecords
+  getStoredFiscalRecords,
+  getStoredFinanceiroCheques,
+  saveStoredFinanceiroCheques
 } from './lib/storage';
+import {
+  recordFinancialReversalAudit,
+  reverseCashRegisterSettlement,
+  getLoggedAuditUserName,
+  formatCurrentAuditDateTimeBR
+} from './lib/financialAudit';
 import { useConfirm } from './context/ConfirmContext';
 import { deleteClientAvatar } from './lib/imageStorage';
 
@@ -243,6 +252,7 @@ import {
   fetchFrentesTrabalho,
   fetchFrentesTrabalhoMembros,
   notifyDocumentosEntradaSync,
+  saveFinanceiroCheque,
   IS_OFFLINE_LOCAL_STORAGE_MODE
 } from './lib/supabaseService';
 import { supabase } from './lib/supabaseClient';
@@ -2668,6 +2678,161 @@ export default function App() {
     }
   };
 
+  const handleReverseExpense = (
+    expenseId: string,
+    audit?: { user: string; dateTime: string; isoTimestamp?: string; reason: string }
+  ) => {
+    const baseList = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
+    const targetExp = baseList.find((e) => e.id === expenseId);
+    if (!targetExp) return;
+
+    const now = new Date();
+    const auditUser = audit?.user || getLoggedAuditUserName();
+    const auditDateTime = audit?.dateTime || formatCurrentAuditDateTimeBR(now);
+    const auditReason = audit?.reason || 'Estorno manual';
+    const reversalEntry: ReversalAuditEntry = {
+      id: `rev_pag_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      targetType: 'pagar',
+      targetId: targetExp.id,
+      description: targetExp.description,
+      amount: Number(targetExp.amount) || 0,
+      user: auditUser,
+      dateTime: auditDateTime,
+      isoTimestamp: audit?.isoTimestamp || now.toISOString(),
+      reason: auditReason,
+      previousStatus: targetExp.status,
+      previousPaymentDate: targetExp.paymentDate,
+      bankAccountId: targetExp.bankAccountId,
+      bankAccountName: targetExp.bankAccountName,
+    };
+
+    // 1. Devolver cheques de terceiros usados na baixa para custódia
+    if (Array.isArray(targetExp.usedChequeIds) && targetExp.usedChequeIds.length > 0) {
+      const usedSet = new Set(targetExp.usedChequeIds);
+      const currentCheques = getStoredFinanceiroCheques();
+      const revertedCheques = currentCheques.map((c) => {
+        if (!usedSet.has(c.id)) return c;
+        const reverted = {
+          ...c,
+          status: 'EM_NOSSO_PODER' as const,
+          fornecedor_destino: '',
+          fornecedorDestino: '',
+          data_repasse: '',
+          dataRepasse: '',
+          despesa_id: '',
+          despesaId: '',
+          updated_at: now.toISOString(),
+        };
+        saveFinanceiroCheque(reverted).catch(() => {});
+        return reverted;
+      });
+      saveStoredFinanceiroCheques(revertedCheques);
+      window.dispatchEvent(new CustomEvent('financeiro_cheques_updated'));
+    }
+
+    // 2. Reverter saldo bancário / limite de cartão corporativo e extrato bancário ou caixa
+    if (targetExp.bankAccountId || targetExp.corporateCardId) {
+      setBankAccounts((prev) => {
+        const baseAccounts = prev && prev.length > 0 ? prev : getStoredBankAccounts();
+        const { updatedAccounts } = revertExpenseCardsAndBank(targetExp, baseAccounts);
+        saveStoredBankAccounts(updatedAccounts);
+        saveCompanyFinanceiroContas(updatedAccounts, activeTenantId);
+        if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+          saveCloudBankAccounts(updatedAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch((err) =>
+            console.warn('Supabase saveCloudBankAccounts reversal notice:', err)
+          );
+        }
+        return updatedAccounts;
+      });
+
+      if (targetExp.bankAccountId) {
+        const currentTxs = getStoredBankTransactions();
+        const matchedIdx = currentTxs.findIndex(
+          (tx) =>
+            (tx.expenseId === targetExp.id || tx.sourceId === targetExp.id) &&
+            tx.type === 'saida'
+        );
+        if (matchedIdx >= 0) {
+          saveStoredBankTransactions(currentTxs.filter((_, i) => i !== matchedIdx));
+        } else {
+          const refundTx: BankTransaction = {
+            id: `tx_rev_${Date.now()}`,
+            bankAccountId: targetExp.bankAccountId,
+            bankAccountName: targetExp.bankAccountName || 'Conta Bancária',
+            date: now.toISOString().split('T')[0],
+            description: `Estorno Pagamento (${auditUser}): ${targetExp.supplier || targetExp.description} — Motivo: ${auditReason}`,
+            type: 'entrada',
+            amount: Number(targetExp.amount) || 0,
+            category: 'Estorno de Pagamento',
+            expenseId: targetExp.id,
+            sourceId: targetExp.id,
+            sourceType: 'ajuste',
+            createdAt: now.toISOString(),
+          };
+          saveStoredBankTransactions([refundTx, ...currentTxs]);
+        }
+      }
+      window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+      window.dispatchEvent(new Event('bank_accounts_updated'));
+      window.dispatchEvent(new Event('bank_transactions_updated'));
+    } else {
+      reverseCashRegisterSettlement({
+        type: 'pagar',
+        targetId: targetExp.id,
+        amount: Number(targetExp.amount) || 0,
+        description: targetExp.description,
+        partyName: targetExp.supplier,
+        paymentMethod: targetExp.paymentMethod,
+        bankAccountId: targetExp.bankAccountId,
+        reason: auditReason,
+        user: auditUser,
+      });
+    }
+
+    // 3. Reabrir o título em Contas a Pagar e Despesas preservando histórico de estorno
+    const todayIso = now.toISOString().split('T')[0];
+    setExpenses((prev) => {
+      const nextList = prev.map((e) => {
+        if (e.id !== expenseId) return e;
+        const updated: Expense = {
+          ...e,
+          status: 'pendente',
+          paymentDate: undefined,
+          bankAccountId: undefined,
+          bankAccountName: undefined,
+          paidByEmployeeId: undefined,
+          paidByEmployeeName: undefined,
+          paymentAuthenticationCode: undefined,
+          chequeOrigin: undefined,
+          usedChequeIds: undefined,
+          usedChequesSummary: undefined,
+          lastReversal: reversalEntry,
+          reversalHistory: [reversalEntry, ...(e.reversalHistory || [])],
+          updatedAt: now.toISOString(),
+        };
+        upsertContaAPagar(
+          {
+            id: updated.id,
+            valor_parcela: Number(updated.amount) || 0,
+            data_vencimento: updated.dueDate || todayIso,
+            status_pago: false,
+            centro_custo: updated.costCenterName || updated.description || 'Geral',
+            forma_pagamento: updated.paymentMethod || 'Boleto',
+          },
+          activeTenantId
+        ).catch((err) => console.warn('Supabase reverse notice:', err));
+        return updated;
+      });
+      saveStoredExpenses(nextList);
+      saveCompanyDespesas(nextList, activeTenantId);
+      return nextList;
+    });
+
+    recordFinancialReversalAudit(reversalEntry);
+    window.dispatchEvent(new CustomEvent('silagem_expenses_updated'));
+    window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated'));
+  };
+
   const handleDuplicateExpense = (expense: Expense) => {
     const duplicated: Expense = {
       ...expense,
@@ -4322,6 +4487,7 @@ export default function App() {
               onToggleExpenseStatus={handleToggleExpenseStatus}
               onSettlePayment={handleSettlePayment}
               onSettleExpense={(params) => handleSettlePayment(params.expenseId, params)}
+              onReverseExpense={handleReverseExpense}
               onEditExpense={(exp) => {
                 setEditingExpense(exp);
                 setIsExpenseModalOpen(true);

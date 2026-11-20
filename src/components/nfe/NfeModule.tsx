@@ -86,6 +86,7 @@ import {
   getStoredStockMovements,
   recordStockEntryMovements,
   hasStockMovementForInvoice,
+  removeStockEntryMovementsForInvoice,
   saveStoredExpenses, 
   getStoredExpenses,
   saveCompanyDespesas,
@@ -1047,8 +1048,9 @@ export function getStockReversalAnalysis(
   let hasNegativeStock = false;
 
   productMap.forEach(val => {
-    const projectedStock = Math.round((val.currentStock - val.quantityToReverse) * 100) / 100;
-    const isNegative = val.inventoryItemId ? projectedStock < 0 : false;
+    const rawProjected = Math.round((val.currentStock - val.quantityToReverse) * 100) / 100;
+    const isNegative = val.inventoryItemId ? rawProjected < 0 : false;
+    const projectedStock = Math.max(0, rawProjected);
     if (isNegative) {
       hasNegativeStock = true;
     }
@@ -1679,6 +1681,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   });
   const [showExtraPrices, setShowExtraPrices] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
+  const [blockedDeleteInfo, setBlockedDeleteInfo] = useState<{ title: string; detail: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-calibração reativa do motor fiscal: assegura CUSTO COMPOSTO = vProd + vIPI + freteItem e V. TOTAL = CUSTO COMPOSTO
@@ -5115,15 +5118,183 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     });
   };
 
+  const hasSettledPayableForDoc = (ref: {
+    docId?: string;
+    docNum?: string;
+    accessKey?: string;
+    targetKey?: string;
+  }): boolean => {
+    const docId = String(ref.docId || '').trim();
+    const docNum = String(ref.docNum || '').trim();
+    const cleanNum = String(getCleanInvoiceNumber(docNum) ?? '').toLowerCase().trim();
+    const digits = docNum.replace(/\D/g, '').replace(/^0+/, '');
+    const accessKey = String(ref.accessKey || '').replace(/\D/g, '').trim();
+    const targetKey = String(ref.targetKey || '').trim();
+
+    const poolMap = new Map<string, Expense>();
+    [...getStoredExpenses(), ...expenses].forEach((e) => {
+      if (e && e.id) poolMap.set(e.id, e);
+    });
+
+    for (const e of poolMap.values()) {
+      const eIdStr = String(e.id ?? '');
+      const eCleanNum = String(getCleanInvoiceNumber(e.invoiceNumber) ?? '').toLowerCase().trim();
+      const eDigits = String(e.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+      const eKey = String((e as any).accessKey || '').replace(/\D/g, '').trim();
+
+      const matches =
+        (docId &&
+          (eIdStr === docId ||
+            eIdStr.startsWith(`${docId}_`) ||
+            eIdStr.startsWith(`pagar_${docId}`) ||
+            eIdStr.startsWith(`exp_doc_${docId}`) ||
+            eIdStr.startsWith(`fiscal_doc_${docId}`) ||
+            (e as any).notaId === docId ||
+            (e as any).documento_entrada_id === docId ||
+            (e as any).nota_fiscal_id === docId)) ||
+        (targetKey && getCanonicalNfeKey(e) === targetKey) ||
+        (cleanNum && eCleanNum === cleanNum) ||
+        (digits && digits.length >= 2 && eDigits === digits) ||
+        (accessKey && accessKey.length === 44 && eKey === accessKey);
+
+      if (matches) {
+        const isSettled =
+          e.status === 'pago' ||
+          e.status === 'Liquidado / Abatido por Devolução' ||
+          (e as any).status_pago === true;
+        if (isSettled) return true;
+      }
+    }
+    return false;
+  };
+
+  const hasSettledReceivableForNotaSaida = (nota: NotaSaidaRecord): boolean => {
+    if (nota.receberStatus === 'pago') return true;
+    const allSaidas = getStoredNotasSaida();
+    return allSaidas.some(
+      (n) =>
+        (n.id === nota.id ||
+          n.id.startsWith(`nf_inst_${nota.id}_`) ||
+          n.id.startsWith(`nf_cnab_${nota.id}_`)) &&
+        n.receberStatus === 'pago'
+    );
+  };
+
+  const requestDeleteNotaSaida = (nota: NotaSaidaRecord) => {
+    if (hasSettledReceivableForNotaSaida(nota)) {
+      setBlockedDeleteInfo({
+        title: 'Exclusão Bloqueada — Parcela Recebida no Financeiro',
+        detail: `${nota.tipoDocumento.split(' ')[0]} Nº ${nota.numero} (${nota.destinatarioNome})`,
+      });
+      return;
+    }
+    setNotaSaidaToDelete(nota);
+  };
+
+  const requestDeleteXmlNota = (notaId: string) => {
+    const nota =
+      notasFiscaisExibicao.find((n) => n.id === notaId || n.invoiceNumber === notaId) ||
+      notasLancadas.find((n) => n.id === notaId || n.invoiceNumber === notaId) ||
+      expenses.find((n) => n.id === notaId || n.invoiceNumber === notaId) ||
+      getStoredFiscalRecords().find((n) => n.id === notaId || n.invoiceNumber === notaId);
+    const docEntrada =
+      documentosEntrada.find((d) => d.id === notaId) ||
+      getStoredDocumentosEntrada().find((d) => d.id === notaId);
+    const targetKey = nota ? getCanonicalNfeKey(nota) : '';
+    const docNum = nota?.invoiceNumber || docEntrada?.numero || '';
+    const accessKey = (nota as any)?.accessKey || docEntrada?.chave_acesso || '';
+
+    if (hasSettledPayableForDoc({ docId: notaId, docNum, accessKey, targetKey })) {
+      setBlockedDeleteInfo({
+        title: 'Exclusão Bloqueada — Parcela Paga no Financeiro',
+        detail: `Nota Fiscal ${docNum || notaId}`,
+      });
+      return;
+    }
+    setNotaParaExcluir(notaId);
+  };
+
+  const requestDeleteManualDoc = (doc: DocumentoEntradaRecord) => {
+    const docNum = doc.numero || doc.numero_documento || '';
+    if (hasSettledPayableForDoc({ docId: doc.id, docNum, accessKey: doc.chave_acesso })) {
+      setBlockedDeleteInfo({
+        title: 'Exclusão Bloqueada — Parcela Paga no Financeiro',
+        detail: `${doc.tipo_documento || 'Documento de Entrada'} ${docNum ? `Nº ${docNum}` : ''}`,
+      });
+      return;
+    }
+    setManualDocToDelete(doc);
+  };
+
+  const requestDeleteLegacyFiscalDoc = (doc: FiscalDocumentRecord) => {
+    if (hasSettledPayableForDoc({ docId: doc.id, docNum: doc.number })) {
+      setBlockedDeleteInfo({
+        title: 'Exclusão Bloqueada — Parcela Paga no Financeiro',
+        detail: `${doc.documentTypeLabel || 'Documento Fiscal'} Nº ${doc.number}`,
+      });
+      return;
+    }
+    setLegacyDocToDelete(doc);
+  };
+
   const handleDeleteNotaSaida = (nota: NotaSaidaRecord) => {
+    if (hasSettledReceivableForNotaSaida(nota)) {
+      setNotaSaidaToDelete(null);
+      setBlockedDeleteInfo({
+        title: 'Exclusão Bloqueada — Parcela Recebida no Financeiro',
+        detail: `${nota.tipoDocumento.split(' ')[0]} Nº ${nota.numero} (${nota.destinatarioNome})`,
+      });
+      return;
+    }
+
+    // Estorno automático de estoque em Notas de Saída que realizaram baixa no estoque
+    const estornoSaidaLogs: string[] = [];
+    if (nota.estoqueBaixado && Array.isArray(nota.itens) && nota.itens.length > 0) {
+      const updatedInventory = [...getMergedBaseInventory()];
+      nota.itens.forEach((it) => {
+        const qty = Number(it.quantidade) || 0;
+        if (qty <= 0) return;
+        const idx = updatedInventory.findIndex(
+          (inv) =>
+            (it.inventoryItemId && inv.id === it.inventoryItemId) ||
+            (it.codigo && inv.code && String(inv.code).trim().toLowerCase() === String(it.codigo).trim().toLowerCase()) ||
+            (it.descricao &&
+              String(inv.name || inv.nome_comercial || '').trim().toLowerCase() ===
+                String(it.descricao).trim().toLowerCase())
+        );
+        if (idx >= 0) {
+          const cur = Number(updatedInventory[idx].quantity) || 0;
+          const nextQty = Math.round((cur + qty) * 100) / 100;
+          updatedInventory[idx] = {
+            ...updatedInventory[idx],
+            quantity: nextQty,
+            updatedAt: new Date().toISOString(),
+          };
+          estornoSaidaLogs.push(`${updatedInventory[idx].name} (+${qty} ${updatedInventory[idx].unit || it.unidade || 'UN'})`);
+        }
+      });
+      if (estornoSaidaLogs.length > 0) {
+        saveInventory(updatedInventory);
+      }
+    }
+
+    // Remove a nota e eventuais parcelas filhas em aberto
+    const remainingSaidas = getStoredNotasSaida().filter(
+      (n) =>
+        n.id !== nota.id &&
+        !n.id.startsWith(`nf_inst_${nota.id}_`) &&
+        !n.id.startsWith(`nf_cnab_${nota.id}_`)
+    );
+    saveStoredNotasSaida(remainingSaidas);
     deleteLocalNotaSaida(nota.id);
     setNotasSaida(getStoredNotasSaida());
     setNotaSaidaToDelete(null);
     if (viewingNotaSaida?.id === nota.id) {
       setViewingNotaSaida(null);
     }
-    setSuccessMessage(`Nota de saída Nº ${nota.numero} excluída com sucesso!`);
-    setTimeout(() => setSuccessMessage(''), 4000);
+    const stockNote = estornoSaidaLogs.length > 0 ? ` Estoque devolvido: ${estornoSaidaLogs.join(', ')}.` : '';
+    setSuccessMessage(`Nota de saída Nº ${nota.numero} excluída com sucesso!${stockNote}`);
+    setTimeout(() => setSuccessMessage(''), 5000);
   };
 
   // Tipos de Documentos de Entrada Manual (dinâmico e gerenciável)
@@ -6828,6 +6999,96 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const docNum = doc.numero || doc.numero_documento || '';
       const cleanNum = String(getCleanInvoiceNumber(docNum) ?? '').toLowerCase();
       const digits = (docNum || '').replace(/\D/g, '');
+      const cleanDigitsNoZero = digits.replace(/^0+/, '');
+
+      if (hasSettledPayableForDoc({ docId, docNum, accessKey: doc.chave_acesso })) {
+        setManualDocToDelete(null);
+        setBlockedDeleteInfo({
+          title: 'Exclusão Bloqueada — Parcela Paga no Financeiro',
+          detail: `${doc.tipo_documento || 'Documento de Entrada'} ${docNum ? `Nº ${docNum}` : ''}`,
+        });
+        return;
+      }
+
+      // Estorno automático de estoque dos produtos lançados neste documento manual / movimentações
+      const estornoLogs: string[] = [];
+      try {
+        const updatedInventory = [...getMergedBaseInventory()];
+        const qtyByInventoryIdx = new Map<number, number>();
+
+        const accumulateStockReversal = (invIdx: number, qty: number) => {
+          if (invIdx < 0 || qty <= 0) return;
+          qtyByInventoryIdx.set(invIdx, Math.round(((qtyByInventoryIdx.get(invIdx) || 0) + qty) * 100) / 100);
+        };
+
+        const storedMovs = getStoredStockMovements().filter((m) => {
+          if (m.notaId === docId) return true;
+          if (doc.chave_acesso && m.accessKey && m.accessKey === doc.chave_acesso) return true;
+          const mDigits = String(m.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+          return Boolean(cleanDigitsNoZero && mDigits && mDigits === cleanDigitsNoZero);
+        });
+
+        if (storedMovs.length > 0) {
+          storedMovs.forEach((m) => {
+            const idx = updatedInventory.findIndex(
+              (inv) =>
+                (m.productId && inv.id === m.productId) ||
+                (m.productName &&
+                  String(inv.name || inv.nome_comercial || '').trim().toLowerCase() ===
+                    String(m.productName).trim().toLowerCase())
+            );
+            accumulateStockReversal(idx, Number(m.quantity) || 0);
+          });
+        } else {
+          const docItemsList: any[] = [];
+          if (Array.isArray(doc.itens) && doc.itens.length > 0) {
+            docItemsList.push(...doc.itens);
+          } else {
+            const storedItems = getStoredDocumentosEntradaItens().filter(
+              (i) => i.documento_entrada_id === docId
+            );
+            docItemsList.push(...storedItems);
+          }
+
+          docItemsList.forEach((it) => {
+            const qty = Number(it.quantidade ?? it.quantity) || 0;
+            if (qty <= 0) return;
+            const prodId = it.produto_id || it.inventoryItemId;
+            const descLower = String(it.descricao ?? it.description ?? it.produto_nome ?? '').trim().toLowerCase();
+            const codeLower = String(it.codigo ?? it.code ?? '').trim().toLowerCase();
+            const idx = updatedInventory.findIndex(
+              (inv) =>
+                (prodId && inv.id === prodId) ||
+                (codeLower && inv.code && String(inv.code).trim().toLowerCase() === codeLower) ||
+                (descLower && String(inv.name || inv.nome_comercial || '').trim().toLowerCase() === descLower)
+            );
+            accumulateStockReversal(idx, qty);
+          });
+        }
+
+        qtyByInventoryIdx.forEach((qtyToSub, idx) => {
+          const currentQty = Number(updatedInventory[idx].quantity) || 0;
+          const newQty = Math.max(0, Math.round((currentQty - qtyToSub) * 100) / 100);
+          updatedInventory[idx] = {
+            ...updatedInventory[idx],
+            quantity: newQty,
+            updatedAt: new Date().toISOString(),
+          };
+          estornoLogs.push(`${updatedInventory[idx].name} (-${qtyToSub} ${updatedInventory[idx].unit || 'UN'})`);
+        });
+
+        if (estornoLogs.length > 0) {
+          saveInventory(updatedInventory);
+        }
+      } catch (stockErr) {
+        console.warn('Aviso ao estornar estoque da entrada manual:', stockErr);
+      }
+
+      removeStockEntryMovementsForInvoice({
+        notaId: docId,
+        invoiceNumber: docNum,
+        accessKey: doc.chave_acesso,
+      });
 
       // Trava de tombstone: garante que o ID e número nunca voltem após F5
       recordDeletedDocumentoEntradaId(docId);
@@ -6959,8 +7220,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       setManualDocToDelete(null);
       setViewingManualDoc(null);
-      setSuccessMessage(`Documento de entrada (${doc.tipo_documento}) excluído com sucesso!`);
-      setTimeout(() => setSuccessMessage(''), 4000);
+      const stockInfo = estornoLogs.length > 0 ? ` Estoque estornado: ${estornoLogs.join(', ')}.` : '';
+      setSuccessMessage(`Documento de entrada (${doc.tipo_documento}) excluído com sucesso!${stockInfo}`);
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       console.error('Erro ao excluir documento:', err);
     }
@@ -6970,6 +7232,48 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const handleDeleteLegacyFiscalDoc = async (doc: FiscalDocumentRecord) => {
     try {
       const docId = doc.id;
+      if (hasSettledPayableForDoc({ docId, docNum: doc.number })) {
+        setLegacyDocToDelete(null);
+        setBlockedDeleteInfo({
+          title: 'Exclusão Bloqueada — Parcela Paga no Financeiro',
+          detail: `${doc.documentTypeLabel || 'Documento Fiscal'} Nº ${doc.number}`,
+        });
+        return;
+      }
+
+      // Estorno de estoque para documentos fiscais legados com produtos (ex: NF-e de entrada / efetivados)
+      const estornoLegadoLogs: string[] = [];
+      if ((doc.category === 'nfe' || (Array.isArray(doc.items) && doc.items.length > 0)) && doc.status !== 'PENDENTE') {
+        try {
+          const updatedInventory = [...getMergedBaseInventory()];
+          const itemsToRevert = Array.isArray(doc.items) ? doc.items : [];
+          itemsToRevert.forEach((it) => {
+            const qty = Number(it.quantity) || 0;
+            if (qty <= 0) return;
+            const descLower = String(it.description || '').trim().toLowerCase();
+            const idx = updatedInventory.findIndex(
+              (inv) =>
+                (it.productId && inv.id === it.productId) ||
+                (descLower && String(inv.name || inv.nome_comercial || '').trim().toLowerCase() === descLower)
+            );
+            if (idx >= 0) {
+              const cur = Number(updatedInventory[idx].quantity) || 0;
+              const newQty = Math.max(0, Math.round((cur - qty) * 100) / 100);
+              updatedInventory[idx] = {
+                ...updatedInventory[idx],
+                quantity: newQty,
+                updatedAt: new Date().toISOString(),
+              };
+              estornoLegadoLogs.push(`${updatedInventory[idx].name} (-${qty} ${updatedInventory[idx].unit || it.unit || 'UN'})`);
+            }
+          });
+          if (estornoLegadoLogs.length > 0) {
+            saveInventory(updatedInventory);
+          }
+        } catch {}
+      }
+      removeStockEntryMovementsForInvoice({ notaId: docId, invoiceNumber: doc.number });
+
       const storageKey = FISCAL_DOCS_STORAGE_KEYS[doc.category] || FISCAL_DOCS_STORAGE_KEYS.nfe;
       try {
         const raw = localStorage.getItem(storageKey);
@@ -7017,8 +7321,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setDocumentosEntrada(getStoredDocumentosEntrada());
       setLegacyDocToDelete(null);
       setViewingLegacyDoc(null);
-      setSuccessMessage(`Documento ${doc.documentTypeLabel || 'Fiscal'} (${doc.number}) excluído com sucesso!`);
-      setTimeout(() => setSuccessMessage(''), 4000);
+      const stockMsg = estornoLegadoLogs.length > 0 ? ` Estoque estornado: ${estornoLegadoLogs.join(', ')}.` : '';
+      setSuccessMessage(`Documento ${doc.documentTypeLabel || 'Fiscal'} (${doc.number}) excluído com sucesso!${stockMsg}`);
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       console.error('Erro ao excluir documento fiscal legado:', err);
     }
@@ -11589,39 +11894,90 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const digits = (docNum || '').replace(/\D/g, '');
     const accessKey = (nota as any)?.accessKey || docEntrada?.chave_acesso || '';
 
-    // 2. ESTORNO AUTOMÁTICO DE QUANTIDADES NO ESTOQUE (Requisito 1)
+    if (hasSettledPayableForDoc({ docId: notaId, docNum, accessKey, targetKey })) {
+      setNotaParaExcluir(null);
+      setBlockedDeleteInfo({
+        title: 'Exclusão Bloqueada — Parcela Paga no Financeiro',
+        detail: `Nota Fiscal ${docNum || notaId}`,
+      });
+      return;
+    }
+
+    // 2. ESTORNO AUTOMÁTICO DE QUANTIDADES NO ESTOQUE (mínimo 0)
     const estornoLogs: string[] = [];
+    const baseInventory = [...getMergedBaseInventory()];
+    let inventoryModified = false;
+
     if (nota) {
       const reversalAnalysis = getStockReversalAnalysis(
         nota,
         expenses,
-        localInventory,
+        baseInventory,
         companyProfile
       );
 
       if (reversalAnalysis.reversalItems.length > 0) {
-        let updatedInventory = [...localInventory];
-
         reversalAnalysis.reversalItems.forEach(item => {
           if (item.inventoryItemId && item.nfeQuantity > 0) {
-            const invIdx = updatedInventory.findIndex(i => i.id === item.inventoryItemId);
+            const invIdx = baseInventory.findIndex(i => i.id === item.inventoryItemId);
             if (invIdx !== -1) {
-              const currentQty = Number(updatedInventory[invIdx].quantity) || 0;
-              const newQty = Math.round((currentQty - item.nfeQuantity) * 100) / 100;
-              updatedInventory[invIdx] = {
-                ...updatedInventory[invIdx],
-                quantity: newQty
+              const currentQty = Number(baseInventory[invIdx].quantity) || 0;
+              const newQty = Math.max(0, Math.round((currentQty - item.nfeQuantity) * 100) / 100);
+              baseInventory[invIdx] = {
+                ...baseInventory[invIdx],
+                quantity: newQty,
+                updatedAt: new Date().toISOString(),
               };
-              estornoLogs.push(`${updatedInventory[invIdx].name} (-${item.nfeQuantity} ${updatedInventory[invIdx].unit || item.unit})`);
+              inventoryModified = true;
+              estornoLogs.push(`${baseInventory[invIdx].name} (-${item.nfeQuantity} ${baseInventory[invIdx].unit || item.unit})`);
             }
           }
         });
-
-        if (estornoLogs.length > 0) {
-          saveInventory(updatedInventory);
-        }
       }
     }
+
+    // Fallback via StockEntryMovement caso itens não estivessem anexados diretamente no objeto da nota
+    if (!inventoryModified) {
+      const cleanDigitsNoZero = digits.replace(/^0+/, '');
+      const cleanAccessDigits = String(accessKey || '').replace(/\D/g, '');
+      const matchingMovs = getStoredStockMovements().filter((m) => {
+        if (m.notaId === notaId) return true;
+        if (cleanAccessDigits.length === 44 && String(m.accessKey || '').replace(/\D/g, '') === cleanAccessDigits) return true;
+        const mDigits = String(m.invoiceNumber || '').replace(/\D/g, '').replace(/^0+/, '');
+        return Boolean(cleanDigitsNoZero && mDigits && mDigits === cleanDigitsNoZero);
+      });
+      matchingMovs.forEach((m) => {
+        const qty = Number(m.quantity) || 0;
+        if (qty <= 0) return;
+        const invIdx = baseInventory.findIndex(
+          (i) =>
+            (m.productId && i.id === m.productId) ||
+            (m.productName &&
+              String(i.name || i.nome_comercial || '').trim().toLowerCase() ===
+                String(m.productName).trim().toLowerCase())
+        );
+        if (invIdx >= 0) {
+          const currentQty = Number(baseInventory[invIdx].quantity) || 0;
+          const newQty = Math.max(0, Math.round((currentQty - qty) * 100) / 100);
+          baseInventory[invIdx] = {
+            ...baseInventory[invIdx],
+            quantity: newQty,
+            updatedAt: new Date().toISOString(),
+          };
+          inventoryModified = true;
+          estornoLogs.push(`${baseInventory[invIdx].name} (-${qty} ${baseInventory[invIdx].unit || m.unit || 'UN'})`);
+        }
+      });
+    }
+
+    if (inventoryModified) {
+      saveInventory(baseInventory);
+    }
+    removeStockEntryMovementsForInvoice({
+      notaId,
+      invoiceNumber: docNum,
+      accessKey,
+    });
 
     // 3. REGISTRA TOMBSTONES DE EXCLUSÃO DEFINITIVA
     recordDeletedDocumentoEntradaId(notaId);
@@ -13783,15 +14139,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (rawNotaSaida) {
-                                  setNotaSaidaToDelete(rawNotaSaida);
+                                  requestDeleteNotaSaida(rawNotaSaida);
                                 } else if (isXml && entry.rawExpense) {
-                                  setNotaParaExcluir(entry.id);
+                                  requestDeleteXmlNota(entry.id);
                                 } else if (entry.rawLegacyFiscalDoc) {
-                                  setLegacyDocToDelete(entry.rawLegacyFiscalDoc);
+                                  requestDeleteLegacyFiscalDoc(entry.rawLegacyFiscalDoc);
                                 } else if (entry.rawMdfeDoc) {
                                   setMdfeDocToDelete(entry.rawMdfeDoc);
                                 } else {
-                                  setManualDocToDelete(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio' } as DocumentoEntradaRecord));
+                                  requestDeleteManualDoc(entry.rawManualDoc || ({ id: entry.id, tipo_documento: entry.documentType || 'Romaneio', numero: entry.documentNumber } as DocumentoEntradaRecord));
                                 }
                               }}
                               className="h-6 w-6 inline-flex items-center justify-center p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
@@ -13928,7 +14284,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-amber-800 dark:text-amber-300 pl-7 leading-relaxed">
-                  A quantidade restante em estoque é menor do que a quantidade que deu entrada através desta nota fiscal. A confirmação da exclusão fará o saldo do produto ficar negativo.
+                  A quantidade restante em estoque é menor do que a quantidade que deu entrada através desta nota fiscal. O saldo do produto será ajustado até o limite mínimo de 0.
                 </p>
               </div>
             )}
@@ -13968,11 +14324,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         {item.matchedByNameOrCode ? (
                           <>
                             <div className="text-[10px] text-stone-400 uppercase">Novo Saldo</div>
-                            <div className={`font-mono font-bold text-xs ${item.isNegative ? 'text-rose-600 dark:text-rose-400' : 'text-stone-800 dark:text-stone-200'}`}>
+                            <div className={`font-mono font-bold text-xs ${item.isNegative ? 'text-amber-700 dark:text-amber-400' : 'text-stone-800 dark:text-stone-200'}`}>
                               {item.projectedStock} {item.unit}
                               {item.isNegative && (
-                                <span className="ml-1 text-[10px] px-1 py-0.5 bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 rounded font-sans font-medium">
-                                  Negativo
+                                <span className="ml-1 text-[10px] px-1 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 rounded font-sans font-medium">
+                                  Zerado (Mín. 0)
                                 </span>
                               )}
                             </div>
@@ -15547,7 +15903,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 type="button"
                 id="btn-excluir-doc-detalhes"
                 onClick={() => {
-                  setManualDocToDelete(viewingManualDoc);
+                  requestDeleteManualDoc(viewingManualDoc);
                 }}
                 className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
@@ -15702,7 +16058,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-800 flex items-center justify-between shrink-0">
               <button
                 type="button"
-                onClick={() => setLegacyDocToDelete(viewingLegacyDoc)}
+                onClick={() => requestDeleteLegacyFiscalDoc(viewingLegacyDoc)}
                 className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -19185,7 +19541,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <div className="px-5 py-3 bg-[#cad4e6] dark:bg-stone-900 border-t border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setNotaSaidaToDelete(viewingNotaSaida)}
+                onClick={() => requestDeleteNotaSaida(viewingNotaSaida)}
                 className="px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-600 rounded-lg transition cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -19278,6 +19634,56 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Sim, Excluir</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: BLOQUEIO DE EXCLUSÃO DE NOTA COM PARCELA PAGA / RECEBIDA          */}
+      {/* ========================================================================= */}
+      {blockedDeleteInfo && (
+        <div
+          id="modal-bloqueio-exclusao-nota-liquidada"
+          className="fixed inset-0 z-90 bg-black/65 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setBlockedDeleteInfo(null)}
+        >
+          <div
+            className="w-full max-w-md bg-[#cad4e6] dark:bg-stone-900 border border-black dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden text-black dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-2.5 bg-[#cad4e6] dark:bg-stone-900 border-b border-black dark:border-stone-800 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase">
+                  {blockedDeleteInfo.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBlockedDeleteInfo(null)}
+                className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-stone-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 bg-[#e0e6f1] dark:bg-stone-950">
+              <div className="p-2.5 rounded-lg bg-white dark:bg-stone-900 border border-black/30 dark:border-stone-700 text-xs font-black uppercase">
+                {blockedDeleteInfo.detail}
+              </div>
+              <p className="text-xs font-semibold text-stone-800 dark:text-stone-200 leading-relaxed">
+                Não é possível excluir esta Nota Fiscal porque existem parcelas já baixadas no Financeiro. Acesse <strong>Financeiro &gt; A Pagar (ou A Receber)</strong>, estorne a baixa da parcela paga informando o motivo e depois exclua a nota.
+              </p>
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  id="btn-fechar-bloqueio-exclusao"
+                  onClick={() => setBlockedDeleteInfo(null)}
+                  className="px-4 py-1.5 text-xs font-black uppercase rounded-lg bg-slate-900 hover:bg-black text-white border border-black cursor-pointer"
+                >
+                  Entendi
+                </button>
+              </div>
             </div>
           </div>
         </div>

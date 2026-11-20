@@ -33,7 +33,8 @@ import {
   PaymentMethod, 
   BankAccount, 
   CompanyProfile, 
-  FinanceiroCheque 
+  FinanceiroCheque,
+  ReversalAuditEntry
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -85,6 +86,11 @@ export interface ReceivableItem {
   totalInstallments?: number;
   chequeId?: string;
   chequeNumero?: string;
+  paymentDate?: string;
+  bankAccountId?: string;
+  bankAccountName?: string;
+  lastReversal?: ReversalAuditEntry;
+  reversalHistory?: ReversalAuditEntry[];
 }
 
 export interface InstallmentPreviewItem {

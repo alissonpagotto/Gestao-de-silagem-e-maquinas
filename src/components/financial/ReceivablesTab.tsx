@@ -14,7 +14,8 @@ import {
   CreditCard,
   Building2,
   Sparkles,
-  Landmark
+  Landmark,
+  RotateCcw
 } from 'lucide-react';
 import { 
   SilageOrder, 
@@ -23,7 +24,8 @@ import {
   CompanyProfile,
   PaymentMethod,
   FinanceiroCheque,
-  BankTransaction 
+  BankTransaction,
+  ReversalAuditEntry
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -51,6 +53,12 @@ import {
 } from './ReceivePaymentModal';
 import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 import { CnabRemessaRetornoModal, CnabBatchSettlePayload } from './CnabRemessaRetornoModal';
+import { ReverseAuditModal } from './ReverseAuditModal';
+import {
+  formatReversalTooltip,
+  recordFinancialReversalAudit,
+  reverseCashRegisterSettlement,
+} from '../../lib/financialAudit';
 import {
   BOLETOS_EMITIDOS_UPDATED_EVENT,
   getStoredBoletosEmitidos,
@@ -138,8 +146,9 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const handlePrev = onPrevMonth || (() => setInternalCompetence((prev) => getPrevCompetence(prev)));
   const handleNext = onNextMonth || (() => setInternalCompetence((prev) => getNextCompetence(prev)));
 
-  // Modal de Baixa de Contas a Receber
+  // Modal de Baixa e Estorno de Contas a Receber
   const [settlingItem, setSettlingItem] = useState<ReceivableItem | null>(null);
+  const [reversingItem, setReversingItem] = useState<ReceivableItem | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
   // Modal de Remessa & Retorno Bancário (CNAB 240 / 400)
@@ -193,6 +202,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         totalInstallments: o.totalInstallments,
         chequeId: o.chequeId || (o as any).cheque_id,
         chequeNumero: o.chequeNumero || (o as any).cheque_numero || extractedNumero,
+        paymentDate: o.paymentDate,
+        bankAccountId: o.bankAccountId,
+        bankAccountName: o.bankAccountName,
+        lastReversal: o.lastReversal,
+        reversalHistory: o.reversalHistory,
       };
     });
   }, [localOrders]);
@@ -230,6 +244,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           totalInstallments: s.totalInstallments,
           chequeId: s.chequeId || (s as any).cheque_id,
           chequeNumero: s.chequeNumero || (s as any).cheque_numero || extractedNumero,
+          paymentDate: s.paymentDate,
+          bankAccountId: s.bankAccountId,
+          bankAccountName: s.bankAccountName,
+          lastReversal: s.lastReversal,
+          reversalHistory: s.reversalHistory,
         };
       });
   }, [localServices]);
@@ -287,6 +306,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           notes: n.descricao || n.observacoes || '',
           clientId: resolvedClientId,
           paymentMethod: (n.receberPaymentMethod as PaymentMethod) || mapCond(n.condicaoPagamento),
+          paymentDate: n.receberPaymentDate,
+          bankAccountId: n.bankAccountId,
+          bankAccountName: n.bankAccountName,
+          lastReversal: n.lastReversal,
+          reversalHistory: n.reversalHistory,
         };
       });
   }, [localNotasSaida]);
@@ -352,6 +376,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           paymentMethod: inst1Method,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
           paidAmount: isInst1Paid ? inst1.amount : 0,
+          bankAccountId: isInst1Paid ? details.bankAccountId : undefined,
+          bankAccountName: isInst1Paid ? effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name : undefined,
           billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`,
           updatedAt: new Date().toISOString(),
           isInstallment: true,
@@ -469,6 +495,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               paymentMethod: details.paymentMethod,
               paymentDate: details.receiptDate,
               paidAmount: details.paidAmount,
+              bankAccountId: details.bankAccountId,
+              bankAccountName: effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name,
               billingNotes: details.interestAmount 
                 ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
@@ -549,6 +577,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           paymentMethod: inst1Method,
           paidAmount: isInst1Paid ? inst1.amount : 0,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
+          bankAccountId: isInst1Paid ? details.bankAccountId : undefined,
+          bankAccountName: isInst1Paid ? effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name : undefined,
           notes: `${targetOrder.notes || ''} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`.trim(),
           updatedAt: new Date().toISOString(),
           isInstallment: true,
@@ -663,6 +693,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               paymentMethod: details.paymentMethod,
               paidAmount: details.paidAmount,
               paymentDate: details.receiptDate,
+              bankAccountId: details.bankAccountId,
+              bankAccountName: effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name,
               notes: details.interestAmount
                 ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
                 : `${o.notes || ''}${chqSingleNote}`.trim(),
@@ -738,6 +770,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           receberStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
           receberPaymentDate: isInst1Paid ? details.receiptDate : undefined,
           receberPaymentMethod: inst1Method,
+          bankAccountId: isInst1Paid ? details.bankAccountId : undefined,
+          bankAccountName: isInst1Paid ? effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name : undefined,
           updatedAt: new Date().toISOString(),
         };
 
@@ -787,6 +821,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               receberStatus: 'pago' as const,
               receberPaymentDate: details.receiptDate,
               receberPaymentMethod: details.paymentMethod,
+              bankAccountId: details.bankAccountId,
+              bankAccountName: effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name,
               valorTotal: details.paidAmount,
               updatedAt: new Date().toISOString(),
             };
@@ -833,6 +869,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           bankAccountId: details.bankAccountId,
           type: 'entrada',
           sourceType: 'receita',
+          sourceId: details.itemId,
           category: details.itemType === 'Venda de Silagem' ? 'Venda de Silagem' : 'Prestação de Serviços',
           description: details.isInstallmentPlan
             ? `Recebimento Parcela 1/${details.installments?.length || 1} - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`
@@ -912,20 +949,21 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       creditedAmount = Number((creditedAmount + paidVal).toFixed(2));
       const txDate = row.dataCredito || row.dataOcorrencia || todayStr;
 
+      const matchedBoleto = row.matchedBoletoId ? boletoById.get(row.matchedBoletoId) : undefined;
+      const contaId = row.matchedContaReceberId || matchedBoleto?.contaReceberId;
+
       newTransactions.push({
         id: toValidUUID(),
         bankAccountId: payload.bankAccountId,
         type: 'entrada',
         sourceType: 'receita',
+        sourceId: contaId || row.nossoNumero,
         category: 'Recebimento Boleto (CNAB)',
         description: `Baixa Retorno CNAB${payload.fileName ? ` (${payload.fileName})` : ''} - ${row.clienteNome} | NN ${row.nossoNumero}`,
         amount: paidVal,
         date: txDate,
         createdAt: nowIso,
       });
-
-      const matchedBoleto = row.matchedBoletoId ? boletoById.get(row.matchedBoletoId) : undefined;
-      const contaId = row.matchedContaReceberId || matchedBoleto?.contaReceberId;
       if (contaId) {
         const existingGroup = groupedByConta.get(contaId);
         const parcelaLabel = matchedBoleto?.parcela || '';
@@ -1170,6 +1208,167 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     };
   };
 
+  // Estorno auditado de recebimento (Contas a Receber -> Reabre título + estorna Banco / Caixa)
+  const handleConfirmReverseReceivable = (audit: {
+    reason: string;
+    user: string;
+    dateTime: string;
+    isoTimestamp: string;
+  }) => {
+    if (!reversingItem) return;
+    const item = reversingItem;
+    const activeCompanyId = companyProfile?.id || getActiveCompanyId();
+    const nowIso = audit.isoTimestamp || new Date().toISOString();
+
+    const reversalEntry: ReversalAuditEntry = {
+      id: `rev_rec_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      targetType: 'receber',
+      targetId: item.id,
+      description: `${item.type} — ${item.volume}`,
+      amount: Number(item.totalAmount) || 0,
+      user: audit.user,
+      dateTime: audit.dateTime,
+      isoTimestamp: nowIso,
+      reason: audit.reason,
+      previousStatus: item.status,
+      previousPaymentDate: item.paymentDate,
+      bankAccountId: item.bankAccountId,
+      bankAccountName: item.bankAccountName,
+    };
+
+    // 1. Reabrir título de acordo com a origem
+    if (item.type === 'Prestação de Serviço') {
+      const updatedServices = localServices.map((s) => {
+        if (s.id !== item.id) return s;
+        return {
+          ...s,
+          status: 'faturado' as const,
+          paymentStatus: 'pendente' as const,
+          paymentDate: undefined,
+          paidAmount: 0,
+          bankAccountId: undefined,
+          bankAccountName: undefined,
+          lastReversal: reversalEntry,
+          reversalHistory: [reversalEntry, ...(s.reversalHistory || [])],
+          updatedAt: nowIso,
+        };
+      });
+      setLocalServices(updatedServices);
+      saveStoredServices(updatedServices);
+      if (onSaveServices) onSaveServices(updatedServices);
+    } else if (item.type === 'Venda de Silagem') {
+      const updatedOrders = localOrders.map((o) => {
+        if (o.id !== item.id) return o;
+        return {
+          ...o,
+          paymentStatus: 'pendente' as const,
+          paymentDate: undefined,
+          paidAmount: 0,
+          bankAccountId: undefined,
+          bankAccountName: undefined,
+          lastReversal: reversalEntry,
+          reversalHistory: [reversalEntry, ...(o.reversalHistory || [])],
+          updatedAt: nowIso,
+        };
+      });
+      setLocalOrders(updatedOrders);
+      saveStoredOrders(updatedOrders);
+      if (onSaveOrders) onSaveOrders(updatedOrders);
+    } else if (item.type === 'Nota Fiscal de Saída') {
+      const updatedNotas = localNotasSaida.map((n) => {
+        if (n.id !== item.id) return n;
+        return {
+          ...n,
+          receberStatus: 'pendente' as const,
+          receberPaymentDate: undefined,
+          bankAccountId: undefined,
+          bankAccountName: undefined,
+          lastReversal: reversalEntry,
+          reversalHistory: [reversalEntry, ...(n.reversalHistory || [])],
+          updatedAt: nowIso,
+        };
+      });
+      setLocalNotasSaida(updatedNotas);
+      saveStoredNotasSaida(updatedNotas);
+      window.dispatchEvent(new CustomEvent('agrocontrol_notas_saida_updated'));
+    }
+
+    // 2. Remover lançamento correspondente do Extrato Bancário / estornar saldo da conta ou Caixa
+    try {
+      const allTxs = getStoredBankTransactions();
+      const clientLower = String(item.clientName || '').trim().toLowerCase();
+      let matchedIdx = allTxs.findIndex(
+        (tx) =>
+          tx.type === 'entrada' &&
+          (tx.sourceId === item.id || tx.expenseId === item.id)
+      );
+
+      if (matchedIdx < 0) {
+        matchedIdx = allTxs.findIndex(
+          (tx) =>
+            tx.type === 'entrada' &&
+            tx.sourceType === 'receita' &&
+            Math.abs((Number(tx.amount) || 0) - (Number(item.totalAmount) || 0)) < 0.02 &&
+            (!item.bankAccountId || tx.bankAccountId === item.bankAccountId) &&
+            (!clientLower || String(tx.description || '').toLowerCase().includes(clientLower))
+        );
+      }
+
+      if (matchedIdx >= 0) {
+        const matchedTx = allTxs[matchedIdx];
+        const remainingTxs = allTxs.filter((_, i) => i !== matchedIdx);
+        saveStoredBankTransactions(remainingTxs);
+
+        const accs = getStoredBankAccounts();
+        const targetAcc = accs.find((a) => a.id === matchedTx.bankAccountId);
+        if (targetAcc) {
+          targetAcc.balance = Number(((Number(targetAcc.balance) || 0) - (Number(matchedTx.amount) || 0)).toFixed(2));
+          targetAcc.updatedAt = nowIso;
+          saveStoredBankAccounts(accs);
+          saveCompanyFinanceiroContas(accs, activeCompanyId);
+          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+          window.dispatchEvent(new Event('bank_accounts_updated'));
+        }
+        window.dispatchEvent(new Event('bank_transactions_updated'));
+      } else if (item.bankAccountId) {
+        const accs = getStoredBankAccounts();
+        const targetAcc = accs.find((a) => a.id === item.bankAccountId);
+        if (targetAcc) {
+          targetAcc.balance = Number(((Number(targetAcc.balance) || 0) - (Number(item.totalAmount) || 0)).toFixed(2));
+          targetAcc.updatedAt = nowIso;
+          saveStoredBankAccounts(accs);
+          saveCompanyFinanceiroContas(accs, activeCompanyId);
+          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+          window.dispatchEvent(new Event('bank_accounts_updated'));
+        }
+      } else {
+        reverseCashRegisterSettlement({
+          type: 'receber',
+          targetId: item.id,
+          amount: Number(item.totalAmount) || 0,
+          description: `${item.type} — ${item.volume}`,
+          partyName: item.clientName,
+          paymentMethod: item.paymentMethod,
+          bankAccountId: item.bankAccountId,
+          reason: audit.reason,
+          user: audit.user,
+        });
+      }
+    } catch (err) {
+      console.warn('Aviso ao estornar movimentação bancária/caixa do recebimento:', err);
+    }
+
+    // 3. Registrar auditoria do estorno
+    recordFinancialReversalAudit(reversalEntry);
+    setReversingItem(null);
+
+    const revMsg = `Recebimento de ${item.clientName} (${formatCurrencyBRL(item.totalAmount)}) estornado por ${audit.user}. Título reaberto para A Receber.`;
+    setSuccessMessage(revMsg);
+    setTimeout(() => {
+      setSuccessMessage((curr) => (curr === revMsg ? '' : curr));
+    }, 6000);
+  };
+
   return (
     <div id="financial-tab-receber" className="financial-subtab-clean flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden">
       {/* Toast de Sucesso da Baixa */}
@@ -1387,20 +1586,32 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                       <td className="py-1.5 px-2.5 text-right whitespace-nowrap pr-3">
                         <div className="flex items-center justify-end space-x-1.5">
                           {isPaid ? (
-                            <span
-                              id={`badge-recebido-${item.id}`}
-                              className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 uppercase shadow-2xs"
-                              title="Faturamento liquidado e recebido"
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                              <span>RECEBIDO</span>
-                            </span>
+                            <>
+                              <span
+                                id={`badge-recebido-${item.id}`}
+                                className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 uppercase shadow-2xs"
+                                title="Faturamento liquidado e recebido"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                <span>RECEBIDO</span>
+                              </span>
+                              <button
+                                type="button"
+                                id={`btn-estornar-receber-${item.id}`}
+                                onClick={() => setReversingItem(item)}
+                                className="h-6 inline-flex items-center space-x-1 text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-stone-700 transition cursor-pointer shadow-2xs uppercase"
+                                title="Estornar baixa deste recebimento"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>ESTORNAR</span>
+                              </button>
+                            </>
                           ) : (
                             <>
                               {isOverdue ? (
                                 <span
                                   className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-50 border border-rose-300 text-rose-700 uppercase shadow-2xs"
-                                  title="Título com vencimento expirado"
+                                  title={formatReversalTooltip(item) || 'Título com vencimento expirado'}
                                 >
                                   <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
                                   <span>VENCIDO</span>
@@ -1408,10 +1619,19 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                               ) : (
                                 <span
                                   className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 border border-sky-300 text-sky-800 uppercase shadow-2xs"
-                                  title="Título aguardando recebimento"
+                                  title={formatReversalTooltip(item) || 'Título aguardando recebimento'}
                                 >
                                   <Clock className="w-3 h-3 text-sky-600 shrink-0" />
                                   <span>A RECEBER</span>
+                                </span>
+                              )}
+                              {item.lastReversal && (
+                                <span
+                                  className="h-6 inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 border border-amber-400 text-amber-900 uppercase shadow-2xs cursor-help"
+                                  title={formatReversalTooltip(item)}
+                                >
+                                  <RotateCcw className="w-2.5 h-2.5 text-amber-700 shrink-0" />
+                                  <span>ESTORNADO</span>
                                 </span>
                               )}
                               <button
@@ -1466,6 +1686,25 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         notasSaida={localNotasSaida}
         onBatchSettleRetorno={handleBatchSettleFromRetorno}
       />
+
+      {/* Modal de Confirmação Auditada de Estorno de Recebimento */}
+      {reversingItem && (
+        <ReverseAuditModal
+          isOpen={Boolean(reversingItem)}
+          onClose={() => setReversingItem(null)}
+          onConfirm={handleConfirmReverseReceivable}
+          kind="receber"
+          titleDescription={`${reversingItem.type} — ${reversingItem.volume}`}
+          partyName={reversingItem.clientName}
+          amount={reversingItem.totalAmount}
+          dueDate={reversingItem.dueDate}
+          paymentDate={reversingItem.paymentDate}
+          bankOrCashLabel={
+            reversingItem.bankAccountName ||
+            (reversingItem.paymentMethod === 'dinheiro' ? 'Caixa / Dinheiro' : reversingItem.paymentMethod)
+          }
+        />
+      )}
     </div>
   );
 };

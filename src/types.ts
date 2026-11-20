@@ -96,6 +96,22 @@ export interface ExpenseItem {
   total_value?: number;
 }
 
+export interface ReversalAuditEntry {
+  id: string;
+  targetType: 'pagar' | 'receber';
+  targetId: string;
+  description?: string;
+  amount: number;
+  user: string;
+  dateTime: string;
+  isoTimestamp?: string;
+  reason: string;
+  previousStatus?: string;
+  previousPaymentDate?: string;
+  bankAccountId?: string;
+  bankAccountName?: string;
+}
+
 export interface Expense {
   id: string;
   companyId?: string; // ID da Empresa
@@ -196,6 +212,8 @@ export interface Expense {
   forma_pagamento?: string;
   estoqueIntegrado?: boolean;
   stockIntegrated?: boolean;
+  lastReversal?: ReversalAuditEntry;
+  reversalHistory?: ReversalAuditEntry[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -337,6 +355,10 @@ export interface SilageOrder {
   parentOrderId?: string;
   chequeId?: string;
   chequeNumero?: string;
+  bankAccountId?: string;
+  bankAccountName?: string;
+  lastReversal?: ReversalAuditEntry;
+  reversalHistory?: ReversalAuditEntry[];
   updatedAt?: string;
   machineryId?: string;
   machineryPlateOrName?: string;
@@ -1105,6 +1127,10 @@ export interface ServiceOrder {
   parentOrderId?: string;
   chequeId?: string;
   chequeNumero?: string;
+  bankAccountId?: string;
+  bankAccountName?: string;
+  lastReversal?: ReversalAuditEntry;
+  reversalHistory?: ReversalAuditEntry[];
   updatedAt?: string;
   machineryId?: string;
   machineryAssigned?: string;
@@ -2400,6 +2426,10 @@ export interface NotaSaidaRecord {
   receberStatus?: 'pendente' | 'pago';
   receberPaymentDate?: string;
   receberPaymentMethod?: string;
+  bankAccountId?: string;
+  bankAccountName?: string;
+  lastReversal?: ReversalAuditEntry;
+  reversalHistory?: ReversalAuditEntry[];
   status?: 'RASCUNHO' | 'AUTORIZADA' | 'EMITIDA' | 'CANCELADA' | string;
   protocoloAutorizacao?: string;
   dataAutorizacao?: string;

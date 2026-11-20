@@ -24,7 +24,9 @@ import {
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatReversalTooltip } from '../../lib/financialAudit';
 import { PaymentSettlementModal } from './PaymentSettlementModal';
+import { ReverseAuditModal } from './ReverseAuditModal';
 import { useConfirm } from '../../context/ConfirmContext';
 import { CompetenceSelector, getPrevCompetence, getNextCompetence, matchesCompetence } from './CompetenceSelector';
 
@@ -50,7 +52,10 @@ interface PayablesTabProps {
     usedChequeIds?: string[];
     usedChequesSummary?: string;
   }) => void;
-  onReverseExpense?: (id: string) => void;
+  onReverseExpense?: (
+    id: string,
+    audit?: { user: string; dateTime: string; isoTimestamp?: string; reason: string }
+  ) => void;
   onEditExpense?: (exp: Expense) => void;
   onDeleteExpense?: (id: string) => void;
   onViewReceipt?: (exp: Expense) => void;
@@ -89,6 +94,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
   const [settlementExpense, setSettlementExpense] = useState<Expense | null>(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [reversingExpense, setReversingExpense] = useState<Expense | null>(null);
 
   // Filtro opcional por intervalo de datas
   const [startDate, setStartDate] = useState('');
@@ -198,23 +204,23 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     }
   };
 
-  const handleReverseClick = async (exp: Expense) => {
-    const bankMsg = exp.bankAccountName ? ` O saldo de ${formatCurrencyBRL(exp.amount)} será devolvido à conta ${exp.bankAccountName}.` : '';
-    const isConfirmed = await confirm({
-      title: 'Estornar Pagamento da Despesa',
-      message: `Deseja realmente estornar o pagamento de "${exp.description}" (${formatCurrencyBRL(exp.amount)})?${bankMsg} O status voltará para "A Pagar".`,
-      confirmLabel: 'Sim, Estornar',
-      cancelLabel: 'Cancelar',
-      variant: 'danger',
-    });
+  const handleReverseClick = (exp: Expense) => {
+    setReversingExpense(exp);
+  };
 
-    if (isConfirmed) {
-      if (onReverseExpense) {
-        onReverseExpense(exp.id);
-      } else {
-        onToggleStatus(exp.id);
-      }
+  const handleConfirmReverseAudit = (audit: {
+    reason: string;
+    user: string;
+    dateTime: string;
+    isoTimestamp: string;
+  }) => {
+    if (!reversingExpense) return;
+    if (onReverseExpense) {
+      onReverseExpense(reversingExpense.id, audit);
+    } else {
+      onToggleStatus(reversingExpense.id);
     }
+    setReversingExpense(null);
   };
 
   const handleDeleteClick = async (exp: Expense) => {
@@ -560,7 +566,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                             <span 
                               id={`status-badge-${exp.id}`}
                               className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-50 border border-rose-300 text-rose-700 uppercase shadow-2xs"
-                              title="Conta com vencimento expirado"
+                              title={formatReversalTooltip(exp) || 'Conta com vencimento expirado'}
                             >
                               <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
                               <span>VENCIDA</span>
@@ -569,10 +575,20 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                             <span 
                               id={`status-badge-${exp.id}`}
                               className="h-6 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 border border-amber-300 text-amber-800 uppercase shadow-2xs"
-                              title="Conta pendente aguardando liquidação"
+                              title={formatReversalTooltip(exp) || 'Conta pendente aguardando liquidação'}
                             >
                               <Clock className="w-3 h-3 text-amber-600 shrink-0" />
                               <span>A PAGAR</span>
+                            </span>
+                          )}
+
+                          {exp.lastReversal && (
+                            <span
+                              className="h-6 inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 border border-amber-400 text-amber-900 uppercase shadow-2xs cursor-help"
+                              title={formatReversalTooltip(exp)}
+                            >
+                              <RotateCcw className="w-2.5 h-2.5 text-amber-700 shrink-0" />
+                              <span>ESTORNADO</span>
                             </span>
                           )}
 
@@ -676,6 +692,25 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
             setIsSettlementModalOpen(false);
             setSettlementExpense(null);
           }}
+        />
+      )}
+
+      {/* Modal de Confirmação Auditada de Estorno */}
+      {reversingExpense && (
+        <ReverseAuditModal
+          isOpen={Boolean(reversingExpense)}
+          onClose={() => setReversingExpense(null)}
+          onConfirm={handleConfirmReverseAudit}
+          kind="pagar"
+          titleDescription={reversingExpense.description}
+          partyName={reversingExpense.supplier}
+          amount={reversingExpense.amount}
+          dueDate={reversingExpense.dueDate}
+          paymentDate={reversingExpense.paymentDate}
+          bankOrCashLabel={
+            reversingExpense.bankAccountName ||
+            (reversingExpense.paymentMethod === 'dinheiro' ? 'Caixa / Dinheiro' : reversingExpense.paymentMethod)
+          }
         />
       )}
     </div>

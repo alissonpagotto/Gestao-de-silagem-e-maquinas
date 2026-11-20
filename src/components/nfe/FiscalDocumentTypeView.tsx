@@ -35,7 +35,9 @@ import {
   saveStoredInventory,
   getStoredMachineries,
   saveStoredMachineries,
-  getActiveCompanyId
+  getActiveCompanyId,
+  saveCompanyEstoque,
+  removeStockEntryMovementsForInvoice
 } from '../../lib/storage';
 import { 
   CompetenceSelector, 
@@ -227,6 +229,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<FiscalDocumentRecord | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+  const [blockedDeleteDocNumber, setBlockedDeleteDocNumber] = useState<string | null>(null);
   const [effectuatingDocId, setEffectuatingDocId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -1036,9 +1039,95 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     if (onRefreshAll) onRefreshAll();
   };
 
+  const hasSettledPayableForDocument = (docId: string): boolean => {
+    try {
+      const storedExpenses = getStoredExpenses();
+      return storedExpenses.some((e: any) => {
+        const match =
+          e?.notaId === docId ||
+          e?.documento_entrada_id === docId ||
+          (typeof e?.id === 'string' && e.id.includes(docId));
+        if (!match) return false;
+        const statusLower = String(e?.status || '').toLowerCase();
+        return (
+          statusLower === 'pago' ||
+          statusLower === 'liquidado / abatido por devolução' ||
+          e?.status_pago === true
+        );
+      });
+    } catch {
+      return false;
+    }
+  };
+
+  const requestDeleteDocument = (doc: FiscalDocumentRecord) => {
+    if (hasSettledPayableForDocument(doc.id)) {
+      setBlockedDeleteDocNumber(doc.number || doc.id);
+      return;
+    }
+    setDeletingDocId(doc.id);
+  };
+
   // Excluir documento do histórico
   const handleConfirmDeleteDocument = () => {
     if (!deletingDocId) return;
+    const targetDoc = documents.find(d => d.id === deletingDocId);
+    if (targetDoc && hasSettledPayableForDocument(targetDoc.id)) {
+      setDeletingDocId(null);
+      setBlockedDeleteDocNumber(targetDoc.number || targetDoc.id);
+      return;
+    }
+
+    const activeTenantId = getActiveCompanyId() || companyProfile?.id || 'default';
+
+    // Reverte movimentação de estoque (+) aplicada pela entrada/efetivação, garantindo mínimo 0
+    if (
+      targetDoc &&
+      (category === 'nfe' || (category === 'pedido_compra' && targetDoc.status === 'ATENDIDO')) &&
+      Array.isArray(targetDoc.items) &&
+      targetDoc.items.length > 0
+    ) {
+      try {
+        const storedInventory = getStoredInventory();
+        let inventoryChanged = false;
+
+        targetDoc.items.forEach(item => {
+          const qtyToRevert = Number(item.quantity) || 0;
+          if (qtyToRevert <= 0) return;
+
+          const idx = storedInventory.findIndex(p =>
+            (item.productId && p.id === item.productId) ||
+            (p.name && p.name.trim().toUpperCase() === item.description.trim().toUpperCase())
+          );
+
+          if (idx >= 0) {
+            const currentQtd = Number((storedInventory[idx] as any).quantity ?? (storedInventory[idx] as any).currentStock ?? 0);
+            const nextQtd = Math.max(0, currentQtd - qtyToRevert);
+            (storedInventory[idx] as any).quantity = nextQtd;
+            (storedInventory[idx] as any).currentStock = nextQtd;
+            inventoryChanged = true;
+          }
+        });
+
+        if (inventoryChanged) {
+          saveStoredInventory(storedInventory);
+          saveCompanyEstoque(storedInventory, activeTenantId);
+          localStorage.setItem('agrocontrol_produtos', JSON.stringify(storedInventory));
+          localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(storedInventory));
+          window.dispatchEvent(new CustomEvent('silagem_inventory_updated', { detail: storedInventory }));
+        }
+      } catch (err) {
+        console.warn('Erro ao reverter estoque na exclusão do documento:', err);
+      }
+
+      try {
+        removeStockEntryMovementsForInvoice({
+          notaId: deletingDocId,
+          invoiceNumber: targetDoc.number
+        });
+      } catch {}
+    }
+
     const updated = documents.filter(d => d.id !== deletingDocId);
     setDocuments(updated);
     localStorage.setItem(storageKey, JSON.stringify(updated));
@@ -1057,7 +1146,6 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
 
     // Remove despesas vinculadas ao documento excluido no Contas a Pagar
     try {
-      const activeTenantId = getActiveCompanyId() || companyProfile?.id || 'default';
       const storedExpenses = getStoredExpenses();
       const removedIds: string[] = [];
       const keptExpenses = storedExpenses.filter((e: any) => {
@@ -1084,9 +1172,10 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
     setDeletingDocId(null);
     setFeedback({
       type: 'success',
-      text: 'DOCUMENTO EXCLUÍDO DO REGISTRO LOCAL COM SUCESSO.'
+      text: 'DOCUMENTO EXCLUÍDO DO REGISTRO LOCAL E ESTOQUE REVERTIDO COM SUCESSO.'
     });
     setTimeout(() => setFeedback(null), 4000);
+    if (onRefreshAll) onRefreshAll();
   };
 
   // ---------------------------------------------------------------------------
@@ -1468,7 +1557,7 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setDeletingDocId(doc.id)}
+                          onClick={() => requestDeleteDocument(doc)}
                           className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 cursor-pointer"
                           title="Excluir Registro"
                         >
@@ -2125,6 +2214,41 @@ export const FiscalDocumentTypeView: React.FC<FiscalDocumentTypeViewProps> = ({
               >
                 SIM, EXCLUIR
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE BLOQUEIO DE EXCLUSÃO POR PARCELA LIQUIDADA NO FINANCEIRO */}
+      {blockedDeleteDocNumber && (
+        <div className="fixed inset-0 z-80 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 animate-in fade-in">
+          <div className="w-full max-w-md bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-rose-700 text-white border-b border-black">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4" />
+                <h3 className="text-xs font-black uppercase tracking-wide">Exclusão Bloqueada — Documento {blockedDeleteDocNumber}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBlockedDeleteDocNumber(null)}
+                className="p-1 rounded hover:bg-rose-800 text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 bg-[#e0e6f1]">
+              <p className="text-xs text-slate-900 font-semibold leading-relaxed">
+                Não é possível excluir esta Nota Fiscal porque existem parcelas já baixadas no Financeiro. Acesse <strong>Financeiro &gt; A Pagar (ou A Receber)</strong>, estorne a baixa da parcela paga informando o motivo e depois exclua a nota.
+              </p>
+              <div className="flex items-center justify-end pt-2 border-t border-black/20">
+                <button
+                  type="button"
+                  onClick={() => setBlockedDeleteDocNumber(null)}
+                  className="px-4 py-1.5 bg-slate-900 hover:bg-black text-white border border-black rounded-lg text-xs font-black uppercase cursor-pointer"
+                >
+                  ENTENDI
+                </button>
+              </div>
             </div>
           </div>
         </div>
