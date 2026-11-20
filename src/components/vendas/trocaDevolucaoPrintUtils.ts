@@ -45,12 +45,13 @@ async function resolveActiveCompanyAndLogo(companyProfile?: CompanyProfile | nul
   };
 }
 
-export async function printTrocaDevolucaoA4(
+export async function buildTrocaDevolucaoA4Html(
   record: TrocaDevolucaoRecord,
   companyProfile?: CompanyProfile | null,
-  options?: { isEspelhoFiscal?: boolean }
-): Promise<boolean> {
+  options?: { isEspelhoFiscal?: boolean; isPreview?: boolean }
+): Promise<string> {
   const isEspelhoFiscal = Boolean(options?.isEspelhoFiscal);
+  const isPreview = Boolean(options?.isPreview);
   const { companyName, tradeName, cnpj, phone, email, fullAddress, logoDataUrl } =
     await resolveActiveCompanyAndLogo(companyProfile);
 
@@ -432,18 +433,38 @@ export async function printTrocaDevolucaoA4(
 
     ${buildSystemPrintFooterHtml({ extraRight: `Protocolo ${record.protocolo}` })}
   </div>
-
-  <script>
+  ${
+    isPreview
+      ? `<style>body { padding: 14px; background: #f8fafc; } .sheet, .print-wrapper { background: #fff; padding: 14px; border: 1px solid #cbd5e1; border-radius: 6px; }</style>`
+      : `<script>
     window.addEventListener('load', function() {
       setTimeout(function() {
         window.focus();
         window.print();
       }, 300);
     });
-  </script>
+  </script>`
+  }
 </body>
 </html>`;
 
+  return isPreview
+    ? html.replace(
+        '<body>',
+        `<body><div style="background:#fef3c7;border:1.5px solid #92400e;color:#78350f;padding:7px 12px;margin-bottom:10px;border-radius:6px;font-family:Arial,sans-serif;font-size:11px;font-weight:800;text-align:center;">👁️ PRÉ-VISUALIZAÇÃO DO COMPROVANTE INTERNO (NÃO FISCAL) — DOCUMENTO AINDA NÃO SALVO E SEM MOVIMENTAÇÃO DE ESTOQUE</div>`
+      )
+    : html;
+}
+
+export async function printTrocaDevolucaoA4(
+  record: TrocaDevolucaoRecord,
+  companyProfile?: CompanyProfile | null,
+  options?: { isEspelhoFiscal?: boolean }
+): Promise<boolean> {
+  const html = await buildTrocaDevolucaoA4Html(record, companyProfile, {
+    ...options,
+    isPreview: false,
+  });
   executePrint(html);
   return true;
 }
@@ -486,12 +507,14 @@ function buildDanfeBarcodeSvg(code: string): string {
 }
 
 /**
- * Impressão oficial do DANFE da NF-e de Devolução (Modelo 55 — Finalidade 4: Devolução de Mercadoria)
+ * Gera o HTML do DANFE da NF-e de Devolução (Modelo 55 — Finalidade 4: Devolução de Mercadoria)
  */
-export async function printDanfeDevolucaoOficialA4(
+export async function buildDanfeDevolucaoOficialHtml(
   record: TrocaDevolucaoRecord,
-  companyProfile?: CompanyProfile | null
-): Promise<boolean> {
+  companyProfile?: CompanyProfile | null,
+  options?: { isPreview?: boolean }
+): Promise<string> {
+  const isPreview = Boolean(options?.isPreview);
   const isFornecedor =
     record.envolvidoTipo === 'fornecedor' || record.tipoOperacao === 'devolucao_fornecedor';
 
@@ -787,17 +810,37 @@ export async function printDanfeDevolucaoOficialA4(
 
     <div class="footer-note">
       <span>${buildSystemPrintFooterText()}</span>
-      <span>Impresso em ${escapeHtml(new Date().toLocaleString('pt-BR'))}</span>
+      <span>${isPreview ? 'Pré-visualização em ' : 'Impresso em '}${escapeHtml(new Date().toLocaleString('pt-BR'))}</span>
     </div>
   </div>
-  <script>
+  ${
+    isPreview
+      ? `<style>.toolbar { display: none !important; } body { padding: 12px; background: #f8fafc; } .danfe-page { background: #fff; }</style>`
+      : `<script>
     window.addEventListener('load', function() {
       setTimeout(function() { try { window.print(); } catch(e) {} }, 260);
     });
-  </script>
+  </script>`
+  }
 </body>
 </html>`;
 
+  return isPreview
+    ? html.replace(
+        '<div class="danfe-page">',
+        `<div style="background:#fef3c7;border:1.5px solid #92400e;color:#78350f;padding:7px 12px;margin-bottom:10px;border-radius:6px;font-family:Arial,sans-serif;font-size:11px;font-weight:800;text-align:center;">👁️ PRÉ-VISUALIZAÇÃO DO DANFE (NF-e MODELO 55) — SEM VALOR FISCAL ATÉ A EMISSÃO DEFINITIVA</div><div class="danfe-page">`
+      )
+    : html;
+}
+
+/**
+ * Impressão oficial do DANFE da NF-e de Devolução (Modelo 55 — Finalidade 4: Devolução de Mercadoria)
+ */
+export async function printDanfeDevolucaoOficialA4(
+  record: TrocaDevolucaoRecord,
+  companyProfile?: CompanyProfile | null
+): Promise<boolean> {
+  const html = await buildDanfeDevolucaoOficialHtml(record, companyProfile, { isPreview: false });
   executePrint(html);
   return true;
 }

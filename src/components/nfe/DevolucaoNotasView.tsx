@@ -15,6 +15,7 @@ import {
   Eye,
   Receipt,
   RefreshCw,
+  FileEdit,
 } from 'lucide-react';
 import {
   Client,
@@ -295,21 +296,24 @@ export function getUnifiedFiscalDevolucoes(): TrocaDevolucaoRecord[] {
 
 export function getUnifiedFiscalDevolucaoCounts(): {
   total: number;
+  rascunhos: number;
   aguardando: number;
   emitidas: number;
   descartadas: number;
 } {
   const list = getUnifiedFiscalDevolucoes();
+  let rascunhos = 0;
   let aguardando = 0;
   let emitidas = 0;
   let descartadas = 0;
   list.forEach((r) => {
     const st = r.fiscalStatus || 'Aguardando Decisão Fiscal';
-    if (isNfeEmitidaStatus(st)) emitidas += 1;
+    if (st === 'Rascunho') rascunhos += 1;
+    else if (isNfeEmitidaStatus(st)) emitidas += 1;
     else if (st === 'Descartado pela Empresa') descartadas += 1;
     else aguardando += 1;
   });
-  return { total: list.length, aguardando, emitidas, descartadas };
+  return { total: list.length, rascunhos, aguardando, emitidas, descartadas };
 }
 
 type FiscalFilterOption = 'todas' | PendenciaDevolucaoStatus;
@@ -348,6 +352,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     } catch {}
     return false;
   });
+  const [editingDraft, setEditingDraft] = useState<TrocaDevolucaoRecord | null>(null);
   const [detailsTarget, setDetailsTarget] = useState<TrocaDevolucaoRecord | null>(null);
 
   // Filtros (padrão: Todos os Períodos / Todos os Meses)
@@ -431,6 +436,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   };
 
   const counts = useMemo(() => {
+    let rascunhos = 0;
     let aguardando = 0;
     let emitidas = 0;
     let descartadas = 0;
@@ -439,7 +445,9 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
     records.forEach((rec) => {
       const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
-      if (isNfeEmitidaStatus(st)) {
+      if (st === 'Rascunho') {
+        rascunhos += 1;
+      } else if (isNfeEmitidaStatus(st)) {
         emitidas += 1;
         valorEmitidas += Number(rec.totalDevolvido || 0);
       } else if (st === 'Descartado pela Empresa') {
@@ -452,6 +460,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
     return {
       todas: records.length,
+      rascunhos,
       aguardando,
       emitidas,
       descartadas,
@@ -645,8 +654,25 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     setDiscardJustificativa('');
   };
 
+  const handleDeleteDraft = (rec: TrocaDevolucaoRecord) => {
+    const allTrocas = getStoredTrocasDevolucoes();
+    const nextTrocas = allTrocas.filter((r) => r.id !== rec.id);
+    saveStoredTrocasDevolucoes(nextTrocas, true);
+    setRecords(getUnifiedFiscalDevolucoes());
+    setSuccessMsg(`Rascunho ${rec.protocolo} excluído.`);
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
   const getFiscalStatusBadge = (rec: TrocaDevolucaoRecord) => {
     const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
+    if (st === 'Rascunho') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-500 whitespace-nowrap">
+          <FileEdit className="w-3 h-3 shrink-0" />
+          <span>Rascunho</span>
+        </span>
+      );
+    }
     if (st === 'Aguardando Decisão Fiscal') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
@@ -814,7 +840,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsNewModalOpen(true)}
+              onClick={() => {
+                setEditingDraft(null);
+                setIsNewModalOpen(true);
+              }}
               className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -825,6 +854,27 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
         {/* Filtros Rápidos no Topo */}
         <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('Rascunho')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+              statusFilter === 'Rascunho'
+                ? 'bg-amber-600 text-white border-amber-800 shadow-xs'
+                : 'bg-[#e0e6f1] hover:bg-[#d2dced] text-amber-950 border-black dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-800'
+            }`}
+          >
+            <FileEdit className="w-3.5 h-3.5" />
+            <span>Rascunhos</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                statusFilter === 'Rascunho'
+                  ? 'bg-white/25 text-white'
+                  : 'bg-amber-200 text-amber-950'
+              }`}
+            >
+              {counts.rascunhos}
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setStatusFilter('Aguardando Decisão Fiscal')}
@@ -943,6 +993,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 ) : (
                   filteredRecords.map((rec, idx) => {
                     const st = rec.fiscalStatus || 'Aguardando Decisão Fiscal';
+                    const isDraft = st === 'Rascunho';
                     const isPending = st === 'Aguardando Decisão Fiscal';
                     const isEmitida = isNfeEmitidaStatus(st);
                     const firstItem = rec.itensDevolvidos?.[0];
@@ -1024,6 +1075,32 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
 
                         <td className="py-2.5 px-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
+                            {isDraft && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingDraft(rec);
+                                    setIsNewModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer"
+                                  title="Reabrir rascunho para editar e concluir a operação"
+                                >
+                                  <FileEdit className="w-3 h-3" />
+                                  <span>✏️ Continuar / Concluir</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDraft(rec)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-[11px] font-bold transition cursor-pointer"
+                                  title="Excluir rascunho"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Excluir</span>
+                                </button>
+                              </>
+                            )}
+
                             {isPending && (
                               <>
                                 <button
@@ -1100,13 +1177,21 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       {/* Modal Único Compartilhado: NOVA TROCA / DEVOLUÇÃO DE PRODUTOS */}
       <NovaTrocaDevolucaoModal
         isOpen={isNewModalOpen}
-        onClose={() => setIsNewModalOpen(false)}
+        onClose={() => {
+          setIsNewModalOpen(false);
+          setEditingDraft(null);
+        }}
         clients={clients}
         companyProfile={company}
         defaultTipoOperacao="devolucao_cliente"
+        initialDraft={editingDraft}
         onSuccess={(record, shouldAutoPrint) => {
           setRecords(getUnifiedFiscalDevolucoes());
-          if (isNfeEmitidaStatus(record.fiscalStatus)) {
+          if (record.fiscalStatus === 'Rascunho') {
+            setSuccessMsg(
+              `Rascunho ${record.protocolo} salvo com sucesso! Nenhuma movimentação de estoque ou financeiro foi realizada — clique em "Continuar / Concluir" quando desejar finalizar.`
+            );
+          } else if (isNfeEmitidaStatus(record.fiscalStatus)) {
             setSuccessMsg(
               `NF-e de Devolução Oficial Nº ${record.notaDevolucaoNumber || ''} emitida (${record.protocolo}), registrada na Central de Documentos e DANFE aberto para impressão!`
             );

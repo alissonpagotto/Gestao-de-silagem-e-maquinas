@@ -2744,6 +2744,7 @@ export interface TrocaDevolucaoRecord {
 }
 
 export type PendenciaDevolucaoStatus =
+  | 'Rascunho'
   | 'Aguardando Decisão Fiscal'
   | 'NF-e Emitida'
   | 'Nota de Devolução Emitida'

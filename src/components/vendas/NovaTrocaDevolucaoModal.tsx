@@ -19,6 +19,8 @@ import {
   FileText,
   Building2,
   User,
+  LogOut,
+  FileEdit,
 } from 'lucide-react';
 import {
   BoletoAbatidoInfo,
@@ -74,13 +76,14 @@ import {
   registrarVendaNoCaixa,
 } from '../../lib/caixaStorage';
 import {
+  buildDanfeDevolucaoOficialHtml,
+  buildTrocaDevolucaoA4Html,
   getTipoOperacaoLabel,
   printDanfeDevolucaoOficialA4,
   printTrocaDevolucaoA4,
   printTrocaDevolucaoCupom80mm,
 } from './trocaDevolucaoPrintUtils';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
-import { useModalUnsavedGuard } from '../../lib/modalUnsavedGuard';
 
 interface NovaTrocaDevolucaoModalProps {
   isOpen: boolean;
@@ -88,6 +91,7 @@ interface NovaTrocaDevolucaoModalProps {
   clients: Client[];
   companyProfile?: CompanyProfile;
   defaultTipoOperacao?: TrocaOperacaoTipo;
+  initialDraft?: TrocaDevolucaoRecord | null;
   onSaveClients?: (clients: Client[]) => void;
   onSuccess: (record: TrocaDevolucaoRecord, shouldAutoPrint: boolean) => void;
 }
@@ -273,6 +277,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   clients = [],
   companyProfile,
   defaultTipoOperacao,
+  initialDraft = null,
   onSaveClients,
   onSuccess,
 }) => {
@@ -348,35 +353,37 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
   const [autoPrintA4, setAutoPrintA4] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('Pré-visualização do Documento');
+  const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
 
-  const trocaGuard = useModalUnsavedGuard({
-    isOpen,
-    resetKey: `${defaultTipoOperacao || ''}_${isOpen ? 'open' : 'closed'}`,
-    snapshot: [
-      tipoOperacao,
-      selectedClientId,
-      avulsoNome,
-      selectedSupplierId,
-      dataOperacao,
-      numeroOrigem,
-      selectedOriginDocId,
-      motivo,
-      observacoes,
-      retornarAoEstoque,
-      itensDevolvidos,
-      itensLevados,
-      modoCreditoOuEstorno,
-      formaEstorno,
-      formaPagamentoDiferenca,
-      destinoFornecedor,
-      selectedBoletoId,
-    ],
-  });
-
-  const handleAttemptClose = () => {
-    if (isSaving) return;
-    trocaGuard.confirmClose(onClose);
+  // Fechamento imediato e seguro (sem window.confirm bloqueado em iframe)
+  const handleCloseModal = () => {
+    try {
+      sessionStorage.removeItem('agrocontrol_open_nova_devolucao');
+    } catch {}
+    setPreviewHtml(null);
+    setErrorMsg(null);
+    setIsMotivoManagerOpen(false);
+    setIsPaymentMethodsManagerOpen(false);
+    setIsSaving(false);
+    onClose();
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (previewHtml) {
+          setPreviewHtml(null);
+        } else if (!isMotivoManagerOpen && !isPaymentMethodsManagerOpen) {
+          handleCloseModal();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, previewHtml, isMotivoManagerOpen, isPaymentMethodsManagerOpen]);
 
   // Fecha dropdowns ao clicar fora
   useEffect(() => {
@@ -419,54 +426,151 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     setMotivosList(loadedMotivos);
     setIsMotivoManagerOpen(false);
 
-    const initialTipo: TrocaOperacaoTipo = defaultTipoOperacao || 'devolucao_cliente';
-    setTipoOperacao(initialTipo);
-    setSelectedClientId('');
-    setAvulsoNome('Consumidor Avulso');
-    setSelectedSupplierId('');
-    setEnvolvidoSearch('');
-    setIsEnvolvidoDropdownOpen(false);
-    setDataOperacao(todayIso);
-    setNumeroOrigem('');
-    setSelectedOriginDocId('');
-    setIsOriginDropdownOpen(false);
-    const defaultReason =
-      initialTipo === 'devolucao_fornecedor'
-        ? loadedMotivos.find((m) => normalizeText(m) === 'garantia') || loadedMotivos[0] || 'Garantia'
-        : loadedMotivos.find((m) => normalizeText(m).includes('defeito')) ||
-          loadedMotivos[0] ||
-          'Defeito de Fabricação';
-    setMotivo(defaultReason);
-    setObservacoes('');
-    setSearchDevolvido('');
-    setSelectedProdDevolvidoId('');
-    setIsProdDevolvidoDropdownOpen(false);
-    setQtdDevolvida('1');
-    setPrecoDevolvido('');
-    setRetornarAoEstoque(true);
-    setItensDevolvidos([]);
-    setSearchLevado('');
-    setSelectedProdLevadoId('');
-    setIsProdLevadoDropdownOpen(false);
-    setQtdLevada('1');
-    setPrecoLevado('');
-    setItensLevados([]);
-    setModoCreditoOuEstorno('vale_credito');
-    setFormaEstorno('DINHEIRO');
-    setFormaPagamentoDiferenca('DINHEIRO');
-    setDestinoFornecedor('credito_fornecedor');
-    setSelectedBoletoId('');
-    setTipoDocumentoEmitir('comprovante_interno');
-    setCfopDevolucao(initialTipo === 'devolucao_fornecedor' ? '5.202' : '1.202');
-    setNaturezaOperacao(
-      initialTipo === 'devolucao_fornecedor'
-        ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
-        : 'DEVOLUÇÃO DE VENDA'
-    );
-    setChaveNfeReferenciada('');
-    setAutoPrintA4(true);
-    setErrorMsg(null);
-    setIsSaving(false);
+    const loadedSups = Array.isArray(sups) ? sups : [];
+    const loadedClients =
+      Array.isArray(clients) && clients.length > 0 ? clients : getStoredClients();
+    setPreviewHtml(null);
+
+    if (initialDraft) {
+      const draftTipo: TrocaOperacaoTipo = initialDraft.tipoOperacao || 'devolucao_cliente';
+      setTipoOperacao(draftTipo);
+      if (draftTipo === 'devolucao_fornecedor') {
+        const matchedSup =
+          loadedSups.find((s) => String(s.id) === String(initialDraft.envolvidoId)) ||
+          loadedSups.find(
+            (s) =>
+              normalizeText(s.name) === normalizeText(initialDraft.envolvidoNome) ||
+              normalizeText(s.tradeName) === normalizeText(initialDraft.envolvidoNome)
+          );
+        setSelectedSupplierId(matchedSup ? String(matchedSup.id) : initialDraft.envolvidoId || '');
+        setSelectedClientId('');
+        setEnvolvidoSearch(
+          matchedSup
+            ? matchedSup.name || matchedSup.tradeName || ''
+            : initialDraft.envolvidoNome && initialDraft.envolvidoNome !== 'Rascunho (Não definido)'
+              ? initialDraft.envolvidoNome
+              : ''
+        );
+      } else {
+        setSelectedSupplierId('');
+        if (initialDraft.envolvidoId === 'consumidor_avulso') {
+          setSelectedClientId('consumidor_avulso');
+          setAvulsoNome(initialDraft.envolvidoNome || 'Consumidor Avulso');
+          setEnvolvidoSearch(initialDraft.envolvidoNome || 'Consumidor Avulso');
+        } else {
+          const matchedCli =
+            loadedClients.find((c) => String(c.id) === String(initialDraft.envolvidoId)) ||
+            loadedClients.find(
+              (c) => normalizeText(c.name || c.nome) === normalizeText(initialDraft.envolvidoNome)
+            );
+          setSelectedClientId(matchedCli ? String(matchedCli.id) : initialDraft.envolvidoId || '');
+          setEnvolvidoSearch(
+            matchedCli
+              ? matchedCli.name || matchedCli.nome || ''
+              : initialDraft.envolvidoNome && initialDraft.envolvidoNome !== 'Rascunho (Não definido)'
+                ? initialDraft.envolvidoNome
+                : ''
+          );
+        }
+      }
+      setIsEnvolvidoDropdownOpen(false);
+      setDataOperacao(initialDraft.data || todayIso);
+      setNumeroOrigem(initialDraft.numeroVendaOuNotaOrigem || '');
+      setSelectedOriginDocId('');
+      setIsOriginDropdownOpen(false);
+      setMotivo(initialDraft.motivo || loadedMotivos[0] || 'Defeito de Fabricação');
+      setObservacoes(initialDraft.observacoes || '');
+      setSearchDevolvido('');
+      setSelectedProdDevolvidoId('');
+      setIsProdDevolvidoDropdownOpen(false);
+      setQtdDevolvida('1');
+      setPrecoDevolvido('');
+      setRetornarAoEstoque(true);
+      setItensDevolvidos(Array.isArray(initialDraft.itensDevolvidos) ? initialDraft.itensDevolvidos : []);
+      setSearchLevado('');
+      setSelectedProdLevadoId('');
+      setIsProdLevadoDropdownOpen(false);
+      setQtdLevada('1');
+      setPrecoLevado('');
+      setItensLevados(Array.isArray(initialDraft.itensLevados) ? initialDraft.itensLevados : []);
+      setModoCreditoOuEstorno(
+        initialDraft.destinoFinanceiro === 'estorno_dinheiro' ? 'estorno' : 'vale_credito'
+      );
+      setFormaEstorno(initialDraft.formaEstorno === 'PIX' ? 'PIX' : 'DINHEIRO');
+      setFormaPagamentoDiferenca(initialDraft.formaPagamentoDiferenca || 'DINHEIRO');
+      setDestinoFornecedor(
+        initialDraft.destinoFinanceiro === 'abatimento_boleto' ||
+          initialDraft.destinoFinanceiro === 'diferenca_recebida' ||
+          initialDraft.destinoFinanceiro === 'sem_impacto'
+          ? initialDraft.destinoFinanceiro
+          : 'credito_fornecedor'
+      );
+      setSelectedBoletoId(initialDraft.boletoAbatido?.expenseId || '');
+      setTipoDocumentoEmitir(initialDraft.tipoDocumento || 'comprovante_interno');
+      setCfopDevolucao(
+        initialDraft.cfopDevolucao ||
+          (draftTipo === 'devolucao_fornecedor' ? '5.202' : '1.202')
+      );
+      setNaturezaOperacao(
+        initialDraft.naturezaOperacao ||
+          (draftTipo === 'devolucao_fornecedor'
+            ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
+            : 'DEVOLUÇÃO DE VENDA')
+      );
+      setChaveNfeReferenciada(initialDraft.chaveNfeReferenciada || '');
+      setAutoPrintA4(true);
+      setErrorMsg(null);
+      setIsSaving(false);
+    } else {
+      const initialTipo: TrocaOperacaoTipo = defaultTipoOperacao || 'devolucao_cliente';
+      setTipoOperacao(initialTipo);
+      setSelectedClientId('');
+      setAvulsoNome('Consumidor Avulso');
+      setSelectedSupplierId('');
+      setEnvolvidoSearch('');
+      setIsEnvolvidoDropdownOpen(false);
+      setDataOperacao(todayIso);
+      setNumeroOrigem('');
+      setSelectedOriginDocId('');
+      setIsOriginDropdownOpen(false);
+      const defaultReason =
+        initialTipo === 'devolucao_fornecedor'
+          ? loadedMotivos.find((m) => normalizeText(m) === 'garantia') || loadedMotivos[0] || 'Garantia'
+          : loadedMotivos.find((m) => normalizeText(m).includes('defeito')) ||
+            loadedMotivos[0] ||
+            'Defeito de Fabricação';
+      setMotivo(defaultReason);
+      setObservacoes('');
+      setSearchDevolvido('');
+      setSelectedProdDevolvidoId('');
+      setIsProdDevolvidoDropdownOpen(false);
+      setQtdDevolvida('1');
+      setPrecoDevolvido('');
+      setRetornarAoEstoque(true);
+      setItensDevolvidos([]);
+      setSearchLevado('');
+      setSelectedProdLevadoId('');
+      setIsProdLevadoDropdownOpen(false);
+      setQtdLevada('1');
+      setPrecoLevado('');
+      setItensLevados([]);
+      setModoCreditoOuEstorno('vale_credito');
+      setFormaEstorno('DINHEIRO');
+      setFormaPagamentoDiferenca('DINHEIRO');
+      setDestinoFornecedor('credito_fornecedor');
+      setSelectedBoletoId('');
+      setTipoDocumentoEmitir('comprovante_interno');
+      setCfopDevolucao(initialTipo === 'devolucao_fornecedor' ? '5.202' : '1.202');
+      setNaturezaOperacao(
+        initialTipo === 'devolucao_fornecedor'
+          ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA'
+          : 'DEVOLUÇÃO DE VENDA'
+      );
+      setChaveNfeReferenciada('');
+      setAutoPrintA4(true);
+      setErrorMsg(null);
+      setIsSaving(false);
+    }
 
     const refreshExpenses = () => setExpensesList(getStoredExpenses());
     window.addEventListener('agrocontrol_contas_a_pagar_updated', refreshExpenses);
@@ -475,7 +579,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       window.removeEventListener('agrocontrol_contas_a_pagar_updated', refreshExpenses);
       window.removeEventListener('silagem_expenses_updated', refreshExpenses);
     };
-  }, [isOpen, clients, todayIso, defaultTipoOperacao]);
+  }, [isOpen, clients, todayIso, defaultTipoOperacao, initialDraft]);
 
   const selectedSupplier = useMemo(
     () => (Array.isArray(suppliersList) ? suppliersList : []).find((s) => String(s.id) === String(selectedSupplierId)) || null,
@@ -1254,7 +1358,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       const now = new Date();
       const companyId = companyProfile?.id || getActiveCompanyId() || 'default';
       const existingTrocas = getStoredTrocasDevolucoes();
-      const protocolo = getNextTrocaProtocolo(existingTrocas);
+      const protocolo = initialDraft?.protocolo || getNextTrocaProtocolo(existingTrocas);
 
       // Resolver envolvido
       const isFornecedor = tipoOperacao === 'devolucao_fornecedor';
@@ -1702,7 +1806,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
 
       // 3. SALVAR PROTOCOLO NO HISTÓRICO UNIFICADO DE TROCAS E DEVOLUÇÕES (SEMPRE COM STATUS FISCAL)
       const baseRecord: TrocaDevolucaoRecord = {
-        id: `troca_${Date.now()}`,
+        id: initialDraft?.id || `troca_${Date.now()}`,
         companyId,
         protocolo,
         data: dataOperacao,
@@ -1733,7 +1837,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         naturezaOperacao: naturezaOperacao.trim().toUpperCase() || undefined,
         fiscalStatus: 'Aguardando Decisão Fiscal',
         operador: getOperadorLogadoNome(),
-        createdAt: now.toISOString(),
+        createdAt: initialDraft?.createdAt || now.toISOString(),
       };
 
       const finalRecord: TrocaDevolucaoRecord = isEmitirNfeOficial
@@ -1746,7 +1850,11 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
         : baseRecord;
 
       // Gravação síncrona dupla (escopo da empresa + espelho global) garantindo 100% persistência no F5
-      saveStoredTrocasDevolucoes([finalRecord, ...existingTrocas]);
+      const existsInStore = existingTrocas.some((r) => r.id === finalRecord.id);
+      const updatedTrocasList = existsInStore
+        ? existingTrocas.map((r) => (r.id === finalRecord.id ? finalRecord : r))
+        : [finalRecord, ...existingTrocas];
+      saveStoredTrocasDevolucoes(updatedTrocasList);
 
       // 4. SINCRONIZAÇÃO LEGADA COM FILA DE PENDÊNCIAS DE DEVOLUÇÃO / GARANTIA
       if (!isEmitirNfeOficial && itensParaFilaFiscal.length > 0) {
@@ -1791,7 +1899,7 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
       } else {
         onSuccess(finalRecord, autoPrintA4);
       }
-      onClose();
+      handleCloseModal();
     } catch (err) {
       console.error('Erro ao salvar troca/devolução:', err);
       setErrorMsg('Ocorreu um erro ao processar a operação. Verifique os dados e tente novamente.');
@@ -1800,9 +1908,161 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
     }
   };
 
+  // Monta objeto temporário com os dados atuais do formulário (para Prévia ou Rascunho — sem movimentar estoque/financeiro)
+  const buildSnapshotRecord = (isDraft: boolean): TrocaDevolucaoRecord => {
+    const now = new Date();
+    const companyId = companyProfile?.id || getActiveCompanyId() || 'default';
+    const existingTrocas = getStoredTrocasDevolucoes();
+    const protocolo = initialDraft?.protocolo || getNextTrocaProtocolo(existingTrocas);
+    const isFornecedor = tipoOperacao === 'devolucao_fornecedor';
+
+    let envolvidoId: string | undefined;
+    let envolvidoNome = '';
+    let envolvidoDocumento = '';
+    let envolvidoTelefone = '';
+
+    if (isFornecedor) {
+      const sup = suppliersList.find((s) => String(s.id) === String(selectedSupplierId));
+      envolvidoId = sup?.id;
+      envolvidoNome =
+        sup?.name ||
+        sup?.tradeName ||
+        envolvidoSearch.trim() ||
+        'Rascunho (Fornecedor não selecionado)';
+      envolvidoDocumento = sup?.cnpjOrCpf || '';
+      envolvidoTelefone = sup?.phone || '';
+    } else if (selectedClientId === 'consumidor_avulso') {
+      envolvidoId = 'consumidor_avulso';
+      envolvidoNome = avulsoNome.trim() || 'Consumidor Avulso';
+    } else {
+      const cli = clientsList.find((c) => String(c.id) === String(selectedClientId));
+      envolvidoId = cli?.id;
+      envolvidoNome =
+        cli?.name ||
+        cli?.nome ||
+        envolvidoSearch.trim() ||
+        'Rascunho (Cliente não selecionado)';
+      envolvidoDocumento = cli?.cpfCnpj || '';
+      envolvidoTelefone = cli?.phone || cli?.telefone || '';
+    }
+
+    let destinoFinanceiro: TrocaDestinoFinanceiro = 'sem_impacto';
+    let destinoFinanceiroLabel = 'A definir na conclusão';
+    if (isFornecedor) {
+      destinoFinanceiro = destinoFornecedor;
+      if (destinoFornecedor === 'abatimento_boleto') {
+        destinoFinanceiroLabel = selectedBoleto
+          ? `Abatimento no Boleto ${getExpenseDocLabel(selectedBoleto)}`
+          : 'Abatimento em Boleto Pendente';
+      } else if (destinoFornecedor === 'credito_fornecedor') {
+        destinoFinanceiroLabel = 'Aguardar Nota / Crédito Futuro Fornecedor';
+      } else if (destinoFornecedor === 'diferenca_recebida') {
+        destinoFinanceiroLabel = 'Estorno Recebido em Dinheiro / PIX';
+      } else {
+        destinoFinanceiroLabel = 'Baixa de Garantia (Sem Financeiro)';
+      }
+    } else if (tipoOperacao === 'troca_direta' && saldoFinal > 0.005) {
+      destinoFinanceiro = 'diferenca_recebida';
+      destinoFinanceiroLabel = `Diferença Recebida (${getGlobalPaymentMethodLabel(formaPagamentoDiferenca)})`;
+    } else if (modoCreditoOuEstorno === 'estorno') {
+      destinoFinanceiro = 'estorno_dinheiro';
+      destinoFinanceiroLabel = `Estorno ao Cliente (${formaEstorno})`;
+    } else {
+      destinoFinanceiro = 'vale_credito';
+      destinoFinanceiroLabel = 'Vale-Crédito para Próxima Compra';
+    }
+
+    const cleanedChaveRef = chaveNfeReferenciada.replace(/\D/g, '').slice(0, 44);
+    return {
+      id: initialDraft?.id || `troca_${Date.now()}`,
+      companyId,
+      protocolo,
+      data: dataOperacao || todayIso,
+      tipoOperacao,
+      envolvidoTipo: isFornecedor ? 'fornecedor' : 'cliente',
+      envolvidoId,
+      envolvidoNome,
+      envolvidoDocumento: envolvidoDocumento || undefined,
+      envolvidoTelefone: envolvidoTelefone || undefined,
+      numeroVendaOuNotaOrigem: numeroOrigem.trim() || undefined,
+      motivo: motivo || 'Garantia',
+      observacoes: observacoes.trim() || undefined,
+      itensDevolvidos,
+      itensLevados: tipoOperacao === 'troca_direta' ? itensLevados : [],
+      totalDevolvido,
+      totalLevado,
+      saldoFinal,
+      destinoFinanceiro,
+      destinoFinanceiroLabel,
+      formaPagamentoDiferenca,
+      formaEstorno,
+      tipoDocumento: tipoDocumentoEmitir,
+      cfopDevolucao: cfopDevolucao.trim() || (isFornecedor ? '5.202' : '1.202'),
+      chaveNfeReferenciada: cleanedChaveRef || undefined,
+      naturezaOperacao:
+        naturezaOperacao.trim().toUpperCase() ||
+        (isFornecedor ? 'DEVOLUÇÃO DE MERCADORIA ADQUIRIDA' : 'DEVOLUÇÃO DE VENDA'),
+      fiscalStatus: isDraft ? 'Rascunho' : 'Aguardando Decisão Fiscal',
+      notaDevolucaoNumber:
+        tipoDocumentoEmitir === 'nfe_oficial' ? 'PRÉVIA (NÃO EMITIDA)' : undefined,
+      operador: getOperadorLogadoNome(),
+      createdAt: initialDraft?.createdAt || now.toISOString(),
+    };
+  };
+
+  // Botão 👁️ PRÉVIA DA NOTA: abre pré-visualização na tela sem salvar nem movimentar estoque
+  const handleOpenPreview = async () => {
+    setErrorMsg(null);
+    setIsLoadingPreview(true);
+    try {
+      const snapshot = buildSnapshotRecord(false);
+      if (tipoDocumentoEmitir === 'nfe_oficial') {
+        setPreviewTitle(`Prévia do DANFE Oficial (NF-e Modelo 55) — ${snapshot.protocolo}`);
+        const html = await buildDanfeDevolucaoOficialHtml(snapshot, companyProfile, {
+          isPreview: true,
+        });
+        setPreviewHtml(html);
+      } else {
+        setPreviewTitle(
+          `Prévia do Comprovante Interno A4 (Não Fiscal) — ${snapshot.protocolo}`
+        );
+        const html = await buildTrocaDevolucaoA4Html(snapshot, companyProfile, {
+          isPreview: true,
+        });
+        setPreviewHtml(html);
+      }
+    } catch (err) {
+      console.error('Erro ao gerar prévia do documento:', err);
+      setErrorMsg('Não foi possível gerar a prévia do documento.');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  // Botão 📝 SALVAR RASCUNHO: salva em DEVOLUÇÕES & GARANTIAS com status "Rascunho" sem movimentar estoque/financeiro
+  const handleSaveDraft = () => {
+    setErrorMsg(null);
+    setIsSaving(true);
+    try {
+      const draftRecord = buildSnapshotRecord(true);
+      const existingTrocas = getStoredTrocasDevolucoes();
+      const exists = existingTrocas.some((r) => r.id === draftRecord.id);
+      const nextList = exists
+        ? existingTrocas.map((r) => (r.id === draftRecord.id ? draftRecord : r))
+        : [draftRecord, ...existingTrocas];
+      saveStoredTrocasDevolucoes(nextList);
+      onSuccess(draftRecord, false);
+      handleCloseModal();
+    } catch (err) {
+      console.error('Erro ao salvar rascunho:', err);
+      setErrorMsg('Não foi possível salvar o rascunho.');
+      setIsSaving(false);
+    }
+  };
+
   if (!isOpen) return null;
 
-  const nextProtoPreview = getNextTrocaProtocolo();
+  const nextProtoPreview = initialDraft?.protocolo || getNextTrocaProtocolo();
   const creditOrRefundAmount =
     tipoOperacao === 'troca_direta' ? Math.max(0, -saldoFinal) : totalDevolvido;
 
@@ -1816,8 +2076,13 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
               <ArrowLeftRight className="w-4 h-4 text-slate-900" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight">
-                NOVA TROCA / DEVOLUÇÃO DE PRODUTOS
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                <span>NOVA TROCA / DEVOLUÇÃO DE PRODUTOS</span>
+                {initialDraft && (
+                  <span className="px-2 py-0.5 rounded bg-amber-100 border border-amber-600 text-amber-900 text-[10px] font-black uppercase">
+                    📝 EDITANDO RASCUNHO
+                  </span>
+                )}
               </h2>
               <p className="text-[11px] font-semibold text-slate-700">
                 Protocolo Previsto: <span className="font-mono font-bold text-black">{nextProtoPreview}</span> • Integração Automática com Estoque, Financeiro e Vale-Crédito
@@ -1826,16 +2091,16 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           </div>
           <button
             type="button"
-            onClick={handleAttemptClose}
+            onClick={handleCloseModal}
             className="p-1.5 rounded bg-white/80 hover:bg-white border border-black text-slate-900 cursor-pointer transition"
-            title="Fechar"
+            title="Fechar modal"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* CORPO COM SCROLL */}
-        <form onSubmit={handleConfirmSave} {...trocaGuard.captureProps} className="flex-1 min-h-0 flex flex-col justify-between bg-[#cad4e6]">
+        <form onSubmit={handleConfirmSave} className="flex-1 min-h-0 flex flex-col justify-between bg-[#cad4e6]">
           <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3">
           {errorMsg && (
             <div className="bg-rose-100 border border-rose-700 text-rose-950 px-3 py-2 rounded text-xs font-bold flex items-center gap-2">
@@ -3324,38 +3589,70 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           </div>
 
           {/* RODAPÉ OFICIAL (#cad4e6 + border-black) */}
-          <div className="bg-[#cad4e6] border-t border-black px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="bg-[#cad4e6] border-t border-black px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
             {tipoDocumentoEmitir === 'comprovante_interno' ? (
-              <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer bg-white/80 border border-black/40 rounded px-2.5 py-1.5">
+              <label className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-900 cursor-pointer bg-white/85 border border-black/40 rounded px-2.5 py-1.5 whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={autoPrintA4}
                   onChange={(e) => setAutoPrintA4(e.target.checked)}
                   className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
                 />
-                <Printer className="w-3.5 h-3.5 text-slate-800" />
+                <Printer className="w-3.5 h-3.5 text-slate-800 shrink-0" />
                 <span>Imprimir Comprovante A4 ao Salvar</span>
               </label>
             ) : (
-              <div className="inline-flex items-center gap-2 text-xs font-black text-emerald-950 bg-emerald-50 border border-emerald-700 rounded px-3 py-1.5">
-                <Printer className="w-3.5 h-3.5 text-emerald-700" />
-                <span>DANFE Oficial (NF-e 55) será aberto automaticamente ao emitir</span>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-950 bg-emerald-50 border border-emerald-700 rounded px-2.5 py-1.5 whitespace-nowrap">
+                <Printer className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>DANFE Oficial (NF-e 55) abrirá ao emitir</span>
               </div>
             )}
 
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex flex-wrap items-center gap-1.5 ml-auto">
               <button
                 type="button"
-                onClick={handleAttemptClose}
+                onClick={handleOpenPreview}
+                disabled={isSaving || isLoadingPreview}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-950 border border-black rounded text-[11px] font-bold uppercase cursor-pointer transition whitespace-nowrap"
+                title="Visualizar prévia do documento selecionado sem gravar nem movimentar estoque"
+              >
+                <Eye className="w-3.5 h-3.5 text-sky-700" />
+                <span>{isLoadingPreview ? 'Gerando...' : '👁️ Prévia da Nota'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveDraft}
                 disabled={isSaving}
-                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-900 border border-black rounded text-xs font-bold uppercase cursor-pointer transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-black rounded text-[11px] font-bold uppercase cursor-pointer transition whitespace-nowrap"
+                title="Salvar como Rascunho em Devoluções & Garantias sem movimentar estoque ou financeiro"
+              >
+                <FileEdit className="w-3.5 h-3.5 text-amber-800" />
+                <span>📝 Salvar Rascunho</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-950 border border-black rounded text-[11px] font-bold uppercase cursor-pointer transition whitespace-nowrap"
+                title="Fechar e sair do modal imediatamente"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-700" />
+                <span>🚪 Sair</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-900 border border-black rounded text-[11px] font-bold uppercase cursor-pointer transition whitespace-nowrap"
               >
                 Cancelar
               </button>
+
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white border border-emerald-900 rounded text-xs font-bold uppercase shadow-sm cursor-pointer transition"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white border border-emerald-900 rounded text-[11px] font-bold uppercase shadow-sm cursor-pointer transition whitespace-nowrap"
               >
                 {isSaving
                   ? 'Processando...'
@@ -3367,6 +3664,42 @@ export const NovaTrocaDevolucaoModal: React.FC<NovaTrocaDevolucaoModalProps> = (
           </div>
         </form>
       </div>
+
+      {/* Modal de Pré-Visualização da Nota / Comprovante (sem salvar nem movimentar estoque) */}
+      {previewHtml && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/75 backdrop-blur-[2px] p-2 sm:p-4">
+          <div className="w-[92vw] max-w-[1040px] h-[92vh] flex flex-col bg-[#cad4e6] border-2 border-black rounded-xl shadow-2xl overflow-hidden text-slate-900">
+            <div className="bg-[#cad4e6] border-b border-black px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Eye className="w-4 h-4 text-sky-800 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-black uppercase truncate">
+                    {previewTitle}
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-700">
+                    Somente visualização — nenhum registro foi salvo e o estoque/financeiro não foi alterado.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewHtml(null)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-white hover:bg-slate-100 border border-black text-xs font-bold uppercase cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Fechar Prévia</span>
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-200 p-2 sm:p-3 overflow-hidden">
+              <iframe
+                title="Prévia da Nota de Devolução"
+                srcDoc={previewHtml}
+                className="w-full h-full bg-white border border-black rounded shadow-inner"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sub-modal: Gerenciador de Motivos Personalizados */}
       <CategoryOptionsManagerModal
