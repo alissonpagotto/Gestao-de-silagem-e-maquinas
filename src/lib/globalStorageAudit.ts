@@ -315,7 +315,7 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     type: 'array',
   },
 
-  // 4. ESTOQUE (Inventário, peças, insumos)
+  // 4. ESTOQUE (Inventário, peças, insumos, balanços, movimentações e trocas/devoluções)
   {
     name: 'Estoque de Produtos e Peças',
     categoryIndex: 4,
@@ -324,6 +324,33 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
       'colaca_silagem_estoque_produtos', 
       'silagem_facil_clean_v1_inventory',
       'colaca_silagem_produtos'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Balanços e Inventários Físicos de Estoque',
+    categoryIndex: 4,
+    keys: [
+      'agrocontrol_inventory_balances',
+      'agrocontrol_estoque_balancos',
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Movimentações de Entrada de Estoque',
+    categoryIndex: 4,
+    keys: [
+      'agrocontrol_stock_movements',
+      'agrocontrol_estoque_movimentacoes',
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Trocas, Devoluções e Garantias',
+    categoryIndex: 4,
+    keys: [
+      'agrocontrol_trocas_devolucoes',
+      'colaca_silagem_trocas_devolucoes',
     ],
     type: 'array',
   },
@@ -357,6 +384,22 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
       'agrocontrol_pedidos_reforma',
       'colaca_silagem_pedidos_reforma_ativos',
       'silagem_facil_clean_v1_tires_in_reform'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Kits e Caixas de Ferramentas (Almoxarifado)',
+    categoryIndex: 5,
+    keys: [
+      'agrocontrol_tool_kits'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Histórico de Conferências de Ferramentas',
+    categoryIndex: 5,
+    keys: [
+      'agrocontrol_caixa_conferencias_history'
     ],
     type: 'array',
   },
@@ -407,6 +450,22 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
       'silagem_facil_clean_v1_financeiro_cheques',
       'agrocontrol_cliente_creditos',
       'silagem_facil_clean_v1_cliente_creditos'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Estornos Auditados (Financeiro)',
+    categoryIndex: 6,
+    keys: [
+      'agrocontrol_estornos_auditoria'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Histórico de Sessões de Caixa',
+    categoryIndex: 6,
+    keys: [
+      'agrocontrol_historico_caixas'
     ],
     type: 'array',
   },
@@ -466,6 +525,14 @@ const STORAGE_SYNC_GROUPS: SyncGroupConfig[] = [
     keys: [
       'agrocontrol_notas_nfse', 
       'colaca_silagem_notas_nfse'
+    ],
+    type: 'array',
+  },
+  {
+    name: 'Notas Fiscais de Saída',
+    categoryIndex: 7,
+    keys: [
+      'agrocontrol_notas_saida'
     ],
     type: 'array',
   },

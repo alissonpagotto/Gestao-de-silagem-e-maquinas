@@ -1821,6 +1821,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         {/* BLOCO 6: CENTRAL DE SEGURANÇA E BACKUP DE DADOS (100% OFFLINE / LOCALSTORAGE) */}
         <DataBackupSecurityBlock 
           subscriberName={formData.tradeName || formData.corporateName || 'SUA EMPRESA AQUI'} 
+          companyCnpj={formData.cnpjCpf || formData.cnpj || ''}
         />
 
         {/* Barra de Rodapé Compacta: Status Offline Resiliente & Sincronização */}

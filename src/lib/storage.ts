@@ -6762,3 +6762,933 @@ export function updatePendenciaDevolucao(
   const next = current.map((item) => (item.id === id ? { ...item, ...updates } : item));
   saveStoredPendenciasDevolucao(next);
 }
+
+// ==============================================================================
+// MOTOR INTEGRAL DE BACKUP & RESTAURAÇÃO (VARREDURA DINÂMICA + ESCOPO ATIVO)
+// ==============================================================================
+export interface BackupModuleSummary {
+  notasFiscais: number;
+  notasEntrada: number;
+  notasSaida: number;
+  produtos: number;
+  veiculos: number;
+  despesas: number;
+  contasReceber: number;
+  clientes: number;
+  fornecedores: number;
+  funcionarios: number;
+  kitsFerramentas: number;
+  balancosEstoque: number;
+  devolucoesGarantias: number;
+  movimentacoesEstoque: number;
+  sessoesCaixa: number;
+  estornos: number;
+  cheques: number;
+  abastecimentos: number;
+  manutencoes: number;
+  servicosPedidos: number;
+  contasBancarias: number;
+  cadastrosBase: number;
+}
+
+export interface AgroControlBackupMetadata {
+  app: 'AgroControl';
+  version: string;
+  createdAt: string;
+  companyName: string;
+  companyCnpj: string;
+  activeCompanyId: string;
+  totalKeys: number;
+  totalMediaFiles?: number;
+  summary: BackupModuleSummary;
+}
+
+export interface AgroControlBackupPayload {
+  metadata: AgroControlBackupMetadata;
+  data: Record<string, any>;
+  indexedDbMedia?: any[];
+}
+
+const BACKUP_EXCLUDED_SESSION_KEYS = new Set<string>([
+  'agrocontrol_auth_session',
+  'colaca_silagem_auth_session',
+  'colaca_silagem_active_session',
+  'silagem_client_session',
+  'silagem_active_user_email',
+  'silagem_active_subscriber_id',
+  'silagem_active_subscriber_email',
+  'admin_impersonated_company_id',
+  'is_admin_impersonating',
+  'impersonated_subscriber_id',
+  'impersonated_subscriber_name',
+  'impersonated_subscriber_email',
+  'impersonated_subscriber_plan',
+  'agrocontrol_impersonated_modules',
+  'supabase_auth_company_id',
+  'authenticated_user_company_id',
+  'supabase.auth.token',
+  'agrocontrol_restore_summary_toast',
+]);
+
+export function isBackupExcludedKey(key: string): boolean {
+  if (!key) return true;
+  const lower = String(key).toLowerCase().trim();
+  if (!lower) return true;
+  if (BACKUP_EXCLUDED_SESSION_KEYS.has(key) || BACKUP_EXCLUDED_SESSION_KEYS.has(lower)) {
+    return true;
+  }
+  if (/^sb-.*-(auth-token|code-verifier)/.test(lower)) {
+    return true;
+  }
+  if (
+    lower.startsWith('sbx_') ||
+    lower.startsWith('sbx-') ||
+    lower.includes('_sbx_') ||
+    lower.startsWith('__agro_e2e') ||
+    lower.startsWith('debug_') ||
+    lower.startsWith('_temp_') ||
+    lower.startsWith('temp_') ||
+    lower.startsWith('vite-') ||
+    lower.startsWith('loglevel') ||
+    lower.startsWith('ally-') ||
+    lower.startsWith('firebase:') ||
+    lower.startsWith('amplify-')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function collectAllSystemBackupKeys(): string[] {
+  const keys: string[] = [];
+  if (typeof window === 'undefined' || !window.localStorage) return keys;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && !isBackupExcludedKey(k)) {
+      keys.push(k);
+    }
+  }
+  return keys.sort();
+}
+
+export function buildBackupDownloadFilename(companyName?: string, nowDate: Date = new Date()): string {
+  const rawName = String(companyName || 'empresa')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 42);
+  const slug = rawName || 'empresa';
+  const yyyy = nowDate.getFullYear();
+  const mm = String(nowDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(nowDate.getDate()).padStart(2, '0');
+  const hh = String(nowDate.getHours()).padStart(2, '0');
+  const min = String(nowDate.getMinutes()).padStart(2, '0');
+  return `backup_agrocontrol_${slug}_${yyyy}-${mm}-${dd}_${hh}${min}.json`;
+}
+
+function parseUnknownAsArray(val: unknown): any[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  if (typeof val === 'object') {
+    const obj = val as Record<string, any>;
+    if (Array.isArray(obj.items)) return obj.items;
+    if (Array.isArray(obj.records)) return obj.records;
+    if (Array.isArray(obj.categorias)) return obj.categorias;
+  }
+  return [];
+}
+
+function parseUnknownAsObject(val: unknown): Record<string, any> | null {
+  if (!val) return null;
+  if (typeof val === 'object' && !Array.isArray(val)) return val as Record<string, any>;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function isLikelyCompanyScopedMatch(
+  candidateKey: string,
+  baseKey: string,
+  knownCompanyIds: Set<string>
+): boolean {
+  if (candidateKey === baseKey) return true;
+  if (!candidateKey.startsWith(`${baseKey}_`)) return false;
+  const suffix = candidateKey.slice(baseKey.length + 1);
+  if (!suffix) return false;
+  if (knownCompanyIds.has(suffix)) return true;
+  if (
+    suffix === 'default' ||
+    suffix.startsWith('company_') ||
+    /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(suffix)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function collectKnownCompanyIdsFromMap(
+  dataMap: Record<string, any>,
+  explicitIds: string[] = []
+): Set<string> {
+  const ids = new Set<string>();
+  for (const id of explicitIds) {
+    const clean = String(id || '').trim();
+    if (clean) ids.add(clean);
+  }
+  const curComp = String(dataMap['current_company_id'] || '').trim();
+  if (curComp) ids.add(curComp);
+  const profileObj =
+    parseUnknownAsObject(dataMap['agrocontrol_empresa']) ||
+    parseUnknownAsObject(dataMap['dadosEmpresa']) ||
+    parseUnknownAsObject(dataMap['silagem_facil_clean_v1_company_profile']);
+  if (profileObj?.companyId) ids.add(String(profileObj.companyId).trim());
+  if (profileObj?.id) ids.add(String(profileObj.id).trim());
+  return ids;
+}
+
+function gatherModuleUniqueItems(
+  dataMap: Record<string, any>,
+  baseKeys: string[],
+  knownCompanyIds: Set<string>,
+  keySelector?: (item: any) => string
+): any[] {
+  const map = new Map<string, any>();
+  let anonIdx = 0;
+
+  const allKeys = Object.keys(dataMap);
+  const matchedKeys: string[] = [];
+  for (const base of baseKeys) {
+    if (base in dataMap && !matchedKeys.includes(base)) {
+      matchedKeys.push(base);
+    }
+  }
+  for (const k of allKeys) {
+    if (matchedKeys.includes(k)) continue;
+    if (baseKeys.some((base) => isLikelyCompanyScopedMatch(k, base, knownCompanyIds))) {
+      matchedKeys.push(k);
+    }
+  }
+
+  for (const k of matchedKeys) {
+    const arr = parseUnknownAsArray(dataMap[k]);
+    for (const item of arr) {
+      if (item === null || item === undefined) continue;
+      let dedupKey = '';
+      if (typeof item === 'object') {
+        if (keySelector) {
+          dedupKey = keySelector(item);
+        }
+        if (!dedupKey) {
+          dedupKey = String(
+            item.id ||
+              item.uuid ||
+              item.chNFe ||
+              item.accessKey ||
+              item.chaveAcesso ||
+              item.codigo ||
+              item.code ||
+              item.placa ||
+              item.plate ||
+              ''
+          ).trim();
+        }
+      } else {
+        dedupKey = String(item);
+      }
+      if (!dedupKey) {
+        dedupKey = `anon_${++anonIdx}`;
+      }
+      if (!map.has(dedupKey)) {
+        map.set(dedupKey, item);
+      }
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+export function buildBackupModuleSummary(
+  dataMap: Record<string, any>,
+  extraCompanyIds: string[] = []
+): BackupModuleSummary {
+  const knownIds = collectKnownCompanyIdsFromMap(dataMap, [getActiveCompanyId(), ...extraCompanyIds]);
+
+  const fiscalKeySelector = (item: any) => {
+    const access = String(item?.accessKey || item?.chaveAcesso || item?.chNFe || '').replace(/\D/g, '');
+    if (access.length >= 20) return `key_${access}`;
+    return String(item?.id || item?.uuid || '').trim();
+  };
+
+  const notasEntradaMain = gatherModuleUniqueItems(
+    dataMap,
+    [
+      'silagem_facil_clean_v1_nfe_fiscal_records',
+      'agrocontrol_fiscal_docs',
+      'agrocontrol_nfe_records',
+      'agrocontrol_notas_fiscais',
+      'agrocontrol_notas_entradas',
+      'colaca_silagem_documentos_entrada',
+      'silagem_facil_clean_v1_documentos_entrada',
+      'agrocontrol_documentos_entrada',
+    ],
+    knownIds,
+    fiscalKeySelector
+  );
+  const notasSaida = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_notas_saida'],
+    knownIds,
+    fiscalKeySelector
+  );
+  const nfse = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_notas_nfse', 'colaca_silagem_notas_nfse'],
+    knownIds,
+    fiscalKeySelector
+  );
+  const mdfe = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_mdfe', 'colaca_silagem_mdfe'],
+    knownIds,
+    fiscalKeySelector
+  );
+
+  const produtos = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_produtos', 'colaca_silagem_estoque_produtos', 'silagem_facil_clean_v1_inventory', 'colaca_silagem_produtos'],
+    knownIds
+  );
+  const veiculos = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_frotas_veiculos', 'agrocontrol_frotas', 'agrocontrol_veiculos', 'colaca_silagem_frotas_veiculos', 'silagem_facil_clean_v1_machineries'],
+    knownIds
+  );
+  const despesas = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_expenses', 'agrocontrol_financeiro', 'agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'agrocontrol_contas_pagar', 'colaca_silagem_despesas', 'colaca_silagem_financeiro_contas_pagar', 'silagem_facil_clean_v1_expenses'],
+    knownIds
+  );
+  const contasReceber = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_contas_receber', 'agrocontrol_receber', 'agrocontrol_financeiro_receber', 'agrocontrol_receitas_liquidadas'],
+    knownIds
+  );
+  const clientes = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_clientes', 'colaca_silagem_clientes', 'silagem_facil_clean_v1_clients'],
+    knownIds
+  );
+  const fornecedores = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_fornecedores', 'colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers'],
+    knownIds
+  );
+  const funcionarios = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_funcionarios', 'colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees'],
+    knownIds
+  );
+  const kits = gatherModuleUniqueItems(dataMap, ['agrocontrol_tool_kits'], knownIds);
+  const conferenciasCaixaFerramentas = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_caixa_conferencias_history'],
+    knownIds
+  );
+  const balancosEstoque = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_inventory_balances', 'agrocontrol_estoque_balancos'],
+    knownIds
+  );
+  const trocasDevolucoes = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_trocas_devolucoes', 'colaca_silagem_trocas_devolucoes'],
+    knownIds
+  );
+  const pendenciasDevolucao = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_pendencias_devolucao'],
+    knownIds
+  );
+  const movimentacoesEstoque = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_stock_movements', 'agrocontrol_estoque_movimentacoes'],
+    knownIds
+  );
+
+  const historicoCaixas = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_historico_caixas'],
+    knownIds
+  );
+  const caixaAtualObj = parseUnknownAsObject(dataMap['agrocontrol_caixa_operacional']);
+  const caixaAtualCount =
+    caixaAtualObj && (caixaAtualObj.id || caixaAtualObj.status === 'ABERTO')
+      ? historicoCaixas.some((c: any) => c?.id && c.id === caixaAtualObj.id)
+        ? 0
+        : 1
+      : 0;
+
+  const estornos = gatherModuleUniqueItems(dataMap, ['agrocontrol_estornos_auditoria'], knownIds);
+  const cheques = gatherModuleUniqueItems(
+    dataMap,
+    ['silagem_facil_clean_v1_financeiro_cheques', 'agrocontrol_cheques'],
+    knownIds
+  );
+  const abastecimentos = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_abastecimentos', 'agrocontrol_combustivel', 'agrocontrol_fuel_logs', 'silagem_facil_clean_v1_fuel_logs', 'colaca_silagem_abastecimentos'],
+    knownIds
+  );
+  const manutencoes = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_manutencao', 'agrocontrol_manutencoes', 'silagem_facil_clean_v1_maintenance_logs', 'colaca_silagem_manutencoes'],
+    knownIds
+  );
+  const servicos = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_servicos', 'colaca_silagem_servicos_prestados', 'silagem_facil_clean_v1_services', 'colaca_silagem_services'],
+    knownIds
+  );
+  const pedidos = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_pedidos', 'silagem_facil_clean_v1_orders', 'colaca_silagem_pedidos', 'silagem_facil_clean_v1_service_appointments', 'silagem_appointments'],
+    knownIds
+  );
+  const vendas = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_vendas', 'agrocontrol_pdv_vendas', 'silagem_facil_clean_v1_sales', 'colaca_silagem_vendas_pdv'],
+    knownIds
+  );
+  const contasBancarias = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_bancos', 'agrocontrol_contas_bancarias', 'agrocontrol_financeiro_contas', 'colaca_silagem_financeiro_contas', 'silagem_facil_clean_v1_bank_accounts'],
+    knownIds
+  );
+  const centrosCusto = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_centros_custo', 'colaca_silagem_centros_custo', 'silagem_facil_clean_v1_cost_centers'],
+    knownIds
+  );
+  const categorias = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_plano_contas', 'colaca_silagem_plano_contas', 'agrocontrol_categorias_despesas', 'silagem_facil_clean_v1_categories'],
+    knownIds
+  );
+  const cargos = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_cargos_permissoes', 'colaca_silagem_cargos_permissoes', 'silagem_facil_clean_v1_employee_roles', 'cargos_permissoes'],
+    knownIds
+  );
+  const pneus = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_pneus_estoque', 'agrocontrol_pneus', 'colaca_silagem_frotas_pneus_estoque', 'silagem_facil_clean_v1_tire_inventory'],
+    knownIds
+  );
+  const safras = gatherModuleUniqueItems(
+    dataMap,
+    ['agrocontrol_safras', 'silagem_facil_clean_v1_seasons'],
+    knownIds
+  );
+
+  return {
+    notasFiscais: notasEntradaMain.length + notasSaida.length + nfse.length + mdfe.length,
+    notasEntrada: notasEntradaMain.length,
+    notasSaida: notasSaida.length,
+    produtos: produtos.length,
+    veiculos: veiculos.length,
+    despesas: despesas.length,
+    contasReceber: contasReceber.length,
+    clientes: clientes.length,
+    fornecedores: fornecedores.length,
+    funcionarios: funcionarios.length,
+    kitsFerramentas: kits.length + conferenciasCaixaFerramentas.length,
+    balancosEstoque: balancosEstoque.length,
+    devolucoesGarantias: trocasDevolucoes.length + pendenciasDevolucao.length,
+    movimentacoesEstoque: movimentacoesEstoque.length,
+    sessoesCaixa: historicoCaixas.length + caixaAtualCount,
+    estornos: estornos.length,
+    cheques: cheques.length,
+    abastecimentos: abastecimentos.length,
+    manutencoes: manutencoes.length,
+    servicosPedidos: servicos.length + pedidos.length + vendas.length,
+    contasBancarias: contasBancarias.length,
+    cadastrosBase: centrosCusto.length + categorias.length + cargos.length + pneus.length + safras.length,
+  };
+}
+
+interface MirrorGroupSpec {
+  aliases: string[];
+  primaryTargets: string[];
+  scopeTargets?: string[];
+  kind: 'array' | 'object';
+  transformArray?: (items: any[]) => any[];
+}
+
+function normalizeTruckTrailerLabels(items: any[]): any[] {
+  return items.map((veiculo: any) => {
+    if (!veiculo || typeof veiculo !== 'object') return veiculo;
+    const vTipo = String(veiculo.type || veiculo.category || veiculo.tipo || veiculo.categoria || '').toUpperCase();
+    const isCavaloOuCaminhaoTrator =
+      vTipo.includes('TRATOR_ESTRADA') ||
+      vTipo.includes('CAVALO') ||
+      vTipo.includes('CAMINHÃO TRATOR') ||
+      vTipo.includes('CAMINHAO TRATOR') ||
+      vTipo.includes('CAMINHÃO') ||
+      vTipo.includes('CAMINHAO');
+
+    if (!isCavaloOuCaminhaoTrator) return veiculo;
+
+    const updated = { ...veiculo };
+    if (typeof updated.coupledTrailerType === 'string') {
+      updated.coupledTrailerType = updated.coupledTrailerType.replace(/IMPLEMENTO/gi, 'REBOQUE');
+    }
+    if (typeof updated.compositionType === 'string') {
+      updated.compositionType = updated.compositionType.replace(/IMPLEMENTO/gi, 'REBOQUE');
+    }
+    if (typeof updated.implementoType === 'string') {
+      updated.implementoType = updated.implementoType.replace(/IMPLEMENTO/gi, 'REBOQUE');
+    }
+    if (Array.isArray(updated.reboques)) {
+      updated.reboques = updated.reboques.map((item: any) => {
+        if (typeof item === 'string') return item.replace(/IMPLEMENTO/gi, 'REBOQUE');
+        if (item && typeof item === 'object') {
+          const itemAtt = { ...item };
+          if (typeof itemAtt.tipo === 'string') itemAtt.tipo = itemAtt.tipo.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          if (typeof itemAtt.type === 'string') itemAtt.type = itemAtt.type.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          if (typeof itemAtt.categoria === 'string') itemAtt.categoria = itemAtt.categoria.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          if (typeof itemAtt.label === 'string') itemAtt.label = itemAtt.label.replace(/IMPLEMENTO/gi, 'REBOQUE');
+          return itemAtt;
+        }
+        return item;
+      });
+    }
+    return updated;
+  });
+}
+
+const BACKUP_RESTORE_MIRROR_GROUPS: MirrorGroupSpec[] = [
+  {
+    aliases: ['agrocontrol_frotas_veiculos', 'agrocontrol_frotas', 'agrocontrol_veiculos', 'colaca_silagem_frotas_veiculos', 'silagem_facil_clean_v1_machineries'],
+    primaryTargets: ['agrocontrol_frotas_veiculos', 'agrocontrol_frotas', 'agrocontrol_veiculos', 'colaca_silagem_frotas_veiculos', 'silagem_facil_clean_v1_machineries'],
+    scopeTargets: ['agrocontrol_frotas_veiculos', 'colaca_silagem_frotas_veiculos'],
+    kind: 'array',
+    transformArray: normalizeTruckTrailerLabels,
+  },
+  {
+    aliases: ['agrocontrol_pneus_estoque', 'agrocontrol_pneus', 'colaca_silagem_frotas_pneus_estoque', 'silagem_facil_clean_v1_tire_inventory'],
+    primaryTargets: ['agrocontrol_pneus_estoque', 'agrocontrol_pneus', 'colaca_silagem_frotas_pneus_estoque', 'silagem_facil_clean_v1_tire_inventory'],
+    scopeTargets: ['agrocontrol_pneus_estoque'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_produtos', 'colaca_silagem_estoque_produtos', 'silagem_facil_clean_v1_inventory', 'colaca_silagem_produtos'],
+    primaryTargets: ['agrocontrol_produtos', 'colaca_silagem_estoque_produtos', 'silagem_facil_clean_v1_inventory'],
+    scopeTargets: ['agrocontrol_produtos', 'colaca_silagem_estoque_produtos'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_expenses', 'agrocontrol_financeiro', 'agrocontrol_despesas', 'agrocontrol_contas_a_pagar', 'agrocontrol_contas_pagar', 'colaca_silagem_despesas', 'colaca_silagem_financeiro_contas_pagar', 'silagem_facil_clean_v1_expenses'],
+    primaryTargets: ['agrocontrol_expenses', 'agrocontrol_financeiro'],
+    scopeTargets: ['agrocontrol_expenses', 'colaca_silagem_despesas'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_contas_receber', 'agrocontrol_receber', 'agrocontrol_financeiro_receber'],
+    primaryTargets: ['agrocontrol_contas_receber', 'agrocontrol_receber', 'agrocontrol_financeiro_receber'],
+    scopeTargets: ['agrocontrol_contas_receber'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_receitas_liquidadas'],
+    primaryTargets: ['agrocontrol_receitas_liquidadas'],
+    scopeTargets: ['agrocontrol_receitas_liquidadas'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_nfe_fiscal_records', 'agrocontrol_fiscal_docs', 'agrocontrol_nfe_records', 'agrocontrol_notas_fiscais'],
+    primaryTargets: ['silagem_facil_clean_v1_nfe_fiscal_records', 'agrocontrol_fiscal_docs', 'agrocontrol_nfe_records', 'agrocontrol_notas_fiscais'],
+    scopeTargets: ['silagem_facil_clean_v1_nfe_fiscal_records', 'agrocontrol_fiscal_docs', 'agrocontrol_nfe_records', 'agrocontrol_notas_fiscais'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_notas_entradas', 'colaca_silagem_documentos_entrada', 'silagem_facil_clean_v1_documentos_entrada', 'agrocontrol_documentos_entrada'],
+    primaryTargets: ['agrocontrol_notas_entradas', 'colaca_silagem_documentos_entrada', 'silagem_facil_clean_v1_documentos_entrada'],
+    scopeTargets: ['agrocontrol_notas_entradas'],
+    kind: 'array',
+  },
+  {
+    aliases: ['colaca_silagem_documentos_entrada_itens', 'silagem_facil_clean_v1_documentos_entrada_itens'],
+    primaryTargets: ['colaca_silagem_documentos_entrada_itens', 'silagem_facil_clean_v1_documentos_entrada_itens'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_notas_saida'],
+    primaryTargets: ['agrocontrol_notas_saida'],
+    scopeTargets: ['agrocontrol_notas_saida'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_mdfe', 'colaca_silagem_mdfe'],
+    primaryTargets: ['agrocontrol_mdfe', 'colaca_silagem_mdfe'],
+    scopeTargets: ['agrocontrol_mdfe'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_notas_nfse', 'colaca_silagem_notas_nfse'],
+    primaryTargets: ['agrocontrol_notas_nfse', 'colaca_silagem_notas_nfse'],
+    scopeTargets: ['agrocontrol_notas_nfse'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_manifestacoes_sefaz', 'colaca_silagem_manifestacoes_sefaz'],
+    primaryTargets: ['agrocontrol_manifestacoes_sefaz', 'colaca_silagem_manifestacoes_sefaz'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_pedidos_compra'],
+    primaryTargets: ['agrocontrol_pedidos_compra'],
+    scopeTargets: ['agrocontrol_pedidos_compra'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_funcionarios', 'colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees'],
+    primaryTargets: ['agrocontrol_funcionarios', 'colaca_silagem_funcionarios', 'silagem_facil_clean_v1_employees'],
+    scopeTargets: ['agrocontrol_funcionarios', 'colaca_silagem_funcionarios'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_folhas_pagamento', 'colaca_silagem_rh_folhas', 'silagem_facil_clean_v1_payrolls'],
+    primaryTargets: ['agrocontrol_folhas_pagamento', 'colaca_silagem_rh_folhas', 'silagem_facil_clean_v1_payrolls'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_ferias', 'colaca_silagem_rh_ferias', 'silagem_facil_clean_v1_vacations'],
+    primaryTargets: ['agrocontrol_ferias', 'colaca_silagem_rh_ferias', 'silagem_facil_clean_v1_vacations'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_rescisao', 'colaca_silagem_rh_rescisao', 'silagem_facil_clean_v1_terminations'],
+    primaryTargets: ['agrocontrol_rescisao', 'colaca_silagem_rh_rescisao', 'silagem_facil_clean_v1_terminations'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_adiantamentos', 'colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances'],
+    primaryTargets: ['agrocontrol_adiantamentos', 'colaca_silagem_rh_adiantamentos', 'silagem_facil_clean_v1_salary_advances'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_medical_certificates'],
+    primaryTargets: ['silagem_facil_clean_v1_medical_certificates'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_absences'],
+    primaryTargets: ['silagem_facil_clean_v1_absences'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_leaves'],
+    primaryTargets: ['silagem_facil_clean_v1_leaves'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_bancos', 'agrocontrol_contas_bancarias', 'agrocontrol_financeiro_contas', 'colaca_silagem_financeiro_contas', 'silagem_facil_clean_v1_bank_accounts'],
+    primaryTargets: ['agrocontrol_bancos', 'agrocontrol_contas_bancarias', 'agrocontrol_financeiro_contas', 'colaca_silagem_financeiro_contas', 'silagem_facil_clean_v1_bank_accounts'],
+    scopeTargets: ['agrocontrol_bancos', 'colaca_silagem_financeiro_contas'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_bank_transactions', 'agrocontrol_movimentacoes_bancarias'],
+    primaryTargets: ['silagem_facil_clean_v1_bank_transactions'],
+    scopeTargets: ['silagem_facil_clean_v1_bank_transactions'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_fornecedores', 'colaca_silagem_fornecedores', 'silagem_facil_clean_v1_suppliers'],
+    primaryTargets: ['agrocontrol_fornecedores', 'silagem_facil_clean_v1_suppliers'],
+    scopeTargets: ['agrocontrol_fornecedores'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_clientes', 'colaca_silagem_clientes', 'silagem_facil_clean_v1_clients'],
+    primaryTargets: ['agrocontrol_clientes', 'silagem_facil_clean_v1_clients'],
+    scopeTargets: ['agrocontrol_clientes'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_abastecimentos', 'agrocontrol_combustivel', 'agrocontrol_fuel_logs', 'silagem_facil_clean_v1_fuel_logs', 'colaca_silagem_abastecimentos'],
+    primaryTargets: ['agrocontrol_abastecimentos', 'agrocontrol_combustivel', 'silagem_facil_clean_v1_fuel_logs'],
+    scopeTargets: ['agrocontrol_abastecimentos'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_manutencao', 'agrocontrol_manutencoes', 'silagem_facil_clean_v1_maintenance_logs', 'colaca_silagem_manutencoes'],
+    primaryTargets: ['agrocontrol_manutencao', 'silagem_facil_clean_v1_maintenance_logs'],
+    scopeTargets: ['agrocontrol_manutencao'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_tanques_combustivel'],
+    primaryTargets: ['silagem_facil_clean_v1_tanques_combustivel'],
+    scopeTargets: ['silagem_facil_clean_v1_tanques_combustivel'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_pedidos_reforma', 'colaca_silagem_pedidos_reforma_ativos', 'silagem_facil_clean_v1_tires_in_reform'],
+    primaryTargets: ['agrocontrol_pedidos_reforma', 'colaca_silagem_pedidos_reforma_ativos', 'silagem_facil_clean_v1_tires_in_reform'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_tool_kits'],
+    primaryTargets: ['agrocontrol_tool_kits'],
+    scopeTargets: ['agrocontrol_tool_kits'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_caixa_conferencias_history'],
+    primaryTargets: ['agrocontrol_caixa_conferencias_history'],
+    scopeTargets: ['agrocontrol_caixa_conferencias_history'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_inventory_balances', 'agrocontrol_estoque_balancos'],
+    primaryTargets: ['agrocontrol_inventory_balances', 'agrocontrol_estoque_balancos'],
+    scopeTargets: ['agrocontrol_inventory_balances'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_stock_movements', 'agrocontrol_estoque_movimentacoes'],
+    primaryTargets: ['agrocontrol_stock_movements', 'agrocontrol_estoque_movimentacoes'],
+    scopeTargets: ['agrocontrol_stock_movements'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_trocas_devolucoes', 'colaca_silagem_trocas_devolucoes'],
+    primaryTargets: ['agrocontrol_trocas_devolucoes'],
+    scopeTargets: ['agrocontrol_trocas_devolucoes'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_pendencias_devolucao'],
+    primaryTargets: ['agrocontrol_pendencias_devolucao'],
+    scopeTargets: ['agrocontrol_pendencias_devolucao'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_estornos_auditoria'],
+    primaryTargets: ['agrocontrol_estornos_auditoria'],
+    scopeTargets: ['agrocontrol_estornos_auditoria'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_historico_caixas'],
+    primaryTargets: ['agrocontrol_historico_caixas'],
+    scopeTargets: ['agrocontrol_historico_caixas'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_caixa_operacional'],
+    primaryTargets: ['agrocontrol_caixa_operacional'],
+    scopeTargets: ['agrocontrol_caixa_operacional'],
+    kind: 'object',
+  },
+  {
+    aliases: ['agrocontrol_caixa_ferramentas_meta'],
+    primaryTargets: ['agrocontrol_caixa_ferramentas_meta'],
+    kind: 'object',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_financeiro_cheques', 'agrocontrol_cheques'],
+    primaryTargets: ['silagem_facil_clean_v1_financeiro_cheques', 'agrocontrol_cheques'],
+    scopeTargets: ['silagem_facil_clean_v1_financeiro_cheques'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_cliente_creditos', 'agrocontrol_clientes_creditos', 'agrocontrol_cliente_creditos'],
+    primaryTargets: ['silagem_facil_clean_v1_cliente_creditos', 'agrocontrol_clientes_creditos'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_servicos', 'colaca_silagem_servicos_prestados', 'silagem_facil_clean_v1_services', 'colaca_silagem_services'],
+    primaryTargets: ['agrocontrol_servicos', 'silagem_facil_clean_v1_services'],
+    scopeTargets: ['agrocontrol_servicos'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_pedidos', 'silagem_facil_clean_v1_orders', 'colaca_silagem_pedidos'],
+    primaryTargets: ['agrocontrol_pedidos', 'silagem_facil_clean_v1_orders'],
+    scopeTargets: ['agrocontrol_pedidos'],
+    kind: 'array',
+  },
+  {
+    aliases: ['silagem_facil_clean_v1_service_appointments', 'silagem_appointments', 'colaca_silagem_agendamentos'],
+    primaryTargets: ['silagem_facil_clean_v1_service_appointments', 'silagem_appointments'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_vendas', 'agrocontrol_pdv_vendas', 'silagem_facil_clean_v1_sales', 'colaca_silagem_vendas_pdv'],
+    primaryTargets: ['agrocontrol_vendas', 'silagem_facil_clean_v1_sales'],
+    scopeTargets: ['agrocontrol_vendas'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_safras', 'silagem_facil_clean_v1_seasons'],
+    primaryTargets: ['agrocontrol_safras', 'silagem_facil_clean_v1_seasons'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_centros_custo', 'colaca_silagem_centros_custo', 'silagem_facil_clean_v1_cost_centers'],
+    primaryTargets: ['agrocontrol_centros_custo', 'colaca_silagem_centros_custo', 'silagem_facil_clean_v1_cost_centers'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_cargos_permissoes', 'colaca_silagem_cargos_permissoes', 'silagem_facil_clean_v1_employee_roles', 'cargos_permissoes'],
+    primaryTargets: ['agrocontrol_cargos_permissoes', 'colaca_silagem_cargos_permissoes', 'silagem_facil_clean_v1_employee_roles'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_tipos_veiculos', 'colaca_silagem_tipos_veiculos', 'silagem_facil_clean_v1_vehicle_types'],
+    primaryTargets: ['agrocontrol_tipos_veiculos', 'colaca_silagem_tipos_veiculos', 'silagem_facil_clean_v1_vehicle_types'],
+    kind: 'array',
+  },
+  {
+    aliases: ['agrocontrol_empresa', 'dadosEmpresa', 'silagem_facil_clean_v1_company_profile', 'colaca_company_profile', 'colaca_silagem_company_profile', 'company_profile'],
+    primaryTargets: ['agrocontrol_empresa', 'dadosEmpresa', 'silagem_facil_clean_v1_company_profile', 'colaca_company_profile'],
+    scopeTargets: ['company_profile', 'agrocontrol_empresa', 'dadosEmpresa', 'silagem_facil_clean_v1_company_profile'],
+    kind: 'object',
+  },
+  {
+    aliases: ['agrocontrol_form_sequences', 'colaca_silagem_form_sequences'],
+    primaryTargets: ['agrocontrol_form_sequences', 'colaca_silagem_form_sequences'],
+    kind: 'object',
+  },
+];
+
+export function mirrorRestoredBackupToActiveScope(
+  dataMap: Record<string, any>,
+  targetCompanyId: string,
+  sourceCompanyId?: string
+): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const knownIds = collectKnownCompanyIdsFromMap(dataMap, [
+    targetCompanyId,
+    sourceCompanyId || '',
+    getActiveCompanyId(),
+  ]);
+
+  const cleanTargetId = String(targetCompanyId || '').trim();
+  const hasScopedTarget = Boolean(cleanTargetId && cleanTargetId !== 'default');
+
+  for (const group of BACKUP_RESTORE_MIRROR_GROUPS) {
+    if (group.kind === 'array') {
+      let bestArray: any[] = [];
+      for (const alias of group.aliases) {
+        const directArr = parseUnknownAsArray(dataMap[alias]);
+        if (directArr.length > bestArray.length) {
+          bestArray = directArr;
+        }
+        if (sourceCompanyId) {
+          const srcArr = parseUnknownAsArray(dataMap[`${alias}_${sourceCompanyId}`]);
+          if (srcArr.length > bestArray.length) {
+            bestArray = srcArr;
+          }
+        }
+        if (hasScopedTarget) {
+          const tgtArr = parseUnknownAsArray(dataMap[`${alias}_${cleanTargetId}`]);
+          if (tgtArr.length > bestArray.length) {
+            bestArray = tgtArr;
+          }
+        }
+      }
+
+      if (bestArray.length === 0) {
+        for (const k of Object.keys(dataMap)) {
+          if (group.aliases.some((alias) => isLikelyCompanyScopedMatch(k, alias, knownIds))) {
+            const candidate = parseUnknownAsArray(dataMap[k]);
+            if (candidate.length > bestArray.length) {
+              bestArray = candidate;
+            }
+          }
+        }
+      }
+
+      if (bestArray.length > 0) {
+        const finalArray = group.transformArray ? group.transformArray(bestArray) : bestArray;
+        const serialized = JSON.stringify(finalArray);
+        for (const targetKey of group.primaryTargets) {
+          safeLocalStorageSetItem(targetKey, serialized);
+        }
+        if (hasScopedTarget && group.scopeTargets) {
+          for (const scopeBase of group.scopeTargets) {
+            safeLocalStorageSetItem(`${scopeBase}_${cleanTargetId}`, serialized);
+          }
+        }
+      }
+    } else {
+      let bestObj: Record<string, any> | null = null;
+      for (const alias of group.aliases) {
+        const directObj = parseUnknownAsObject(dataMap[alias]);
+        if (directObj && (!bestObj || Object.keys(directObj).length > Object.keys(bestObj).length)) {
+          bestObj = directObj;
+        }
+        if (sourceCompanyId) {
+          const srcObj = parseUnknownAsObject(dataMap[`${alias}_${sourceCompanyId}`]);
+          if (srcObj && (!bestObj || Object.keys(srcObj).length > Object.keys(bestObj).length)) {
+            bestObj = srcObj;
+          }
+        }
+        if (hasScopedTarget) {
+          const tgtObj = parseUnknownAsObject(dataMap[`${alias}_${cleanTargetId}`]);
+          if (tgtObj && (!bestObj || Object.keys(tgtObj).length > Object.keys(bestObj).length)) {
+            bestObj = tgtObj;
+          }
+        }
+      }
+
+      if (!bestObj) {
+        for (const k of Object.keys(dataMap)) {
+          if (group.aliases.some((alias) => isLikelyCompanyScopedMatch(k, alias, knownIds))) {
+            const candidate = parseUnknownAsObject(dataMap[k]);
+            if (candidate && (!bestObj || Object.keys(candidate).length > Object.keys(bestObj).length)) {
+              bestObj = candidate;
+            }
+          }
+        }
+      }
+
+      if (bestObj && Object.keys(bestObj).length > 0) {
+        const serialized = JSON.stringify(bestObj);
+        for (const targetKey of group.primaryTargets) {
+          if (targetKey === 'company_profile') continue;
+          safeLocalStorageSetItem(targetKey, serialized);
+        }
+        if (hasScopedTarget && group.scopeTargets) {
+          for (const scopeBase of group.scopeTargets) {
+            safeLocalStorageSetItem(`${scopeBase}_${cleanTargetId}`, serialized);
+          }
+        }
+      }
+    }
+  }
+}
+
