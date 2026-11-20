@@ -48,6 +48,7 @@ import { getActiveUserSession } from '../../lib/cadastrosBaseStorage';
 import { generatePrintableHtml, executePrint } from '../../lib/printService';
 import { isSupabaseConfigured, upsertEstoqueItem } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
+import { ZeroStockAuditModal } from './ZeroStockAuditModal';
 
 interface InventoryBalanceSubModuleProps {
   allItems: InventoryItem[];
@@ -192,6 +193,7 @@ export const InventoryBalanceSubModule: React.FC<InventoryBalanceSubModuleProps>
   const [filterMode, setFilterMode] = useState<CountFilterMode>('todos');
   const [blindMode, setBlindMode] = useState(false);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [isZeroStockModalOpen, setIsZeroStockModalOpen] = useState(false);
   const [feedbackBanner, setFeedbackBanner] = useState<{
     type: 'success' | 'info' | 'warning';
     text: string;
@@ -637,6 +639,107 @@ export const InventoryBalanceSubModule: React.FC<InventoryBalanceSubModuleProps>
     });
   };
 
+  // Execução auditada da Zeragem de Estoque (somente itens selecionados)
+  const handleConfirmZeroItems = ({
+    selectedIds,
+    reason,
+    auditUser,
+    auditDateTime,
+    totalValue,
+  }: {
+    selectedIds: string[];
+    reason: string;
+    auditUser: string;
+    auditDateTime: string;
+    totalValue: number;
+  }) => {
+    if (!selectedIds || selectedIds.length === 0) return;
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const todayDate = nowIso.split('T')[0];
+    const activeCompanyId = getActiveCompanyId() || 'default';
+    const batchId = `zer_${now.getTime()}`;
+    const batchRef = `ZER-${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const storedInv = getStoredInventory();
+    const baseMap = new Map<string, InventoryItem>();
+    [...storedInv, ...allItems].forEach((p) => {
+      if (p && p.id) baseMap.set(p.id, p);
+    });
+
+    const selectedSet = new Set(selectedIds);
+    const zeroMovements: StockEntryMovement[] = [];
+    const changedProducts: InventoryItem[] = [];
+
+    selectedSet.forEach((productId) => {
+      const existingProd = baseMap.get(productId);
+      if (!existingProd) return;
+
+      const prevQty = roundQty(Number(existingProd.quantidade_atual ?? existingProd.quantity ?? 0) || 0);
+      const unitCost = Number(existingProd.preco_custo_inicial ?? existingProd.unitCost ?? 0) || 0;
+      const unit = String(existingProd.unidade_medida || existingProd.unit || 'UN').toUpperCase();
+      const prodName = String(existingProd.nome_comercial || existingProd.name || existingProd.nome || 'Produto sem nome').trim();
+      const prodCode = String(existingProd.code || existingProd.codigo_produto || '').trim() || undefined;
+
+      const updatedProd: InventoryItem = {
+        ...existingProd,
+        quantity: 0,
+        quantidade_atual: 0,
+        updatedAt: nowIso,
+      };
+      baseMap.set(productId, updatedProd);
+      changedProducts.push(updatedProd);
+
+      zeroMovements.push({
+        id: `mov_zer_${batchId}_${productId}`,
+        companyId: activeCompanyId,
+        notaId: batchId,
+        invoiceNumber: batchRef,
+        supplier: `Resp.: ${auditUser}`,
+        productId,
+        productCode: prodCode,
+        productName: prodName,
+        quantity: prevQty,
+        unit,
+        unitCost,
+        totalCost: Math.round(prevQty * unitCost * 100) / 100,
+        date: todayDate,
+        type: 'saida',
+        source: 'zeragem',
+        description: `Zeragem de Estoque — Resp.: ${auditUser} — Motivo: ${reason} (Saldo anterior: ${formatQtyBR(prevQty)} ${unit} → 0 ${unit} em ${auditDateTime})`,
+        createdAt: nowIso,
+      });
+    });
+
+    const updatedInventory = Array.from(baseMap.values());
+
+    if (changedProducts.length > 0) {
+      saveStoredInventory(updatedInventory);
+      saveCompanyEstoque(updatedInventory, activeCompanyId);
+      onSaveInventory(updatedInventory);
+    }
+
+    if (zeroMovements.length > 0) {
+      recordStockEntryMovements(zeroMovements);
+    }
+
+    if (isSupabaseConfigured && changedProducts.length > 0) {
+      changedProducts.forEach((prod) => {
+        upsertEstoqueItem(prod).catch((err) =>
+          console.warn('Aviso upsertEstoqueItem após zeragem de estoque:', err)
+        );
+      });
+    }
+
+    setIsZeroStockModalOpen(false);
+    setFeedbackBanner({
+      type: 'success',
+      text: `Zeragem de estoque concluída por ${auditUser}! ${changedProducts.length} item(ns) zerado(s) (${formatCurrencyBRL(totalValue)}) com movimentação auditada registrada.`,
+    });
+    setTimeout(() => setFeedbackBanner(null), 7000);
+  };
+
   // Impressão A4: Ficha de Contagem em Branco para Prancheta no Galpão
   const handlePrintCountingSheet = (session: InventoryBalanceSession) => {
     const company = getStoredCompanyProfile();
@@ -893,15 +996,26 @@ export const InventoryBalanceSubModule: React.FC<InventoryBalanceSubModuleProps>
               </div>
             </div>
 
-            <button
-              type="button"
-              id="btn-novo-balanco-estoque"
-              onClick={handleOpenNewModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white border border-black text-xs font-bold uppercase tracking-wide shadow-xs transition active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Novo Balanço / Inventário</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                id="btn-zerar-estoque"
+                onClick={() => setIsZeroStockModalOpen(true)}
+                className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white border border-black font-bold px-3 py-1.5 rounded-md text-xs shadow-sm uppercase tracking-wide transition active:scale-95 cursor-pointer"
+              >
+                <span>🚨 ZERAR ESTOQUE</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-novo-balanco-estoque"
+                onClick={handleOpenNewModal}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white border border-black text-xs font-bold uppercase tracking-wide shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Novo Balanço / Inventário</span>
+              </button>
+            </div>
           </div>
 
           {/* Lista de Sessões */}
@@ -1929,6 +2043,12 @@ export const InventoryBalanceSubModule: React.FC<InventoryBalanceSubModuleProps>
           </div>
         </div>
       )}
+      <ZeroStockAuditModal
+        isOpen={isZeroStockModalOpen}
+        onClose={() => setIsZeroStockModalOpen(false)}
+        allItems={allItems}
+        onConfirmZeroItems={handleConfirmZeroItems}
+      />
     </div>
   );
 };

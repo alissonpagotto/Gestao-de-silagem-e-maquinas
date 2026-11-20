@@ -402,7 +402,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         const movType: 'entrada' | 'saida' = mov.type === 'saida' ? 'saida' : 'entrada';
         const defaultDesc = mov.source === 'balanco'
           ? `Ajuste de Inventário - Balanço #${mov.invoiceNumber}`
-          : `Entrada via NF-e / Doc ${mov.invoiceNumber}${mov.supplier ? ` (${mov.supplier})` : ''}`;
+          : mov.source === 'zeragem'
+            ? `Zeragem de Estoque #${mov.invoiceNumber}`
+            : `Entrada via NF-e / Doc ${mov.invoiceNumber}${mov.supplier ? ` (${mov.supplier})` : ''}`;
         movements.push({
           id: `stock_mov_${mov.id}`,
           date: mov.date || (mov.createdAt ? mov.createdAt.split('T')[0] : 'Data n/d'),
@@ -413,7 +415,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           cost: mov.totalCost || (mov.quantity * (mov.unitCost || 0)),
           ref: mov.source === 'balanco'
             ? `Balanço #${mov.invoiceNumber}`
-            : (mov.invoiceNumber ? `NF ${mov.invoiceNumber}` : undefined),
+            : mov.source === 'zeragem'
+              ? `Zeragem #${mov.invoiceNumber}`
+              : (mov.invoiceNumber ? `NF ${mov.invoiceNumber}` : undefined),
         });
       }
     });

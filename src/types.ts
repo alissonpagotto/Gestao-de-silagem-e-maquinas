@@ -2307,7 +2307,7 @@ export interface StockEntryMovement {
   totalCost: number;
   date: string;
   type: 'entrada' | 'saida';
-  source: 'xml' | 'manual' | 'reintegracao' | 'balanco';
+  source: 'xml' | 'manual' | 'reintegracao' | 'balanco' | 'zeragem';
   description?: string;
   createdAt: string;
 }
