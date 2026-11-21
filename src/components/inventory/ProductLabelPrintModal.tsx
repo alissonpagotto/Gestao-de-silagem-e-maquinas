@@ -374,20 +374,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
     const isTinyWidth = preset.labelWidthMm <= 34;
     const hideLegendOnUltraLow = preset.labelHeightMm <= 14.5 && showBarcode && showInternalCode;
+    const innerHeightMm = Math.max(4, preset.labelHeightMm - 3);
     const barcodeMaxHeightMm =
-      preset.labelHeightMm <= 14
-        ? 3.8
-        : preset.labelHeightMm <= 18
-        ? 4.8
-        : preset.labelHeightMm <= 22.5
-        ? 6.5
-        : preset.labelHeightMm <= 32
-        ? 9.0
-        : preset.labelHeightMm <= 45
-        ? 13.0
-        : preset.labelHeightMm <= 90
-        ? 19.0
-        : 36.0;
+      preset.labelHeightMm <= 18
+        ? Number((innerHeightMm * 0.27).toFixed(1))
+        : preset.labelHeightMm > 180
+        ? 64
+        : Number(Math.max(4.5, Math.min(44, innerHeightMm * 0.31)).toFixed(1));
+    const isMiniHeight = preset.labelHeightMm <= 22.5;
 
     const formattedPriceStr = formatCurrencyBRL(salePrice);
     const priceNumericStr = formattedPriceStr.replace(/^R\$\s*/, '') || '0,00';
@@ -478,37 +472,31 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       .join('');
 
     return `
-      <div class="gondola-label" style="
+      <div class="label-cell gondola-label" style="
         width: ${preset.labelWidthMm}mm;
         min-width: ${preset.labelWidthMm}mm;
         max-width: ${preset.labelWidthMm}mm;
         height: ${preset.labelHeightMm}mm;
         min-height: ${preset.labelHeightMm}mm;
         max-height: ${preset.labelHeightMm}mm;
-        box-sizing: border-box;
         background: #ffffff;
         color: #000000;
-        padding: ${metrics.paddingMm};
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
         position: relative;
-        overflow: hidden;
       ">
         <!-- Topo: Descrição do Produto -->
         <div class="label-header" style="
           display: flex;
           align-items: center;
           justify-content: center;
-          line-height: 1.08;
+          line-height: 1.05;
           background: #ffffff;
           color: #000000;
           border-bottom: 0.4px solid #000000;
-          padding-bottom: 0.5px;
-          margin-bottom: 0.5px;
+          padding-bottom: ${isMiniHeight ? '0.3px' : '0.5px'};
+          margin-bottom: ${isMiniHeight ? '0.3px' : '0.5px'};
           width: 100%;
           max-width: 100%;
-          min-height: ${metrics.headerMinMm}mm;
+          ${metrics.headerMinMm > 0 ? `min-height: ${metrics.headerMinMm}mm;` : ''}
           max-height: ${metrics.headerMaxMm}mm;
           overflow: hidden;
           box-sizing: border-box;
@@ -526,8 +514,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             -webkit-box-orient: vertical;
             overflow: hidden;
             word-break: break-word;
-            line-height: 1.08;
-            max-height: ${metrics.headerLines === 1 ? '1.15em' : '2.2em'};
+            line-height: 1.05;
+            max-height: ${metrics.headerLines === 1 ? '1.12em' : '2.15em'};
             width: 100%;
             min-width: 0;
           " title="${prodName}">
@@ -538,11 +526,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         <!-- Metade Inferior em Duas Colunas (Esquerda 72%: Código de Barras + Endereço | Direita 28%: Preço + Unidade) -->
         <div class="label-lower-columns" style="
           display: flex;
-          flex-direction: row;
-          align-items: stretch;
-          justify-content: space-between;
+          flex-direction: ${metrics.isNarrowVertical ? 'column' : 'row'};
+          align-items: ${metrics.isNarrowVertical ? 'center' : 'stretch'};
+          justify-content: ${metrics.isNarrowVertical ? 'center' : 'space-between'};
           gap: ${isTinyWidth ? '1px' : '2px'};
-          flex: 1;
+          flex: ${isMiniHeight ? '0 1 auto' : '1'};
           width: 100%;
           max-width: 100%;
           min-height: 0;
@@ -553,13 +541,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             showBarcode || showAddress || showInternalCode
               ? `
             <div class="label-left-col" style="
-              width: ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
-              max-width: ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
-              flex: 0 0 ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
+              width: ${metrics.isNarrowVertical ? '100%' : showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
+              max-width: ${metrics.isNarrowVertical ? '100%' : showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
+              flex: ${metrics.isNarrowVertical ? '0 1 auto' : `0 0 ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'}`};
               display: flex;
               flex-direction: column;
-              justify-content: ${showBarcode ? 'space-between' : 'center'};
+              justify-content: ${isMiniHeight || !showBarcode ? 'center' : 'space-between'};
               align-items: stretch;
+              gap: ${isMiniHeight ? '0.4px' : '0'};
               min-width: 0;
               min-height: 0;
               overflow: hidden;
@@ -573,7 +562,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   flex-direction: column;
                   justify-content: center;
                   align-items: center;
-                  flex: 1;
+                  flex: ${isMiniHeight ? '0 1 auto' : '1'};
                   min-height: 0;
                   width: 100%;
                   max-width: 100%;
@@ -593,8 +582,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     background: #ffffff;
                     text-align: center;
                     letter-spacing: ${isTinyWidth ? '0.2px' : '0.4px'};
-                    line-height: 1;
-                    margin-top: 0.5px;
+                    line-height: 0.95;
+                    margin-top: ${isMiniHeight ? '0.2px' : '0.5px'};
                     white-space: nowrap;
                     overflow: hidden;
                     max-width: 100%;
@@ -614,12 +603,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   background: #ffffff;
                   color: #000000;
                   border-radius: 1.5px;
-                  padding: ${metrics.isUltraCompact ? '0.5px 1px' : showBarcode ? '1px 1.5px' : '2px 2px'};
+                  padding: ${metrics.isUltraCompact ? '0.3px 0.8px' : showBarcode ? '1px 1.5px' : '2px 2px'};
                   text-align: center;
-                  margin-top: 0.5px;
+                  margin-top: ${isMiniHeight ? '0.2px' : '0.5px'};
                   width: 100%;
                   max-width: 100%;
-                  ${!showBarcode ? 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;' : 'flex-shrink: 0;'}
+                  ${!showBarcode && !isMiniHeight ? 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;' : 'flex-shrink: 0;'}
                   overflow: hidden;
                   box-sizing: border-box;
                 ">
@@ -627,12 +616,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     showInternalCode
                       ? `
                     <div class="label-internal-code" style="
-                      font-size: ${Math.max(3.8, metrics.codeFontSizePt * (metrics.isUltraCompact ? 0.78 : showBarcode ? 0.76 : 0.9))}pt;
+                      font-size: ${Math.max(3.4, metrics.codeFontSizePt * (metrics.isUltraCompact ? 0.8 : showBarcode ? 0.76 : 0.9))}pt;
                       font-family: 'Courier New', Courier, monospace;
                       font-weight: 700;
                       letter-spacing: 0.1px;
-                      line-height: 0.95;
-                      margin-bottom: ${showAddress ? '0.5px' : '0'};
+                      line-height: 0.92;
+                      margin-bottom: ${showAddress ? (isMiniHeight ? '0.2px' : '0.5px') : '0'};
                       color: #000000;
                       background: #ffffff;
                       white-space: nowrap;
@@ -676,13 +665,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             showPrice
               ? `
             <div class="label-right-price-col" style="
-              flex: 1;
+              width: ${metrics.isNarrowVertical ? '100%' : 'auto'};
+              flex: ${metrics.isNarrowVertical ? '0 0 auto' : '1'};
               min-width: 0;
               min-height: 0;
               display: flex;
               flex-direction: column;
               align-items: center;
-              justify-content: ${showBarcode ? 'flex-end' : 'center'};
+              justify-content: center;
               background: #ffffff;
               color: #000000;
               box-sizing: border-box;
@@ -690,7 +680,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             ">
               <div class="label-price-box" style="
                 width: 100%;
-                ${!showBarcode ? 'flex: 1; margin-top: 0.5px;' : ''}
+                ${!showBarcode && !isMiniHeight ? 'flex: 1; margin-top: 0.5px;' : ''}
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -698,7 +688,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 text-align: center;
                 border: 0.4px solid #000000;
                 border-radius: 1.5px;
-                padding: ${metrics.isUltraCompact ? '0.5px' : '1px 1.5px'};
+                padding: ${metrics.isUltraCompact ? '0.4px' : '1px 1.5px'};
                 background: #ffffff;
                 color: #000000;
                 box-sizing: border-box;
@@ -747,17 +737,37 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   // Gerador do HTML de impressão calibrado milimetricamente para A4, Carta e Térmica
   const generateLabelsHtml = (): string => {
     const metrics = getLabelDesignMetrics(currentPreset);
-    const lockedPrintWidthMm =
+    const isSheetPaper = currentPreset.category === 'a4' || currentPreset.category === 'carta';
+    const sheetWidthMm =
       currentPreset.category === 'carta'
         ? 215.9
         : currentPreset.category === 'a4'
         ? 210
         : currentPreset.pageWidthMm;
-    let pageSizeCss = `${currentPreset.pageWidthMm}mm ${currentPreset.pageHeightMm}mm`;
-    let layoutCss = '';
-    let bodyContent = '';
+    const sheetHeightMm =
+      currentPreset.category === 'carta'
+        ? 279
+        : currentPreset.category === 'a4'
+        ? 296.5
+        : currentPreset.pageHeightMm;
+    const pageSizeCss =
+      currentPreset.category === 'carta'
+        ? 'letter portrait'
+        : currentPreset.category === 'a4'
+        ? 'A4 portrait'
+        : `${currentPreset.pageWidthMm}mm ${currentPreset.pageHeightMm}mm`;
 
-    const sharedCellCss = `
+    const cols = Math.max(1, currentPreset.cols || currentPreset.columns || 1);
+    const rows = isSheetPaper
+      ? currentPreset.rows || Math.ceil((currentPreset.totalPerSheet || 30) / cols)
+      : Math.max(1, currentPreset.rows || 1);
+
+    const layoutCss = `
+      :root {
+        --sheet-w: ${sheetWidthMm}mm;
+        --sheet-h: ${sheetHeightMm}mm;
+      }
+      .label-cell,
       .gondola-label,
       .sheet-slot {
         width: ${currentPreset.labelWidthMm}mm !important;
@@ -772,79 +782,49 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         background: #ffffff !important;
         color: #000000 !important;
       }
+      .label-cell {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 1.5mm 2mm !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
       .sheet-slot.empty-slot,
       .empty-slot {
         visibility: hidden !important;
         border: none !important;
       }
+      .label-sheet {
+        width: var(--sheet-w);
+        height: var(--sheet-h);
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm);
+        grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm);
+        column-gap: ${currentPreset.colGapMm}mm;
+        row-gap: ${currentPreset.rowGapMm}mm;
+        justify-content: center;
+        align-content: center;
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        overflow: hidden;
+      }
+      .label-sheet:last-of-type {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
     `;
 
-    if (currentPreset.category === 'a4' || currentPreset.category === 'carta') {
-      const slotsPerSheet = currentPreset.totalPerSheet || currentPreset.cols * currentPreset.rows || 30;
+    let bodyContent = '';
+    if (isSheetPaper) {
+      const slotsPerSheet = currentPreset.totalPerSheet || cols * rows || 30;
       const safeStartPos = Math.max(1, Math.min(startPosition, slotsPerSheet));
-      const cols = currentPreset.cols || 3;
-      const rows = currentPreset.rows || Math.ceil(slotsPerSheet / cols);
-      const lockedSheetWidthMm = currentPreset.category === 'carta' ? 215.9 : 210;
-      const lockedSheetHeightMm = currentPreset.category === 'carta' ? 279 : 296.5;
-      pageSizeCss = currentPreset.category === 'carta' ? 'letter portrait' : 'A4 portrait';
-
-      layoutCss = `
-        ${sharedCellCss}
-        .label-page {
-          width: ${lockedSheetWidthMm}mm;
-          height: ${lockedSheetHeightMm}mm;
-          margin: 0;
-          padding-top: ${currentPreset.marginTopMm}mm;
-          padding-left: ${currentPreset.marginLeftMm}mm;
-          padding-right: 0;
-          padding-bottom: 0;
-          box-sizing: border-box;
-          display: grid;
-          grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm);
-          grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm);
-          column-gap: ${currentPreset.colGapMm}mm;
-          row-gap: ${currentPreset.rowGapMm}mm;
-          align-content: start;
-          justify-content: start;
-          page-break-after: always;
-          break-after: page;
-          page-break-inside: avoid;
-          break-inside: avoid;
-          overflow: hidden;
-        }
-        .label-page:last-of-type {
-          page-break-after: avoid !important;
-          break-after: avoid !important;
-        }
-        @media print {
-          .label-page {
-            width: ${lockedSheetWidthMm}mm !important;
-            height: ${lockedSheetHeightMm}mm !important;
-            margin: 0 !important;
-            padding-top: ${currentPreset.marginTopMm}mm !important;
-            padding-left: ${currentPreset.marginLeftMm}mm !important;
-            padding-right: 0 !important;
-            padding-bottom: 0 !important;
-            box-sizing: border-box !important;
-            display: grid !important;
-            grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm) !important;
-            grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm) !important;
-            column-gap: ${currentPreset.colGapMm}mm !important;
-            row-gap: ${currentPreset.rowGapMm}mm !important;
-            align-content: start !important;
-            justify-content: start !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            overflow: hidden !important;
-          }
-          .label-page:last-of-type {
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
-        }
-      `;
 
       const sheetsHtml: string[] = [];
       let currentFlatIdx = 0;
@@ -868,7 +848,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         }
 
         sheetsHtml.push(`
-          <div class="label-page">
+          <div class="label-sheet">
             ${slotsHtml.join('\n')}
           </div>
         `);
@@ -877,141 +857,24 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
       bodyContent = sheetsHtml.join('\n');
     } else {
-      // IMPRESSORAS TÉRMICAS (1 coluna, multi-colunas ou personalizadas)
-      const cols = Math.max(1, currentPreset.cols || currentPreset.columns || 1);
-      const rows = Math.max(1, currentPreset.rows || 1);
-      pageSizeCss = `${currentPreset.pageWidthMm}mm ${currentPreset.pageHeightMm}mm`;
-
-      if (cols === 1 && rows === 1) {
-        layoutCss = `
-          ${sharedCellCss}
-          .label-page.thermal-page {
-            width: ${currentPreset.pageWidthMm}mm;
-            height: ${currentPreset.pageHeightMm}mm;
-            margin: 0;
-            padding-top: ${currentPreset.marginTopMm}mm;
-            padding-left: ${currentPreset.marginLeftMm}mm;
-            padding-right: 0;
-            padding-bottom: 0;
-            box-sizing: border-box;
-            page-break-after: always;
-            break-after: page;
-            page-break-inside: avoid;
-            break-inside: avoid;
-            overflow: hidden;
-          }
-          .label-page.thermal-page:last-of-type {
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
-          @media print {
-            .label-page.thermal-page {
-              width: ${currentPreset.pageWidthMm}mm !important;
-              height: ${currentPreset.pageHeightMm}mm !important;
-              margin: 0 !important;
-              padding-top: ${currentPreset.marginTopMm}mm !important;
-              padding-left: ${currentPreset.marginLeftMm}mm !important;
-              padding-right: 0 !important;
-              padding-bottom: 0 !important;
-              box-sizing: border-box !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              overflow: hidden !important;
-            }
-            .label-page.thermal-page:last-of-type {
-              page-break-after: avoid !important;
-              break-after: avoid !important;
-            }
-          }
-        `;
-
-        const pagesHtml = flatLabelsList.map(item => `
-          <div class="label-page thermal-page">
-            ${renderSingleLabelHtml(item, currentPreset, metrics)}
-          </div>
-        `);
-        bodyContent = pagesHtml.join('\n');
-      } else {
-        // Rolo térmico multi-colunas ou multi-linhas (Dupla, Tripla, Mini ou Personalizada)
-        const perBlock = cols * rows;
-        layoutCss = `
-          ${sharedCellCss}
-          .label-page.thermal-row-page {
-            width: ${currentPreset.pageWidthMm}mm;
-            height: ${currentPreset.pageHeightMm}mm;
-            margin: 0;
-            padding-top: ${currentPreset.marginTopMm}mm;
-            padding-left: ${currentPreset.marginLeftMm}mm;
-            padding-right: 0;
-            padding-bottom: 0;
-            box-sizing: border-box;
-            display: grid;
-            grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm);
-            grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm);
-            column-gap: ${currentPreset.colGapMm}mm;
-            row-gap: ${currentPreset.rowGapMm}mm;
-            align-content: start;
-            justify-content: start;
-            page-break-after: always;
-            break-after: page;
-            page-break-inside: avoid;
-            break-inside: avoid;
-            overflow: hidden;
-          }
-          .label-page.thermal-row-page:last-of-type {
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
-          @media print {
-            .label-page.thermal-row-page {
-              width: ${currentPreset.pageWidthMm}mm !important;
-              height: ${currentPreset.pageHeightMm}mm !important;
-              margin: 0 !important;
-              padding-top: ${currentPreset.marginTopMm}mm !important;
-              padding-left: ${currentPreset.marginLeftMm}mm !important;
-              padding-right: 0 !important;
-              padding-bottom: 0 !important;
-              box-sizing: border-box !important;
-              display: grid !important;
-              grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm) !important;
-              grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm) !important;
-              column-gap: ${currentPreset.colGapMm}mm !important;
-              row-gap: ${currentPreset.rowGapMm}mm !important;
-              align-content: start !important;
-              justify-content: start !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              overflow: hidden !important;
-            }
-            .label-page.thermal-row-page:last-of-type {
-              page-break-after: avoid !important;
-              break-after: avoid !important;
-            }
-          }
-        `;
-
-        const rowsHtml: string[] = [];
-        for (let i = 0; i < flatLabelsList.length; i += perBlock) {
-          const chunk = flatLabelsList.slice(i, i + perBlock);
-          const colsHtml = chunk.map(item => renderSingleLabelHtml(item, currentPreset, metrics));
-          while (colsHtml.length < perBlock) {
-            colsHtml.push(`
-              <div class="empty-slot" style="width:${currentPreset.labelWidthMm}mm;height:${currentPreset.labelHeightMm}mm;visibility:hidden;border:none;"></div>
-            `);
-          }
-
-          rowsHtml.push(`
-            <div class="label-page thermal-row-page">
-              ${colsHtml.join('\n')}
-            </div>
+      const perBlock = Math.max(1, cols * rows);
+      const blocksHtml: string[] = [];
+      for (let i = 0; i < flatLabelsList.length; i += perBlock) {
+        const chunk = flatLabelsList.slice(i, i + perBlock);
+        const colsHtml = chunk.map(item => renderSingleLabelHtml(item, currentPreset, metrics));
+        while (colsHtml.length < perBlock) {
+          colsHtml.push(`
+            <div class="sheet-slot empty-slot" style="width:${currentPreset.labelWidthMm}mm;height:${currentPreset.labelHeightMm}mm;box-sizing:border-box;visibility:hidden;border:none;"></div>
           `);
         }
-        bodyContent = rowsHtml.join('\n');
+
+        blocksHtml.push(`
+          <div class="label-sheet">
+            ${colsHtml.join('\n')}
+          </div>
+        `);
       }
+      bodyContent = blocksHtml.join('\n');
     }
 
     const toolbarTitle = `${currentPreset.badge.toUpperCase()} • ${flatLabelsList.length} ETIQUETA(S)`.replace(/[<>&"]/g, '');
@@ -1058,17 +921,18 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         flex-direction: column;
         align-items: center;
       }
-      .labels-preview-stage {
+      #zoom-wrapper {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 16px;
         transform-origin: top center;
       }
-      .label-page {
+      .label-sheet {
         background: #ffffff;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
       }
+      .label-cell,
       .gondola-label {
         border: 1px dashed #cbd5e1;
       }
@@ -1081,7 +945,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       html, body {
         margin: 0 !important;
         padding: 0 !important;
-        width: ${lockedPrintWidthMm}mm !important;
+        width: var(--sheet-w) !important;
         height: auto !important;
         min-height: 0 !important;
         overflow: visible !important;
@@ -1091,18 +955,38 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       header, footer, .no-print, .danfe-toolbar, .print-metadata {
         display: none !important;
       }
-      .labels-preview-stage {
-        display: block !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        gap: 0 !important;
+      #zoom-wrapper {
         transform: none !important;
         zoom: 1 !important;
-      }
-      .label-page {
-        box-shadow: none !important;
         margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        gap: 0 !important;
       }
+      .label-sheet {
+        width: var(--sheet-w) !important;
+        height: var(--sheet-h) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        display: grid !important;
+        grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm) !important;
+        grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm) !important;
+        column-gap: ${currentPreset.colGapMm}mm !important;
+        row-gap: ${currentPreset.rowGapMm}mm !important;
+        justify-content: center !important;
+        align-content: center !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: hidden !important;
+      }
+      .label-sheet:last-of-type {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      .label-cell,
       .gondola-label,
       .sheet-slot,
       .empty-slot {
@@ -1128,11 +1012,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     </div>
   </div>
 
-  <div id="labels-preview-stage" class="labels-preview-stage">
+  <div id="zoom-wrapper">
     ${bodyContent}
   </div>
 
-  ${buildDanfeViewerZoomScript('#labels-preview-stage')}
+  ${buildDanfeViewerZoomScript('#zoom-wrapper')}
   <script>
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
