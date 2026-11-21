@@ -716,7 +716,276 @@ export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void
   }
 }
 
+export function isExpenseSettledRecord(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const rawStatus = String(item.status ?? '').trim().toLowerCase();
+  return (
+    rawStatus === 'pago' ||
+    rawStatus === 'paid' ||
+    rawStatus === 'liquidado / abatido por devolução' ||
+    rawStatus === 'compensado_estoque' ||
+    item.paid === true ||
+    item.status_pago === true ||
+    Boolean(item.paidAt && String(item.paidAt).trim()) ||
+    Boolean(item.paymentDate && String(item.paymentDate).trim())
+  );
+}
+
+function parseTimestampMs(val?: string): number {
+  if (!val) return 0;
+  const ms = Date.parse(String(val));
+  return isNaN(ms) ? 0 : ms;
+}
+
+export function mergeExpensePreservingPaidStatus(
+  existing: Expense | undefined | null,
+  incoming: any
+): Expense {
+  const safeIncoming = sanitizeExpenseRecord(incoming || {});
+  if (!existing) return safeIncoming;
+
+  const safeExisting = sanitizeExpenseRecord(existing);
+  const existingSettled = isExpenseSettledRecord(safeExisting);
+  const incomingSettled = isExpenseSettledRecord(safeIncoming);
+
+  // Caso 1: Título local foi formalmente estornado e está em aberto; nuvem antiga ainda traz como pago
+  if (!existingSettled && safeExisting.lastReversal && incomingSettled) {
+    const revMs = parseTimestampMs(safeExisting.lastReversal.isoTimestamp || safeExisting.updatedAt);
+    const incPaidMs = parseTimestampMs(safeIncoming.paidAt || safeIncoming.updatedAt || safeIncoming.paymentDate);
+    if (revMs > 0 && incPaidMs <= revMs) {
+      return {
+        ...safeIncoming,
+        ...safeExisting,
+        id: safeExisting.id,
+        status: 'pendente',
+        paid: false,
+        status_pago: false,
+        paidAt: undefined,
+        paymentDate: undefined,
+        paidAmount: undefined,
+        fineAmount: undefined,
+        interestAmount: undefined,
+        discountAmount: undefined,
+        bankAccountId: undefined,
+        bankAccountName: undefined,
+        paidViaCashBox: undefined,
+      };
+    }
+  }
+
+  // Caso 2: Título local já está liquidado/pago (ou abatido/compensado), e payload recebido vem como pendente
+  if (existingSettled && !incomingSettled) {
+    // Só reabre se o payload recebido trouxer explicitamente um estorno mais recente que a liquidação local
+    const incRevMs = parseTimestampMs(safeIncoming.lastReversal?.isoTimestamp);
+    const extPaidMs = parseTimestampMs(safeExisting.paidAt || safeExisting.updatedAt || safeExisting.paymentDate);
+    if (safeIncoming.lastReversal && incRevMs > 0 && incRevMs > extPaidMs) {
+      return {
+        ...safeExisting,
+        ...safeIncoming,
+        id: safeExisting.id,
+        status: 'pendente',
+        paid: false,
+        status_pago: false,
+        paidAt: undefined,
+        paymentDate: undefined,
+      };
+    }
+
+    const preservedStatus =
+      safeExisting.status === 'Liquidado / Abatido por Devolução' ||
+      safeExisting.status === 'compensado_estoque'
+        ? safeExisting.status
+        : 'pago';
+
+    return {
+      ...safeIncoming,
+      ...safeExisting,
+      id: safeExisting.id,
+      status: preservedStatus,
+      paid: true,
+      status_pago: true,
+      paidAt: safeExisting.paidAt || safeExisting.paymentDate || safeExisting.updatedAt,
+      paymentDate: safeExisting.paymentDate || (safeExisting.paidAt ? String(safeExisting.paidAt).slice(0, 10) : undefined),
+      originalAmount: safeExisting.originalAmount ?? safeIncoming.originalAmount ?? safeExisting.amount ?? safeIncoming.amount,
+      amount: safeExisting.originalAmount ?? safeExisting.amount ?? safeIncoming.amount,
+      fineAmount: safeExisting.fineAmount ?? safeIncoming.fineAmount,
+      interestAmount: safeExisting.interestAmount ?? safeIncoming.interestAmount,
+      discountAmount: safeExisting.discountAmount ?? safeIncoming.discountAmount,
+      paidAmount: safeExisting.paidAmount ?? safeIncoming.paidAmount ?? safeExisting.amount ?? safeIncoming.amount,
+      settlementNotes: safeExisting.settlementNotes ?? safeIncoming.settlementNotes,
+      paidViaCashBox: safeExisting.paidViaCashBox ?? safeIncoming.paidViaCashBox,
+      bankAccountId: safeExisting.bankAccountId ?? safeIncoming.bankAccountId,
+      bankAccountName: safeExisting.bankAccountName ?? safeIncoming.bankAccountName,
+      creditSupplier: safeExisting.creditSupplier ?? safeIncoming.creditSupplier,
+      corporateCardId: safeExisting.corporateCardId ?? safeIncoming.corporateCardId,
+      corporateCardName: safeExisting.corporateCardName ?? safeIncoming.corporateCardName,
+      paidByEmployeeId: safeExisting.paidByEmployeeId ?? safeIncoming.paidByEmployeeId,
+      paidByEmployeeName: safeExisting.paidByEmployeeName ?? safeIncoming.paidByEmployeeName,
+      paymentMethod: safeExisting.paymentMethod || safeIncoming.paymentMethod,
+      paymentAuthenticationCode: safeExisting.paymentAuthenticationCode ?? safeIncoming.paymentAuthenticationCode,
+      chequeOrigin: safeExisting.chequeOrigin ?? safeIncoming.chequeOrigin,
+      checkNumber: safeExisting.checkNumber ?? safeIncoming.checkNumber,
+      chequeGoodForDate: safeExisting.chequeGoodForDate ?? safeIncoming.chequeGoodForDate,
+      usedChequeIds: safeExisting.usedChequeIds ?? safeIncoming.usedChequeIds,
+      usedChequesSummary: safeExisting.usedChequesSummary ?? safeIncoming.usedChequesSummary,
+      updatedAt: safeExisting.updatedAt || safeIncoming.updatedAt,
+    };
+  }
+
+  // Caso 3: Ambos liquidados — preserva os metadados locais completos de liquidação (multa, juros, desconto, valor pago, banco/caixa)
+  if (existingSettled && incomingSettled) {
+    const preservedStatus =
+      safeExisting.status === 'Liquidado / Abatido por Devolução' ||
+      safeExisting.status === 'compensado_estoque'
+        ? safeExisting.status
+        : safeIncoming.status === 'Liquidado / Abatido por Devolução' ||
+            safeIncoming.status === 'compensado_estoque'
+          ? safeIncoming.status
+          : 'pago';
+
+    return {
+      ...safeExisting,
+      ...safeIncoming,
+      id: safeExisting.id,
+      status: preservedStatus,
+      paid: true,
+      status_pago: true,
+      paidAt: safeExisting.paidAt || safeIncoming.paidAt || safeExisting.paymentDate || safeIncoming.paymentDate,
+      paymentDate: safeExisting.paymentDate || safeIncoming.paymentDate,
+      originalAmount: safeExisting.originalAmount ?? safeIncoming.originalAmount ?? safeExisting.amount ?? safeIncoming.amount,
+      amount: safeExisting.originalAmount ?? safeExisting.amount ?? safeIncoming.amount,
+      fineAmount: safeExisting.fineAmount ?? safeIncoming.fineAmount,
+      interestAmount: safeExisting.interestAmount ?? safeIncoming.interestAmount,
+      discountAmount: safeExisting.discountAmount ?? safeIncoming.discountAmount,
+      paidAmount: safeExisting.paidAmount ?? safeIncoming.paidAmount ?? safeExisting.amount ?? safeIncoming.amount,
+      settlementNotes: safeExisting.settlementNotes ?? safeIncoming.settlementNotes,
+      paidViaCashBox: safeExisting.paidViaCashBox ?? safeIncoming.paidViaCashBox,
+      bankAccountId: safeExisting.bankAccountId ?? safeIncoming.bankAccountId,
+      bankAccountName: safeExisting.bankAccountName ?? safeIncoming.bankAccountName,
+      creditSupplier: safeExisting.creditSupplier ?? safeIncoming.creditSupplier,
+      corporateCardId: safeExisting.corporateCardId ?? safeIncoming.corporateCardId,
+      corporateCardName: safeExisting.corporateCardName ?? safeIncoming.corporateCardName,
+      paidByEmployeeId: safeExisting.paidByEmployeeId ?? safeIncoming.paidByEmployeeId,
+      paidByEmployeeName: safeExisting.paidByEmployeeName ?? safeIncoming.paidByEmployeeName,
+      paymentAuthenticationCode: safeExisting.paymentAuthenticationCode ?? safeIncoming.paymentAuthenticationCode,
+      chequeOrigin: safeExisting.chequeOrigin ?? safeIncoming.chequeOrigin,
+      checkNumber: safeExisting.checkNumber ?? safeIncoming.checkNumber,
+      chequeGoodForDate: safeExisting.chequeGoodForDate ?? safeIncoming.chequeGoodForDate,
+      usedChequeIds: safeExisting.usedChequeIds ?? safeIncoming.usedChequeIds,
+      usedChequesSummary: safeExisting.usedChequesSummary ?? safeIncoming.usedChequesSummary,
+    };
+  }
+
+  return {
+    ...safeExisting,
+    ...safeIncoming,
+    id: safeExisting.id,
+  };
+}
+
+export function mergeReceivableOrdersPreservingPaidStatus(
+  existingList: SilageOrder[],
+  incomingList: SilageOrder[]
+): SilageOrder[] {
+  const existingMap = new Map((existingList || []).filter(Boolean).map((o) => [o.id, o]));
+  const resultMap = new Map<string, SilageOrder>();
+
+  (incomingList || []).filter(Boolean).forEach((inc) => {
+    const ext = existingMap.get(inc.id);
+    if (!ext) {
+      resultMap.set(inc.id, inc);
+      return;
+    }
+    const extPaid = ext.paymentStatus === 'pago' || ext.paid === true || Boolean(ext.paidAt || ext.paymentDate);
+    const incPaid = inc.paymentStatus === 'pago' || inc.paid === true || Boolean(inc.paidAt || inc.paymentDate);
+
+    if (extPaid && !incPaid) {
+      const incRevMs = parseTimestampMs(inc.lastReversal?.isoTimestamp);
+      const extPaidMs = parseTimestampMs(ext.paidAt || ext.updatedAt || ext.paymentDate);
+      if (!(inc.lastReversal && incRevMs > extPaidMs)) {
+        resultMap.set(inc.id, {
+          ...inc,
+          ...ext,
+          paymentStatus: 'pago',
+          paid: true,
+          paidAt: ext.paidAt || ext.paymentDate || ext.updatedAt,
+        });
+        return;
+      }
+    }
+    resultMap.set(inc.id, { ...ext, ...inc });
+  });
+
+  existingMap.forEach((ext, id) => {
+    if (!resultMap.has(id) && (ext.paymentStatus === 'pago' || ext.paid === true)) {
+      resultMap.set(id, ext);
+    }
+  });
+
+  return Array.from(resultMap.values());
+}
+
+export function mergeReceivableServicesPreservingPaidStatus(
+  existingList: ServiceOrder[],
+  incomingList: ServiceOrder[]
+): ServiceOrder[] {
+  const existingMap = new Map((existingList || []).filter(Boolean).map((s) => [s.id, s]));
+  const resultMap = new Map<string, ServiceOrder>();
+
+  (incomingList || []).filter(Boolean).forEach((inc) => {
+    const ext = existingMap.get(inc.id);
+    if (!ext) {
+      resultMap.set(inc.id, inc);
+      return;
+    }
+    const extPaid =
+      ext.paymentStatus === 'pago' ||
+      ext.status === 'finalizado' ||
+      ext.paid === true ||
+      Boolean(ext.paidAt || ext.paymentDate);
+    const incPaid =
+      inc.paymentStatus === 'pago' ||
+      inc.status === 'finalizado' ||
+      inc.paid === true ||
+      Boolean(inc.paidAt || inc.paymentDate);
+
+    if (extPaid && !incPaid) {
+      const incRevMs = parseTimestampMs(inc.lastReversal?.isoTimestamp);
+      const extPaidMs = parseTimestampMs(ext.paidAt || ext.updatedAt || ext.paymentDate);
+      if (!(inc.lastReversal && incRevMs > extPaidMs)) {
+        resultMap.set(inc.id, {
+          ...inc,
+          ...ext,
+          status: 'finalizado',
+          paymentStatus: 'pago',
+          paid: true,
+          paidAt: ext.paidAt || ext.paymentDate || ext.updatedAt,
+        });
+        return;
+      }
+    }
+    resultMap.set(inc.id, { ...ext, ...inc });
+  });
+
+  existingMap.forEach((ext, id) => {
+    if (!resultMap.has(id) && (ext.paymentStatus === 'pago' || ext.status === 'finalizado' || ext.paid === true)) {
+      resultMap.set(id, ext);
+    }
+  });
+
+  return Array.from(resultMap.values());
+}
+
 function sanitizeExpenseRecord(item: any): Expense {
+  const rawStatus = String(item?.status ?? '').trim();
+  const isSettled = isExpenseSettledRecord(item);
+  const normalizedStatus =
+    rawStatus === 'Liquidado / Abatido por Devolução' || rawStatus === 'compensado_estoque'
+      ? rawStatus
+      : isSettled || rawStatus.toLowerCase() === 'paid' || rawStatus.toLowerCase() === 'pago'
+        ? 'pago'
+        : rawStatus || 'pendente';
+
   return {
     ...item,
     id: String(item.id ?? ''),
@@ -737,7 +1006,14 @@ function sanitizeExpenseRecord(item: any): Expense {
     machineryName: item.machineryName !== undefined ? String(item.machineryName ?? '') : undefined,
     driverName: item.driverName !== undefined ? String(item.driverName ?? '') : undefined,
     dreCategory: item.dreCategory !== undefined ? String(item.dreCategory ?? '') : undefined,
-    status: item.status || 'pendente',
+    status: normalizedStatus,
+    ...(normalizedStatus === 'pago'
+      ? {
+          paid: true,
+          status_pago: true,
+          paidAt: item.paidAt || item.paymentDate || item.updatedAt,
+        }
+      : {}),
   };
 }
 
@@ -6461,18 +6737,8 @@ export const getCompanyClientes = (companyId?: string): Client[] => {
   return withCodes;
 };
 
-export const saveCompanyDespesas = (despesas: Expense[], companyId?: string, allowEmpty = false): void => {
-  if (!allowEmpty && Array.isArray(despesas) && despesas.length === 0 && getStoredExpenses().length > 0) {
-    return;
-  }
-  saveCompanyData('despesas', despesas, companyId);
-  try {
-    const json = JSON.stringify(despesas);
-    if (safeLocalStorageSetItem('agrocontrol_expenses', json)) {
-      localStorage.removeItem(STORAGE_KEYS.EXPENSES);
-      localStorage.removeItem('colaca_silagem_despesas');
-    }
-  } catch {}
+export const saveCompanyDespesas = (despesas: Expense[], _companyId?: string, allowEmpty = false): void => {
+  saveStoredExpenses(despesas, allowEmpty);
 };
 export const getCompanyDespesas = (companyId?: string): Expense[] => getCompanyData<Expense>('despesas', getStoredExpenses, companyId);
 

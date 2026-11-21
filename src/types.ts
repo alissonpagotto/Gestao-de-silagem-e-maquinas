@@ -225,6 +225,9 @@ export interface Expense {
   paidAmount?: number;
   settlementNotes?: string;
   paidViaCashBox?: boolean;
+  paid?: boolean;
+  paidAt?: string;
+  status_pago?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -365,6 +368,8 @@ export interface SilageOrder {
   paidAmount?: number;
   settlementNotes?: string;
   paidViaCashBox?: boolean;
+  paid?: boolean;
+  paidAt?: string;
   dueDate?: string;
   isInstallment?: boolean;
   installmentNumber?: number;
@@ -1143,6 +1148,8 @@ export interface ServiceOrder {
   paidAmount?: number;
   settlementNotes?: string;
   paidViaCashBox?: boolean;
+  paid?: boolean;
+  paidAt?: string;
   dueDate?: string;
   isInstallment?: boolean;
   installmentNumber?: number;
@@ -2460,6 +2467,8 @@ export interface NotaSaidaRecord {
   paidAmount?: number;
   settlementNotes?: string;
   paidViaCashBox?: boolean;
+  paid?: boolean;
+  paidAt?: string;
   bankAccountId?: string;
   bankAccountName?: string;
   lastReversal?: ReversalAuditEntry;

@@ -130,6 +130,10 @@ import {
   getStoredFiscalRecords,
   getStoredFinanceiroCheques,
   saveStoredFinanceiroCheques,
+  isExpenseSettledRecord,
+  mergeExpensePreservingPaidStatus,
+  mergeReceivableOrdersPreservingPaidStatus,
+  mergeReceivableServicesPreservingPaidStatus,
   GlobalProcessingState,
   getGlobalProcessingState,
   subscribeGlobalProcessing,
@@ -700,17 +704,15 @@ function AppContent() {
                 const matchedKey = map.has(e.id) ? e.id : uuidToKey.get(toValidUUID(e.id));
                 const existing = matchedKey ? map.get(matchedKey) : undefined;
                 if (existing) {
-                  map.set(existing.id, {
+                  const mergedExp = mergeExpensePreservingPaidStatus(existing, {
                     ...e,
-                    ...existing,
-                    id: existing.id,
                     amount: e.amount > 0 ? e.amount : existing.amount,
                     dueDate: e.dueDate || existing.dueDate,
-                    status: e.status || existing.status,
                     supplier: (existing.supplier && existing.supplier !== 'Fornecedor' && existing.supplier !== 'Fornecedor N/I')
                       ? existing.supplier
                       : e.supplier,
                   });
+                  map.set(mergedExp.id, mergedExp);
                 } else {
                   map.set(e.id, e);
                   uuidToKey.set(toValidUUID(e.id), e.id);
@@ -731,12 +733,18 @@ function AppContent() {
             setCompanyProfile(cloudModules.companyProfile);
           }
           if (Array.isArray(cloudModules.services) && cloudModules.services.length > 0) {
-            lastSyncedState.current.services = JSON.stringify(cloudModules.services);
-            setServices(cloudModules.services);
+            setServices(prev => {
+              const merged = mergeReceivableServicesPreservingPaidStatus(prev, cloudModules.services);
+              lastSyncedState.current.services = JSON.stringify(merged);
+              return merged;
+            });
           }
           if (Array.isArray(cloudModules.orders) && cloudModules.orders.length > 0) {
-            lastSyncedState.current.orders = JSON.stringify(cloudModules.orders);
-            setOrders(cloudModules.orders);
+            setOrders(prev => {
+              const merged = mergeReceivableOrdersPreservingPaidStatus(prev, cloudModules.orders);
+              lastSyncedState.current.orders = JSON.stringify(merged);
+              return merged;
+            });
           }
           if ((!cloudData?.estoque || cloudData.estoque.length === 0) && Array.isArray(cloudModules.inventory) && cloudModules.inventory.length > 0) {
             lastSyncedState.current.inventory = JSON.stringify(cloudModules.inventory);
@@ -780,20 +788,19 @@ function AppContent() {
                 const matchedKey = map.has(ce.id) ? ce.id : uuidToKey.get(toValidUUID(ce.id));
                 const existing = matchedKey ? map.get(matchedKey) : undefined;
                 if (existing) {
-                  map.set(existing.id, {
-                    ...existing,
+                  const mergedExp = mergeExpensePreservingPaidStatus(existing, {
                     ...ce,
-                    id: existing.id,
                     supplier: (ce.supplier && ce.supplier !== 'Fornecedor' && ce.supplier !== 'Fornecedor N/I')
                       ? ce.supplier
                       : existing.supplier,
                     dueDate: ce.dueDate || existing.dueDate,
                     amount: (ce.amount && ce.amount > 0) ? ce.amount : existing.amount,
-                    status: existing.status || ce.status,
                   });
+                  map.set(mergedExp.id, mergedExp);
                 } else {
-                  map.set(ce.id, ce);
-                  uuidToKey.set(toValidUUID(ce.id), ce.id);
+                  const sanitized = mergeExpensePreservingPaidStatus(undefined, ce);
+                  map.set(sanitized.id, sanitized);
+                  uuidToKey.set(toValidUUID(sanitized.id), sanitized.id);
                 }
               });
               const merged = Array.from(map.values());
@@ -1309,8 +1316,7 @@ function AppContent() {
                     ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
                     : d.centro_custo || 'Despesa Lançada');
 
-                const baseExp: Expense = {
-                  ...(existing || {}),
+                const baseExp = mergeExpensePreservingPaidStatus(existing, {
                   id: existing?.id || d.id,
                   companyId: existing?.companyId || d.company_id || activeTenantId,
                   title: d.centro_custo || existing?.description || resolvedDesc,
@@ -1318,6 +1324,8 @@ function AppContent() {
                   amount: Number(d.valor_parcela ?? existing?.amount ?? 0),
                   dueDate: d.data_vencimento || existing?.dueDate || new Date().toISOString().split('T')[0],
                   status: d.status_pago ? 'pago' : 'pendente',
+                  status_pago: Boolean(d.status_pago),
+                  paid: Boolean(d.status_pago),
                   categoryId: existing?.categoryId || 'despesa_geral',
                   categoryColor: existing?.categoryColor || '#10b981',
                   category: existing?.category || d.centro_custo || 'Geral',
@@ -1326,7 +1334,8 @@ function AppContent() {
                   supplier: resolvedSupplier,
                   invoiceNumber: docNum,
                   createdAt: existing?.createdAt || d.created_at || new Date().toISOString(),
-                } as unknown as Expense;
+                  updatedAt: d.updated_at || existing?.updatedAt,
+                });
 
                 if (d.nota_fiscal_id) (baseExp as any).notaId = (existing as any)?.notaId || d.nota_fiscal_id;
                 if (parcLabel) (baseExp as any).numero_parcela = parcLabel;
@@ -1335,7 +1344,9 @@ function AppContent() {
                 uuidToKey.set(toValidUUID(baseExp.id), baseExp.id);
               });
 
-              return Array.from(map.values());
+              const merged = Array.from(map.values());
+              saveStoredExpenses(merged);
+              return merged;
             });
           }
         }
@@ -1355,15 +1366,21 @@ function AppContent() {
           if (Array.isArray(fresh.services) && fresh.services.length > 0) {
             const ser = JSON.stringify(fresh.services);
             if (ser !== lastSyncedState.current.services) {
-              lastSyncedState.current.services = ser;
-              setServices(fresh.services);
+              setServices(prev => {
+                const merged = mergeReceivableServicesPreservingPaidStatus(prev, fresh.services!);
+                lastSyncedState.current.services = JSON.stringify(merged);
+                return merged;
+              });
             }
           }
           if (Array.isArray(fresh.orders) && fresh.orders.length > 0) {
             const ser = JSON.stringify(fresh.orders);
             if (ser !== lastSyncedState.current.orders) {
-              lastSyncedState.current.orders = ser;
-              setOrders(fresh.orders);
+              setOrders(prev => {
+                const merged = mergeReceivableOrdersPreservingPaidStatus(prev, fresh.orders!);
+                lastSyncedState.current.orders = JSON.stringify(merged);
+                return merged;
+              });
             }
           }
           if (!lastSyncedState.current.rel_inventory && Array.isArray(fresh.inventory) && fresh.inventory.length > 0) {
@@ -1391,11 +1408,19 @@ function AppContent() {
           if (Array.isArray(fresh.expenses) && fresh.expenses.length > 0) {
             const ser = JSON.stringify(fresh.expenses);
             if (ser !== lastSyncedState.current.expenses) {
-              lastSyncedState.current.expenses = ser;
               setExpenses(prev => {
                 const map = new Map(prev.map(e => [e.id, e]));
-                fresh.expenses!.forEach(e => map.set(e.id, e));
+                const uuidToKey = new Map(prev.map(e => [toValidUUID(e.id), e.id]));
+                fresh.expenses!.forEach(e => {
+                  const matchedKey = map.has(e.id) ? e.id : uuidToKey.get(toValidUUID(e.id));
+                  const existing = matchedKey ? map.get(matchedKey) : undefined;
+                  const mergedExp = mergeExpensePreservingPaidStatus(existing, e);
+                  map.set(mergedExp.id, mergedExp);
+                  uuidToKey.set(toValidUUID(mergedExp.id), mergedExp.id);
+                });
                 const merged = Array.from(map.values());
+                lastSyncedState.current.expenses = JSON.stringify(merged);
+                saveStoredExpenses(merged);
                 return merged;
               });
             }
@@ -2624,36 +2649,71 @@ function AppContent() {
   };
 
   const handleToggleExpenseStatus = (id: string, newStatus?: ExpenseStatus) => {
-    const today = new Date().toISOString().split('T')[0];
-    setExpenses((prev) => {
-      const nextList = prev.map((e) => {
-        if (e.id === id) {
-          const nextStatus = newStatus || (e.status === 'pago' ? 'pendente' : 'pago');
-          const updated = {
+    const nowIso = new Date().toISOString();
+    const today = nowIso.split('T')[0];
+    const targetUuid = toValidUUID(id);
+    const baseList = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
+    let toggledRecord: Expense | null = null;
+    const applyToggle = (list: Expense[]): Expense[] =>
+      list.map((e) => {
+        if (e.id === id || toValidUUID(e.id) === targetUuid) {
+          const currentlySettled = isExpenseSettledRecord(e);
+          const nextStatus = newStatus || (currentlySettled ? 'pendente' : 'pago');
+          const nextSettled = nextStatus === 'pago';
+          const updated: Expense = {
             ...e,
             status: nextStatus,
-            paymentDate: nextStatus === 'pago' ? (e.paymentDate || today) : undefined,
+            paid: nextSettled,
+            status_pago: nextSettled,
+            paidAt: nextSettled ? (e.paidAt || nowIso) : undefined,
+            paymentDate: nextSettled ? (e.paymentDate || today) : undefined,
+            updatedAt: nowIso,
           };
-          upsertContaAPagar({
-            id: updated.id,
-            valor_parcela: Number(updated.amount) || 0,
-            data_vencimento: updated.dueDate || today,
-            status_pago: updated.status === 'pago',
-            centro_custo: updated.costCenterName || updated.description || 'Geral',
-            forma_pagamento: updated.paymentMethod || 'Boleto'
-          }, activeTenantId).catch(err => console.warn('Supabase toggle status notice:', err));
+          toggledRecord = updated;
           return updated;
         }
         return e;
       });
+
+    const syncNextList = applyToggle(baseList);
+    saveStoredExpenses(syncNextList);
+    saveCompanyDespesas(syncNextList, activeTenantId);
+
+    setExpenses((prev) => {
+      const nextList = applyToggle(prev && prev.length > 0 ? prev : baseList);
       saveStoredExpenses(nextList);
       saveCompanyDespesas(nextList, activeTenantId);
       return nextList;
     });
+
+    if (toggledRecord) {
+      const rec: Expense = toggledRecord;
+      const notaRef = (rec as any).nota_fiscal_id || (rec as any).notaId || null;
+      upsertContaAPagar({
+        id: rec.id,
+        nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+        numero_parcela: (rec as any).numero_parcela || '01/01',
+        valor_parcela: Number(rec.paidAmount ?? rec.amount) || 0,
+        data_vencimento: rec.dueDate || today,
+        status_pago: isExpenseSettledRecord(rec),
+        centro_custo: rec.costCenterName || rec.description || 'Geral',
+        forma_pagamento: rec.paymentMethod || 'Boleto'
+      }, activeTenantId).catch(err => console.warn('Supabase toggle status notice:', err));
+    }
+
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE && activeTenantId) {
+      lastSyncedState.current.expenses = JSON.stringify(syncNextList);
+      saveCloudExpenses(syncNextList, activeTenantId).catch(err =>
+        console.warn('Supabase saveCloudExpenses toggle notice:', err)
+      );
+    }
   };
 
   const handleSettlePayment = (expenseId: string, settlementData: PaymentSettlementData) => {
-    const targetExp = expenses.find((e) => e.id === expenseId);
+    const nowIso = new Date().toISOString();
+    const targetUuid = toValidUUID(expenseId);
+    const currentBaseList = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
+    const targetExp = currentBaseList.find((e) => e.id === expenseId || toValidUUID(e.id) === targetUuid);
     const originalBase = Number(settlementData.originalAmount ?? targetExp?.originalAmount ?? targetExp?.amount ?? 0) || 0;
     const fineVal = Number(settlementData.fineAmount) || 0;
     const interestVal = Number(settlementData.interestAmount) || 0;
@@ -2667,9 +2727,10 @@ function AppContent() {
       .filter((v, idx, arr) => Boolean(v && v.trim()) && arr.indexOf(v) === idx)
       .join(' | ');
 
-    setExpenses((prev) => {
-      const nextList = prev.map((e) => {
-        if (e.id !== expenseId) return e;
+    let settledUpdatedRecord: Expense | null = null;
+    const applySettlementToList = (list: Expense[]): Expense[] =>
+      list.map((e) => {
+        if (e.id !== expenseId && toValidUUID(e.id) !== targetUuid) return e;
         const expOriginal = Number(e.originalAmount ?? e.amount) || 0;
         const updated: Expense = {
           ...e,
@@ -2682,6 +2743,10 @@ function AppContent() {
           settlementNotes: settlementData.settlementNotes || settlementData.notes || undefined,
           paidViaCashBox: isCashBox,
           status: 'pago',
+          paid: true,
+          status_pago: true,
+          paidAt: nowIso,
+          updatedAt: nowIso,
           paymentDate: settlementData.paymentDate,
           paidByEmployeeId: settlementData.paidByEmployeeId,
           paidByEmployeeName: settlementData.paidByEmployeeName,
@@ -2699,20 +2764,44 @@ function AppContent() {
             ? (e.notes ? `${e.notes} | ${combinedNote}` : combinedNote)
             : e.notes,
         };
-        upsertContaAPagar({
-          id: updated.id,
-          valor_parcela: effectivePaid,
-          data_vencimento: updated.dueDate || settlementData.paymentDate,
-          status_pago: true,
-          centro_custo: updated.costCenterName || updated.description || 'Geral',
-          forma_pagamento: updated.paymentMethod || 'pix',
-        }, activeTenantId).catch((err) => console.warn('Supabase settle notice:', err));
+        settledUpdatedRecord = updated;
         return updated;
       });
+
+    // Gravação síncrona unificada imediata (memória + localStorage + disparo de eventos) ANTES de qualquer sync assíncrono
+    const syncNextList = applySettlementToList(currentBaseList);
+    saveStoredExpenses(syncNextList);
+    saveCompanyDespesas(syncNextList, activeTenantId);
+
+    setExpenses((prev) => {
+      const base = prev && prev.length > 0 ? prev : currentBaseList;
+      const nextList = applySettlementToList(base);
       saveStoredExpenses(nextList);
       saveCompanyDespesas(nextList, activeTenantId);
       return nextList;
     });
+
+    if (settledUpdatedRecord) {
+      const settledRec: Expense = settledUpdatedRecord;
+      const notaRef = (settledRec as any).nota_fiscal_id || (settledRec as any).notaId || null;
+      upsertContaAPagar({
+        id: settledRec.id,
+        nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+        numero_parcela: (settledRec as any).numero_parcela || '01/01',
+        valor_parcela: effectivePaid,
+        data_vencimento: settledRec.dueDate || settlementData.paymentDate,
+        status_pago: true,
+        centro_custo: settledRec.costCenterName || settledRec.description || 'Geral',
+        forma_pagamento: settledRec.paymentMethod || 'pix',
+      }, activeTenantId).catch((err) => console.warn('Supabase settle notice:', err));
+    }
+
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE && activeTenantId) {
+      lastSyncedState.current.expenses = JSON.stringify(syncNextList);
+      saveCloudExpenses(syncNextList, activeTenantId).catch((err) =>
+        console.warn('Supabase saveCloudExpenses settle notice:', err)
+      );
+    }
 
     if (targetExp && settlementData.bankAccountId) {
       if (isCashBox) {
@@ -2886,14 +2975,19 @@ function AppContent() {
 
     // 3. Reabrir o título em Contas a Pagar e Despesas preservando histórico de estorno
     const todayIso = now.toISOString().split('T')[0];
-    setExpenses((prev) => {
-      const nextList = prev.map((e) => {
-        if (e.id !== expenseId) return e;
+    const targetUuid = toValidUUID(expenseId);
+    let reversedRecord: Expense | null = null;
+    const applyReversalToList = (list: Expense[]): Expense[] =>
+      list.map((e) => {
+        if (e.id !== expenseId && toValidUUID(e.id) !== targetUuid) return e;
         const originalVal = Number(e.originalAmount ?? e.amount) || 0;
         const updated: Expense = {
           ...e,
           amount: originalVal,
           status: 'pendente',
+          paid: false,
+          status_pago: false,
+          paidAt: undefined,
           paymentDate: undefined,
           bankAccountId: undefined,
           bankAccountName: undefined,
@@ -2913,27 +3007,51 @@ function AppContent() {
           reversalHistory: [reversalEntry, ...(e.reversalHistory || [])],
           updatedAt: now.toISOString(),
         };
-        upsertContaAPagar(
-          {
-            id: updated.id,
-            valor_parcela: originalVal,
-            data_vencimento: updated.dueDate || todayIso,
-            status_pago: false,
-            centro_custo: updated.costCenterName || updated.description || 'Geral',
-            forma_pagamento: updated.paymentMethod || 'Boleto',
-          },
-          activeTenantId
-        ).catch((err) => console.warn('Supabase reverse notice:', err));
+        reversedRecord = updated;
         return updated;
       });
+
+    const syncReversedList = applyReversalToList(baseList);
+    saveStoredExpenses(syncReversedList);
+    saveCompanyDespesas(syncReversedList, activeTenantId);
+
+    setExpenses((prev) => {
+      const base = prev && prev.length > 0 ? prev : baseList;
+      const nextList = applyReversalToList(base);
       saveStoredExpenses(nextList);
       saveCompanyDespesas(nextList, activeTenantId);
       return nextList;
     });
 
+    if (reversedRecord) {
+      const revRec: Expense = reversedRecord;
+      const originalVal = Number(revRec.originalAmount ?? revRec.amount) || 0;
+      const notaRef = (revRec as any).nota_fiscal_id || (revRec as any).notaId || null;
+      upsertContaAPagar(
+        {
+          id: revRec.id,
+          nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+          numero_parcela: (revRec as any).numero_parcela || '01/01',
+          valor_parcela: originalVal,
+          data_vencimento: revRec.dueDate || todayIso,
+          status_pago: false,
+          centro_custo: revRec.costCenterName || revRec.description || 'Geral',
+          forma_pagamento: revRec.paymentMethod || 'Boleto',
+        },
+        activeTenantId
+      ).catch((err) => console.warn('Supabase reverse notice:', err));
+    }
+
+    if (!IS_OFFLINE_LOCAL_STORAGE_MODE && activeTenantId) {
+      lastSyncedState.current.expenses = JSON.stringify(syncReversedList);
+      saveCloudExpenses(syncReversedList, activeTenantId).catch((err) =>
+        console.warn('Supabase saveCloudExpenses reverse notice:', err)
+      );
+    }
+
     recordFinancialReversalAudit(reversalEntry);
-    window.dispatchEvent(new CustomEvent('silagem_expenses_updated'));
-    window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated'));
+    window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: syncReversedList }));
+    window.dispatchEvent(new CustomEvent('agrocontrol_contas_a_pagar_updated', { detail: syncReversedList }));
   };
 
   const handleDuplicateExpense = (expense: Expense) => {
@@ -3793,12 +3911,25 @@ function AppContent() {
           }
 
           if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
-            const nextExps = cloudData.contas_a_pagar as Expense[];
+            const relMap = new Map<string, Expense>();
+            (cloudData.contas_a_pagar as Expense[]).forEach(e => {
+              const sanitized = mergeExpensePreservingPaidStatus(undefined, e);
+              relMap.set(sanitized.id, sanitized);
+            });
+            if (cloudModules?.expenses && cloudModules.expenses.length > 0) {
+              cloudModules.expenses.forEach(ce => {
+                const ext = relMap.get(ce.id);
+                const merged = mergeExpensePreservingPaidStatus(ext, ce);
+                relMap.set(merged.id, merged);
+              });
+            }
+            const nextExps = Array.from(relMap.values());
             setExpenses(nextExps);
             saveStoredExpenses(nextExps);
           } else if (cloudModules?.expenses && cloudModules.expenses.length > 0) {
-            setExpenses(cloudModules.expenses);
-            saveStoredExpenses(cloudModules.expenses);
+            const nextExps = cloudModules.expenses.map(ce => mergeExpensePreservingPaidStatus(undefined, ce));
+            setExpenses(nextExps);
+            saveStoredExpenses(nextExps);
           } else {
             const localFallback = getCompanyDespesas(targetCompanyId);
             setExpenses(localFallback);
@@ -4688,19 +4819,30 @@ function AppContent() {
                 }}
                 onAddExpenseFromNfe={(newExpOrList) => {
                   const list = Array.isArray(newExpOrList) ? newExpOrList : [newExpOrList];
+                  const existingKnown = expenses && expenses.length > 0 ? expenses : getStoredExpenses();
                   const createdList: Expense[] = list.map((newExp: any, idx) => {
                     const cat = Array.isArray(categories) ? categories.find(c => c.id === newExp.categoryId) : undefined;
                     const cc = Array.isArray(costCenters) ? costCenters.find(c => c.id === newExp.costCenterId) : undefined;
                     const resolvedDueDate = newExp.dueDate || newExp.data_vencimento || new Date().toISOString().split('T')[0];
                     const resolvedIssueDate = newExp.date || newExp.issueDate || resolvedDueDate;
                     const resolvedAmount = Number(newExp.amount ?? newExp.valor_parcela ?? 0);
-                    return {
+                    const notaRef = newExp.notaId || newExp.documento_entrada_id || newExp.nota_fiscal_id;
+                    const parcRef = newExp.numero_parcela || '01/01';
+                    const matchedExisting = existingKnown.find((ex: any) =>
+                      ex &&
+                      (ex.id === newExp.id ||
+                        (newExp.id && toValidUUID(ex.id) === toValidUUID(newExp.id)) ||
+                        (notaRef &&
+                          (ex.notaId === notaRef || ex.documento_entrada_id === notaRef || ex.nota_fiscal_id === notaRef) &&
+                          (ex.numero_parcela || '01/01') === parcRef))
+                    );
+                    const candidate = {
                       ...newExp,
-                      id: newExp.id || `exp_nfe_${Date.now()}_${idx}`,
-                      notaId: newExp.notaId || newExp.documento_entrada_id || newExp.nota_fiscal_id,
+                      id: matchedExisting?.id || newExp.id || `exp_nfe_${Date.now()}_${idx}`,
+                      notaId: notaRef,
                       documento_entrada_id: newExp.documento_entrada_id || newExp.notaId || newExp.nota_fiscal_id,
                       nota_fiscal_id: newExp.nota_fiscal_id || newExp.notaId || newExp.documento_entrada_id,
-                      numero_parcela: newExp.numero_parcela || '01/01',
+                      numero_parcela: parcRef,
                       description: newExp.description || 'Despesa Importada via NF-e',
                       amount: resolvedAmount,
                       valor_parcela: resolvedAmount,
@@ -4724,8 +4866,9 @@ function AppContent() {
                       costCenterName: newExp.costCenterName || cc?.name,
                       notes: newExp.notes,
                       nfeItems: newExp.nfeItems,
-                      createdAt: newExp.createdAt || new Date().toISOString(),
+                      createdAt: matchedExisting?.createdAt || newExp.createdAt || new Date().toISOString(),
                     };
+                    return mergeExpensePreservingPaidStatus(matchedExisting, candidate);
                   });
                   handleSaveExpense(createdList);
                 }}

@@ -23,7 +23,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, isExpenseSettledRecord } from '../../lib/storage';
 import { CAIXA_INTERNO_ID, CAIXA_INTERNO_LABEL } from '../../lib/caixaStorage';
 import { formatReversalTooltip } from '../../lib/financialAudit';
 import { PaymentSettlementModal } from './PaymentSettlementModal';
@@ -153,16 +153,16 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   }, [safeExpenses, activeCompetence]);
 
   const pendingExpenses = competenceExpenses.filter(
-    (e) => (e.status || 'pendente') === 'pendente' || e.status === 'atrasado' || e.status === 'agendado'
+    (e) => !isExpenseSettledRecord(e) && ((e.status || 'pendente') === 'pendente' || e.status === 'atrasado' || e.status === 'agendado')
   );
   const paidExpenses = competenceExpenses.filter(
-    (e) => e.status === 'pago' || e.status === 'Liquidado / Abatido por Devolução'
+    (e) => isExpenseSettledRecord(e) && e.status !== 'compensado_estoque'
   );
 
   const totalPending = pendingExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   const totalPaid = paidExpenses.reduce((acc, e) => acc + (Number(e.paidAmount ?? e.amount) || 0), 0);
   const totalGeneral = competenceExpenses.reduce(
-    (acc, e) => acc + (e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : Number(e.amount) || 0),
+    (acc, e) => acc + (isExpenseSettledRecord(e) ? Number(e.paidAmount ?? e.amount) || 0 : Number(e.amount) || 0),
     0
   );
 
@@ -170,11 +170,12 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
   const filteredExpenses = competenceExpenses.filter((e) => {
     if (!e) return false;
+    const expSettled = isExpenseSettledRecord(e);
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'pago'
-        ? e.status === 'pago' || e.status === 'Liquidado / Abatido por Devolução'
-        : e.status === statusFilter);
+        ? expSettled && e.status !== 'compensado_estoque'
+        : !expSettled && e.status === statusFilter);
 
     // Intervalo de datas personalizado (se informado)
     let matchesDateRange = true;
@@ -205,7 +206,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
 
   // Handler para clique no botão de status ou liquidar
   const handleActionClick = (exp: Expense) => {
-    if (exp.status === 'pago') {
+    if (isExpenseSettledRecord(exp)) {
       // Se já está pago, confirma o estorno
       handleReverseClick(exp);
     } else {
@@ -435,7 +436,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map((exp) => {
                   const isAbatido = exp.status === 'Liquidado / Abatido por Devolução';
-                  const isPaid = exp.status === 'pago' || isAbatido;
+                  const isPaid = isExpenseSettledRecord(exp) || isAbatido;
                   const dueDateVal = exp.dueDate || exp.date || '';
                   const issueDateVal =
                     exp.issueDate ||
@@ -538,7 +539,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                       {/* Vencimento (sem selo VENCIDA duplicado; status exibido uma única vez na coluna STATUS / AÇÕES) */}
                       <td className="py-1 px-2.5 text-center font-bold text-black whitespace-nowrap text-xs font-mono">
                         <div>{dueDateVal ? formatDateBR(dueDateVal) : '—'}</div>
-                        {exp.status === 'pago' && exp.paymentDate && (
+                        {isPaid && exp.paymentDate && (
                           <div className="text-[9px] text-emerald-800 font-bold uppercase leading-tight">
                             PAGO {formatDateBR(exp.paymentDate)}
                           </div>

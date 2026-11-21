@@ -42,11 +42,11 @@ import {
   PaymentMethod,
   ReversalAuditEntry
 } from '../../types';
-import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getStoredFinanceiroCheques, saveStoredFinanceiroCheques, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
+import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, saveCompanyDespesas, mergeExpensePreservingPaidStatus, getStoredBrokerSettlements, saveStoredBrokerSettlements, getStoredFinanceiroCheques, saveStoredFinanceiroCheques, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
 import { recordFinancialReversalAudit, reverseCashRegisterSettlement, getLoggedAuditUserName, formatCurrentAuditDateTimeBR } from '../../lib/financialAudit';
 import { CAIXA_INTERNO_ID, registrarBaixaNoCaixaInterno } from '../../lib/caixaStorage';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchContasAPagar, saveFinanceiroCheque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { fetchContasAPagar, upsertContaAPagar, saveFinanceiroCheque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { BankAccountsTab } from './BankAccountsTab';
 import { PayablesTab } from './PayablesTab';
 import { ReceivablesTab } from './ReceivablesTab';
@@ -306,13 +306,14 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
                   ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
                   : d.centro_custo || 'Despesa Lançada');
 
-              const baseExp: Expense = {
-                ...(existing || {}),
+              const baseExp = mergeExpensePreservingPaidStatus(existing, {
                 id: existing?.id || d.id,
                 description: resolvedDesc,
                 amount: Number(d.valor_parcela ?? existing?.amount ?? 0),
                 dueDate: d.data_vencimento || existing?.dueDate || new Date().toISOString().split('T')[0],
                 status: d.status_pago ? 'pago' : 'pendente',
+                status_pago: Boolean(d.status_pago),
+                paid: Boolean(d.status_pago),
                 categoryId: existing?.categoryId || 'despesa_geral',
                 categoryColor: existing?.categoryColor || '#10b981',
                 category: existing?.category || d.centro_custo || 'Geral',
@@ -320,13 +321,15 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
                 paymentMethod: (d.forma_pagamento || existing?.paymentMethod || 'boleto') as PaymentMethod,
                 supplier: resolvedSupplier,
                 invoiceNumber: docNum,
-                createdAt: existing?.createdAt || d.created_at || new Date().toISOString()
-              };
+                createdAt: existing?.createdAt || d.created_at || new Date().toISOString(),
+                updatedAt: d.updated_at || existing?.updatedAt,
+              });
 
               if (d.nota_fiscal_id) (baseExp as any).notaId = (existing as any)?.notaId || d.nota_fiscal_id;
               if (parcLabel) (baseExp as any).numero_parcela = parcLabel;
 
               existingMap.set(baseExp.id, baseExp);
+              uuidToKey.set(toValidUUID(baseExp.id), baseExp.id);
             });
 
             const mergedList = Array.from(existingMap.values());
@@ -454,9 +457,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       return;
     }
 
-    const exp = expenses.find((e) => e.id === params.expenseId);
+    const baseList = localExpenses && localExpenses.length > 0 ? localExpenses : (expenses.length > 0 ? expenses : getStoredExpenses());
+    const exp = baseList.find((e) => e.id === params.expenseId);
     if (!exp) return;
 
+    const nowIso = new Date().toISOString();
+    const activeCompanyId = companyProfile?.id || getActiveCompanyId();
     const originalBase = Number(params.originalAmount ?? exp.originalAmount ?? exp.amount) || 0;
     const fineVal = Number(params.fineAmount) || 0;
     const interestVal = Number(params.interestAmount) || 0;
@@ -470,11 +476,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       .filter((v, idx, arr) => Boolean(v && v.trim()) && arr.indexOf(v) === idx)
       .join(' | ');
 
-    // Atualiza a despesa
-    const updatedExpenses = expenses.map((e) => {
+    let settledRecord: Expense | null = null;
+    // Atualiza a despesa de forma síncrona e unificada
+    const updatedExpenses = baseList.map((e) => {
       if (e.id === params.expenseId) {
         const expOriginal = Number(e.originalAmount ?? e.amount) || 0;
-        return {
+        const updated: Expense = {
           ...e,
           amount: expOriginal,
           originalAmount: expOriginal,
@@ -485,6 +492,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           settlementNotes: params.settlementNotes || params.notes || undefined,
           paidViaCashBox: isCashBox,
           status: 'pago' as const,
+          paid: true,
+          status_pago: true,
+          paidAt: nowIso,
+          updatedAt: nowIso,
           paymentDate: params.paymentDate,
           paidByEmployeeId: params.paidByEmployeeId,
           paidByEmployeeName: params.paidByEmployeeName,
@@ -500,15 +511,31 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           usedChequesSummary: params.usedChequesSummary,
           notes: combinedNote ? (e.notes ? `${e.notes} | ${combinedNote}` : combinedNote) : e.notes,
         };
+        settledRecord = updated;
+        return updated;
       }
       return e;
     });
 
+    setLocalExpenses(updatedExpenses);
+    saveStoredExpenses(updatedExpenses);
+    saveCompanyDespesas(updatedExpenses, activeCompanyId);
+    if (settledRecord && isSupabaseConfigured) {
+      const rec: Expense = settledRecord;
+      const notaRef = (rec as any).nota_fiscal_id || (rec as any).notaId || null;
+      upsertContaAPagar({
+        id: rec.id,
+        nota_fiscal_id: notaRef ? toValidUUID(String(notaRef)) : null,
+        numero_parcela: (rec as any).numero_parcela || '01/01',
+        valor_parcela: effectivePaid,
+        data_vencimento: rec.dueDate || params.paymentDate,
+        status_pago: true,
+        centro_custo: rec.costCenterName || rec.description || 'Geral',
+        forma_pagamento: rec.paymentMethod || 'pix',
+      }, activeCompanyId).catch((err) => console.warn('Supabase standalone settle notice:', err));
+    }
     if (onSaveExpenses) {
       onSaveExpenses(updatedExpenses);
-    } else {
-      saveStoredExpenses(updatedExpenses);
-      onToggleExpenseStatus(params.expenseId);
     }
 
     // Debita o saldo da conta bancária ou registra Sangria no Caixa Interno
@@ -671,13 +698,18 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       });
     }
 
-    const updatedExpenses = expenses.map((e) => {
+    const baseRevList = localExpenses && localExpenses.length > 0 ? localExpenses : (expenses.length > 0 ? expenses : getStoredExpenses());
+    let reversedRecord: Expense | null = null;
+    const updatedExpenses = baseRevList.map((e) => {
       if (e.id === expenseId) {
         const originalVal = Number(e.originalAmount ?? e.amount) || 0;
-        return {
+        const rev: Expense = {
           ...e,
           amount: originalVal,
           status: 'pendente' as const,
+          paid: false,
+          status_pago: false,
+          paidAt: undefined,
           paymentDate: undefined,
           bankAccountId: undefined,
           bankAccountName: undefined,
@@ -697,17 +729,31 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           reversalHistory: [reversalEntry, ...(e.reversalHistory || [])],
           updatedAt: now.toISOString(),
         };
+        reversedRecord = rev;
+        return rev;
       }
       return e;
     });
 
     recordFinancialReversalAudit(reversalEntry);
+    const activeCompanyId = companyProfile?.id || getActiveCompanyId();
+    setLocalExpenses(updatedExpenses);
+    saveStoredExpenses(updatedExpenses);
+    saveCompanyDespesas(updatedExpenses, activeCompanyId);
+    if (reversedRecord && isSupabaseConfigured) {
+      const rec: Expense = reversedRecord;
+      upsertContaAPagar({
+        id: rec.id,
+        valor_parcela: Number(rec.amount) || 0,
+        data_vencimento: rec.dueDate || now.toISOString().split('T')[0],
+        status_pago: false,
+        centro_custo: rec.costCenterName || rec.description || 'Geral',
+        forma_pagamento: rec.paymentMethod || 'Boleto',
+      }, activeCompanyId).catch((err) => console.warn('Supabase standalone reverse notice:', err));
+    }
 
     if (onSaveExpenses) {
       onSaveExpenses(updatedExpenses);
-    } else {
-      saveStoredExpenses(updatedExpenses);
-      onToggleExpenseStatus(expenseId);
     }
   };
 

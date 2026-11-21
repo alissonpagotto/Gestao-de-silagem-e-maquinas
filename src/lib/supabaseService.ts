@@ -114,6 +114,7 @@ import {
   getCompanyManutencoes,
   getStoredExpenses,
   getStoredFiscalRecords,
+  mergeExpensePreservingPaidStatus,
   sanitizeFuelLogs,
   isFictitiousOrZeroFuelLog
 } from './storage';
@@ -6989,8 +6990,7 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
       const resolvedAmount = Number(d.valor_parcela ?? d.amount ?? localMatch?.amount ?? 0);
       const resolvedDueDate = d.data_vencimento || d.dueDate || localMatch?.dueDate || new Date().toISOString().split('T')[0];
 
-      return {
-        ...(localMatch || {}),
+      return mergeExpensePreservingPaidStatus(localMatch, {
         id: localMatch?.id || d.id,
         title: d.centro_custo || d.title || resolvedDesc,
         description: resolvedDesc,
@@ -7002,6 +7002,8 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
         notaId: (localMatch as any)?.notaId || d.nota_fiscal_id || undefined,
         nota_fiscal_id: d.nota_fiscal_id || undefined,
         status: ((d.status_pago || d.status === 'pago') ? 'pago' : 'pendente') as ExpenseStatus,
+        status_pago: Boolean(d.status_pago || d.status === 'pago'),
+        paid: Boolean(d.status_pago || d.status === 'pago'),
         categoryId: finalCatId,
         categoryColor: finalCatColor,
         category: finalCatName,
@@ -7012,7 +7014,7 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
         recurrence: d.recurrence || 'none',
         createdAt: d.created_at || d.createdAt || localMatch?.createdAt || new Date().toISOString(),
         updatedAt: d.updated_at || d.updatedAt || new Date().toISOString(),
-      } as Expense;
+      });
     });
 
     return {

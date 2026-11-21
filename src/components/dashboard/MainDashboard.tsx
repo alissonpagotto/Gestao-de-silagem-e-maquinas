@@ -52,7 +52,8 @@ import {
   getStoredDocumentosEntrada,
   getStoredFiscalRecords,
   getStoredBankAccounts,
-  getStoredNotasSaida
+  getStoredNotasSaida,
+  mergeExpensePreservingPaidStatus
 } from '../../lib/storage';
 import {
   getCurrentCompetence,
@@ -323,8 +324,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               ? `Compra ${docNum}${parcLabel && parcLabel !== '01/01' ? ` (${parcLabel})` : ''} - ${resolvedSupplier}`
               : d.centro_custo || 'Despesa Lançada');
 
-          const reconciled: Expense = {
-            ...(existing || {}),
+          const reconciled = mergeExpensePreservingPaidStatus(existing, {
             id: existing?.id || d.id,
             title: d.centro_custo || existing?.description || resolvedDesc,
             description: resolvedDesc,
@@ -332,6 +332,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             date: (existing as any)?.date || (existing as any)?.issueDate || d.data_despesa || d.data_emissao || d.data_lancamento || (d.created_at ? String(d.created_at).slice(0, 10) : undefined),
             dueDate: d.data_vencimento || existing?.dueDate || new Date().toISOString().split('T')[0],
             status: d.status_pago ? 'pago' : 'pendente',
+            status_pago: Boolean(d.status_pago),
+            paid: Boolean(d.status_pago),
             categoryId: existing?.categoryId || 'despesa_geral',
             categoryColor: existing?.categoryColor || '#2563eb',
             category: existing?.category || d.centro_custo || 'Geral',
@@ -339,8 +341,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             paymentMethod: (d.forma_pagamento || existing?.paymentMethod || 'boleto') as any,
             supplier: resolvedSupplier,
             invoiceNumber: docNum,
-            createdAt: existing?.createdAt || d.created_at || new Date().toISOString()
-          } as unknown as Expense;
+            createdAt: existing?.createdAt || d.created_at || new Date().toISOString(),
+            updatedAt: d.updated_at || existing?.updatedAt,
+          });
 
           if (d.nota_fiscal_id) (reconciled as any).notaId = (existing as any)?.notaId || d.nota_fiscal_id;
           if (parcLabel) (reconciled as any).numero_parcela = parcLabel;

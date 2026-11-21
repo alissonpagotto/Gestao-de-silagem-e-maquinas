@@ -138,7 +138,9 @@ import {
   getStoredTrocasDevolucoes,
   saveStoredTrocasDevolucoes,
   getStoredPendenciasDevolucao,
-  saveStoredPendenciasDevolucao
+  saveStoredPendenciasDevolucao,
+  isExpenseSettledRecord,
+  mergeExpensePreservingPaidStatus
 } from '../../lib/storage';
 import {
   getLoggedAuditUserName,
@@ -7418,16 +7420,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // 2. FIM DA DUPLICAÇÃO NO FINANCEIRO (PRINT 2):
       // Montagem dos lançamentos das parcelas com ID único vinculado à nota (+ vínculo DRE da Frota se selecionado)
+      const existingKnownManualExpenses = [...getStoredExpenses(), ...expensesRef.current];
       const novosLancamentosFinanceiros: Expense[] = detailedInstallments.map((inst, idx) => {
         const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
+        const parcStr = totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01';
         const instId = totalParcs === 1 ? `pagar_${activeDocId}` : `pagar_${activeDocId}_parc_${idx + 1}`;
         const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
         const plateTag = linkedVehicle?.licensePlateOrSerial ? ` [${linkedVehicle.licensePlateOrSerial}]` : '';
         const docDescricao = `ENTRADA REF. ${docNumero || manualDocumentType}${suffix} - ${trimmedSupplier}${plateTag}`.toUpperCase();
         const dueResolved = inst.dueDate || firstDueDate;
 
-        return {
-          id: instId,
+        const prevMatchedManual = existingKnownManualExpenses.find((e: any) =>
+          e &&
+          (e.id === instId ||
+            (totalParcs === 1 && e.id === `pagar_${activeDocId}`) ||
+            ((e.notaId === activeDocId || e.documento_entrada_id === activeDocId || e.nota_fiscal_id === activeDocId) &&
+              (e.numero_parcela || '01/01') === parcStr))
+        );
+
+        return mergeExpensePreservingPaidStatus(prevMatchedManual, {
+          id: prevMatchedManual?.id || instId,
           companyId: getActiveCompanyId() || 'default',
           notaId: activeDocId,
           documento_entrada_id: activeDocId,
@@ -7436,7 +7448,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           amount: Number(inst.amount) || 0,
           valor_parcela: Number(inst.amount) || 0,
           valor_total: finalAmount,
-          numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
+          numero_parcela: parcStr,
           categoryId: catId,
           categoryName: primaryCategory.toUpperCase(),
           categoria: primaryCategory.toUpperCase(),
@@ -7462,8 +7474,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}`.toUpperCase() : docDescricao,
           receiptUrl: inst.documentFileUrl,
           receiptName: inst.documentFileName,
-          createdAt: new Date().toISOString(),
-        };
+          createdAt: prevMatchedManual?.createdAt || new Date().toISOString(),
+        });
       });
 
       const docDigits = normalizeFiscalInvoiceDigits(docNumero);
@@ -7558,7 +7570,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               forma_pagamento: (item as any).forma_pagamento || item.paymentMethod || 'Boleto',
               centro_custo: (item as any).centro_custo || item.categoryName || 'Geral',
               categoria: (item as any).categoria || item.categoryName || 'Geral',
-              status_pago: false
+              status_pago: isExpenseSettledRecord(item)
             }).catch(err => console.warn('Notice upsertContaAPagar:', err))
           )
         );
@@ -12016,24 +12028,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
       const dueResolved = inst.dueDate || dueDateFinal;
 
+      const parcStr = totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01';
       const prevMatchedInst = knownExpenses.find((e: any) =>
         e.id === instId ||
         (totalParcs === 1 && e.id === expenseId) ||
-        ((e.notaId === fiscalRecordId || getCanonicalNfeKey(e) === targetCanonicalKey) &&
-          e.numero_parcela === (totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01'))
+        ((e.notaId === fiscalRecordId || e.documento_entrada_id === fiscalRecordId || getCanonicalNfeKey(e) === targetCanonicalKey) &&
+          (e.numero_parcela || '01/01') === parcStr)
       );
-      const preservedStatus = prevMatchedInst?.status === 'pago' ? ('pago' as const) : ('pendente' as const);
 
       const contabNote = ` [Contábil - Crédito: ${inst.creditAccount || 'N/A'} | Débito: ${inst.debitAccount || 'N/A'}]`;
       const obsNote = inst.observations ? ` Obs: ${inst.observations}.` : '';
 
-      return {
-        id: instId,
+      return mergeExpensePreservingPaidStatus(prevMatchedInst, {
+        id: prevMatchedInst?.id || instId,
         companyId: getActiveCompanyId() || 'default',
         notaId: fiscalRecordId,
         documento_entrada_id: fiscalRecordId,
         nota_fiscal_id: fiscalRecordId,
-        numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
+        numero_parcela: parcStr,
         description: `Compra ${cleanInvoiceNumber}${suffix} - ${parsedData.supplier}`,
         amount: Number(inst.amount) || 0,
         valor_parcela: Number(inst.amount) || 0,
@@ -12045,10 +12057,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         entryDate: entryDateFinal,
         dueDate: dueResolved,
         data_vencimento: dueResolved,
-        paymentDate: preservedStatus === 'pago' ? prevMatchedInst?.paymentDate : undefined,
         supplier: parsedData.supplier,
         invoiceNumber: `${cleanInvoiceNumber}${suffix}`,
-        status: preservedStatus,
+        status: 'pendente' as const,
         paymentMethod: mapPayCode(inst.paymentMethodCode),
         forma_pagamento: inst.paymentMethodLabel || 'Boleto',
         costCenterId: selectedCC?.id,
@@ -12060,7 +12071,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         operationNature: parsedData.transactionType || parsedData.operationNature,
         transactionType: parsedData.transactionType,
         createdAt: prevMatchedInst?.createdAt || new Date().toISOString(),
-      } as Expense;
+      });
     });
 
     // Sincroniza imediatamente e de forma síncrona com o armazenamento local antes mesmo da nuvem para refletir instantaneamente em "A Pagar"
@@ -12273,7 +12284,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             centro_custo: selectedCC?.name || primaryCategory,
             categoria: primaryCategory,
             tipo_despesa: primaryCategory,
-            status_pago: false
+            status_pago: isExpenseSettledRecord(rec)
           }).catch(err => console.warn('Notice upsertContaAPagar XML:', err));
         })
       );
