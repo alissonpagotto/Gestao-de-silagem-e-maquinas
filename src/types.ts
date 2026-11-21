@@ -218,6 +218,13 @@ export interface Expense {
   stockIntegrated?: boolean;
   lastReversal?: ReversalAuditEntry;
   reversalHistory?: ReversalAuditEntry[];
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
+  paidAmount?: number;
+  settlementNotes?: string;
+  paidViaCashBox?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -351,7 +358,13 @@ export interface SilageOrder {
   paymentStatus: 'pendente' | 'parcial' | 'pago';
   paymentDate?: string;
   paymentMethod?: PaymentMethod | string;
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
   paidAmount?: number;
+  settlementNotes?: string;
+  paidViaCashBox?: boolean;
   dueDate?: string;
   isInstallment?: boolean;
   installmentNumber?: number;
@@ -1123,7 +1136,13 @@ export interface ServiceOrder {
   paymentStatus?: 'pendente' | 'parcial' | 'pago';
   paymentDate?: string;
   paymentMethod?: string;
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
   paidAmount?: number;
+  settlementNotes?: string;
+  paidViaCashBox?: boolean;
   dueDate?: string;
   isInstallment?: boolean;
   installmentNumber?: number;
@@ -2434,6 +2453,13 @@ export interface NotaSaidaRecord {
   receberStatus?: 'pendente' | 'pago';
   receberPaymentDate?: string;
   receberPaymentMethod?: string;
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
+  paidAmount?: number;
+  settlementNotes?: string;
+  paidViaCashBox?: boolean;
   bankAccountId?: string;
   bankAccountName?: string;
   lastReversal?: ReversalAuditEntry;

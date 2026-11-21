@@ -259,6 +259,72 @@ export function adicionarSangriaCaixa(valor: number, motivo: string, destino?: s
   return caixa;
 }
 
+export const CAIXA_INTERNO_ID = 'caixa_interno';
+export const CAIXA_INTERNO_LABEL = '💵 Caixa Interno / Gaveta';
+
+export function getCaixaInternoSaldoAtual(): number {
+  try {
+    const caixa = getStoredCaixaOperacional();
+    return calcularTotaisCaixa(caixa).saldoAtualDinheiro;
+  } catch {
+    return 0;
+  }
+}
+
+export function registrarBaixaNoCaixaInterno(params: {
+  type: 'pagar' | 'receber';
+  targetId: string;
+  amount: number;
+  partyName?: string;
+  description?: string;
+  paymentMethod?: string;
+  notes?: string;
+}): { caixa: CaixaOperacional; novoSaldo: number } {
+  const amt = Math.max(0, Number(params.amount) || 0);
+  let caixa = getStoredCaixaOperacional();
+  if (caixa.status !== 'ABERTO') {
+    caixa = abrirCaixaOperacional(0, getOperadorLogadoNome());
+  }
+
+  const now = new Date();
+  const dataFormatadaPtBr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  const horaFormatada = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const dataHora = `${dataFormatadaPtBr} ${horaFormatada}`;
+
+  const party = (params.partyName || (params.type === 'pagar' ? 'FORNECEDOR' : 'CLIENTE')).trim().toUpperCase();
+  const desc = (params.description || 'LIQUIDAÇÃO FINANCEIRA').trim().toUpperCase();
+  const obsSuffix = params.notes?.trim() ? ` | OBS: ${params.notes.trim().toUpperCase()}` : '';
+  const refTag = `[REF:${params.targetId}]`;
+
+  if (params.type === 'pagar') {
+    const mov: MovimentacaoCaixa = {
+      id: `SAN-BX-${params.targetId}-${Date.now()}`,
+      dataHora,
+      valor: amt,
+      motivo: `BAIXA A PAGAR ${refTag}: ${party} — ${desc}${obsSuffix}`,
+      destino: party,
+      tipo: 'SANGRIA',
+    };
+    if (!Array.isArray(caixa.sangrias)) caixa.sangrias = [];
+    caixa.sangrias.unshift(mov);
+  } else {
+    const mov: MovimentacaoCaixa = {
+      id: `SUP-BX-${params.targetId}-${Date.now()}`,
+      dataHora,
+      valor: amt,
+      motivo: `RECEBIMENTO A RECEBER ${refTag}: ${party} — ${desc}${obsSuffix}`,
+      destino: party,
+      tipo: 'SUPRIMENTO',
+    };
+    if (!Array.isArray(caixa.suprimentos)) caixa.suprimentos = [];
+    caixa.suprimentos.unshift(mov);
+  }
+
+  saveStoredCaixaOperacional(caixa);
+  const novoSaldo = calcularTotaisCaixa(caixa).saldoAtualDinheiro;
+  return { caixa, novoSaldo };
+}
+
 export function registrarVendaNoCaixa(venda: {
   id: string;
   numeroPedido: string;

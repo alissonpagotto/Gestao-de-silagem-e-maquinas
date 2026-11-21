@@ -760,36 +760,36 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
 
   return (
     <>
-      {/* CARD SLIM DE UTILITÁRIOS: MDI TRIDIMENSIONAL ACETINADO */}
+      {/* CARD SLIM DE UTILITÁRIOS: PALETA OFICIAL ALTO CONTRASTE */}
       <div
         id="card-backup-seguranca-sistema"
-        className={`rounded-xl overflow-hidden border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-2xs shrink-0 select-none ${compact ? 'text-[11px]' : ''} ${className}`}
+        className={`rounded-xl overflow-hidden border border-black dark:border-stone-700 bg-[#e0e6f1] dark:bg-stone-900 shadow-2xs shrink-0 select-none ${compact ? 'text-[11px]' : ''} ${className}`}
       >
-        {/* CABEÇALHO COM GRADIENTE TRIDIMENSIONAL ACETINADO OBRIGATÓRIO */}
-        <div className="bg-gradient-to-b from-slate-200 via-slate-100 to-slate-300 border border-slate-400 p-2 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.9)] dark:from-stone-800 dark:via-stone-750 dark:to-stone-850 dark:border-stone-700 flex flex-wrap items-center justify-between gap-1.5">
+        {/* CABEÇALHO OFICIAL */}
+        <div className="bg-[#cad4e6] border-b border-black p-2 dark:bg-stone-800 dark:border-stone-700 flex flex-wrap items-center justify-between gap-1.5">
           <div className="flex items-center space-x-2">
             <span className="text-base leading-none select-none" role="img" aria-label="disquete">
               💾
             </span>
-            <h2 className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-800 dark:text-stone-100 drop-shadow-[0_1px_0_rgba(255,255,255,0.8)] dark:drop-shadow-none">
+            <h2 className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-900 dark:text-stone-100">
               💾 CENTRAL DE SEGURANÇA E BACKUP DE DADOS
             </h2>
           </div>
 
           <div className="flex items-center space-x-1.5 flex-wrap">
-            <span className="hidden md:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-[9px] font-bold text-emerald-800 dark:text-emerald-300">
+            <span className="hidden md:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-950/70 border border-emerald-400 dark:border-emerald-800 text-[9px] font-bold text-emerald-900 dark:text-emerald-300">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
               <span>100% OFFLINE</span>
             </span>
             <span
               title="Total de chaves de dados gravadas no LocalStorage (todos os módulos)"
-              className="text-[9px] font-bold text-slate-700 dark:text-stone-300 bg-slate-100/80 dark:bg-stone-800 px-2 py-0.5 rounded-md border border-slate-300 dark:border-stone-600"
+              className="text-[9px] font-bold text-slate-800 dark:text-stone-300 bg-white/80 dark:bg-stone-800 px-2 py-0.5 rounded-md border border-black/30 dark:border-stone-600"
             >
               {activeKeysCount} CHAVES (LOCALSTORAGE)
             </span>
             <span
               title="Total de fotos, logos, XMLs e certificado A1 gravados no IndexedDB (AgroControlMediaDB)"
-              className="text-[9px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50/90 dark:bg-blue-950/60 px-2 py-0.5 rounded-md border border-blue-300 dark:border-blue-800"
+              className="text-[9px] font-bold text-blue-900 dark:text-blue-300 bg-blue-50/90 dark:bg-blue-950/60 px-2 py-0.5 rounded-md border border-blue-400 dark:border-blue-800"
             >
               {mediaFilesCount} MÍDIAS (INDEXEDDB)
             </span>
@@ -797,9 +797,9 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
         </div>
 
         {/* CORPO DO CARD SLIM */}
-        <div className="p-2 sm:p-2.5 bg-slate-50/70 dark:bg-stone-900/60 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-          <div className="flex items-start sm:items-center space-x-2 text-slate-700 dark:text-stone-300 min-w-0">
-            <div className="p-1.5 rounded-lg bg-slate-200/80 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 shrink-0 text-slate-700 dark:text-stone-300">
+        <div className="p-2 sm:p-2.5 bg-[#e0e6f1] dark:bg-stone-900/60 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          <div className="flex items-start sm:items-center space-x-2 text-slate-800 dark:text-stone-300 min-w-0">
+            <div className="p-1.5 rounded-lg bg-[#cad4e6] dark:bg-stone-800 border border-black/30 dark:border-stone-700 shrink-0 text-slate-800 dark:text-stone-300">
               <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
             </div>
             <div className="min-w-0">
@@ -808,8 +808,8 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
                   SEGURANÇA DO SISTEMA • {subscriberName}
                 </span>
               </div>
-              <p className="text-[9px] text-slate-600 dark:text-stone-400 font-medium truncate">
-                Backup integral v2.0 de 100% dos módulos (<code className="text-[9px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-stone-800 px-1 py-0.2 rounded">LocalStorage</code>) + fotos, logos e certificado A1 (<code className="text-[9px] font-mono text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-stone-800 px-1 py-0.2 rounded">IndexedDB</code>).
+              <p className="text-[9px] text-slate-700 dark:text-stone-400 font-medium truncate">
+                Backup integral v2.0 de 100% dos módulos (<code className="text-[9px] font-mono text-emerald-800 dark:text-emerald-400 bg-white/80 dark:bg-stone-800 px-1 py-0.2 rounded border border-black/15">LocalStorage</code>) + fotos, logos e certificado A1 (<code className="text-[9px] font-mono text-blue-800 dark:text-blue-400 bg-white/80 dark:bg-stone-800 px-1 py-0.2 rounded border border-black/15">IndexedDB</code>).
               </p>
             </div>
           </div>

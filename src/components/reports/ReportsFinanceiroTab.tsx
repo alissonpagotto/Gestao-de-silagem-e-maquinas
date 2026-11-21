@@ -143,11 +143,14 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
           String(e.costCenterName ?? '').toLowerCase().includes(term);
 
         const isOverdue = e.status !== 'pago' && e.dueDate && e.dueDate < todayIso;
+        const charges = (Number(e.fineAmount) || 0) + (Number(e.interestAmount) || 0);
+        const discount = Number(e.discountAmount) || 0;
         const matchStatus =
           statusFilter === 'todos' ||
           (statusFilter === 'pago' && e.status === 'pago') ||
           (statusFilter === 'aberto' && e.status !== 'pago' && !isOverdue) ||
-          (statusFilter === 'vencido' && isOverdue);
+          (statusFilter === 'vencido' && isOverdue) ||
+          (statusFilter === 'com_acrescimos_descontos' && (charges > 0.009 || discount > 0.009));
 
         return matchDate && matchSearch && matchStatus;
       })
@@ -156,6 +159,9 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
 
   const payableKpis = useMemo(() => {
     let total = 0;
+    let totalOriginal = 0;
+    let totalCharges = 0;
+    let totalDiscounts = 0;
     let paid = 0;
     let open = 0;
     let overdue = 0;
@@ -164,21 +170,42 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
     let overdueCount = 0;
 
     filteredPayables.forEach((e) => {
-      const amt = e.amount || 0;
-      total += amt;
+      const origAmt = Number(e.originalAmount ?? e.amount) || 0;
+      const charges = (Number(e.fineAmount) || 0) + (Number(e.interestAmount) || 0);
+      const discount = Number(e.discountAmount) || 0;
+      const realPaid = Number(e.paidAmount ?? e.amount) || 0;
+
+      totalOriginal += origAmt;
+      totalCharges += charges;
+      totalDiscounts += discount;
+
       if (e.status === 'pago') {
-        paid += amt;
+        total += realPaid;
+        paid += realPaid;
         paidCount += 1;
       } else if (e.dueDate && e.dueDate < todayIso) {
-        overdue += amt;
+        total += origAmt;
+        overdue += origAmt;
         overdueCount += 1;
       } else {
-        open += amt;
+        total += origAmt;
+        open += origAmt;
         openCount += 1;
       }
     });
 
-    return { total, paid, open, overdue, paidCount, openCount, overdueCount };
+    return {
+      total,
+      totalOriginal,
+      totalCharges,
+      totalDiscounts,
+      paid,
+      open,
+      overdue,
+      paidCount,
+      openCount,
+      overdueCount,
+    };
   }, [filteredPayables, todayIso]);
 
   // ==================== 2. CONTAS A RECEBER ====================
@@ -202,6 +229,11 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
             : `${o.orderNumber ? `Pedido #${o.orderNumber} - ` : ''}${o.productType || 'Venda'}`,
           paymentMethodLabel: getPaymentMethodLabel(o.paymentMethod),
           amount: o.totalAmount || 0,
+          originalAmount: o.originalAmount ?? o.totalAmount ?? 0,
+          fineAmount: o.fineAmount,
+          interestAmount: o.interestAmount,
+          discountAmount: o.discountAmount,
+          paidAmount: o.paidAmount,
           status: isPaid ? 'pago' : isOverdue ? 'vencido' : 'a_vencer',
         });
       });
@@ -228,6 +260,11 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
             : `${s.serviceType || 'Serviço'}${s.farmName ? ` - ${s.farmName}` : ''}`,
           paymentMethodLabel: getPaymentMethodLabel(s.paymentMethod),
           amount: s.totalAmount || 0,
+          originalAmount: s.originalAmount ?? s.totalAmount ?? 0,
+          fineAmount: s.fineAmount,
+          interestAmount: s.interestAmount,
+          discountAmount: s.discountAmount,
+          paidAmount: s.paidAmount,
           status: isPaid ? 'pago' : isOverdue ? 'vencido' : 'a_vencer',
         });
       });
@@ -247,6 +284,11 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
           description: `${(n.tipoDocumento || 'NF').split(' ')[0]} Nº ${n.numero}${n.serie ? `/${n.serie}` : ''}`,
           paymentMethodLabel: n.condicaoPagamento || '-',
           amount: Number(n.valorTotal) || 0,
+          originalAmount: Number(n.originalAmount ?? n.valorTotal) || 0,
+          fineAmount: n.fineAmount,
+          interestAmount: n.interestAmount,
+          discountAmount: n.discountAmount,
+          paidAmount: n.paidAmount,
           status: isPaid ? 'pago' : isOverdue ? 'vencido' : 'a_vencer',
         });
       });
@@ -265,7 +307,13 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
           r.clientName.toLowerCase().includes(term) ||
           r.originLabel.toLowerCase().includes(term) ||
           r.description.toLowerCase().includes(term);
-        const matchStatus = statusFilter === 'todos' || r.status === statusFilter;
+        const charges = (Number(r.fineAmount) || 0) + (Number(r.interestAmount) || 0);
+        const discount = Number(r.discountAmount) || 0;
+        const matchStatus =
+          statusFilter === 'todos' ||
+          (statusFilter === 'com_acrescimos_descontos'
+            ? charges > 0.009 || discount > 0.009
+            : r.status === statusFilter);
         return matchDate && matchSearch && matchStatus;
       })
       .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
@@ -273,6 +321,9 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
 
   const receivableKpis = useMemo(() => {
     let total = 0;
+    let totalOriginal = 0;
+    let totalCharges = 0;
+    let totalDiscounts = 0;
     let received = 0;
     let upcoming = 0;
     let overdue = 0;
@@ -281,20 +332,42 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
     let overdueCount = 0;
 
     filteredReceivables.forEach((r) => {
-      total += r.amount;
+      const origAmt = Number(r.originalAmount ?? r.amount) || 0;
+      const charges = (Number(r.fineAmount) || 0) + (Number(r.interestAmount) || 0);
+      const discount = Number(r.discountAmount) || 0;
+      const realReceived = Number(r.paidAmount ?? r.amount) || 0;
+
+      totalOriginal += origAmt;
+      totalCharges += charges;
+      totalDiscounts += discount;
+
       if (r.status === 'pago') {
-        received += r.amount;
+        total += realReceived;
+        received += realReceived;
         receivedCount += 1;
       } else if (r.status === 'vencido') {
-        overdue += r.amount;
+        total += origAmt;
+        overdue += origAmt;
         overdueCount += 1;
       } else {
-        upcoming += r.amount;
+        total += origAmt;
+        upcoming += origAmt;
         upcomingCount += 1;
       }
     });
 
-    return { total, received, upcoming, overdue, receivedCount, upcomingCount, overdueCount };
+    return {
+      total,
+      totalOriginal,
+      totalCharges,
+      totalDiscounts,
+      received,
+      upcoming,
+      overdue,
+      receivedCount,
+      upcomingCount,
+      overdueCount,
+    };
   }, [filteredReceivables]);
 
   // ==================== 3. CUSTÓDIA DE CHEQUES ====================
@@ -380,10 +453,10 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
           if (groupBy === 'forma') return getPaymentMethodLabel(e.paymentMethod);
           return e.categoryName || 'Outras Categorias';
         },
-        (e) => e.amount || 0,
+        (e) => (e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : Number(e.amount) || 0),
         {
-          getPaidAmount: (e) => (e.status === 'pago' ? e.amount || 0 : 0),
-          getPendingAmount: (e) => (e.status !== 'pago' ? e.amount || 0 : 0),
+          getPaidAmount: (e) => (e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : 0),
+          getPendingAmount: (e) => (e.status !== 'pago' ? Number(e.amount) || 0 : 0),
         }
       );
     }
@@ -395,10 +468,10 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
           if (groupBy === 'forma') return r.paymentMethodLabel || 'Não Informado';
           return r.clientName;
         },
-        (r) => r.amount || 0,
+        (r) => (r.status === 'pago' ? Number(r.paidAmount ?? r.amount) || 0 : Number(r.amount) || 0),
         {
-          getPaidAmount: (r) => (r.status === 'pago' ? r.amount || 0 : 0),
-          getPendingAmount: (r) => (r.status !== 'pago' ? r.amount || 0 : 0),
+          getPaidAmount: (r) => (r.status === 'pago' ? Number(r.paidAmount ?? r.amount) || 0 : 0),
+          getPendingAmount: (r) => (r.status !== 'pago' ? Number(r.amount) || 0 : 0),
         }
       );
     }
@@ -493,21 +566,27 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
         .join('\n');
       filename = `relatorio_financeiro_${subTab}_sintetico_${startDate}_a_${endDate}.csv`;
     } else if (subTab === 'pagar') {
-      headers = 'Vencimento,Fornecedor,Descricao,Categoria,Forma_Pagamento,Valor_R$,Status\n';
+      headers = 'Vencimento,Fornecedor,Descricao,Categoria,Forma_Pagamento,Valor_Original_R$,Juros_Multa_R$,Desconto_R$,Valor_Real_Pago_R$,Status\n';
       rows = filteredPayables
-        .map(
-          (e) =>
-            `"${e.dueDate}","${e.supplier || ''}","${e.description}","${e.categoryName || ''}","${e.paymentMethod || ''}","${e.amount}","${e.status}"`
-        )
+        .map((e) => {
+          const origVal = Number(e.originalAmount ?? e.amount) || 0;
+          const chargesVal = (Number(e.fineAmount) || 0) + (Number(e.interestAmount) || 0);
+          const discVal = Number(e.discountAmount) || 0;
+          const realVal = e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : 0;
+          return `"${e.dueDate}","${e.supplier || ''}","${e.description}","${e.categoryName || ''}","${e.paymentMethod || ''}","${origVal.toFixed(2)}","${chargesVal.toFixed(2)}","${discVal.toFixed(2)}","${realVal.toFixed(2)}","${e.status}"`;
+        })
         .join('\n');
       filename = `relatorio_contas_a_pagar_${startDate}_a_${endDate}.csv`;
     } else if (subTab === 'receber') {
-      headers = 'Vencimento,Cliente,Origem,Referencia,Forma_Pagamento,Valor_R$,Status\n';
+      headers = 'Vencimento,Cliente,Origem,Referencia,Forma_Pagamento,Valor_Original_R$,Juros_Multa_R$,Desconto_R$,Valor_Real_Recebido_R$,Status\n';
       rows = filteredReceivables
-        .map(
-          (r) =>
-            `"${r.dueDate}","${r.clientName}","${r.originLabel}","${r.description}","${r.paymentMethodLabel}","${r.amount}","${r.status}"`
-        )
+        .map((r) => {
+          const origVal = Number(r.originalAmount ?? r.amount) || 0;
+          const chargesVal = (Number(r.fineAmount) || 0) + (Number(r.interestAmount) || 0);
+          const discVal = Number(r.discountAmount) || 0;
+          const realVal = r.status === 'pago' ? Number(r.paidAmount ?? r.amount) || 0 : 0;
+          return `"${r.dueDate}","${r.clientName}","${r.originLabel}","${r.description}","${r.paymentMethodLabel}","${origVal.toFixed(2)}","${chargesVal.toFixed(2)}","${discVal.toFixed(2)}","${realVal.toFixed(2)}","${r.status}"`;
+        })
         .join('\n');
       filename = `relatorio_contas_a_receber_${startDate}_a_${endDate}.csv`;
     } else {
@@ -577,130 +656,188 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
         </div>
       )}
 
-      {/* 1. Cards de Resumo (4 cards por sub-pílula no padrão bg-[#e0e6f1] border border-black) */}
+      {/* 1. Cards de Resumo (4 cards por sub-pílula + Consolidado de Juros, Multas e Descontos) */}
       {subTab === 'pagar' && (
-        <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-slate-700 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-700 flex items-center justify-center shrink-0 border border-black/15">
-              <DollarSign className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Total no Período
-              </span>
-              <div className="text-sm sm:text-base font-black text-stone-900 dark:text-stone-100 font-['Outfit'] truncate">
-                {formatCurrencyBRL(payableKpis.total)}
+        <div className="shrink-0 space-y-2">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-slate-700 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-stone-800 text-slate-700 flex items-center justify-center shrink-0 border border-black/15">
+                <DollarSign className="w-3.5 h-3.5" />
               </div>
-              <div className="text-[10px] text-stone-600 truncate">{filteredPayables.length} títulos</div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Total no Período
+                </span>
+                <div className="text-sm sm:text-base font-black text-stone-900 dark:text-stone-100 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(payableKpis.total)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{filteredPayables.length} títulos</div>
+              </div>
+            </div>
+
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Pago / Liquidado (Real)
+                </span>
+                <div className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(payableKpis.paid)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{payableKpis.paidCount} quitados</div>
+              </div>
+            </div>
+
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Em Aberto
+                </span>
+                <div className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(payableKpis.open)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{payableKpis.openCount} a vencer</div>
+              </div>
+            </div>
+
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-600 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Vencido / Atraso
+                </span>
+                <div className="text-sm sm:text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(payableKpis.overdue)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{payableKpis.overdueCount} vencidos</div>
+              </div>
             </div>
           </div>
 
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Pago / Liquidado
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-1.5 px-3 border border-black dark:border-stone-800 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-stone-700 dark:text-stone-400">Valor Original</span>
+              <span className="text-xs font-black font-mono text-stone-900 dark:text-stone-100">
+                {formatCurrencyBRL(payableKpis.totalOriginal)}
               </span>
-              <div className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] truncate">
+            </div>
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-1.5 px-3 border border-black dark:border-stone-800 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-red-700">(+) Juros e Multas</span>
+              <span className="text-xs font-black font-mono text-red-700">
+                + {formatCurrencyBRL(payableKpis.totalCharges)}
+              </span>
+            </div>
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-1.5 px-3 border border-black dark:border-stone-800 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-emerald-700">(-) Descontos</span>
+              <span className="text-xs font-black font-mono text-emerald-700">
+                - {formatCurrencyBRL(payableKpis.totalDiscounts)}
+              </span>
+            </div>
+            <div className="bg-[#cad4e6] dark:bg-stone-800 rounded-lg py-1.5 px-3 border border-black dark:border-stone-700 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase text-black dark:text-white">(=) Valor Real Pago</span>
+              <span className="text-xs font-black font-mono text-black dark:text-white">
                 {formatCurrencyBRL(payableKpis.paid)}
-              </div>
-              <div className="text-[10px] text-stone-600 truncate">{payableKpis.paidCount} quitados</div>
-            </div>
-          </div>
-
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
-              <Clock className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Em Aberto
               </span>
-              <div className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] truncate">
-                {formatCurrencyBRL(payableKpis.open)}
-              </div>
-              <div className="text-[10px] text-stone-600 truncate">{payableKpis.openCount} a vencer</div>
-            </div>
-          </div>
-
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-600 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
-              <AlertTriangle className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Vencido / Atraso
-              </span>
-              <div className="text-sm sm:text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] truncate">
-                {formatCurrencyBRL(payableKpis.overdue)}
-              </div>
-              <div className="text-[10px] text-stone-600 truncate">{payableKpis.overdueCount} vencidos</div>
             </div>
           </div>
         </div>
       )}
 
       {subTab === 'receber' && (
-        <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-sky-600 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 flex items-center justify-center shrink-0 border border-black/15">
-              <DollarSign className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Total a Receber
-              </span>
-              <div className="text-sm sm:text-base font-black text-sky-700 dark:text-sky-400 font-['Outfit'] truncate">
-                {formatCurrencyBRL(receivableKpis.total)}
+        <div className="shrink-0 space-y-2">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-sky-600 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 flex items-center justify-center shrink-0 border border-black/15">
+                <DollarSign className="w-3.5 h-3.5" />
               </div>
-              <div className="text-[10px] text-stone-600 truncate">{filteredReceivables.length} títulos</div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Total a Receber
+                </span>
+                <div className="text-sm sm:text-base font-black text-sky-700 dark:text-sky-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(receivableKpis.total)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{filteredReceivables.length} títulos</div>
+              </div>
+            </div>
+
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Recebido (Real)
+                </span>
+                <div className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(receivableKpis.received)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{receivableKpis.receivedCount} liquidados</div>
+              </div>
+            </div>
+
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  A Vencer
+                </span>
+                <div className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(receivableKpis.upcoming)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{receivableKpis.upcomingCount} no prazo</div>
+              </div>
+            </div>
+
+            <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-600 shadow-2xs flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
+                  Inadimplente / Vencido
+                </span>
+                <div className="text-sm sm:text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] truncate">
+                  {formatCurrencyBRL(receivableKpis.overdue)}
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">{receivableKpis.overdueCount} vencidos</div>
+              </div>
             </div>
           </div>
 
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-emerald-500 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 border border-black/15">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Recebido
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-1.5 px-3 border border-black dark:border-stone-800 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-stone-700 dark:text-stone-400">Valor Original</span>
+              <span className="text-xs font-black font-mono text-stone-900 dark:text-stone-100">
+                {formatCurrencyBRL(receivableKpis.totalOriginal)}
               </span>
-              <div className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] truncate">
+            </div>
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-1.5 px-3 border border-black dark:border-stone-800 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-red-700">(+) Juros e Multas</span>
+              <span className="text-xs font-black font-mono text-red-700">
+                + {formatCurrencyBRL(receivableKpis.totalCharges)}
+              </span>
+            </div>
+            <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-1.5 px-3 border border-black dark:border-stone-800 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-emerald-700">(-) Descontos</span>
+              <span className="text-xs font-black font-mono text-emerald-700">
+                - {formatCurrencyBRL(receivableKpis.totalDiscounts)}
+              </span>
+            </div>
+            <div className="bg-[#cad4e6] dark:bg-stone-800 rounded-lg py-1.5 px-3 border border-black dark:border-stone-700 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase text-black dark:text-white">(=) Valor Real Recebido</span>
+              <span className="text-xs font-black font-mono text-emerald-800 dark:text-emerald-400">
                 {formatCurrencyBRL(receivableKpis.received)}
-              </div>
-              <div className="text-[10px] text-stone-600 truncate">{receivableKpis.receivedCount} liquidados</div>
-            </div>
-          </div>
-
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-amber-500 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 border border-black/15">
-              <Clock className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                A Vencer
               </span>
-              <div className="text-sm sm:text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] truncate">
-                {formatCurrencyBRL(receivableKpis.upcoming)}
-              </div>
-              <div className="text-[10px] text-stone-600 truncate">{receivableKpis.upcomingCount} no prazo</div>
-            </div>
-          </div>
-
-          <div className="reports-kpi-card bg-[#e0e6f1] dark:bg-stone-900 rounded-lg py-2 px-3 border border-black dark:border-stone-800 border-l-[3px] border-l-rose-600 shadow-2xs flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0 border border-black/15">
-              <AlertTriangle className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 block truncate">
-                Inadimplente / Vencido
-              </span>
-              <div className="text-sm sm:text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] truncate">
-                {formatCurrencyBRL(receivableKpis.overdue)}
-              </div>
-              <div className="text-[10px] text-stone-600 truncate">{receivableKpis.overdueCount} vencidos</div>
             </div>
           </div>
         </div>
@@ -801,6 +938,7 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
                 <option value="pago">Pago / Liquidado</option>
                 <option value="aberto">Em Aberto</option>
                 <option value="vencido">Vencido / Atraso</option>
+                <option value="com_acrescimos_descontos">Com Juros, Multas ou Descontos</option>
               </>
             )}
             {subTab === 'receber' && (
@@ -808,6 +946,7 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
                 <option value="pago">Recebido</option>
                 <option value="a_vencer">A Vencer</option>
                 <option value="vencido">Inadimplente / Vencido</option>
+                <option value="com_acrescimos_descontos">Com Juros, Multas ou Descontos</option>
               </>
             )}
             {subTab === 'cheques' && (
@@ -913,43 +1052,59 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="py-2.5 px-3.5">Vencimento</th>
-                  <th className="py-2.5 px-3.5">Fornecedor</th>
-                  <th className="py-2.5 px-3.5">Descrição</th>
-                  <th className="py-2.5 px-3.5">Categoria</th>
-                  <th className="py-2.5 px-3.5">Forma Pagto.</th>
-                  <th className="py-2.5 px-3.5 text-right">Valor (R$)</th>
-                  <th className="py-2.5 px-3.5 text-center">Status</th>
+                  <th className="py-2.5 px-3">Vencimento</th>
+                  <th className="py-2.5 px-3">Fornecedor</th>
+                  <th className="py-2.5 px-3">Descrição</th>
+                  <th className="py-2.5 px-3">Categoria</th>
+                  <th className="py-2.5 px-3">Forma Pagto.</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">Valor Original</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">(+) Juros/Multa</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">(-) Desconto</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">(=) Valor Real Pago</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
                 {filteredPayables.length > 0 ? (
                   filteredPayables.map((item) => {
                     const isOverdue = item.status !== 'pago' && item.dueDate && item.dueDate < todayIso;
+                    const origVal = Number(item.originalAmount ?? item.amount) || 0;
+                    const chargesVal = (Number(item.fineAmount) || 0) + (Number(item.interestAmount) || 0);
+                    const discVal = Number(item.discountAmount) || 0;
+                    const realVal = item.status === 'pago' ? Number(item.paidAmount ?? item.amount) || 0 : 0;
                     return (
                       <tr
                         key={item.id}
                         className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800"
                       >
-                        <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
+                        <td className="py-2.5 px-3 whitespace-nowrap text-stone-700 dark:text-stone-400">
                           {formatDateBR(item.dueDate)}
                         </td>
-                        <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
+                        <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100">
                           {item.supplier || 'Fornecedor N/I'}
                         </td>
-                        <td className="py-2.5 px-3.5 text-stone-800 dark:text-stone-300 font-medium">
+                        <td className="py-2.5 px-3 text-stone-800 dark:text-stone-300 font-medium">
                           {item.description}
                         </td>
-                        <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
+                        <td className="py-2.5 px-3 text-stone-700 dark:text-stone-400">
                           {item.categoryName || '-'}
                         </td>
-                        <td className="py-2.5 px-3.5 uppercase text-[11px] font-semibold text-stone-700 dark:text-stone-400">
+                        <td className="py-2.5 px-3 uppercase text-[11px] font-semibold text-stone-700 dark:text-stone-400">
                           {getPaymentMethodLabel(item.paymentMethod)}
                         </td>
-                        <td className="py-2.5 px-3.5 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap">
-                          {formatCurrencyBRL(item.amount || 0)}
+                        <td className="py-2.5 px-3 text-right font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap font-mono">
+                          {formatCurrencyBRL(origVal)}
                         </td>
-                        <td className="py-2.5 px-3.5 text-center">
+                        <td className="py-2.5 px-3 text-right font-semibold text-red-700 whitespace-nowrap font-mono">
+                          {chargesVal > 0.009 ? `+ ${formatCurrencyBRL(chargesVal)}` : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-emerald-700 whitespace-nowrap font-mono">
+                          {discVal > 0.009 ? `- ${formatCurrencyBRL(discVal)}` : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-rose-700 dark:text-rose-400 whitespace-nowrap font-mono">
+                          {item.status === 'pago' ? formatCurrencyBRL(realVal) : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
                           <span
                             className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               item.status === 'pago'
@@ -967,7 +1122,7 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
+                    <td colSpan={10} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
                       Nenhuma conta a pagar localizada no período e filtros selecionados.
                     </td>
                   </tr>
@@ -978,58 +1133,76 @@ export const ReportsFinanceiroTab: React.FC<ReportsFinanceiroTabProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
-                  <th className="py-2.5 px-3.5">Vencimento</th>
-                  <th className="py-2.5 px-3.5">Cliente / Tomador</th>
-                  <th className="py-2.5 px-3.5">Origem</th>
-                  <th className="py-2.5 px-3.5">Referência / OS</th>
-                  <th className="py-2.5 px-3.5">Forma Pagto.</th>
-                  <th className="py-2.5 px-3.5 text-right">Valor (R$)</th>
-                  <th className="py-2.5 px-3.5 text-center">Status</th>
+                  <th className="py-2.5 px-3">Vencimento</th>
+                  <th className="py-2.5 px-3">Cliente / Tomador</th>
+                  <th className="py-2.5 px-3">Origem</th>
+                  <th className="py-2.5 px-3">Referência / OS</th>
+                  <th className="py-2.5 px-3">Forma Pagto.</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">Valor Original</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">(+) Juros/Multa</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">(-) Desconto</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">(=) Valor Real Recebido</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="bg-[#e0e6f1] divide-y divide-black/15 dark:divide-stone-800">
                 {filteredReceivables.length > 0 ? (
-                  filteredReceivables.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800"
-                    >
-                      <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-700 dark:text-stone-400">
-                        {formatDateBR(item.dueDate)}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
-                        {item.clientName}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-semibold text-sky-800 dark:text-sky-300">
-                        {item.originLabel}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-stone-700 dark:text-stone-400">
-                        {item.description}
-                      </td>
-                      <td className="py-2.5 px-3.5 uppercase text-[11px] font-semibold text-stone-700 dark:text-stone-400">
-                        {item.paymentMethodLabel}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                        {formatCurrencyBRL(item.amount)}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-center">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            item.status === 'pago'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : item.status === 'vencido'
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {item.status === 'pago' ? 'Recebido' : item.status === 'vencido' ? 'Vencido' : 'A Vencer'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  filteredReceivables.map((item) => {
+                    const origVal = Number(item.originalAmount ?? item.amount) || 0;
+                    const chargesVal = (Number(item.fineAmount) || 0) + (Number(item.interestAmount) || 0);
+                    const discVal = Number(item.discountAmount) || 0;
+                    const realVal = item.status === 'pago' ? Number(item.paidAmount ?? item.amount) || 0 : 0;
+                    return (
+                      <tr
+                        key={item.id}
+                        className="bg-[#e0e6f1] dark:bg-stone-900 hover:bg-[#d2dced] dark:hover:bg-stone-800 transition border-b border-black/20 dark:border-stone-800"
+                      >
+                        <td className="py-2.5 px-3 whitespace-nowrap text-stone-700 dark:text-stone-400">
+                          {formatDateBR(item.dueDate)}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-stone-900 dark:text-stone-100">
+                          {item.clientName}
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-sky-800 dark:text-sky-300">
+                          {item.originLabel}
+                        </td>
+                        <td className="py-2.5 px-3 text-stone-700 dark:text-stone-400">
+                          {item.description}
+                        </td>
+                        <td className="py-2.5 px-3 uppercase text-[11px] font-semibold text-stone-700 dark:text-stone-400">
+                          {item.paymentMethodLabel}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap font-mono">
+                          {formatCurrencyBRL(origVal)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-red-700 whitespace-nowrap font-mono">
+                          {chargesVal > 0.009 ? `+ ${formatCurrencyBRL(chargesVal)}` : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-emerald-700 whitespace-nowrap font-mono">
+                          {discVal > 0.009 ? `- ${formatCurrencyBRL(discVal)}` : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap font-mono">
+                          {item.status === 'pago' ? formatCurrencyBRL(realVal) : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              item.status === 'pago'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : item.status === 'vencido'
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {item.status === 'pago' ? 'Recebido' : item.status === 'vencido' ? 'Vencido' : 'A Vencer'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
+                    <td colSpan={10} className="py-8 text-center text-stone-600 bg-[#e0e6f1] dark:bg-stone-900">
                       Nenhum título a receber localizado no período e filtros selecionados.
                     </td>
                   </tr>

@@ -48,13 +48,13 @@ export function syncExpenseWithCardsAndBank(
     // Ajuste de saldo da conta se a despesa for debitada diretamente
     if (accCopy.id === newExp.bankAccountId && newExp.status === 'pago') {
       const prevAmt = (prevExp && prevExp.bankAccountId === accCopy.id && prevExp.status === 'pago')
-        ? (Number(prevExp.amount) || 0)
+        ? (Number(prevExp.paidAmount ?? prevExp.amount) || 0)
         : 0;
-      const newAmt = Number(newExp.amount) || 0;
+      const newAmt = Number(newExp.paidAmount ?? newExp.amount) || 0;
       const diff = newAmt - prevAmt;
       accCopy.balance = (accCopy.balance || 0) - diff;
     } else if (prevExp && prevExp.bankAccountId === accCopy.id && prevExp.status === 'pago' && newExp.status !== 'pago') {
-      const prevAmt = Number(prevExp.amount) || 0;
+      const prevAmt = Number(prevExp.paidAmount ?? prevExp.amount) || 0;
       accCopy.balance = (accCopy.balance || 0) + prevAmt;
     }
 
@@ -72,25 +72,25 @@ export function revertExpenseCardsAndBank(
     return { updatedAccounts: [] };
   }
 
+  const effectiveAmt = Number(exp.paidAmount ?? exp.amount) || 0;
+
   const updatedAccounts = bankAccounts.map(acc => {
     let accCopy = { ...acc };
 
     if (accCopy.corporateCards && accCopy.corporateCards.length > 0 && exp.corporateCardId) {
       accCopy.corporateCards = accCopy.corporateCards.map(c => {
         if (c.id === exp.corporateCardId) {
-          const amt = Number(exp.amount) || 0;
           return {
             ...c,
-            usedLimit: Math.max(0, (c.usedLimit || 0) - amt),
+            usedLimit: Math.max(0, (c.usedLimit || 0) - effectiveAmt),
           };
         }
         return c;
       });
     }
 
-    if (exp.bankAccountId === accCopy.id && exp.status === 'pago') {
-      const amt = Number(exp.amount) || 0;
-      accCopy.balance = (accCopy.balance || 0) + amt;
+    if (exp.bankAccountId && exp.bankAccountId !== 'caixa_interno' && exp.bankAccountId === accCopy.id && exp.status === 'pago') {
+      accCopy.balance = (accCopy.balance || 0) + effectiveAmt;
     }
 
     return accCopy;

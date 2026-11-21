@@ -44,6 +44,7 @@ import {
 } from '../../types';
 import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements, getStoredFinanceiroCheques, saveStoredFinanceiroCheques, getActiveCompanyId, getStoredDocumentosEntrada, getStoredFiscalRecords } from '../../lib/storage';
 import { recordFinancialReversalAudit, reverseCashRegisterSettlement, getLoggedAuditUserName, formatCurrentAuditDateTimeBR } from '../../lib/financialAudit';
+import { CAIXA_INTERNO_ID, registrarBaixaNoCaixaInterno } from '../../lib/caixaStorage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchContasAPagar, saveFinanceiroCheque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { BankAccountsTab } from './BankAccountsTab';
@@ -100,6 +101,13 @@ interface FinancialSummaryProps {
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    settlementNotes?: string;
+    originalAmount?: number;
+    fineAmount?: number;
+    interestAmount?: number;
+    discountAmount?: number;
+    paidAmount?: number;
+    paidViaCashBox?: boolean;
     chequeOrigin?: 'proprio' | 'terceiros';
     checkNumber?: string;
     chequeGoodForDate?: string;
@@ -416,7 +424,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     saveStoredBrokerSettlements(items);
   };
 
-  // Liquidação de Despesa com identificação de funcionário e débito bancário
+  // Liquidação de Despesa com identificação de funcionário, multa/juros/desconto e débito bancário ou Caixa Interno
   const handleSettleExpenseInternal = (params: {
     expenseId: string;
     paymentDate: string;
@@ -428,6 +436,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    settlementNotes?: string;
+    originalAmount?: number;
+    fineAmount?: number;
+    interestAmount?: number;
+    discountAmount?: number;
+    paidAmount?: number;
+    paidViaCashBox?: boolean;
     chequeOrigin?: 'proprio' | 'terceiros';
     checkNumber?: string;
     chequeGoodForDate?: string;
@@ -442,11 +457,33 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     const exp = expenses.find((e) => e.id === params.expenseId);
     if (!exp) return;
 
+    const originalBase = Number(params.originalAmount ?? exp.originalAmount ?? exp.amount) || 0;
+    const fineVal = Number(params.fineAmount) || 0;
+    const interestVal = Number(params.interestAmount) || 0;
+    const discountVal = Number(params.discountAmount) || 0;
+    const effectivePaid =
+      params.paidAmount !== undefined
+        ? Number(params.paidAmount) || 0
+        : Number(Math.max(0, originalBase + fineVal + interestVal - discountVal).toFixed(2));
+    const isCashBox = Boolean(params.paidViaCashBox) || params.bankAccountId === CAIXA_INTERNO_ID;
+    const combinedNote = [params.notes, params.settlementNotes]
+      .filter((v, idx, arr) => Boolean(v && v.trim()) && arr.indexOf(v) === idx)
+      .join(' | ');
+
     // Atualiza a despesa
     const updatedExpenses = expenses.map((e) => {
       if (e.id === params.expenseId) {
+        const expOriginal = Number(e.originalAmount ?? e.amount) || 0;
         return {
           ...e,
+          amount: expOriginal,
+          originalAmount: expOriginal,
+          fineAmount: fineVal,
+          interestAmount: interestVal,
+          discountAmount: discountVal,
+          paidAmount: effectivePaid,
+          settlementNotes: params.settlementNotes || params.notes || undefined,
+          paidViaCashBox: isCashBox,
           status: 'pago' as const,
           paymentDate: params.paymentDate,
           paidByEmployeeId: params.paidByEmployeeId,
@@ -461,7 +498,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           chequeGoodForDate: params.chequeGoodForDate,
           usedChequeIds: params.usedChequeIds,
           usedChequesSummary: params.usedChequesSummary,
-          notes: params.notes ? (e.notes ? `${e.notes} | ${params.notes}` : params.notes) : e.notes,
+          notes: combinedNote ? (e.notes ? `${e.notes} | ${combinedNote}` : combinedNote) : e.notes,
         };
       }
       return e;
@@ -474,38 +511,50 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       onToggleExpenseStatus(params.expenseId);
     }
 
-    // Debita o saldo da conta bancária apenas quando houver conta bancária (ignora repasse de cheque de terceiros)
+    // Debita o saldo da conta bancária ou registra Sangria no Caixa Interno
     if (params.bankAccountId) {
-      const updatedAccounts = bankAccounts.map((acc) => {
-        if (acc.id === params.bankAccountId) {
-          return {
-            ...acc,
-            balance: acc.balance - exp.amount,
-          };
-        }
-        return acc;
-      });
-      onSaveBankAccounts(updatedAccounts);
+      if (isCashBox) {
+        registrarBaixaNoCaixaInterno({
+          type: 'pagar',
+          targetId: exp.id,
+          amount: effectivePaid,
+          partyName: params.creditSupplier || exp.supplier,
+          description: exp.description,
+          paymentMethod: params.paymentMethod,
+          notes: params.settlementNotes || params.notes,
+        });
+      } else {
+        const updatedAccounts = bankAccounts.map((acc) => {
+          if (acc.id === params.bankAccountId) {
+            return {
+              ...acc,
+              balance: Number(((acc.balance || 0) - effectivePaid).toFixed(2)),
+            };
+          }
+          return acc;
+        });
+        onSaveBankAccounts(updatedAccounts);
 
-      // Registra a transação bancária no extrato da conta
-      const newTx: BankTransaction = {
-        id: `tx_pay_${Date.now()}`,
-        bankAccountId: params.bankAccountId,
-        bankAccountName: params.bankAccountName,
-        date: params.paymentDate,
-        description: `Pagamento Despesa: ${params.creditSupplier || exp.supplier || exp.description}`,
-        type: 'saida',
-        amount: exp.amount,
-        category: exp.categoryName || 'Despesas',
-        expenseId: exp.id,
-        paidByEmployeeId: params.paidByEmployeeId,
-        paidByEmployeeName: params.paidByEmployeeName,
-        sourceType: 'baixa_pagamento',
-        notes: params.notes,
-        createdAt: new Date().toISOString(),
-      };
+        // Registra a transação bancária no extrato da conta
+        const newTx: BankTransaction = {
+          id: `tx_pay_${Date.now()}`,
+          bankAccountId: params.bankAccountId,
+          bankAccountName: params.bankAccountName,
+          date: params.paymentDate,
+          description: `Pagamento Despesa: ${params.creditSupplier || exp.supplier || exp.description}`,
+          type: 'saida',
+          amount: effectivePaid,
+          category: exp.categoryName || 'Despesas',
+          expenseId: exp.id,
+          paidByEmployeeId: params.paidByEmployeeId,
+          paidByEmployeeName: params.paidByEmployeeName,
+          sourceType: 'baixa_pagamento',
+          notes: params.settlementNotes || params.notes,
+          createdAt: new Date().toISOString(),
+        };
 
-      handleSaveTransactions([newTx, ...internalBankTransactions]);
+        handleSaveTransactions([newTx, ...internalBankTransactions]);
+      }
     }
   };
 
@@ -526,12 +575,14 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
     const auditUser = audit?.user || getLoggedAuditUserName();
     const auditDateTime = audit?.dateTime || formatCurrentAuditDateTimeBR(now);
     const auditReason = audit?.reason || 'Estorno manual';
+    const effectiveReversalAmount = Number(exp.paidAmount ?? exp.amount) || 0;
+    const isCashBox = Boolean(exp.paidViaCashBox) || exp.bankAccountId === CAIXA_INTERNO_ID;
     const reversalEntry: ReversalAuditEntry = {
       id: `rev_pag_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       targetType: 'pagar',
       targetId: exp.id,
       description: exp.description,
-      amount: Number(exp.amount) || 0,
+      amount: effectiveReversalAmount,
       user: auditUser,
       dateTime: auditDateTime,
       isoTimestamp: audit?.isoTimestamp || now.toISOString(),
@@ -567,13 +618,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       window.dispatchEvent(new Event('storage'));
     }
 
-    // Devolve o saldo à conta se tiver sido debitado e remove a movimentação correspondente do extrato
-    if (exp.bankAccountId) {
+    // Devolve o saldo à conta se tiver sido debitado e remove a movimentação correspondente do extrato (ou estorna Caixa Interno)
+    if (exp.bankAccountId && !isCashBox) {
       const updatedAccounts = bankAccounts.map((acc) => {
         if (acc.id === exp.bankAccountId) {
           return {
             ...acc,
-            balance: Number(((Number(acc.balance) || 0) + (Number(exp.amount) || 0)).toFixed(2)),
+            balance: Number(((Number(acc.balance) || 0) + effectiveReversalAmount).toFixed(2)),
           };
         }
         return acc;
@@ -596,7 +647,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           date: now.toISOString().split('T')[0],
           description: `Estorno Pagamento (${auditUser}): ${exp.supplier || exp.description} — Motivo: ${auditReason}`,
           type: 'entrada',
-          amount: exp.amount,
+          amount: effectiveReversalAmount,
           category: 'Estorno de Pagamento',
           expenseId: exp.id,
           sourceId: exp.id,
@@ -609,11 +660,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       reverseCashRegisterSettlement({
         type: 'pagar',
         targetId: exp.id,
-        amount: exp.amount,
+        amount: effectiveReversalAmount,
         description: exp.description,
         partyName: exp.supplier,
         paymentMethod: exp.paymentMethod,
         bankAccountId: exp.bankAccountId,
+        paidViaCashBox: isCashBox,
         reason: auditReason,
         user: auditUser,
       });
@@ -621,8 +673,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
     const updatedExpenses = expenses.map((e) => {
       if (e.id === expenseId) {
+        const originalVal = Number(e.originalAmount ?? e.amount) || 0;
         return {
           ...e,
+          amount: originalVal,
           status: 'pendente' as const,
           paymentDate: undefined,
           bankAccountId: undefined,
@@ -630,6 +684,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           paidByEmployeeId: undefined,
           paidByEmployeeName: undefined,
           paymentAuthenticationCode: undefined,
+          fineAmount: undefined,
+          interestAmount: undefined,
+          discountAmount: undefined,
+          paidAmount: undefined,
+          settlementNotes: undefined,
+          paidViaCashBox: undefined,
           usedChequeIds: undefined,
           usedChequesSummary: undefined,
           chequeOrigin: undefined,

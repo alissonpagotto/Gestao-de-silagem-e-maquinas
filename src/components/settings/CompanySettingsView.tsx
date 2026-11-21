@@ -805,16 +805,16 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       )}
 
       {/* Top Header Compact */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-stone-900 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-stone-800 shadow-2xs shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#cad4e6] dark:bg-stone-900 px-3.5 py-2 rounded-xl border border-black dark:border-stone-800 shadow-2xs shrink-0">
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs border border-black/30">
             <Building className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-sm font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
+            <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-tight">
               Dados da Empresa
             </h1>
-            <p className="text-[11px] text-zinc-500 dark:text-stone-400 font-medium leading-none mt-0.5">
+            <p className="text-[11px] text-slate-700 dark:text-stone-400 font-medium leading-none mt-0.5">
               Identificação cadastral, localização e dados de recebimento oficial da Colaca Silagem Ltda
             </p>
           </div>
@@ -883,10 +883,10 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       <form onSubmit={handleSave} className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-stone-700">
         
         {/* BLOCO 1: IDENTIFICAÇÃO DA EMPRESA & LOGOTIPO */}
-        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
-          <div className="flex items-center justify-between mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
-            <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400">
-              <Building2 className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 p-2.5 shadow-2xs text-slate-900 dark:text-white shrink-0">
+          <div className="flex items-center justify-between mb-1.5 border-b border-black/20 dark:border-stone-800 pb-1">
+            <div className="flex items-center space-x-2 text-slate-900 dark:text-emerald-400">
+              <Building2 className="w-3.5 h-3.5 text-slate-800 dark:text-emerald-400" />
               <h2 className="text-xs font-extrabold uppercase tracking-wider">1. IDENTIFICAÇÃO</h2>
             </div>
             <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -977,7 +977,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     onChange={(e) => handleCnpjCpfChange(e.target.value)}
                     placeholder="00.000.000/0000-00"
                     maxLength={18}
-                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition pr-8"
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition pr-8"
                   />
                   <button
                     type="button"
@@ -1006,7 +1006,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   onChange={(e) => handleChange('stateRegistration', formatIE(e.target.value))}
                   placeholder="Isento ou nº IE"
                   maxLength={18}
-                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
@@ -1021,7 +1021,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   onChange={(e) => handleChange('municipalRegistration', e.target.value)}
                   placeholder="Isento ou nº IM (NFS-e)"
                   maxLength={24}
-                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
@@ -1035,7 +1035,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   value={formData.corporateName || ''}
                   onChange={(e) => handleChange('corporateName', e.target.value)}
                   placeholder="Razão Social Ltda"
-                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
@@ -1049,7 +1049,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   value={formData.tradeName || ''}
                   onChange={(e) => handleChange('tradeName', e.target.value)}
                   placeholder="Nome Fantasia"
-                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
@@ -1064,7 +1064,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     value={formData.activitySector || ''}
                     onChange={(e) => handleChange('activitySector', e.target.value)}
                     placeholder="Ex: Prestação de serviço de Silagem"
-                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                   />
                 </div>
 
@@ -1078,7 +1078,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     onChange={(e) => handleChange('cnaePrincipal', formatCnae(e.target.value))}
                     placeholder="Ex: 0161-0/03"
                     maxLength={10}
-                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                   />
                 </div>
               </div>
@@ -1087,10 +1087,10 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         </div>
 
         {/* BLOCO 2: LOCALIZAÇÃO & ENDEREÇO */}
-        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
-          <div className="flex items-center justify-between mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
-            <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400">
-              <MapPin className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 p-2.5 shadow-2xs text-slate-900 dark:text-white shrink-0">
+          <div className="flex items-center justify-between mb-1.5 border-b border-black/20 dark:border-stone-800 pb-1">
+            <div className="flex items-center space-x-2 text-slate-900 dark:text-emerald-400">
+              <MapPin className="w-3.5 h-3.5 text-slate-800 dark:text-emerald-400" />
               <h2 className="text-xs font-extrabold uppercase tracking-wider">2. LOCALIZAÇÃO</h2>
             </div>
             <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
@@ -1118,7 +1118,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   onChange={(e) => handleCepChange(e.target.value)}
                   placeholder="00000-000"
                   maxLength={9}
-                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition pr-8"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition pr-8"
                 />
                 <button
                   type="button"
@@ -1146,7 +1146,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.address || ''}
                 onChange={(e) => handleChange('address', e.target.value)}
                 placeholder="Ex: Rodovia PR 473 ou Av. Brasil"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1160,7 +1160,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.number || ''}
                 onChange={(e) => handleChange('number', e.target.value)}
                 placeholder="sn, 105"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1174,7 +1174,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.neighborhood || ''}
                 onChange={(e) => handleChange('neighborhood', e.target.value)}
                 placeholder="Centro ou Zona Rural"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1188,7 +1188,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.city || ''}
                 onChange={(e) => handleChange('city', e.target.value)}
                 placeholder="Cidade"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1203,16 +1203,16 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('state', e.target.value.toUpperCase())}
                 placeholder="PR"
                 maxLength={2}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium uppercase focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium uppercase focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
         </div>
 
         {/* BLOCO 3: CONTATOS & REPRESENTANTE RESPONSÁVEL */}
-        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
-          <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400 mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
-            <PhoneCall className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 p-2.5 shadow-2xs text-slate-900 dark:text-white shrink-0">
+          <div className="flex items-center space-x-2 text-slate-900 dark:text-emerald-400 mb-1.5 border-b border-black/20 dark:border-stone-800 pb-1">
+            <PhoneCall className="w-3.5 h-3.5 text-slate-800 dark:text-emerald-400" />
             <h2 className="text-xs font-extrabold uppercase tracking-wider">3. CONTATOS & REPRESENTANTE RESPONSÁVEL</h2>
           </div>
 
@@ -1228,7 +1228,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('phone', formatPhone(e.target.value))}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1242,7 +1242,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.email || ''}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="contato@empresa.com.br"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1256,7 +1256,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.representativeName || ''}
                 onChange={(e) => handleChange('representativeName', e.target.value)}
                 placeholder="Nome do Representante"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1271,16 +1271,16 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('representativeCpf', formatCpfCnpj(e.target.value))}
                 placeholder="000.000.000-00"
                 maxLength={14}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
         </div>
 
         {/* BLOCO 4: DADOS BANCÁRIOS & PIX */}
-        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
-          <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400 mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
-            <CreditCard className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 p-2.5 shadow-2xs text-slate-900 dark:text-white shrink-0">
+          <div className="flex items-center space-x-2 text-slate-900 dark:text-emerald-400 mb-1.5 border-b border-black/20 dark:border-stone-800 pb-1">
+            <CreditCard className="w-3.5 h-3.5 text-slate-800 dark:text-emerald-400" />
             <h2 className="text-xs font-extrabold uppercase tracking-wider">4. DADOS BANCÁRIOS & PIX</h2>
           </div>
 
@@ -1295,7 +1295,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.bankName || ''}
                 onChange={(e) => handleChange('bankName', e.target.value)}
                 placeholder="Ex: Banco do Brasil (001)"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1309,7 +1309,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.bankAgency || ''}
                 onChange={(e) => handleChange('bankAgency', e.target.value)}
                 placeholder="Ex: 1234-5"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1323,7 +1323,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.bankAccount || ''}
                 onChange={(e) => handleChange('bankAccount', e.target.value)}
                 placeholder="Ex: 56789-0"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
@@ -1342,7 +1342,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     pixKey: resolveAutoPixKey(nextType, prev),
                   }));
                 }}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
                 <option value="cnpj">CNPJ</option>
                 <option value="cpf">CPF</option>
@@ -1362,17 +1362,17 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.pixKey || ''}
                 onChange={(e) => handleChange('pixKey', e.target.value)}
                 placeholder="Chave PIX"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
         </div>
 
         {/* BLOCO 5: CERTIFICADO DIGITAL A1 & CONFIGURAÇÃO FISCAL (SEFAZ) */}
-        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0 space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-zinc-900 dark:text-emerald-400 border-b border-zinc-200 dark:border-stone-800 pb-1">
+        <div className="bg-[#e0e6f1] dark:bg-stone-900 rounded-xl border border-black dark:border-stone-800 p-2.5 shadow-2xs text-slate-900 dark:text-white shrink-0 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-slate-900 dark:text-emerald-400 border-b border-black/20 dark:border-stone-800 pb-1">
             <div className="flex items-center space-x-2">
-              <FileKey2 className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+              <FileKey2 className="w-3.5 h-3.5 text-slate-800 dark:text-emerald-400" />
               <h2 className="text-xs font-extrabold uppercase tracking-wider">
                 5. CERTIFICADO DIGITAL A1 &amp; CONFIGURAÇÃO FISCAL (SEFAZ)
               </h2>
@@ -1391,7 +1391,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 <span>{certStatusInfo.badgeLabel}</span>
               </span>
             ) : (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md border border-zinc-300 bg-white text-zinc-600 text-[10px] font-bold uppercase tracking-wider">
+              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md border border-slate-400 bg-white text-slate-700 text-[10px] font-bold uppercase tracking-wider">
                 <span>NENHUM CERTIFICADO A1 IMPORTADO</span>
               </span>
             )}
@@ -1491,7 +1491,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
           {/* Upload .pfx / .p12 + Senha do Certificado */}
           {(!certStatusInfo.hasCertificate || isReplacingCert) && (
-            <div className="bg-white dark:bg-stone-800/60 rounded-lg border border-zinc-300 dark:border-stone-700 p-2.5 space-y-2">
+            <div className="bg-white/90 dark:bg-stone-800/60 rounded-lg border border-slate-400 dark:border-stone-700 p-2.5 space-y-2">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
                 {/* Arquivo .pfx / .p12 */}
                 <div className="md:col-span-5">
@@ -1508,7 +1508,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   <button
                     type="button"
                     onClick={() => certFileInputRef.current?.click()}
-                    className="w-full px-2.5 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-dashed border-zinc-400 dark:border-stone-600 rounded-lg text-xs text-zinc-800 dark:text-stone-200 font-medium flex items-center justify-between gap-2 transition cursor-pointer"
+                    className="w-full px-2.5 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-dashed border-slate-400 dark:border-stone-600 rounded-lg text-xs text-zinc-800 dark:text-stone-200 font-medium flex items-center justify-between gap-2 transition cursor-pointer"
                   >
                     <span className="truncate flex items-center space-x-1.5">
                       <Upload className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -1516,7 +1516,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                         {pendingCertFile ? pendingCertFile.name : 'Selecionar arquivo .pfx ou .p12...'}
                       </span>
                     </span>
-                    <span className="px-1.5 py-0.5 rounded bg-white border border-zinc-300 text-[10px] font-bold text-zinc-700 shrink-0">
+                    <span className="px-1.5 py-0.5 rounded bg-white border border-slate-400 text-[10px] font-bold text-zinc-700 shrink-0">
                       Procurar
                     </span>
                   </button>
@@ -1534,7 +1534,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                       onChange={(e) => setCertPasswordInput(e.target.value)}
                       placeholder="Digite a senha do .pfx"
                       autoComplete="new-password"
-                      className="w-full pl-2.5 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                      className="w-full pl-2.5 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                     />
                     <button
                       type="button"
@@ -1571,7 +1571,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                         setPendingCertFile(null);
                         setCertPasswordInput('');
                       }}
-                      className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-zinc-100 border border-slate-400 text-zinc-700 text-xs font-bold cursor-pointer"
                     >
                       Cancelar
                     </button>
@@ -1580,7 +1580,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
               </div>
 
               {!certStatusInfo.hasCertificate && (
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-zinc-200 dark:border-stone-700">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-black/15 dark:border-stone-700">
                   <span className="text-[11px] text-zinc-600 dark:text-stone-400">
                     O arquivo .pfx/.p12 é salvo localmente com segurança no IndexedDB deste navegador.
                   </span>
@@ -1609,7 +1609,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) =>
                   handleChange('ambienteSefaz', e.target.value as 'homologacao' | 'producao')
                 }
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
                 <option value="homologacao">2 - Homologação (Testes / Sem Valor Fiscal)</option>
                 <option value="producao">1 - Produção (Validade Jurídica)</option>
@@ -1637,7 +1637,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     crt: nextCrt,
                   }));
                 }}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
                 <option value="Simples Nacional">1 - Simples Nacional</option>
                 <option value="Simples Nacional - Excesso">2 - Simples Nacional (Excesso)</option>
@@ -1657,14 +1657,14 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('seriePadraoNotas', cleanDigits(e.target.value).slice(0, 3) || '')}
                 placeholder="Ex: 1"
                 maxLength={3}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Código IBGE do Município */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                Código IBGE do Município <span className="text-[10px] font-normal text-zinc-500">(7 dígitos)</span>
+                Código IBGE do Município <span className="text-[10px] font-normal text-slate-600">(7 dígitos)</span>
               </label>
               <input
                 type="text"
@@ -1673,7 +1673,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 placeholder="4107207 (Dois Vizinhos/PR)"
                 maxLength={7}
                 title="Código IBGE oficial do município emitente (padrão 4107207 para Dois Vizinhos/PR)"
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
@@ -1682,12 +1682,12 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
             <div className="sm:col-span-4">
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                Provedor / Gateway API Fiscal <span className="text-[10px] font-normal text-zinc-500">(Plug &amp; Play)</span>
+                Provedor / Gateway API Fiscal <span className="text-[10px] font-normal text-slate-600">(Plug &amp; Play)</span>
               </label>
               <select
                 value={formData.apiFiscalProvedor || 'direto_a1'}
                 onChange={(e) => handleChange('apiFiscalProvedor', e.target.value)}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
                 <option value="direto_a1">Webservice Direto SEFAZ (Certificado A1)</option>
                 <option value="focus_nfe">Focus NFe (API REST)</option>
@@ -1708,7 +1708,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   onChange={(e) => handleChange('tokenApiFiscal', e.target.value.trim())}
                   placeholder="Cole aqui o Token / Bearer API Fiscal quando ativar a emissão em nuvem..."
                   autoComplete="new-password"
-                  className="w-full pl-2.5 pr-8 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                  className="w-full pl-2.5 pr-8 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
                 <button
                   type="button"
@@ -1727,7 +1727,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
             {/* RNTRC (ANTT) */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                RNTRC (ANTT) <span className="text-[10px] font-normal text-zinc-500">(Opcional — CT-e / MDF-e)</span>
+                RNTRC (ANTT) <span className="text-[10px] font-normal text-slate-600">(Opcional — CT-e / MDF-e)</span>
               </label>
               <input
                 type="text"
@@ -1735,14 +1735,14 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('rntrc', cleanDigits(e.target.value).slice(0, 12))}
                 placeholder="Ex: 12345678"
                 maxLength={12}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* ID Token CSC (NFC-e) */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                ID Token CSC (NFC-e) <span className="text-[10px] font-normal text-zinc-500">(Opcional — PDV)</span>
+                ID Token CSC (NFC-e) <span className="text-[10px] font-normal text-slate-600">(Opcional — PDV)</span>
               </label>
               <input
                 type="text"
@@ -1750,14 +1750,14 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('cscId', cleanDigits(e.target.value).slice(0, 6))}
                 placeholder="Ex: 000001"
                 maxLength={6}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Código CSC (NFC-e) */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                Código CSC (NFC-e) <span className="text-[10px] font-normal text-zinc-500">(Token SEFAZ PDV)</span>
+                Código CSC (NFC-e) <span className="text-[10px] font-normal text-slate-600">(Token SEFAZ PDV)</span>
               </label>
               <input
                 type="text"
@@ -1765,19 +1765,19 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('cscToken', e.target.value.trim())}
                 placeholder="Token alfanumérico fornecido pela SEFAZ"
                 maxLength={64}
-                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
 
           {/* Controle de Numeração Sequencial (Com Proteção por Cadeado) */}
-          <div className="pt-2 mt-1 border-t border-zinc-200 dark:border-stone-800 space-y-2">
+          <div className="pt-2 mt-1 border-t border-black/20 dark:border-stone-800 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-800 dark:text-stone-200">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 dark:text-stone-200">
                   PRÓXIMO NÚMERO A EMITIR POR TIPO DE DOCUMENTO (CONTINUIDADE DE SEQUÊNCIA)
                 </span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-300">
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white dark:bg-stone-800 border border-slate-400 dark:border-stone-700 text-slate-700 dark:text-stone-300">
                   Série {formData.seriePadraoNotas || '1'}
                 </span>
               </div>
@@ -1789,7 +1789,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition cursor-pointer ${
                   isSequenciaUnlocked
                     ? 'bg-amber-100 hover:bg-amber-200 border-amber-500 text-amber-950'
-                    : 'bg-white hover:bg-zinc-50 border-zinc-400 text-zinc-800 dark:bg-stone-800 dark:border-stone-600 dark:text-stone-200'
+                    : 'bg-white hover:bg-slate-50 border-slate-400 text-slate-900 dark:bg-stone-800 dark:border-stone-600 dark:text-stone-200'
                 }`}
               >
                 {isSequenciaUnlocked ? (
@@ -1799,7 +1799,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   </>
                 ) : (
                   <>
-                    <Lock className="w-3 h-3 text-zinc-700 dark:text-stone-300 shrink-0" />
+                    <Lock className="w-3 h-3 text-slate-700 dark:text-stone-300 shrink-0" />
                     <span>🔒 Liberar Edição de Numeração</span>
                   </>
                 )}
@@ -1820,7 +1820,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
                     isSequenciaUnlocked
                       ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
-                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                      : 'bg-white/60 dark:bg-stone-800/50 border-slate-400 dark:border-stone-700 text-slate-600 dark:text-stone-400 cursor-not-allowed'
                   }`}
                 />
               </div>
@@ -1838,7 +1838,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
                     isSequenciaUnlocked
                       ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
-                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                      : 'bg-white/60 dark:bg-stone-800/50 border-slate-400 dark:border-stone-700 text-slate-600 dark:text-stone-400 cursor-not-allowed'
                   }`}
                 />
               </div>
@@ -1856,7 +1856,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
                     isSequenciaUnlocked
                       ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
-                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                      : 'bg-white/60 dark:bg-stone-800/50 border-slate-400 dark:border-stone-700 text-slate-600 dark:text-stone-400 cursor-not-allowed'
                   }`}
                 />
               </div>
@@ -1874,7 +1874,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
                     isSequenciaUnlocked
                       ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
-                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                      : 'bg-white/60 dark:bg-stone-800/50 border-slate-400 dark:border-stone-700 text-slate-600 dark:text-stone-400 cursor-not-allowed'
                   }`}
                 />
               </div>
@@ -1892,13 +1892,13 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   className={`w-full px-2.5 py-1 border rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition ${
                     isSequenciaUnlocked
                       ? 'bg-white dark:bg-stone-800 border-amber-500 dark:border-amber-500 text-black dark:text-stone-100'
-                      : 'bg-zinc-200/80 dark:bg-stone-800/50 border-zinc-300 dark:border-stone-700 text-zinc-600 dark:text-stone-400 cursor-not-allowed'
+                      : 'bg-white/60 dark:bg-stone-800/50 border-slate-400 dark:border-stone-700 text-slate-600 dark:text-stone-400 cursor-not-allowed'
                   }`}
                 />
               </div>
             </div>
 
-            <p className="text-[11px] text-zinc-500 dark:text-stone-400 italic">
+            <p className="text-[11px] text-slate-700 dark:text-stone-400 italic">
               Se você já emitia notas em outro sistema, destrave o cadeado e informe o próximo número da sua sequência (ex: 1451). O sistema atualizará automaticamente a cada nova nota transmitida.
             </p>
           </div>
@@ -1911,14 +1911,14 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
         />
 
         {/* Barra de Rodapé Compacta: Status Offline Resiliente & Sincronização */}
-        <div className="flex items-center justify-between px-3 py-1 bg-white dark:bg-stone-900 rounded-lg border border-zinc-200 dark:border-stone-800 text-[11px] shrink-0">
-          <div className="flex items-center space-x-2 text-zinc-500 dark:text-stone-400">
+        <div className="flex items-center justify-between px-3 py-1 bg-[#cad4e6] dark:bg-stone-900 rounded-lg border border-black dark:border-stone-800 text-[11px] shrink-0">
+          <div className="flex items-center space-x-2 text-slate-700 dark:text-stone-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-semibold text-zinc-700 dark:text-stone-300">
+            <span className="font-semibold text-slate-900 dark:text-stone-300">
               Modo Local Resiliente (LocalStorage Ativo)
             </span>
             {lastSyncedAt && (
-              <span className="hidden sm:inline text-zinc-400">
+              <span className="hidden sm:inline text-slate-600">
                 • Sincronizado às {lastSyncedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}

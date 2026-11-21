@@ -1944,6 +1944,11 @@ export interface ReceivableReportRow {
   description: string;
   paymentMethodLabel: string;
   amount: number;
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
+  paidAmount?: number;
   status: 'pago' | 'a_vencer' | 'vencido';
 }
 
@@ -1975,14 +1980,24 @@ export function buildFinanceiroPagarReport(params: {
   } = params;
   const subHeader = resolveSubscriberPrintHeader(companyProfile);
 
-  const totalAmount = filteredPayables.reduce((s, e) => s + (e.amount || 0), 0);
+  const totalOriginal = filteredPayables.reduce(
+    (s, e) => s + (Number(e.originalAmount ?? e.amount) || 0),
+    0
+  );
+  const totalCharges = filteredPayables.reduce(
+    (s, e) => s + (Number(e.fineAmount) || 0) + (Number(e.interestAmount) || 0),
+    0
+  );
+  const totalDiscounts = filteredPayables.reduce((s, e) => s + (Number(e.discountAmount) || 0), 0);
+
   const paidItems = filteredPayables.filter((e) => e.status === 'pago');
   const openItems = filteredPayables.filter((e) => e.status !== 'pago' && (!e.dueDate || e.dueDate >= todayIso));
   const overdueItems = filteredPayables.filter((e) => e.status !== 'pago' && e.dueDate && e.dueDate < todayIso);
 
-  const paidAmount = paidItems.reduce((s, e) => s + (e.amount || 0), 0);
-  const openAmount = openItems.reduce((s, e) => s + (e.amount || 0), 0);
-  const overdueAmount = overdueItems.reduce((s, e) => s + (e.amount || 0), 0);
+  const paidAmount = paidItems.reduce((s, e) => s + (Number(e.paidAmount ?? e.amount) || 0), 0);
+  const openAmount = openItems.reduce((s, e) => s + (Number(e.originalAmount ?? e.amount) || 0), 0);
+  const overdueAmount = overdueItems.reduce((s, e) => s + (Number(e.originalAmount ?? e.amount) || 0), 0);
+  const totalAmount = paidAmount + openAmount + overdueAmount;
 
   const filtersHtml = buildFilterChipsHtml([
     { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
@@ -1998,7 +2013,7 @@ export function buildFinanceiroPagarReport(params: {
       color: '#0f172a',
     },
     {
-      label: 'Pago / Liquidado',
+      label: 'Pago / Liquidado (Real)',
       value: formatCurrencyBRL(paidAmount),
       sub: `${paidItems.length} conta(s) liquidada(s)`,
       color: '#047857',
@@ -2017,15 +2032,42 @@ export function buildFinanceiroPagarReport(params: {
     },
   ]);
 
+  const adjustmentKpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Valor Original (Nominal)',
+      value: formatCurrencyBRL(totalOriginal),
+      sub: 'Soma base dos títulos',
+      color: '#334155',
+    },
+    {
+      label: '(+) Juros e Multas',
+      value: formatCurrencyBRL(totalCharges),
+      sub: 'Encargos aplicados na baixa',
+      color: '#b91c1c',
+    },
+    {
+      label: '(-) Descontos',
+      value: formatCurrencyBRL(totalDiscounts),
+      sub: 'Abatimentos obtidos',
+      color: '#047857',
+    },
+    {
+      label: '(=) Valor Real Pago',
+      value: formatCurrencyBRL(paidAmount),
+      sub: `${paidItems.length} título(s) efetivado(s)`,
+      color: '#0f172a',
+    },
+  ]);
+
   const resolvedSynthetic =
     syntheticRows ||
     buildSyntheticSummaryRows(
       filteredPayables,
       (e) => e.categoryName || 'Outras Categorias',
-      (e) => e.amount || 0,
+      (e) => (e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : Number(e.amount) || 0),
       {
-        getPaidAmount: (e) => (e.status === 'pago' ? e.amount || 0 : 0),
-        getPendingAmount: (e) => (e.status !== 'pago' ? e.amount || 0 : 0),
+        getPaidAmount: (e) => (e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : 0),
+        getPendingAmount: (e) => (e.status !== 'pago' ? Number(e.amount) || 0 : 0),
       }
     );
 
@@ -2047,41 +2089,54 @@ export function buildFinanceiroPagarReport(params: {
                     const isOverdue = e.status !== 'pago' && e.dueDate && e.dueDate < todayIso;
                     const statusText = e.status === 'pago' ? 'PAGO' : isOverdue ? 'VENCIDO' : 'EM ABERTO';
                     const statusColor = e.status === 'pago' ? '#047857' : isOverdue ? '#b91c1c' : '#b45309';
+                    const origVal = Number(e.originalAmount ?? e.amount) || 0;
+                    const chargesVal = (Number(e.fineAmount) || 0) + (Number(e.interestAmount) || 0);
+                    const discVal = Number(e.discountAmount) || 0;
+                    const realVal = e.status === 'pago' ? (Number(e.paidAmount ?? e.amount) || 0) : 0;
                     return `
-                    <tr style="font-size:8.5pt;">
+                    <tr style="font-size:8pt;">
                       <td style="white-space:nowrap;">${formatDateBR(e.dueDate)}</td>
                       <td style="font-weight:700;">${escapeHtml(e.supplier || 'Fornecedor N/I')}</td>
                       <td>${escapeHtml(e.description)}</td>
                       <td>${escapeHtml(e.categoryName || '-')}</td>
-                      <td style="text-transform:uppercase;font-size:7.5pt;">${escapeHtml(e.paymentMethod || '-')}</td>
-                      <td style="text-align:right;font-weight:800;color:#b91c1c;">${formatCurrencyBRL(e.amount || 0)}</td>
-                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7.5pt;">${statusText}</td>
+                      <td style="text-transform:uppercase;font-size:7pt;">${escapeHtml(e.paymentMethod || '-')}</td>
+                      <td style="text-align:right;font-weight:700;color:#0f172a;">${formatCurrencyBRL(origVal)}</td>
+                      <td style="text-align:right;font-weight:600;color:#b91c1c;">${chargesVal > 0 ? `+ ${formatCurrencyBRL(chargesVal)}` : '—'}</td>
+                      <td style="text-align:right;font-weight:600;color:#047857;">${discVal > 0 ? `- ${formatCurrencyBRL(discVal)}` : '—'}</td>
+                      <td style="text-align:right;font-weight:800;color:#b91c1c;">${e.status === 'pago' ? formatCurrencyBRL(realVal) : '—'}</td>
+                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7pt;">${statusText}</td>
                     </tr>
                   `;
                   })
                   .join('')
-              : `<tr><td colspan="7" style="text-align:center;padding:16px;color:#64748b;">Nenhuma conta a pagar encontrada no período e filtros selecionados.</td></tr>`;
+              : `<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">Nenhuma conta a pagar encontrada no período e filtros selecionados.</td></tr>`;
 
           return `
             <table>
               <thead>
                 <tr>
-                  <th style="width:82px;">Vencimento</th>
+                  <th style="width:76px;">Vencimento</th>
                   <th>Fornecedor</th>
                   <th>Descrição</th>
                   <th>Categoria</th>
-                  <th style="width:95px;">Forma Pagto.</th>
-                  <th style="text-align:right;width:110px;">Valor (R$)</th>
-                  <th style="text-align:center;width:85px;">Status</th>
+                  <th style="width:82px;">Forma Pagto.</th>
+                  <th style="text-align:right;width:88px;">Valor Original</th>
+                  <th style="text-align:right;width:82px;">(+) Juros/Multa</th>
+                  <th style="text-align:right;width:82px;">(-) Desconto</th>
+                  <th style="text-align:right;width:92px;">(=) Valor Real Pago</th>
+                  <th style="text-align:center;width:72px;">Status</th>
                 </tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
               <tfoot>
-                <tr style="background:#f1f5f9;border-top:2px solid #b91c1c;font-weight:900;">
+                <tr style="background:#f1f5f9;border-top:2px solid #b91c1c;font-weight:900;font-size:8pt;">
                   <td colspan="5" style="text-align:right;text-transform:uppercase;">
-                    Totais (${filteredPayables.length} títulos • Pago: ${formatCurrencyBRL(paidAmount)} • Aberto/Vencido: ${formatCurrencyBRL(openAmount + overdueAmount)}):
+                    Totais (${filteredPayables.length} títulos):
                   </td>
-                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td style="text-align:right;color:#0f172a;">${formatCurrencyBRL(totalOriginal)}</td>
+                  <td style="text-align:right;color:#b91c1c;">+ ${formatCurrencyBRL(totalCharges)}</td>
+                  <td style="text-align:right;color:#047857;">- ${formatCurrencyBRL(totalDiscounts)}</td>
+                  <td style="text-align:right;color:#b91c1c;">${formatCurrencyBRL(paidAmount)}</td>
                   <td style="text-align:center;">--</td>
                 </tr>
               </tfoot>
@@ -2096,13 +2151,15 @@ export function buildFinanceiroPagarReport(params: {
         : 'Relatório de Contas a Pagar',
     subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
     documentType: 'CONTAS A PAGAR',
-    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    contentHtml: `${filtersHtml}${kpiHtml}${adjustmentKpiHtml}${tableHtml}`,
     whatsappText:
       `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
       `💸 *RELATÓRIO DE CONTAS A PAGAR*\n` +
       `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
-      `📌 *Total no Período:* ${formatCurrencyBRL(totalAmount)} (${filteredPayables.length} títulos)\n` +
-      `✅ *Pago / Liquidado:* ${formatCurrencyBRL(paidAmount)}\n` +
+      `📌 *Valor Original:* ${formatCurrencyBRL(totalOriginal)} (${filteredPayables.length} títulos)\n` +
+      `📈 *(+) Juros e Multas:* ${formatCurrencyBRL(totalCharges)}\n` +
+      `📉 *(-) Descontos:* ${formatCurrencyBRL(totalDiscounts)}\n` +
+      `✅ *(=) Valor Real Pago:* ${formatCurrencyBRL(paidAmount)}\n` +
       `⏳ *Em Aberto:* ${formatCurrencyBRL(openAmount)}\n` +
       `🚨 *Vencido / Atraso:* ${formatCurrencyBRL(overdueAmount)}`,
     orientation: 'landscape',
@@ -2136,14 +2193,27 @@ export function buildFinanceiroReceberReport(params: {
   } = params;
   const subHeader = resolveSubscriberPrintHeader(companyProfile);
 
-  const totalAmount = filteredReceivables.reduce((s, r) => s + (r.amount || 0), 0);
+  const totalOriginal = filteredReceivables.reduce(
+    (s, r) => s + (Number(r.originalAmount ?? r.amount) || 0),
+    0
+  );
+  const totalCharges = filteredReceivables.reduce(
+    (s, r) => s + (Number(r.fineAmount) || 0) + (Number(r.interestAmount) || 0),
+    0
+  );
+  const totalDiscounts = filteredReceivables.reduce(
+    (s, r) => s + (Number(r.discountAmount) || 0),
+    0
+  );
+
   const paidItems = filteredReceivables.filter((r) => r.status === 'pago');
   const openItems = filteredReceivables.filter((r) => r.status === 'a_vencer');
   const overdueItems = filteredReceivables.filter((r) => r.status === 'vencido');
 
-  const paidAmount = paidItems.reduce((s, r) => s + (r.amount || 0), 0);
-  const openAmount = openItems.reduce((s, r) => s + (r.amount || 0), 0);
-  const overdueAmount = overdueItems.reduce((s, r) => s + (r.amount || 0), 0);
+  const paidAmount = paidItems.reduce((s, r) => s + (Number(r.paidAmount ?? r.amount) || 0), 0);
+  const openAmount = openItems.reduce((s, r) => s + (Number(r.originalAmount ?? r.amount) || 0), 0);
+  const overdueAmount = overdueItems.reduce((s, r) => s + (Number(r.originalAmount ?? r.amount) || 0), 0);
+  const totalAmount = paidAmount + openAmount + overdueAmount;
 
   const filtersHtml = buildFilterChipsHtml([
     { label: 'Formato', value: viewMode === 'sintetico' ? `Sintético (${groupByLabel})` : 'Analítico (Detalhado)' },
@@ -2159,7 +2229,7 @@ export function buildFinanceiroReceberReport(params: {
       color: '#0369a1',
     },
     {
-      label: 'Recebido (Liquidado)',
+      label: 'Recebido (Liquidado Real)',
       value: formatCurrencyBRL(paidAmount),
       sub: `${paidItems.length} título(s) recebido(s)`,
       color: '#047857',
@@ -2178,15 +2248,42 @@ export function buildFinanceiroReceberReport(params: {
     },
   ]);
 
+  const adjustmentKpiHtml = renderSummaryCardsRow([
+    {
+      label: 'Valor Original (Nominal)',
+      value: formatCurrencyBRL(totalOriginal),
+      sub: 'Soma base dos títulos',
+      color: '#334155',
+    },
+    {
+      label: '(+) Juros e Multas',
+      value: formatCurrencyBRL(totalCharges),
+      sub: 'Encargos recebidos',
+      color: '#b91c1c',
+    },
+    {
+      label: '(-) Descontos',
+      value: formatCurrencyBRL(totalDiscounts),
+      sub: 'Abatimentos concedidos',
+      color: '#047857',
+    },
+    {
+      label: '(=) Valor Real Recebido',
+      value: formatCurrencyBRL(paidAmount),
+      sub: `${paidItems.length} título(s) liquidado(s)`,
+      color: '#047857',
+    },
+  ]);
+
   const resolvedSynthetic =
     syntheticRows ||
     buildSyntheticSummaryRows(
       filteredReceivables,
       (r) => r.clientName || 'Cliente N/I',
-      (r) => r.amount || 0,
+      (r) => (r.status === 'pago' ? Number(r.paidAmount ?? r.amount) || 0 : Number(r.amount) || 0),
       {
-        getPaidAmount: (r) => (r.status === 'pago' ? r.amount || 0 : 0),
-        getPendingAmount: (r) => (r.status !== 'pago' ? r.amount || 0 : 0),
+        getPaidAmount: (r) => (r.status === 'pago' ? Number(r.paidAmount ?? r.amount) || 0 : 0),
+        getPendingAmount: (r) => (r.status !== 'pago' ? Number(r.amount) || 0 : 0),
       }
     );
 
@@ -2207,41 +2304,54 @@ export function buildFinanceiroReceberReport(params: {
                   .map((r) => {
                     const statusText = r.status === 'pago' ? 'RECEBIDO' : r.status === 'vencido' ? 'VENCIDO' : 'A VENCER';
                     const statusColor = r.status === 'pago' ? '#047857' : r.status === 'vencido' ? '#b91c1c' : '#b45309';
+                    const origVal = Number(r.originalAmount ?? r.amount) || 0;
+                    const chargesVal = (Number(r.fineAmount) || 0) + (Number(r.interestAmount) || 0);
+                    const discVal = Number(r.discountAmount) || 0;
+                    const realVal = r.status === 'pago' ? (Number(r.paidAmount ?? r.amount) || 0) : 0;
                     return `
-                    <tr style="font-size:8.5pt;">
+                    <tr style="font-size:8pt;">
                       <td style="white-space:nowrap;">${formatDateBR(r.dueDate)}</td>
                       <td style="font-weight:700;">${escapeHtml(r.clientName)}</td>
                       <td>${escapeHtml(r.originLabel)}</td>
                       <td>${escapeHtml(r.description)}</td>
-                      <td style="text-transform:uppercase;font-size:7.5pt;">${escapeHtml(r.paymentMethodLabel)}</td>
-                      <td style="text-align:right;font-weight:800;color:#047857;">${formatCurrencyBRL(r.amount || 0)}</td>
-                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7.5pt;">${statusText}</td>
+                      <td style="text-transform:uppercase;font-size:7pt;">${escapeHtml(r.paymentMethodLabel)}</td>
+                      <td style="text-align:right;font-weight:700;color:#0f172a;">${formatCurrencyBRL(origVal)}</td>
+                      <td style="text-align:right;font-weight:600;color:#b91c1c;">${chargesVal > 0 ? `+ ${formatCurrencyBRL(chargesVal)}` : '—'}</td>
+                      <td style="text-align:right;font-weight:600;color:#047857;">${discVal > 0 ? `- ${formatCurrencyBRL(discVal)}` : '—'}</td>
+                      <td style="text-align:right;font-weight:800;color:#047857;">${r.status === 'pago' ? formatCurrencyBRL(realVal) : '—'}</td>
+                      <td style="text-align:center;font-weight:800;color:${statusColor};font-size:7pt;">${statusText}</td>
                     </tr>
                   `;
                   })
                   .join('')
-              : `<tr><td colspan="7" style="text-align:center;padding:16px;color:#64748b;">Nenhum título a receber localizado no período e filtros selecionados.</td></tr>`;
+              : `<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">Nenhum título a receber localizado no período e filtros selecionados.</td></tr>`;
 
           return `
             <table>
               <thead>
                 <tr>
-                  <th style="width:82px;">Vencimento</th>
+                  <th style="width:76px;">Vencimento</th>
                   <th>Cliente / Tomador</th>
-                  <th style="width:125px;">Origem</th>
+                  <th style="width:110px;">Origem</th>
                   <th>Referência / Descrição</th>
-                  <th style="width:95px;">Forma Pagto.</th>
-                  <th style="text-align:right;width:110px;">Valor (R$)</th>
-                  <th style="text-align:center;width:85px;">Status</th>
+                  <th style="width:82px;">Forma Pagto.</th>
+                  <th style="text-align:right;width:88px;">Valor Original</th>
+                  <th style="text-align:right;width:82px;">(+) Juros/Multa</th>
+                  <th style="text-align:right;width:82px;">(-) Desconto</th>
+                  <th style="text-align:right;width:96px;">(=) Valor Real Recebido</th>
+                  <th style="text-align:center;width:72px;">Status</th>
                 </tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
               <tfoot>
-                <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;">
+                <tr style="background:#f1f5f9;border-top:2px solid #047857;font-weight:900;font-size:8pt;">
                   <td colspan="5" style="text-align:right;text-transform:uppercase;">
-                    Totais (${filteredReceivables.length} títulos • Recebido: ${formatCurrencyBRL(paidAmount)} • A Receber: ${formatCurrencyBRL(openAmount + overdueAmount)}):
+                    Totais (${filteredReceivables.length} títulos):
                   </td>
-                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(totalAmount)}</td>
+                  <td style="text-align:right;color:#0f172a;">${formatCurrencyBRL(totalOriginal)}</td>
+                  <td style="text-align:right;color:#b91c1c;">+ ${formatCurrencyBRL(totalCharges)}</td>
+                  <td style="text-align:right;color:#047857;">- ${formatCurrencyBRL(totalDiscounts)}</td>
+                  <td style="text-align:right;color:#047857;">${formatCurrencyBRL(paidAmount)}</td>
                   <td style="text-align:center;">--</td>
                 </tr>
               </tfoot>
@@ -2256,13 +2366,15 @@ export function buildFinanceiroReceberReport(params: {
         : 'Relatório de Contas a Receber',
     subtitle: `Competência ${competence} • Período: ${formatDateBR(startDate)} a ${formatDateBR(endDate)}`,
     documentType: 'CONTAS A RECEBER',
-    contentHtml: `${filtersHtml}${kpiHtml}${tableHtml}`,
+    contentHtml: `${filtersHtml}${kpiHtml}${adjustmentKpiHtml}${tableHtml}`,
     whatsappText:
       `📊 *${subHeader.displayTitle.toUpperCase()}*\n` +
       `💰 *RELATÓRIO DE CONTAS A RECEBER*\n` +
       `📅 *Período:* ${formatDateBR(startDate)} a ${formatDateBR(endDate)} (Comp. ${competence})\n\n` +
-      `📌 *Total a Receber:* ${formatCurrencyBRL(totalAmount)} (${filteredReceivables.length} títulos)\n` +
-      `✅ *Recebido:* ${formatCurrencyBRL(paidAmount)}\n` +
+      `📌 *Valor Original:* ${formatCurrencyBRL(totalOriginal)} (${filteredReceivables.length} títulos)\n` +
+      `📈 *(+) Juros e Multas:* ${formatCurrencyBRL(totalCharges)}\n` +
+      `📉 *(-) Descontos:* ${formatCurrencyBRL(totalDiscounts)}\n` +
+      `✅ *(=) Valor Real Recebido:* ${formatCurrencyBRL(paidAmount)}\n` +
       `⏳ *A Vencer:* ${formatCurrencyBRL(openAmount)}\n` +
       `🚨 *Inadimplente / Vencido:* ${formatCurrencyBRL(overdueAmount)}`,
     orientation: 'landscape',

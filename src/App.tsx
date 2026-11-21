@@ -141,6 +141,10 @@ import {
   getLoggedAuditUserName,
   formatCurrentAuditDateTimeBR
 } from './lib/financialAudit';
+import {
+  CAIXA_INTERNO_ID,
+  registrarBaixaNoCaixaInterno,
+} from './lib/caixaStorage';
 import { useConfirm } from './context/ConfirmContext';
 import { deleteClientAvatar } from './lib/imageStorage';
 
@@ -2650,11 +2654,33 @@ function AppContent() {
 
   const handleSettlePayment = (expenseId: string, settlementData: PaymentSettlementData) => {
     const targetExp = expenses.find((e) => e.id === expenseId);
+    const originalBase = Number(settlementData.originalAmount ?? targetExp?.originalAmount ?? targetExp?.amount ?? 0) || 0;
+    const fineVal = Number(settlementData.fineAmount) || 0;
+    const interestVal = Number(settlementData.interestAmount) || 0;
+    const discountVal = Number(settlementData.discountAmount) || 0;
+    const effectivePaid =
+      settlementData.paidAmount !== undefined
+        ? Number(settlementData.paidAmount) || 0
+        : Number(Math.max(0, originalBase + fineVal + interestVal - discountVal).toFixed(2));
+    const isCashBox = Boolean(settlementData.paidViaCashBox) || settlementData.bankAccountId === CAIXA_INTERNO_ID;
+    const combinedNote = [settlementData.notes, settlementData.settlementNotes]
+      .filter((v, idx, arr) => Boolean(v && v.trim()) && arr.indexOf(v) === idx)
+      .join(' | ');
+
     setExpenses((prev) => {
       const nextList = prev.map((e) => {
         if (e.id !== expenseId) return e;
+        const expOriginal = Number(e.originalAmount ?? e.amount) || 0;
         const updated: Expense = {
           ...e,
+          amount: expOriginal,
+          originalAmount: expOriginal,
+          fineAmount: fineVal,
+          interestAmount: interestVal,
+          discountAmount: discountVal,
+          paidAmount: effectivePaid,
+          settlementNotes: settlementData.settlementNotes || settlementData.notes || undefined,
+          paidViaCashBox: isCashBox,
           status: 'pago',
           paymentDate: settlementData.paymentDate,
           paidByEmployeeId: settlementData.paidByEmployeeId,
@@ -2669,13 +2695,13 @@ function AppContent() {
           chequeGoodForDate: settlementData.chequeGoodForDate,
           usedChequeIds: settlementData.usedChequeIds,
           usedChequesSummary: settlementData.usedChequesSummary,
-          notes: settlementData.notes
-            ? (e.notes ? `${e.notes} | ${settlementData.notes}` : settlementData.notes)
+          notes: combinedNote
+            ? (e.notes ? `${e.notes} | ${combinedNote}` : combinedNote)
             : e.notes,
         };
         upsertContaAPagar({
           id: updated.id,
-          valor_parcela: Number(updated.amount) || 0,
+          valor_parcela: effectivePaid,
           data_vencimento: updated.dueDate || settlementData.paymentDate,
           status_pago: true,
           centro_custo: updated.costCenterName || updated.description || 'Geral',
@@ -2689,42 +2715,58 @@ function AppContent() {
     });
 
     if (targetExp && settlementData.bankAccountId) {
-      setBankAccounts((prev) => {
-        const updated = prev.map((acc) =>
-          acc.id === settlementData.bankAccountId
-            ? {
-                ...acc,
-                balance: (acc.balance || 0) - targetExp.amount,
-              }
-            : acc
-        );
-        saveStoredBankAccounts(updated);
-        if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
-          saveCloudBankAccounts(updated, activeTenantId, currentUser?.id || currentUser?.uid).catch((err) =>
-            console.warn('Supabase saveCloudBankAccounts notice:', err)
+      if (isCashBox) {
+        registrarBaixaNoCaixaInterno({
+          type: 'pagar',
+          targetId: targetExp.id,
+          amount: effectivePaid,
+          partyName: settlementData.creditSupplier || targetExp.supplier,
+          description: targetExp.description,
+          paymentMethod: settlementData.paymentMethod || targetExp.paymentMethod,
+          notes: settlementData.settlementNotes || settlementData.notes,
+        });
+      } else {
+        setBankAccounts((prev) => {
+          const updated = prev.map((acc) =>
+            acc.id === settlementData.bankAccountId
+              ? {
+                  ...acc,
+                  balance: Number(((acc.balance || 0) - effectivePaid).toFixed(2)),
+                }
+              : acc
           );
-        }
-        return updated;
-      });
+          saveStoredBankAccounts(updated);
+          saveCompanyFinanceiroContas(updated, activeTenantId);
+          if (!IS_OFFLINE_LOCAL_STORAGE_MODE) {
+            saveCloudBankAccounts(updated, activeTenantId, currentUser?.id || currentUser?.uid).catch((err) =>
+              console.warn('Supabase saveCloudBankAccounts notice:', err)
+            );
+          }
+          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+          window.dispatchEvent(new Event('bank_accounts_updated'));
+          return updated;
+        });
 
-      const currentTxs = getStoredBankTransactions();
-      const newTx: BankTransaction = {
-        id: `tx_pay_${Date.now()}`,
-        bankAccountId: settlementData.bankAccountId,
-        bankAccountName: settlementData.bankAccountName,
-        date: settlementData.paymentDate,
-        description: `Pagamento Despesa: ${settlementData.creditSupplier || targetExp.supplier || targetExp.description}`,
-        type: 'saida',
-        amount: targetExp.amount,
-        category: targetExp.categoryName || 'Despesas',
-        expenseId: targetExp.id,
-        paidByEmployeeId: settlementData.paidByEmployeeId,
-        paidByEmployeeName: settlementData.paidByEmployeeName,
-        sourceType: 'baixa_pagamento',
-        notes: settlementData.notes,
-        createdAt: new Date().toISOString(),
-      };
-      saveStoredBankTransactions([newTx, ...currentTxs]);
+        const currentTxs = getStoredBankTransactions();
+        const newTx: BankTransaction = {
+          id: `tx_pay_${Date.now()}`,
+          bankAccountId: settlementData.bankAccountId,
+          bankAccountName: settlementData.bankAccountName,
+          date: settlementData.paymentDate,
+          description: `Pagamento Despesa: ${settlementData.creditSupplier || targetExp.supplier || targetExp.description}`,
+          type: 'saida',
+          amount: effectivePaid,
+          category: targetExp.categoryName || 'Despesas',
+          expenseId: targetExp.id,
+          paidByEmployeeId: settlementData.paidByEmployeeId,
+          paidByEmployeeName: settlementData.paidByEmployeeName,
+          sourceType: 'baixa_pagamento',
+          notes: settlementData.settlementNotes || settlementData.notes,
+          createdAt: new Date().toISOString(),
+        };
+        saveStoredBankTransactions([newTx, ...currentTxs]);
+        window.dispatchEvent(new Event('bank_transactions_updated'));
+      }
     }
   };
 
@@ -2740,12 +2782,14 @@ function AppContent() {
     const auditUser = audit?.user || getLoggedAuditUserName();
     const auditDateTime = audit?.dateTime || formatCurrentAuditDateTimeBR(now);
     const auditReason = audit?.reason || 'Estorno manual';
+    const effectiveReversalAmount = Number(targetExp.paidAmount ?? targetExp.amount) || 0;
+    const isCashBox = Boolean(targetExp.paidViaCashBox) || targetExp.bankAccountId === CAIXA_INTERNO_ID;
     const reversalEntry: ReversalAuditEntry = {
       id: `rev_pag_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       targetType: 'pagar',
       targetId: targetExp.id,
       description: targetExp.description,
-      amount: Number(targetExp.amount) || 0,
+      amount: effectiveReversalAmount,
       user: auditUser,
       dateTime: auditDateTime,
       isoTimestamp: audit?.isoTimestamp || now.toISOString(),
@@ -2781,7 +2825,7 @@ function AppContent() {
     }
 
     // 2. Reverter saldo bancário / limite de cartão corporativo e extrato bancário ou caixa
-    if (targetExp.bankAccountId || targetExp.corporateCardId) {
+    if ((targetExp.bankAccountId && !isCashBox) || targetExp.corporateCardId) {
       setBankAccounts((prev) => {
         const baseAccounts = prev && prev.length > 0 ? prev : getStoredBankAccounts();
         const { updatedAccounts } = revertExpenseCardsAndBank(targetExp, baseAccounts);
@@ -2795,7 +2839,7 @@ function AppContent() {
         return updatedAccounts;
       });
 
-      if (targetExp.bankAccountId) {
+      if (targetExp.bankAccountId && !isCashBox) {
         const currentTxs = getStoredBankTransactions();
         const matchedIdx = currentTxs.findIndex(
           (tx) =>
@@ -2812,7 +2856,7 @@ function AppContent() {
             date: now.toISOString().split('T')[0],
             description: `Estorno Pagamento (${auditUser}): ${targetExp.supplier || targetExp.description} — Motivo: ${auditReason}`,
             type: 'entrada',
-            amount: Number(targetExp.amount) || 0,
+            amount: effectiveReversalAmount,
             category: 'Estorno de Pagamento',
             expenseId: targetExp.id,
             sourceId: targetExp.id,
@@ -2829,11 +2873,12 @@ function AppContent() {
       reverseCashRegisterSettlement({
         type: 'pagar',
         targetId: targetExp.id,
-        amount: Number(targetExp.amount) || 0,
+        amount: effectiveReversalAmount,
         description: targetExp.description,
         partyName: targetExp.supplier,
         paymentMethod: targetExp.paymentMethod,
         bankAccountId: targetExp.bankAccountId,
+        paidViaCashBox: isCashBox,
         reason: auditReason,
         user: auditUser,
       });
@@ -2844,8 +2889,10 @@ function AppContent() {
     setExpenses((prev) => {
       const nextList = prev.map((e) => {
         if (e.id !== expenseId) return e;
+        const originalVal = Number(e.originalAmount ?? e.amount) || 0;
         const updated: Expense = {
           ...e,
+          amount: originalVal,
           status: 'pendente',
           paymentDate: undefined,
           bankAccountId: undefined,
@@ -2853,6 +2900,12 @@ function AppContent() {
           paidByEmployeeId: undefined,
           paidByEmployeeName: undefined,
           paymentAuthenticationCode: undefined,
+          fineAmount: undefined,
+          interestAmount: undefined,
+          discountAmount: undefined,
+          paidAmount: undefined,
+          settlementNotes: undefined,
+          paidViaCashBox: undefined,
           chequeOrigin: undefined,
           usedChequeIds: undefined,
           usedChequesSummary: undefined,
@@ -2863,7 +2916,7 @@ function AppContent() {
         upsertContaAPagar(
           {
             id: updated.id,
-            valor_parcela: Number(updated.amount) || 0,
+            valor_parcela: originalVal,
             data_vencimento: updated.dueDate || todayIso,
             status_pago: false,
             centro_custo: updated.costCenterName || updated.description || 'Geral',

@@ -60,6 +60,11 @@ import {
   reverseCashRegisterSettlement,
 } from '../../lib/financialAudit';
 import {
+  CAIXA_INTERNO_ID,
+  CAIXA_INTERNO_LABEL,
+  registrarBaixaNoCaixaInterno,
+} from '../../lib/caixaStorage';
+import {
   BOLETOS_EMITIDOS_UPDATED_EVENT,
   getStoredBoletosEmitidos,
   markBoletosStatus,
@@ -193,6 +198,13 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           ? `Parcela ${o.installmentNumber}/${o.totalInstallments} (${o.tons} tons)`
           : `${o.tons} tons`,
         totalAmount: o.totalAmount,
+        originalAmount: o.originalAmount ?? o.totalAmount,
+        fineAmount: o.fineAmount,
+        interestAmount: o.interestAmount,
+        discountAmount: o.discountAmount,
+        paidAmount: o.paidAmount,
+        settlementNotes: o.settlementNotes,
+        paidViaCashBox: o.paidViaCashBox,
         status: o.paymentStatus === 'pago' ? 'pago' : 'pendente',
         notes: o.notes || '',
         clientId: (o as any).clientId || (o as any).client_id,
@@ -233,6 +245,13 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               ? `${s.areaQuantity} ${s.areaUnit || 'UN'}`
               : (s.serviceType || 'Serviço Agrícola')),
           totalAmount: s.totalAmount || 0,
+          originalAmount: s.originalAmount ?? s.totalAmount ?? 0,
+          fineAmount: s.fineAmount,
+          interestAmount: s.interestAmount,
+          discountAmount: s.discountAmount,
+          paidAmount: s.paidAmount,
+          settlementNotes: s.settlementNotes,
+          paidViaCashBox: s.paidViaCashBox,
           status: s.status === 'finalizado' || s.paymentStatus === 'pago' ? 'pago' : 'pendente',
           notes: s.billingNotes
             ? `${s.serviceType || 'Serviço'}: ${s.billingNotes}`
@@ -302,6 +321,13 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           dueDate: n.dataVencimento || n.dataEmissao || n.createdAt || '',
           volume: `${(n.tipoDocumento || 'NF').split(' ')[0]} Nº ${n.numero}${n.serie ? `/${n.serie}` : ''}`,
           totalAmount: Number(n.valorTotal) || 0,
+          originalAmount: Number(n.originalAmount ?? n.valorTotal) || 0,
+          fineAmount: n.fineAmount,
+          interestAmount: n.interestAmount,
+          discountAmount: n.discountAmount,
+          paidAmount: n.paidAmount,
+          settlementNotes: n.settlementNotes,
+          paidViaCashBox: n.paidViaCashBox,
           status: n.receberStatus === 'pago' ? 'pago' : 'pendente',
           notes: n.descricao || n.observacoes || '',
           clientId: resolvedClientId,
@@ -330,8 +356,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const paidList = useMemo(() => competenceReceivables.filter((r) => r.status === 'pago'), [competenceReceivables]);
 
   const totalPending = useMemo(() => pendingList.reduce((acc, r) => acc + r.totalAmount, 0), [pendingList]);
-  const totalPaid = useMemo(() => paidList.reduce((acc, r) => acc + r.totalAmount, 0), [paidList]);
-  const totalOverall = useMemo(() => competenceReceivables.reduce((acc, r) => acc + r.totalAmount, 0), [competenceReceivables]);
+  const totalPaid = useMemo(
+    () => paidList.reduce((acc, r) => acc + (Number(r.paidAmount ?? r.totalAmount) || 0), 0),
+    [paidList]
+  );
+  const totalOverall = useMemo(
+    () =>
+      competenceReceivables.reduce(
+        (acc, r) => acc + (r.status === 'pago' ? Number(r.paidAmount ?? r.totalAmount) || 0 : r.totalAmount),
+        0
+      ),
+    [competenceReceivables]
+  );
   const todayStr = new Date().toISOString().split('T')[0];
 
   const filtered = useMemo(() => {
@@ -351,6 +387,13 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const handleReceiptSuccess = (details: ReceivePaymentSuccessDetails) => {
     const activeCompanyId = companyProfile?.id || getActiveCompanyId();
     const isKeepAllPending = Boolean(details.keepAllPending);
+    const isCashBox = Boolean(details.paidViaCashBox) || details.bankAccountId === CAIXA_INTERNO_ID;
+    const resolvedBankName = isCashBox
+      ? CAIXA_INTERNO_LABEL
+      : effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name;
+    const fineVal = Number(details.fineAmount) || 0;
+    const interestVal = Number(details.interestAmount) || 0;
+    const discountVal = Number(details.discountAmount) || 0;
 
     // 1. Atualiza ordens de serviço
     if (details.itemType === 'Prestação de Serviço') {
@@ -369,6 +412,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         const updatedOriginal: ServiceOrder = {
           ...targetService,
           totalAmount: inst1.amount,
+          originalAmount: inst1.amount,
           date: targetService.date || targetService.startDate,
           dueDate: inst1.dueDate,
           status: isInst1Paid ? ('finalizado' as const) : ('faturado' as const),
@@ -376,8 +420,10 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           paymentMethod: inst1Method,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
           paidAmount: isInst1Paid ? inst1.amount : 0,
+          paidViaCashBox: isInst1Paid ? isCashBox : undefined,
+          settlementNotes: isInst1Paid ? details.settlementNotes : undefined,
           bankAccountId: isInst1Paid ? details.bankAccountId : undefined,
-          bankAccountName: isInst1Paid ? effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name : undefined,
+          bankAccountName: isInst1Paid ? resolvedBankName : undefined,
           billingNotes: `${targetService.billingNotes || targetService.serviceType || 'Serviço'} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`,
           updatedAt: new Date().toISOString(),
           isInstallment: true,
@@ -487,19 +533,27 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || s.chequeNumero) : undefined,
               };
             }
+            const origAmt = Number(details.originalAmount ?? s.originalAmount ?? s.totalAmount) || 0;
+            const noteSuffix = details.settlementNotes ? ` — Obs: ${details.settlementNotes}` : '';
             return {
               ...s,
-              totalAmount: details.paidAmount,
+              totalAmount: origAmt,
+              originalAmount: origAmt,
+              fineAmount: fineVal,
+              interestAmount: interestVal,
+              discountAmount: discountVal,
+              paidAmount: details.paidAmount,
+              settlementNotes: details.settlementNotes,
+              paidViaCashBox: isCashBox,
               status: 'finalizado' as const,
               paymentStatus: 'pago' as const,
               paymentMethod: details.paymentMethod,
               paymentDate: details.receiptDate,
-              paidAmount: details.paidAmount,
               bankAccountId: details.bankAccountId,
-              bankAccountName: effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name,
-              billingNotes: details.interestAmount 
-                ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
-                : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}`.trim(),
+              bankAccountName: resolvedBankName,
+              billingNotes: (details.interestAmount || fineVal || discountVal)
+                ? `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote} (Liquidado: ${formatCurrencyBRL(details.paidAmount)})${noteSuffix}`.trim()
+                : `${s.billingNotes || s.serviceType || 'Serviço'}${chqSingleNote}${noteSuffix}`.trim(),
               updatedAt: new Date().toISOString(),
               chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || s.chequeId) : undefined,
               chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || s.chequeNumero) : undefined,
@@ -570,15 +624,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         const updatedOriginalOrder: SilageOrder = {
           ...targetOrder,
           totalAmount: inst1.amount,
+          originalAmount: inst1.amount,
           deliveryDate: inst1.dueDate,
           date: inst1.dueDate,
           dueDate: inst1.dueDate,
           paymentStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
           paymentMethod: inst1Method,
           paidAmount: isInst1Paid ? inst1.amount : 0,
+          paidViaCashBox: isInst1Paid ? isCashBox : undefined,
+          settlementNotes: isInst1Paid ? details.settlementNotes : undefined,
           paymentDate: isInst1Paid ? details.receiptDate : undefined,
           bankAccountId: isInst1Paid ? details.bankAccountId : undefined,
-          bankAccountName: isInst1Paid ? effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name : undefined,
+          bankAccountName: isInst1Paid ? resolvedBankName : undefined,
           notes: `${targetOrder.notes || ''} (Parcela 1/${inst1.totalInstallments}${chqDesc1})`.trim(),
           updatedAt: new Date().toISOString(),
           isInstallment: true,
@@ -686,18 +743,26 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || o.chequeNumero) : undefined,
               };
             }
+            const origAmt = Number(details.originalAmount ?? o.originalAmount ?? o.totalAmount) || 0;
+            const noteSuffix = details.settlementNotes ? ` — Obs: ${details.settlementNotes}` : '';
             return {
               ...o,
-              totalAmount: details.paidAmount,
+              totalAmount: origAmt,
+              originalAmount: origAmt,
+              fineAmount: fineVal,
+              interestAmount: interestVal,
+              discountAmount: discountVal,
+              paidAmount: details.paidAmount,
+              settlementNotes: details.settlementNotes,
+              paidViaCashBox: isCashBox,
               paymentStatus: 'pago' as const,
               paymentMethod: details.paymentMethod,
-              paidAmount: details.paidAmount,
               paymentDate: details.receiptDate,
               bankAccountId: details.bankAccountId,
-              bankAccountName: effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name,
-              notes: details.interestAmount
-                ? `${o.notes || ''}${chqSingleNote} (Liquidado com acréscimo de ${formatCurrencyBRL(details.interestAmount)})`.trim()
-                : `${o.notes || ''}${chqSingleNote}`.trim(),
+              bankAccountName: resolvedBankName,
+              notes: (details.interestAmount || fineVal || discountVal)
+                ? `${o.notes || ''}${chqSingleNote} (Liquidado: ${formatCurrencyBRL(details.paidAmount)})${noteSuffix}`.trim()
+                : `${o.notes || ''}${chqSingleNote}${noteSuffix}`.trim(),
               updatedAt: new Date().toISOString(),
               chequeId: details.paymentMethod === 'cheque' ? (chqSingle?.id || o.chequeId) : undefined,
               chequeNumero: details.paymentMethod === 'cheque' ? (chqSingle?.numero_cheque || chqSingle?.numeroCheque || o.chequeNumero) : undefined,
@@ -765,13 +830,17 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           ...targetNota,
           numero: `${targetNota.numero} (1/${inst1.totalInstallments})`,
           valorTotal: inst1.amount,
+          originalAmount: inst1.amount,
+          paidAmount: isInst1Paid ? inst1.amount : 0,
+          paidViaCashBox: isInst1Paid ? isCashBox : undefined,
+          settlementNotes: isInst1Paid ? details.settlementNotes : undefined,
           dataVencimento: inst1.dueDate,
           condicaoPagamento: getPaymentMethodLabel(inst1Method),
           receberStatus: isInst1Paid ? ('pago' as const) : ('pendente' as const),
           receberPaymentDate: isInst1Paid ? details.receiptDate : undefined,
           receberPaymentMethod: inst1Method,
           bankAccountId: isInst1Paid ? details.bankAccountId : undefined,
-          bankAccountName: isInst1Paid ? effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name : undefined,
+          bankAccountName: isInst1Paid ? resolvedBankName : undefined,
           updatedAt: new Date().toISOString(),
         };
 
@@ -816,14 +885,22 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 updatedAt: new Date().toISOString(),
               };
             }
+            const origAmt = Number(details.originalAmount ?? n.originalAmount ?? n.valorTotal) || 0;
             return {
               ...n,
               receberStatus: 'pago' as const,
               receberPaymentDate: details.receiptDate,
               receberPaymentMethod: details.paymentMethod,
               bankAccountId: details.bankAccountId,
-              bankAccountName: effectiveBankAccounts.find(b => b.id === details.bankAccountId)?.name,
-              valorTotal: details.paidAmount,
+              bankAccountName: resolvedBankName,
+              valorTotal: origAmt,
+              originalAmount: origAmt,
+              fineAmount: fineVal,
+              interestAmount: interestVal,
+              discountAmount: discountVal,
+              paidAmount: details.paidAmount,
+              settlementNotes: details.settlementNotes,
+              paidViaCashBox: isCashBox,
               updatedAt: new Date().toISOString(),
             };
           }
@@ -834,7 +911,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       }
     }
 
-    // 3. Registra movimentação no Extrato Bancário e atualiza Saldo da Conta Bancária (SOMENTE na quitação/baixa)
+    // 3. Registra movimentação no Extrato Bancário / Saldo da Conta ou Suprimento no Caixa Interno (SOMENTE na quitação/baixa)
     const isFirstPaid = isKeepAllPending
       ? false
       : details.isInstallmentPlan
@@ -849,39 +926,56 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       : details.paidAmount;
 
     if (!isKeepAllPending && details.bankAccountId && amountReceivedNow > 0) {
-      try {
-        // Atualiza saldo real da conta de destino
-        const allAccs = getStoredBankAccounts();
-        const targetAcc = allAccs.find(a => a.id === details.bankAccountId);
-        if (targetAcc) {
-          targetAcc.balance = Number(((Number(targetAcc.balance) || 0) + amountReceivedNow).toFixed(2));
-          targetAcc.updatedAt = new Date().toISOString();
-          saveStoredBankAccounts(allAccs);
-          saveCompanyFinanceiroContas(allAccs, activeCompanyId);
-          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
-          window.dispatchEvent(new Event('bank_accounts_updated'));
-        }
-
-        const currentTx = getStoredBankTransactions();
-        const clientItem = allReceivables.find(r => r.id === details.itemId);
-        const newTx: BankTransaction = {
-          id: toValidUUID(),
-          bankAccountId: details.bankAccountId,
-          type: 'entrada',
-          sourceType: 'receita',
-          sourceId: details.itemId,
-          category: details.itemType === 'Venda de Silagem' ? 'Venda de Silagem' : 'Prestação de Serviços',
-          description: details.isInstallmentPlan
-            ? `Recebimento Parcela 1/${details.installments?.length || 1} - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`
-            : `Recebimento - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`,
+      const clientItem = allReceivables.find(r => r.id === details.itemId);
+      if (isCashBox) {
+        registrarBaixaNoCaixaInterno({
+          type: 'receber',
+          targetId: details.itemId,
           amount: amountReceivedNow,
-          date: details.receiptDate,
-          createdAt: new Date().toISOString()
-        };
-        const updatedTx = [newTx, ...currentTx];
-        saveStoredBankTransactions(updatedTx);
-      } catch (txErr) {
-        console.warn('Aviso: Não foi possível salvar transação bancária vinculada:', txErr);
+          partyName: clientItem?.clientName,
+          description: details.isInstallmentPlan
+            ? `Recebimento Parcela 1/${details.installments?.length || 1} - ${clientItem?.volume || details.itemType}`
+            : `${details.itemType} - ${clientItem?.volume || ''}`,
+          paymentMethod: details.paymentMethod,
+          notes: details.settlementNotes,
+        });
+      } else {
+        try {
+          // Atualiza saldo real da conta de destino
+          const allAccs = getStoredBankAccounts();
+          const targetAcc = allAccs.find(a => a.id === details.bankAccountId);
+          if (targetAcc) {
+            targetAcc.balance = Number(((Number(targetAcc.balance) || 0) + amountReceivedNow).toFixed(2));
+            targetAcc.updatedAt = new Date().toISOString();
+            saveStoredBankAccounts(allAccs);
+            saveCompanyFinanceiroContas(allAccs, activeCompanyId);
+            window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+            window.dispatchEvent(new Event('bank_accounts_updated'));
+          }
+
+          const currentTx = getStoredBankTransactions();
+          const newTx: BankTransaction = {
+            id: toValidUUID(),
+            bankAccountId: details.bankAccountId,
+            bankAccountName: resolvedBankName,
+            type: 'entrada',
+            sourceType: 'receita',
+            sourceId: details.itemId,
+            category: details.itemType === 'Venda de Silagem' ? 'Venda de Silagem' : 'Prestação de Serviços',
+            description: details.isInstallmentPlan
+              ? `Recebimento Parcela 1/${details.installments?.length || 1} - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`
+              : `Recebimento - ${clientItem?.clientName || 'Cliente'} via ${getPaymentMethodLabel(details.paymentMethod)}`,
+            amount: amountReceivedNow,
+            date: details.receiptDate,
+            notes: details.settlementNotes,
+            createdAt: new Date().toISOString()
+          };
+          const updatedTx = [newTx, ...currentTx];
+          saveStoredBankTransactions(updatedTx);
+          window.dispatchEvent(new Event('bank_transactions_updated'));
+        } catch (txErr) {
+          console.warn('Aviso: Não foi possível salvar transação bancária vinculada:', txErr);
+        }
       }
     }
 
@@ -1219,13 +1313,15 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     const item = reversingItem;
     const activeCompanyId = companyProfile?.id || getActiveCompanyId();
     const nowIso = audit.isoTimestamp || new Date().toISOString();
+    const settledAmt = Number(item.paidAmount ?? item.totalAmount) || 0;
+    const isCashBox = Boolean(item.paidViaCashBox) || item.bankAccountId === CAIXA_INTERNO_ID;
 
     const reversalEntry: ReversalAuditEntry = {
       id: `rev_rec_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       targetType: 'receber',
       targetId: item.id,
       description: `${item.type} — ${item.volume}`,
-      amount: Number(item.totalAmount) || 0,
+      amount: settledAmt,
       user: audit.user,
       dateTime: audit.dateTime,
       isoTimestamp: nowIso,
@@ -1236,16 +1332,23 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       bankAccountName: item.bankAccountName,
     };
 
-    // 1. Reabrir título de acordo com a origem
+    // 1. Reabrir título de acordo com a origem (restaurando valor original e limpando encargos/descontos da baixa estornada)
     if (item.type === 'Prestação de Serviço') {
       const updatedServices = localServices.map((s) => {
         if (s.id !== item.id) return s;
+        const originalVal = Number(s.originalAmount ?? s.totalAmount) || 0;
         return {
           ...s,
+          totalAmount: originalVal,
           status: 'faturado' as const,
           paymentStatus: 'pendente' as const,
           paymentDate: undefined,
           paidAmount: 0,
+          fineAmount: undefined,
+          interestAmount: undefined,
+          discountAmount: undefined,
+          settlementNotes: undefined,
+          paidViaCashBox: undefined,
           bankAccountId: undefined,
           bankAccountName: undefined,
           lastReversal: reversalEntry,
@@ -1259,11 +1362,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     } else if (item.type === 'Venda de Silagem') {
       const updatedOrders = localOrders.map((o) => {
         if (o.id !== item.id) return o;
+        const originalVal = Number(o.originalAmount ?? o.totalAmount) || 0;
         return {
           ...o,
+          totalAmount: originalVal,
           paymentStatus: 'pendente' as const,
           paymentDate: undefined,
           paidAmount: 0,
+          fineAmount: undefined,
+          interestAmount: undefined,
+          discountAmount: undefined,
+          settlementNotes: undefined,
+          paidViaCashBox: undefined,
           bankAccountId: undefined,
           bankAccountName: undefined,
           lastReversal: reversalEntry,
@@ -1277,10 +1387,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     } else if (item.type === 'Nota Fiscal de Saída') {
       const updatedNotas = localNotasSaida.map((n) => {
         if (n.id !== item.id) return n;
+        const originalVal = Number(n.originalAmount ?? n.valorTotal) || 0;
         return {
           ...n,
+          valorTotal: originalVal,
           receberStatus: 'pendente' as const,
           receberPaymentDate: undefined,
+          paidAmount: 0,
+          fineAmount: undefined,
+          interestAmount: undefined,
+          discountAmount: undefined,
+          settlementNotes: undefined,
+          paidViaCashBox: undefined,
           bankAccountId: undefined,
           bankAccountName: undefined,
           lastReversal: reversalEntry,
@@ -1293,66 +1411,82 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       window.dispatchEvent(new CustomEvent('agrocontrol_notas_saida_updated'));
     }
 
-    // 2. Remover lançamento correspondente do Extrato Bancário / estornar saldo da conta ou Caixa
+    // 2. Remover lançamento correspondente do Extrato Bancário / estornar saldo da conta ou Caixa Interno
     try {
-      const allTxs = getStoredBankTransactions();
-      const clientLower = String(item.clientName || '').trim().toLowerCase();
-      let matchedIdx = allTxs.findIndex(
-        (tx) =>
-          tx.type === 'entrada' &&
-          (tx.sourceId === item.id || tx.expenseId === item.id)
-      );
-
-      if (matchedIdx < 0) {
-        matchedIdx = allTxs.findIndex(
-          (tx) =>
-            tx.type === 'entrada' &&
-            tx.sourceType === 'receita' &&
-            Math.abs((Number(tx.amount) || 0) - (Number(item.totalAmount) || 0)) < 0.02 &&
-            (!item.bankAccountId || tx.bankAccountId === item.bankAccountId) &&
-            (!clientLower || String(tx.description || '').toLowerCase().includes(clientLower))
-        );
-      }
-
-      if (matchedIdx >= 0) {
-        const matchedTx = allTxs[matchedIdx];
-        const remainingTxs = allTxs.filter((_, i) => i !== matchedIdx);
-        saveStoredBankTransactions(remainingTxs);
-
-        const accs = getStoredBankAccounts();
-        const targetAcc = accs.find((a) => a.id === matchedTx.bankAccountId);
-        if (targetAcc) {
-          targetAcc.balance = Number(((Number(targetAcc.balance) || 0) - (Number(matchedTx.amount) || 0)).toFixed(2));
-          targetAcc.updatedAt = nowIso;
-          saveStoredBankAccounts(accs);
-          saveCompanyFinanceiroContas(accs, activeCompanyId);
-          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
-          window.dispatchEvent(new Event('bank_accounts_updated'));
-        }
-        window.dispatchEvent(new Event('bank_transactions_updated'));
-      } else if (item.bankAccountId) {
-        const accs = getStoredBankAccounts();
-        const targetAcc = accs.find((a) => a.id === item.bankAccountId);
-        if (targetAcc) {
-          targetAcc.balance = Number(((Number(targetAcc.balance) || 0) - (Number(item.totalAmount) || 0)).toFixed(2));
-          targetAcc.updatedAt = nowIso;
-          saveStoredBankAccounts(accs);
-          saveCompanyFinanceiroContas(accs, activeCompanyId);
-          window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
-          window.dispatchEvent(new Event('bank_accounts_updated'));
-        }
-      } else {
+      if (isCashBox) {
         reverseCashRegisterSettlement({
           type: 'receber',
           targetId: item.id,
-          amount: Number(item.totalAmount) || 0,
+          amount: settledAmt,
           description: `${item.type} — ${item.volume}`,
           partyName: item.clientName,
           paymentMethod: item.paymentMethod,
           bankAccountId: item.bankAccountId,
+          paidViaCashBox: true,
           reason: audit.reason,
           user: audit.user,
         });
+      } else {
+        const allTxs = getStoredBankTransactions();
+        const clientLower = String(item.clientName || '').trim().toLowerCase();
+        let matchedIdx = allTxs.findIndex(
+          (tx) =>
+            tx.type === 'entrada' &&
+            (tx.sourceId === item.id || tx.expenseId === item.id)
+        );
+
+        if (matchedIdx < 0) {
+          matchedIdx = allTxs.findIndex(
+            (tx) =>
+              tx.type === 'entrada' &&
+              tx.sourceType === 'receita' &&
+              Math.abs((Number(tx.amount) || 0) - settledAmt) < 0.02 &&
+              (!item.bankAccountId || tx.bankAccountId === item.bankAccountId) &&
+              (!clientLower || String(tx.description || '').toLowerCase().includes(clientLower))
+          );
+        }
+
+        if (matchedIdx >= 0) {
+          const matchedTx = allTxs[matchedIdx];
+          const remainingTxs = allTxs.filter((_, i) => i !== matchedIdx);
+          saveStoredBankTransactions(remainingTxs);
+
+          const accs = getStoredBankAccounts();
+          const targetAcc = accs.find((a) => a.id === matchedTx.bankAccountId);
+          if (targetAcc) {
+            targetAcc.balance = Number(((Number(targetAcc.balance) || 0) - (Number(matchedTx.amount) || 0)).toFixed(2));
+            targetAcc.updatedAt = nowIso;
+            saveStoredBankAccounts(accs);
+            saveCompanyFinanceiroContas(accs, activeCompanyId);
+            window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+            window.dispatchEvent(new Event('bank_accounts_updated'));
+          }
+          window.dispatchEvent(new Event('bank_transactions_updated'));
+        } else if (item.bankAccountId) {
+          const accs = getStoredBankAccounts();
+          const targetAcc = accs.find((a) => a.id === item.bankAccountId);
+          if (targetAcc) {
+            targetAcc.balance = Number(((Number(targetAcc.balance) || 0) - settledAmt).toFixed(2));
+            targetAcc.updatedAt = nowIso;
+            saveStoredBankAccounts(accs);
+            saveCompanyFinanceiroContas(accs, activeCompanyId);
+            window.dispatchEvent(new Event('agrocontrol_bancos_updated'));
+            window.dispatchEvent(new Event('bank_accounts_updated'));
+          }
+        } else {
+          reverseCashRegisterSettlement({
+            type: 'receber',
+            targetId: item.id,
+            amount: settledAmt,
+            description: `${item.type} — ${item.volume}`,
+            partyName: item.clientName,
+            paymentMethod: item.paymentMethod,
+            bankAccountId: item.bankAccountId,
+            paidViaCashBox: isCashBox,
+            reason: audit.reason,
+            user: audit.user,
+          });
+        }
       }
     } catch (err) {
       console.warn('Aviso ao estornar movimentação bancária/caixa do recebimento:', err);
@@ -1362,7 +1496,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     recordFinancialReversalAudit(reversalEntry);
     setReversingItem(null);
 
-    const revMsg = `Recebimento de ${item.clientName} (${formatCurrencyBRL(item.totalAmount)}) estornado por ${audit.user}. Título reaberto para A Receber.`;
+    const revMsg = `Recebimento de ${item.clientName} (${formatCurrencyBRL(settledAmt)}) estornado por ${audit.user}. Título reaberto para A Receber.`;
     setSuccessMessage(revMsg);
     setTimeout(() => {
       setSuccessMessage((curr) => (curr === revMsg ? '' : curr));
@@ -1578,8 +1712,34 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                         {dueDateVal ? formatDateBR(dueDateVal) : '—'}
                       </td>
 
-                      <td className="py-1.5 px-2.5 text-right font-black text-black whitespace-nowrap text-xs font-mono">
-                        {formatCurrencyBRL(item.totalAmount)}
+                      <td className="py-1.5 px-2.5 text-right whitespace-nowrap font-mono">
+                        {(() => {
+                          const originalVal = Number(item.originalAmount ?? item.totalAmount) || 0;
+                          const charges = (Number(item.fineAmount) || 0) + (Number(item.interestAmount) || 0);
+                          const discount = Number(item.discountAmount) || 0;
+                          const paidVal = Number(item.paidAmount ?? item.totalAmount) || 0;
+                          const hasAdjustments = charges > 0.009 || discount > 0.009 || (isPaid && Math.abs(paidVal - originalVal) > 0.009);
+                          return (
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className="font-black text-black text-xs">{formatCurrencyBRL(originalVal)}</span>
+                              {charges > 0.009 && (
+                                <span className="text-[10px] font-semibold text-red-700">
+                                  + {formatCurrencyBRL(charges)} (Juros/Multa)
+                                </span>
+                              )}
+                              {discount > 0.009 && (
+                                <span className="text-[10px] font-semibold text-emerald-700">
+                                  - {formatCurrencyBRL(discount)} (Desconto)
+                                </span>
+                              )}
+                              {isPaid && hasAdjustments && (
+                                <span className="text-[10px] font-black text-slate-900 bg-white/80 px-1 rounded border border-slate-300 mt-0.5">
+                                  Valor Real Recebido: {formatCurrencyBRL(paidVal)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Coluna Status / Ações */}
@@ -1696,12 +1856,14 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           kind="receber"
           titleDescription={`${reversingItem.type} — ${reversingItem.volume}`}
           partyName={reversingItem.clientName}
-          amount={reversingItem.totalAmount}
+          amount={Number(reversingItem.paidAmount ?? reversingItem.totalAmount) || 0}
           dueDate={reversingItem.dueDate}
           paymentDate={reversingItem.paymentDate}
           bankOrCashLabel={
-            reversingItem.bankAccountName ||
-            (reversingItem.paymentMethod === 'dinheiro' ? 'Caixa / Dinheiro' : reversingItem.paymentMethod)
+            reversingItem.paidViaCashBox || reversingItem.bankAccountId === CAIXA_INTERNO_ID
+              ? CAIXA_INTERNO_LABEL
+              : reversingItem.bankAccountName ||
+                (reversingItem.paymentMethod === 'dinheiro' ? 'Caixa / Dinheiro' : reversingItem.paymentMethod)
           }
         />
       )}

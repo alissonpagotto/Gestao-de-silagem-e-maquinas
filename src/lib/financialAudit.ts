@@ -109,26 +109,35 @@ export function reverseCashRegisterSettlement(params: {
   partyName?: string;
   paymentMethod?: string;
   bankAccountId?: string;
+  paidViaCashBox?: boolean;
   reason: string;
   user: string;
 }): boolean {
   try {
     const caixa = getStoredCaixaOperacional();
-    if (!caixa || caixa.status !== 'ABERTO') return false;
+    if (!caixa) return false;
 
     const amt = Number(params.amount) || 0;
     if (amt <= 0) return false;
 
+    const isCashBox =
+      Boolean(params.paidViaCashBox) ||
+      params.bankAccountId === 'caixa_interno' ||
+      (!params.bankAccountId && String(params.paymentMethod || '').toLowerCase() === 'dinheiro');
+
+    if (caixa.status !== 'ABERTO' && !isCashBox) return false;
+
     const targetLower = String(params.targetId || '').toLowerCase();
+    const refTagLower = targetLower ? `[ref:${targetLower}]` : '';
     const partyLower = String(params.partyName || '').trim().toLowerCase();
     const descLower = String(params.description || '').trim().toLowerCase();
 
     if (params.type === 'pagar') {
-      const idx = caixa.sangrias.findIndex((s) => {
+      const idx = (caixa.sangrias || []).findIndex((s) => {
         const m = String(s.motivo || '').toLowerCase();
         const d = String(s.destino || '').toLowerCase();
         const idStr = String(s.id || '').toLowerCase();
-        if (targetLower && (idStr.includes(targetLower) || m.includes(targetLower) || d.includes(targetLower))) {
+        if (targetLower && (idStr.includes(targetLower) || (refTagLower && m.includes(refTagLower)) || m.includes(targetLower) || d.includes(targetLower))) {
           return true;
         }
         return (
@@ -144,7 +153,7 @@ export function reverseCashRegisterSettlement(params: {
         return true;
       }
 
-      if (!params.bankAccountId && String(params.paymentMethod || '').toLowerCase() === 'dinheiro') {
+      if (isCashBox && caixa.status === 'ABERTO') {
         const estornoSuprimento = {
           id: `caixa_rev_pag_${Date.now()}`,
           dataHora: new Date().toISOString(),
@@ -155,16 +164,16 @@ export function reverseCashRegisterSettlement(params: {
         };
         saveStoredCaixaOperacional({
           ...caixa,
-          suprimentos: [estornoSuprimento, ...caixa.suprimentos],
+          suprimentos: [estornoSuprimento, ...(caixa.suprimentos || [])],
         });
         return true;
       }
     } else {
-      const idx = caixa.suprimentos.findIndex((s) => {
+      const idx = (caixa.suprimentos || []).findIndex((s) => {
         const m = String(s.motivo || '').toLowerCase();
         const d = String(s.destino || '').toLowerCase();
         const idStr = String(s.id || '').toLowerCase();
-        if (targetLower && (idStr.includes(targetLower) || m.includes(targetLower) || d.includes(targetLower))) {
+        if (targetLower && (idStr.includes(targetLower) || (refTagLower && m.includes(refTagLower)) || m.includes(targetLower) || d.includes(targetLower))) {
           return true;
         }
         return (
@@ -180,7 +189,7 @@ export function reverseCashRegisterSettlement(params: {
         return true;
       }
 
-      if (!params.bankAccountId && String(params.paymentMethod || '').toLowerCase() === 'dinheiro') {
+      if (isCashBox && caixa.status === 'ABERTO') {
         const estornoSangria = {
           id: `caixa_rev_rec_${Date.now()}`,
           dataHora: new Date().toISOString(),
@@ -191,7 +200,7 @@ export function reverseCashRegisterSettlement(params: {
         };
         saveStoredCaixaOperacional({
           ...caixa,
-          sangrias: [estornoSangria, ...caixa.sangrias],
+          sangrias: [estornoSangria, ...(caixa.sangrias || [])],
         });
         return true;
       }

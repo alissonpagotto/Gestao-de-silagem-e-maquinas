@@ -512,8 +512,222 @@ export function resolveDestinatarioDanfe(
   };
 }
 
+export function buildDanfeViewerToolbarCss(): string {
+  return `
+    .danfe-toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      height: 48px;
+      padding: 0 16px;
+      background: #202124;
+      border-bottom: 1px solid #000000;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #f8fafc;
+      user-select: none;
+      text-transform: none;
+    }
+    .danfe-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .danfe-toolbar-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .danfe-zoom-group {
+      display: inline-flex;
+      align-items: center;
+      background: #2d3035;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .danfe-zoom-btn {
+      width: 32px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: #f8fafc;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .danfe-zoom-btn:hover:not(:disabled) {
+      background: #3f444c;
+    }
+    .danfe-zoom-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .danfe-zoom-value {
+      min-width: 52px;
+      padding: 0 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+      border-left: 1px solid #475569;
+      border-right: 1px solid #475569;
+      line-height: 28px;
+      cursor: pointer;
+    }
+    .danfe-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      flex: 1;
+      justify-content: flex-end;
+    }
+    .danfe-btn-print {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: #059669;
+      color: #ffffff;
+      border: 1px solid #064e3b;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .danfe-btn-print:hover {
+      background: #047857;
+    }
+    .danfe-btn-close {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #0f172a;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .danfe-btn-close:hover {
+      background: #475569;
+    }
+    @media (max-width: 720px) {
+      .danfe-toolbar-left {
+        display: none;
+      }
+    }
+  `;
+}
+
+export function buildDanfeViewerToolbarHtml(docLabel: string): string {
+  return `<div class="no-print danfe-toolbar" role="toolbar" aria-label="Controles de visualização e impressão">
+    <div class="danfe-toolbar-left">
+      <span class="danfe-toolbar-title">${escapeHtml(docLabel)}</span>
+    </div>
+    <div class="danfe-zoom-group">
+      <button type="button" id="danfe-zoom-out" class="danfe-zoom-btn" title="Reduzir zoom (-10%)">➖</button>
+      <span id="danfe-zoom-indicator" class="danfe-zoom-value" title="Clique para redefinir para 100%">100%</span>
+      <button type="button" id="danfe-zoom-in" class="danfe-zoom-btn" title="Aumentar zoom (+10%)">➕</button>
+    </div>
+    <div class="danfe-toolbar-actions">
+      <button type="button" class="danfe-btn-print" onclick="window.focus();window.print();">🖨️ Imprimir / Salvar PDF</button>
+      <button type="button" class="danfe-btn-close" onclick="window.close();">✖️ Fechar Janela</button>
+    </div>
+  </div>`;
+}
+
+export function buildDanfeViewerZoomScript(sheetSelector: string): string {
+  return `<script>
+    (function () {
+      var zoomPercent = 100;
+      var MIN_ZOOM = 60;
+      var MAX_ZOOM = 160;
+      var STEP = 10;
+      var btnOut = document.getElementById('danfe-zoom-out');
+      var btnIn = document.getElementById('danfe-zoom-in');
+      var indicator = document.getElementById('danfe-zoom-indicator');
+      var sheet = document.querySelector('${sheetSelector}');
+
+      function applyZoom() {
+        if (!sheet) return;
+        var scale = zoomPercent / 100;
+        sheet.style.transformOrigin = 'top center';
+        sheet.style.transform = scale === 1 ? '' : 'scale(' + scale + ')';
+        if (scale !== 1) {
+          var baseHeight = sheet.offsetHeight || 1122;
+          var extra = Math.round((scale - 1) * baseHeight);
+          sheet.style.marginBottom = extra + 'px';
+        } else {
+          sheet.style.marginBottom = '';
+        }
+        if (indicator) indicator.textContent = zoomPercent + '%';
+        if (btnOut) btnOut.disabled = zoomPercent <= MIN_ZOOM;
+        if (btnIn) btnIn.disabled = zoomPercent >= MAX_ZOOM;
+      }
+
+      if (btnOut) {
+        btnOut.addEventListener('click', function () {
+          if (zoomPercent > MIN_ZOOM) {
+            zoomPercent = Math.max(MIN_ZOOM, zoomPercent - STEP);
+            applyZoom();
+          }
+        });
+      }
+      if (btnIn) {
+        btnIn.addEventListener('click', function () {
+          if (zoomPercent < MAX_ZOOM) {
+            zoomPercent = Math.min(MAX_ZOOM, zoomPercent + STEP);
+            applyZoom();
+          }
+        });
+      }
+      if (indicator) {
+        indicator.addEventListener('click', function () {
+          zoomPercent = 100;
+          applyZoom();
+        });
+      }
+      window.addEventListener('beforeprint', function () {
+        if (sheet) {
+          sheet.style.transform = '';
+          sheet.style.marginBottom = '';
+        }
+      });
+      window.addEventListener('afterprint', function () {
+        applyZoom();
+      });
+      applyZoom();
+    })();
+  </script>`;
+}
+
 export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   const isPreview = Boolean(input.options?.isPreview);
+  const hideToolbar = Boolean(input.options?.hideToolbar);
+  const showToolbar = !isPreview && !hideToolbar;
   const autoPrint = input.options?.autoPrint !== false && !isPreview;
 
   const numero9 = formatNumeroNfe9(input.numero);
@@ -666,13 +880,34 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
     }
     html, body {
       width: 100%;
-      height: 100%;
+      min-height: 100%;
       margin: 0;
       padding: 0;
       background: #ffffff;
       color: #000000;
       font-family: "Times New Roman", Times, Georgia, serif;
       font-weight: 400;
+    }
+    ${buildDanfeViewerToolbarCss()}
+    @media screen {
+      html, body {
+        background: #525659;
+      }
+      body {
+        padding: ${showToolbar ? '68px 0 20px 0' : '20px 0'};
+      }
+      .danfe-sheet {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        padding: 4mm;
+        background: #ffffff;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+      }
+      .preview-banner {
+        width: 210mm;
+        margin: 0 auto 10px auto;
+      }
     }
     @media print {
       html, body {
@@ -682,7 +917,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
         padding: 0 !important;
         background: #ffffff !important;
       }
-      .no-print { display: none !important; }
+      .no-print, .danfe-toolbar, .preview-banner { display: none !important; }
       .danfe-sheet {
         width: 100% !important;
         max-width: none !important;
@@ -691,38 +926,14 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
         padding: 0 !important;
         box-sizing: border-box !important;
         border: none !important;
+        box-shadow: none !important;
+        transform: none !important;
+        zoom: 1 !important;
         display: flex !important;
         flex-direction: column !important;
       }
     }
-    .no-print {
-      width: 100%;
-      margin: 0 0 6px 0;
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-    .btn-print {
-      padding: 6px 14px;
-      background: #000000;
-      color: #ffffff;
-      border: 1px solid #000000;
-      font-weight: 400;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .btn-close {
-      padding: 6px 14px;
-      background: #ffffff;
-      color: #000000;
-      border: 1px solid #000000;
-      font-weight: 400;
-      font-size: 11px;
-      cursor: pointer;
-    }
     .preview-banner {
-      width: 100%;
-      margin: 0 0 6px 0;
       background: #ffffff;
       border: 1px solid #000000;
       color: #000000;
@@ -732,10 +943,6 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       text-align: center;
     }
     .danfe-sheet {
-      width: 100%;
-      min-height: 288mm;
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
       background: #ffffff;
       display: flex;
@@ -956,12 +1163,9 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   ${
     isPreview
       ? `<div class="preview-banner">PRÉ-VISUALIZAÇÃO DO DANFE OFICIAL (NF-e MODELO 55) — PADRÃO SEFAZ</div>`
-      : input.options?.hideToolbar
-        ? ''
-        : `<div class="no-print">
-          <button class="btn-close" onclick="window.close()">Fechar</button>
-          <button class="btn-print" onclick="window.focus();window.print()">Imprimir / Salvar PDF (DANFE)</button>
-        </div>`
+      : showToolbar
+        ? buildDanfeViewerToolbarHtml(docTitle)
+        : ''
   }
 
   <div class="danfe-sheet">
@@ -1205,6 +1409,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
     </div>
   </div>
 
+  ${showToolbar ? buildDanfeViewerZoomScript('.danfe-sheet') : ''}
   ${
     autoPrint
       ? `<script>

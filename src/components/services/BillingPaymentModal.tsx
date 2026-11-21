@@ -47,6 +47,11 @@ import {
   getStoredEmployees,
   getStoredCompanyProfile
 } from '../../lib/storage';
+import {
+  CAIXA_INTERNO_ID,
+  CAIXA_INTERNO_LABEL,
+  getCaixaInternoSaldoAtual,
+} from '../../lib/caixaStorage';
 import { getStoredAdminSettings } from '../../lib/masterAdminStorage';
 import { 
   saveFinanceiroCheque, 
@@ -77,6 +82,13 @@ export interface ReceivableItem {
   dueDate: string;
   volume: string;
   totalAmount: number;
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
+  paidAmount?: number;
+  settlementNotes?: string;
+  paidViaCashBox?: boolean;
   status: 'pendente' | 'pago';
   notes?: string;
   clientId?: string;
@@ -123,8 +135,13 @@ export interface ReceivePaymentSuccessDetails {
   itemId: string;
   itemType: string;
   paymentMethod: PaymentMethod;
+  originalAmount?: number;
+  fineAmount?: number;
+  discountAmount?: number;
   paidAmount: number;
   receiptDate: string;
+  settlementNotes?: string;
+  paidViaCashBox?: boolean;
   cheque?: FinanceiroCheque;
   cheques?: FinanceiroCheque[];
   creditoGerado?: number;
@@ -307,7 +324,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     ? `Fazenda: ${service.farmName}` 
     : (item?.volume ? `Volume: ${item.volume}` : (item?.type || ''));
   const serviceOrType = service?.serviceType || item?.type || 'Serviço';
-  const totalAmount = Number(service?.totalAmount ?? item?.totalAmount ?? 0);
+  const totalAmount = Number((item as any)?.originalAmount ?? service?.totalAmount ?? item?.totalAmount ?? 0);
 
   // Resolução resiliente das contas bancárias (prop -> storage -> fallback padrão)
   const effectiveBankAccounts = useMemo<BankAccount[]>(() => {
@@ -336,6 +353,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   const [billingNotesExtra, setBillingNotesExtra] = useState('');
   const [receiptDate, setReceiptDate] = useState(today);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
+  const [fineAmount, setFineAmount] = useState<number>(0);
+  const [globalInterestAmount, setGlobalInterestAmount] = useState<number>(0);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [caixaInternoBalance, setCaixaInternoBalance] = useState<number>(() => getCaixaInternoSaldoAtual());
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
   // Destravamento Administrativo de Cheques da Custódia
@@ -468,6 +489,15 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     setUnlockPasswordError('');
   }, [isOpen, targetId]);
 
+  // Sincroniza saldo do Caixa Interno ao abrir o modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const refreshCaixa = () => setCaixaInternoBalance(getCaixaInternoSaldoAtual());
+    refreshCaixa();
+    window.addEventListener('agrocontrol_caixa_operacional_updated', refreshCaixa);
+    return () => window.removeEventListener('agrocontrol_caixa_operacional_updated', refreshCaixa);
+  }, [isOpen]);
+
   // Sincroniza formulário ao abrir o modal
   useEffect(() => {
     if (!activeRecord || !isOpen) return;
@@ -476,21 +506,25 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     setReceiptDate(today);
     setSuccessToast('');
     setFormValidationError('');
+    setCaixaInternoBalance(getCaixaInternoSaldoAtual());
 
-    // Preenche conta bancária inicial com a conta prioritária
+    setFineAmount(Number((activeRecord as any)?.fineAmount) || 0);
+    setGlobalInterestAmount(Number((activeRecord as any)?.interestAmount) || 0);
+    setDiscountAmount(Number((activeRecord as any)?.discountAmount) || 0);
+
+    // Mantém o seletor de Banco / Caixa em branco por padrão para exigir escolha explícita do usuário
     hasUserManuallyChangedBankRef.current = false;
-    const preloadedBankId =
-      preloadedCheque?.conta_bancaria_destino_id ||
-      (preloadedCheque as any)?.contaBancariaDestinoId ||
-      (activeRecord as any)?.bankAccountId ||
-      (activeRecord as any)?.conta_bancaria_id;
+    const preloadedRestrictedBankId = isChequeRestricted
+      ? (preloadedCheque?.conta_bancaria_destino_id || (preloadedCheque as any)?.contaBancariaDestinoId)
+      : '';
 
-    if (preloadedBankId && effectiveBankAccounts.some(a => a.id === preloadedBankId)) {
-      setSelectedBankAccountId(preloadedBankId);
-    } else if (priorityBankAccount) {
-      setSelectedBankAccountId(priorityBankAccount.id);
-    } else if (effectiveBankAccounts.length > 0) {
-      setSelectedBankAccountId(effectiveBankAccounts[0].id);
+    if (preloadedRestrictedBankId === CAIXA_INTERNO_ID) {
+      setSelectedBankAccountId(CAIXA_INTERNO_ID);
+    } else if (
+      preloadedRestrictedBankId &&
+      effectiveBankAccounts.some((a) => a.id === preloadedRestrictedBankId)
+    ) {
+      setSelectedBankAccountId(preloadedRestrictedBankId);
     } else {
       setSelectedBankAccountId('');
     }
@@ -533,17 +567,10 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       },
     ]);
 
-    setBillingNotesExtra((activeRecord as any).billingNotes || activeRecord.notes || '');
+    setBillingNotesExtra((activeRecord as any).settlementNotes || (activeRecord as any).billingNotes || activeRecord.notes || '');
   }, [activeRecord, isOpen, today, hasPreRegisteredCheque, totalAmount, preloadedCheque, clientName, resolvedClient, effectiveBankAccounts, priorityBankAccount, isServiceMode]);
 
-  // Sincronização reativa de desbloqueio: assegura que o campo de conta nunca permaneça em branco na abertura
-  useEffect(() => {
-    if (isOpen && !hasUserManuallyChangedBankRef.current && (!selectedBankAccountId || !effectiveBankAccounts.some(a => a.id === selectedBankAccountId))) {
-      if (priorityBankAccount) {
-        setSelectedBankAccountId(priorityBankAccount.id);
-      }
-    }
-  }, [isOpen, selectedBankAccountId, priorityBankAccount, effectiveBankAccounts]);
+
 
   // Cálculos de saldo em tempo real
   const totalAllocated = lines.reduce((acc, line) => acc + (Number(line.amount) || 0), 0);
@@ -552,11 +579,16 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
   const isOverAllocated = remainingBalance < -0.009;
   const isUnderAllocated = remainingBalance > 0.009;
 
-  const totalInterestAdded = lines.reduce(
+  const totalLineInterestAdded = lines.reduce(
     (acc, line) => acc + (Number(line.interestAmount) || 0),
     0
   );
-  const totalFinalExpected = totalAllocated + totalInterestAdded;
+  const totalInterestAdded = Number(((Number(globalInterestAmount) || 0) + totalLineInterestAdded).toFixed(2));
+  const totalChargesAdded = Number(((Number(fineAmount) || 0) + totalInterestAdded).toFixed(2));
+  const totalFinalExpected = Math.max(
+    0,
+    Number((totalAllocated + totalChargesAdded - (Number(discountAmount) || 0)).toFixed(2))
+  );
 
   // Gerar cronograma de parcelas para visualização considerando o valor corrigido com juros
   const getInstallmentsBreakdown = (line: BillingPaymentLine) => {
@@ -951,13 +983,6 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       )
     );
 
-    if (!selectedBankAccountId) {
-      if (priorityBankAccount) {
-        setSelectedBankAccountId(priorityBankAccount.id);
-      } else if (effectiveBankAccounts.length > 0) {
-        setSelectedBankAccountId(effectiveBankAccounts[0].id);
-      }
-    }
 
     setIsUnlockedByAdmin(true);
     setShowUnlockPasswordModal(false);
@@ -981,16 +1006,11 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       return;
     }
 
-    // Validação de Conta Bancária obrigatória para recebimentos imediatos (somente na quitação/baixa imediata)
-    const IMMEDIATE_METHODS = ['pix', 'dinheiro', 'transferencia', 'cartao_credito', 'cartao_debito'];
-    const requiresBankAccount =
-      !isServiceMode &&
-      !isSaveOpenMode &&
-      effectiveBankAccounts.length > 0 &&
-      lines.some((l) => IMMEDIATE_METHODS.includes(String(l.paymentMethod)));
+    // Validação de Banco / Caixa obrigatório para confirmar recebimento/baixa imediata
+    const requiresBankAccount = !isServiceMode && !isSaveOpenMode;
 
     if (requiresBankAccount && !selectedBankAccountId) {
-      setFormValidationError('Selecione a Conta Bancária de Depósito / Caixa para creditar o valor do recebimento.');
+      setFormValidationError('Selecione obrigatoriamente o Banco ou Caixa Interno de destino para confirmar a baixa.');
       setTimeout(() => setFormValidationError(''), 4500);
       return;
     }
@@ -1226,13 +1246,22 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
       });
 
       const isMultiInstallment = allInstallments.length > 1;
+      const modalNetAdjustment = Number(((Number(fineAmount) || 0) + (Number(globalInterestAmount) || 0) - (Number(discountAmount) || 0)).toFixed(2));
+      if (isMultiInstallment && Math.abs(modalNetAdjustment) >= 0.01 && allInstallments.length > 0) {
+        allInstallments[0].amount = Math.max(0, Number((allInstallments[0].amount + modalNetAdjustment).toFixed(2)));
+      }
 
       onSuccess({
         itemId: targetId,
         itemType: (activeRecord as any).type || (service ? 'Prestação de Serviço' : 'Venda de Silagem'),
         paymentMethod: (lines[0]?.paymentMethod || 'pix') as PaymentMethod,
+        originalAmount: totalAmount,
+        fineAmount: Number(fineAmount) || 0,
+        discountAmount: Number(discountAmount) || 0,
         paidAmount: totalFinalExpected,
         receiptDate: isSaveOpenMode ? (allInstallments[0]?.dueDate || receiptDate) : receiptDate,
+        settlementNotes: billingNotesExtra.trim() || undefined,
+        paidViaCashBox: !isSaveOpenMode && selectedBankAccountId === CAIXA_INTERNO_ID,
         cheque: allSavedCheques[0],
         cheques: allSavedCheques.length > 0 ? allSavedCheques : undefined,
         bankAccountId: isSaveOpenMode ? undefined : selectedBankAccountId,
@@ -1258,28 +1287,28 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
     >
       <div 
         id="billing-payment-modal-container"
-        className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black"
+        className="w-[92vw] max-w-[1260px] max-h-[94vh] flex flex-col justify-between mx-auto my-auto bg-[#cad4e6] border border-black rounded-xl shadow-2xl overflow-hidden text-black"
       >
         {/* CABEÇALHO DO MODAL */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3 bg-[#cad4e6] border-b border-black text-black shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-[#e0e6f1] border border-black text-black flex items-center justify-center shadow-xs shrink-0">
-              <Building2 className="w-5 h-5 stroke-[2.2]" />
+        <div className="flex items-center justify-between px-4 py-2 bg-[#cad4e6] border-b border-black text-black shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-[#e0e6f1] border border-black text-black flex items-center justify-center shadow-xs shrink-0">
+              <Building2 className="w-4 h-4 stroke-[2.2]" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex flex-wrap items-baseline gap-x-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs sm:text-sm font-black text-black uppercase tracking-tight truncate">
-                  {isServiceMode ? 'DEFINIÇÃO DE RECEBIMENTO E CONDIÇÕES COMERCIAIS' : 'BAIXAR / QUITAR CONTA A RECEBER'}
+                  {isServiceMode ? 'DEFINIÇÃO DE RECEBIMENTO E CONDIÇÕES COMERCIAIS' : 'RECEBIMENTO DE CONTA A RECEBER'}
                 </h3>
                 {targetOrderNumber && (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-white border border-black text-black shrink-0">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-black text-black shrink-0">
                     #{targetOrderNumber}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-800 font-medium truncate">
-                Cliente: <span className="font-bold text-black">{clientName}</span>
-                {farmOrOrigin ? ` • ${farmOrOrigin}` : ''} • Serviço/Origem:{' '}
+              <p className="text-[11px] text-slate-800 font-medium truncate">
+                • Cliente: <span className="font-bold text-black">{clientName}</span>
+                {farmOrOrigin ? ` • ${farmOrOrigin}` : ''} •{' '}
                 <span className="font-bold text-black uppercase">
                   {serviceOrType}
                 </span>
@@ -1289,15 +1318,15 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg transition cursor-pointer shrink-0"
+            className="p-1 text-black hover:bg-[#e0e6f1] border border-transparent hover:border-black rounded-lg transition cursor-pointer shrink-0"
             title="Fechar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* CORPO DO MODAL (ROLAGEM FLUIDA E ALTURA INTEGRAL) */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 min-h-0 bg-[#cad4e6] scrollbar-thin">
+        {/* CORPO DO MODAL */}
+        <div className="p-2.5 sm:p-3 overflow-y-auto space-y-2 flex-1 min-h-0 bg-[#cad4e6] scrollbar-thin">
           
           {/* MENSAGEM TOAST DE SUCESSO TEMPORÁRIA */}
           {successToast && (
@@ -1361,44 +1390,37 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           )}
 
           {/* PAINEL DE RESUMO E SALDO EM TEMPO REAL */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 sm:p-4 bg-[#e0e6f1] rounded-xl border border-black">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2.5 bg-[#e0e6f1] rounded-xl border border-black">
             {/* Valor Total Auditado */}
-            <div className="bg-white p-3 rounded-lg border border-black shadow-2xs">
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
-                {isServiceMode ? 'Valor Total Auditado' : 'Valor Total do Título'}
+            <div className="bg-white px-2.5 py-2 rounded-lg border border-black shadow-2xs flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                {isServiceMode ? 'Total Auditado' : 'Valor do Título'}
               </span>
-              <span className="text-lg sm:text-xl font-black text-black font-['Outfit']">
+              <span className="text-base sm:text-lg font-black text-black font-['Outfit']">
                 {formatCurrencyBRL(totalAmount)}
               </span>
             </div>
 
             {/* Total Distribuído */}
-            <div className="bg-white p-3 rounded-lg border border-black shadow-2xs">
-              <div className="flex items-center justify-between">
+            <div className="bg-white px-2.5 py-2 rounded-lg border border-black shadow-2xs flex items-center justify-between">
+              <div>
                 <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
-                  Total Distribuído
+                  Distribuído
                 </span>
                 {totalInterestAdded > 0 && (
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-black px-1.5 py-0.5 rounded">
+                  <span className="text-[9px] font-bold text-amber-800">
                     +{formatCurrencyBRL(totalInterestAdded)} juros
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg sm:text-xl font-black text-blue-800 font-['Outfit']">
-                  {formatCurrencyBRL(totalAllocated)}
-                </span>
-                {totalInterestAdded > 0 && (
-                  <span className="text-xs font-bold text-slate-700">
-                    ({formatCurrencyBRL(totalFinalExpected)} final)
-                  </span>
-                )}
-              </div>
+              <span className="text-base sm:text-lg font-black text-blue-800 font-['Outfit']">
+                {formatCurrencyBRL(totalAllocated)}
+              </span>
             </div>
 
             {/* Saldo a Distribuir */}
             <div
-              className={`p-3 rounded-lg border border-black shadow-2xs ${
+              className={`px-2.5 py-2 rounded-lg border border-black shadow-2xs flex items-center justify-between ${
                 isBalanced
                   ? 'bg-emerald-50'
                   : isOverAllocated
@@ -1407,7 +1429,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
               }`}
             >
               <span
-                className={`text-[10px] font-black uppercase tracking-wider block ${
+                className={`text-[10px] font-black uppercase tracking-wider ${
                   isBalanced
                     ? 'text-emerald-800'
                     : isOverAllocated
@@ -1418,7 +1440,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 Saldo a Distribuir
               </span>
               <span
-                className={`text-lg sm:text-xl font-black font-['Outfit'] ${
+                className={`text-base sm:text-lg font-black font-['Outfit'] ${
                   isBalanced
                     ? 'text-emerald-900'
                     : isOverAllocated
@@ -1431,56 +1453,135 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             </div>
           </div>
 
+          {/* BLOCO DE CÁLCULO FINANCEIRO EM TEMPO REAL (MULTA, JUROS, DESCONTO, VALOR EFETIVO RECEBIDO) */}
+          {!isServiceMode && (
+            <div className="bg-[#e0e6f1] rounded-xl border border-black p-2.5 space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-black">
+                  Cálculo Financeiro em Tempo Real (Encargos &amp; Descontos)
+                </span>
+                <span className="text-[10px] font-bold text-slate-700">
+                  Original + Multa + Juros - Desconto = Valor Efetivo Recebido
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 items-stretch">
+                <div className="bg-slate-100 border border-slate-400 rounded-lg p-2 flex flex-col justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-700 block leading-tight">
+                    Valor Original (R$)
+                  </span>
+                  <div className="text-sm font-black text-slate-900 font-mono mt-0.5">
+                    {formatCurrencyBRL(totalAmount)}
+                  </div>
+                </div>
+
+                <div className="bg-white border border-black rounded-lg p-2 flex flex-col justify-between">
+                  <label htmlFor="billing-fine-input" className="text-[10px] font-black uppercase text-rose-700 block mb-0.5 leading-tight">
+                    (+) Multa (R$)
+                  </label>
+                  <input
+                    id="billing-fine-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={formatCurrencyInputBRL(fineAmount)}
+                    onChange={(e) => setFineAmount(parseCurrencyInputToFloat(e.target.value))}
+                    className="w-full px-2 py-1 text-xs sm:text-sm font-black font-mono text-rose-700 bg-rose-50/40 border border-slate-400 rounded-md outline-none focus:ring-1 focus:ring-rose-600 text-right"
+                  />
+                </div>
+
+                <div className="bg-white border border-black rounded-lg p-2 flex flex-col justify-between">
+                  <label htmlFor="billing-interest-input" className="text-[10px] font-black uppercase text-rose-700 block mb-0.5 leading-tight">
+                    (+) Juros / Encargos (R$)
+                  </label>
+                  <input
+                    id="billing-interest-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={formatCurrencyInputBRL(globalInterestAmount)}
+                    onChange={(e) => setGlobalInterestAmount(parseCurrencyInputToFloat(e.target.value))}
+                    className="w-full px-2 py-1 text-xs sm:text-sm font-black font-mono text-rose-700 bg-rose-50/40 border border-slate-400 rounded-md outline-none focus:ring-1 focus:ring-rose-600 text-right"
+                  />
+                </div>
+
+                <div className="bg-white border border-black rounded-lg p-2 flex flex-col justify-between">
+                  <label htmlFor="billing-discount-input" className="text-[10px] font-black uppercase text-emerald-700 block mb-0.5 leading-tight">
+                    (-) Desconto / Abatimento (R$)
+                  </label>
+                  <input
+                    id="billing-discount-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={formatCurrencyInputBRL(discountAmount)}
+                    onChange={(e) => setDiscountAmount(parseCurrencyInputToFloat(e.target.value))}
+                    className="w-full px-2 py-1 text-xs sm:text-sm font-black font-mono text-emerald-700 bg-emerald-50/40 border border-slate-400 rounded-md outline-none focus:ring-1 focus:ring-emerald-600 text-right"
+                  />
+                </div>
+
+                <div className="bg-emerald-50 border-2 border-emerald-700 rounded-lg p-2 flex flex-col justify-between shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-emerald-900 block leading-tight">
+                    (=) Efetivo Recebido (R$)
+                  </span>
+                  <div className="text-sm sm:text-base font-black text-emerald-800 font-['Outfit'] mt-0.5 text-right">
+                    {formatCurrencyBRL(totalFinalExpected)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* STATUS BANNER */}
           {isBalanced ? (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-100/70 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 rounded-xl text-emerald-900 dark:text-emerald-200 text-xs font-bold shadow-2xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100/70 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 rounded-lg text-emerald-900 dark:text-emerald-200 text-xs font-bold shadow-2xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>
-                Valor total 100% distribuído! Pronto para lançar e faturar no Contas a Receber.
-                {totalInterestAdded > 0 && (
-                  <span className="font-normal text-emerald-800 dark:text-emerald-300 ml-1">
-                    (Total final a receber com acréscimos: {formatCurrencyBRL(totalFinalExpected)})
+                Valor total 100% distribuído!
+                {(totalChargesAdded > 0 || discountAmount > 0) && (
+                  <span className="font-semibold text-emerald-900 dark:text-emerald-200 ml-1">
+                    (Efetivo a receber: {formatCurrencyBRL(totalFinalExpected)}
+                    {totalChargesAdded > 0 ? ` • +${formatCurrencyBRL(totalChargesAdded)} encargos` : ''}
+                    {discountAmount > 0 ? ` • -${formatCurrencyBRL(discountAmount)} desconto` : ''})
                   </span>
                 )}
               </span>
             </div>
           ) : isUnderAllocated ? (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 rounded-xl text-amber-900 dark:text-amber-200 text-xs font-bold shadow-2xs">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100/70 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 rounded-lg text-amber-900 dark:text-amber-200 text-xs font-bold shadow-2xs">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
                 Faltam {formatCurrencyBRL(remainingBalance)} para cobrir o total do pedido. Adicione outra forma ou ajuste os valores.
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-rose-100/70 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-700 rounded-xl text-rose-900 dark:text-rose-200 text-xs font-bold shadow-2xs">
-              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-100/70 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-700 rounded-lg text-rose-900 dark:text-rose-200 text-xs font-bold shadow-2xs">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
               <span>
                 O valor distribuído excede o total em {formatCurrencyBRL(Math.abs(remainingBalance))}. Reduza o valor das formas de pagamento.
               </span>
             </div>
           )}
 
-          {/* LINHA DE CONTA BANCÁRIA E DATA DE LIQUIDAÇÃO */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#e0e6f1] rounded-xl border border-black">
+          {/* LINHA DE CONTA BANCÁRIA / CAIXA INTERNO E DATA DE LIQUIDAÇÃO */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-2.5 bg-[#e0e6f1] rounded-xl border border-black">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                 Data do Recebimento / Faturamento <span className="text-rose-600">*</span>
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={receiptDate}
-                  onChange={(e) => setReceiptDate(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black"
-                />
-              </div>
+              <input
+                type="date"
+                value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black"
+              />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
-                Conta Bancária de Depósito / Caixa{' '}
-                {!isServiceMode && lines.some((l) => ['pix', 'dinheiro', 'transferencia', 'cartao_credito', 'cartao_debito'].includes(String(l.paymentMethod))) && (
-                  <span className="text-rose-600">*</span>
+              <label htmlFor="billing-bank-account-select" className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center justify-between">
+                <span>
+                  Qual Banco / Caixa de Destino {!isServiceMode && <span className="text-rose-600">*</span>}
+                </span>
+                {!isServiceMode && (
+                  <span className="text-[10px] text-rose-600 font-bold bg-rose-50 border border-rose-300 px-1.5 rounded">
+                    Obrigatório
+                  </span>
                 )}
               </label>
               <select
@@ -1489,10 +1590,14 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 onChange={(e) => {
                   hasUserManuallyChangedBankRef.current = true;
                   setSelectedBankAccountId(e.target.value);
+                  if (formValidationError) setFormValidationError('');
                 }}
-                className="w-full px-3 py-1.5 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black cursor-pointer"
+                className="w-full px-2.5 py-1.5 text-xs border border-black rounded-lg bg-white text-black font-semibold outline-none focus:ring-1 focus:ring-black cursor-pointer"
               >
-                <option value="">Caixa Geral da Empresa</option>
+                <option value="">-- Selecione o Banco ou Caixa --</option>
+                <option value={CAIXA_INTERNO_ID}>
+                  {CAIXA_INTERNO_LABEL} — Saldo em Dinheiro: {formatCurrencyBRL(caixaInternoBalance)}
+                </option>
                 {effectiveBankAccounts.map((acc) => {
                   const isPri = Boolean(
                     acc.isPriority === true ||
@@ -1506,7 +1611,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                   return (
                     <option key={acc.id} value={acc.id}>
                       {isPri ? '⭐ [PRIORITÁRIA] ' : ''}
-                      {acc.name}{bankCodeStr}{agencyStr}{bankNameStr}{accountNumStr}
+                      {acc.name}{bankCodeStr}{agencyStr}{bankNameStr}{accountNumStr} — Saldo: {formatCurrencyBRL(acc.balance)}
                     </option>
                   );
                 })}
@@ -1515,22 +1620,22 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
           </div>
 
           {/* LISTA DE FORMAS DE RECEBIMENTO (PAGAMENTO MISTO) */}
-          <div className="space-y-3.5">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex flex-wrap items-baseline gap-2">
                 <h4 className="text-xs font-black text-black uppercase tracking-wider">
                   Formas de Recebimento ({lines.length})
                 </h4>
-                <p className="text-[11px] text-slate-800 font-medium">
-                  Configure múltiplas formas de pagamento e condições de parcelamento para este pedido.
-                </p>
+                <span className="text-[11px] text-slate-800 font-medium hidden sm:inline">
+                  • Configure múltiplas formas e parcelamento
+                </span>
               </div>
 
               {!isChequeRestricted && (
                 <button
                   type="button"
                   onClick={handleAddLine}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-50 border border-black rounded-lg shadow-2xs transition cursor-pointer uppercase active:scale-95"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-50 border border-black rounded-lg shadow-2xs transition cursor-pointer uppercase active:scale-95"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>+ Adicionar Forma</span>
@@ -1539,7 +1644,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             </div>
 
             {/* CARDS DAS LINHAS DE PAGAMENTO */}
-            <div className="space-y-3.5">
+            <div className="space-y-2">
               {lines.map((line, index) => {
                 const isInstallment = isInstallmentEligible(line.paymentMethod);
                 const isAssinadoNota = line.paymentMethod === 'assinado_nota';
@@ -1552,7 +1657,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 return (
                   <div
                     key={line.id}
-                    className="p-4 bg-[#e0e6f1] rounded-xl border border-black shadow-2xs space-y-3.5"
+                    className="p-2.5 bg-[#e0e6f1] rounded-xl border border-black shadow-2xs space-y-2"
                   >
                     {/* Linha Principal de Dados */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -1721,50 +1826,37 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
 
                     {/* BLOCO DE JUROS / ACRÉSCIMOS E PARCELAMENTO (QUANDO PARCELÁVEL E NÃO ASSINADO NOTA E NÃO TRAVADO) */}
                     {isInstallment && !isAssinadoNota && !isChequeRestricted && (
-                      <div className="mt-2 bg-[#cad4e6] border border-black p-3.5 rounded-xl space-y-3">
+                      <div className="mt-1.5 bg-[#cad4e6] border border-black p-2.5 rounded-lg space-y-2">
                         {/* 1. SEÇÃO DE JUROS / ACRÉSCIMOS (REATIVIDADE BIDIRECIONAL R$ <-> %) */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 bg-white border border-black rounded-lg">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 px-2.5 py-1.5 bg-white border border-black rounded-lg">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded bg-amber-200 border border-black flex items-center justify-center shrink-0">
-                              <Percent className="w-3.5 h-3.5 text-black stroke-[2.5]" />
+                            <div className="w-6 h-6 rounded bg-amber-200 border border-black flex items-center justify-center shrink-0">
+                              <Percent className="w-3 h-3 text-black stroke-[2.5]" />
                             </div>
-                            <div>
-                              <span className="text-[11px] font-black text-black uppercase tracking-tight block">
-                                Juros / Acréscimos desta Linha (Opcional)
-                              </span>
-                              <span className="text-[10px] text-slate-700 font-medium">
-                                Incorpora no valor parcelado sem afetar a distribuição do saldo base do serviço
-                              </span>
-                            </div>
+                            <span className="text-[11px] font-black text-black uppercase tracking-tight">
+                              Juros / Acréscimos desta Linha (Opcional)
+                            </span>
                           </div>
 
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2.5">
                             {/* Juros em R$ */}
-                            <div className="w-32">
-                              <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
-                                Juros (R$)
+                            <div className="w-28 flex items-center gap-1.5">
+                              <label className="text-[9px] font-bold text-black uppercase shrink-0">
+                                R$
                               </label>
-                              <div className="relative">
-                                <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-[10px] font-bold text-slate-600 pointer-events-none">
-                                  R$
-                                </span>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={formatCurrencyInputBRL(line.interestAmount || 0)}
-                                  onChange={(e) => handleInterestAmountMaskChange(line.id, e.target.value)}
-                                  onFocus={(e) => e.target.select()}
-                                  placeholder="0,00"
-                                  className="w-full pl-7 pr-2 py-1 bg-white border border-black rounded-md text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black"
-                                />
-                              </div>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formatCurrencyInputBRL(line.interestAmount || 0)}
+                                onChange={(e) => handleInterestAmountMaskChange(line.id, e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                                placeholder="0,00"
+                                className="w-full px-2 py-1 bg-white border border-black rounded-md text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black text-right"
+                              />
                             </div>
 
                             {/* Juros em % */}
-                            <div className="w-28">
-                              <label className="block text-[9px] font-bold text-black uppercase mb-0.5">
-                                Juros (%)
-                              </label>
+                            <div className="w-24">
                               <div className="relative">
                                 <input
                                   type="number"
@@ -1773,9 +1865,9 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                                   value={line.interestPercentage === undefined ? '' : line.interestPercentage}
                                   onChange={(e) => handleInterestPercentChange(line.id, e.target.value)}
                                   placeholder="0,00"
-                                  className="w-full pl-2.5 pr-6 py-1 bg-white border border-black rounded-md text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black"
+                                  className="w-full pl-2 pr-5 py-1 bg-white border border-black rounded-md text-xs font-black text-black focus:outline-none focus:ring-1 focus:ring-black"
                                 />
-                                <span className="absolute inset-y-0 right-0 pr-2 flex items-center text-[10px] font-bold text-slate-600 pointer-events-none">
+                                <span className="absolute inset-y-0 right-0 pr-1.5 flex items-center text-[10px] font-bold text-slate-600 pointer-events-none">
                                   %
                                 </span>
                               </div>
@@ -1784,8 +1876,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                             {/* Resumo visual do Total Corrigido se houver juros */}
                             {lineInterestAmount > 0 && (
                               <div className="shrink-0 text-right pl-2 hidden sm:block border-l border-black">
-                                <span className="text-[9px] font-bold text-black uppercase block">
-                                  Novo Total da Linha:
+                                <span className="text-[9px] font-bold text-black uppercase block leading-none">
+                                  Total Linha:
                                 </span>
                                 <span className="text-xs font-black text-emerald-800">
                                   {formatCurrencyBRL(lineTotalWithInterest)}
@@ -1796,7 +1888,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                         </div>
 
                         {/* 2. CONDIÇÃO DE PARCELAMENTO */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2.5">
                           <div className="flex items-center gap-2">
                             <Layers className="w-4 h-4 text-blue-700" />
                             <span className="text-[11px] font-bold text-black uppercase">
@@ -2127,32 +2219,42 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             </div>
           </div>
 
-          {/* OBSERVAÇÕES / ANOTAÇÕES DO FATURAMENTO */}
-          <div className="p-3.5 bg-[#e0e6f1] border border-black rounded-xl">
-            <label className="block text-[11px] font-bold text-black uppercase mb-1">
-              Anotações Gerais do Faturamento (Opcional)
+          {/* OBSERVAÇÕES / ANOTAÇÕES DA BAIXA */}
+          <div className="p-2.5 bg-[#e0e6f1] border border-black rounded-xl space-y-1">
+            <label htmlFor="billing-observacao-baixa" className="block text-[11px] font-bold text-black uppercase">
+              {isServiceMode ? 'Anotações Gerais do Faturamento (Opcional)' : 'Observação da Baixa (Opcional)'}
             </label>
-            <textarea
-              rows={2}
+            <input
+              id="billing-observacao-baixa"
+              type="text"
               value={billingNotesExtra}
               onChange={(e) => setBillingNotesExtra(e.target.value.toUpperCase())}
-              placeholder="OBSERVAÇÕES INTERNAS, ACORDOS DE PAGAMENTO OU REFERÊNCIAS..."
-              className="w-full px-3 py-2 bg-white border border-black rounded-lg text-xs font-medium text-black uppercase placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-black"
+              placeholder={
+                isServiceMode
+                  ? 'OBSERVAÇÕES INTERNAS, ACORDOS DE PAGAMENTO OU REFERÊNCIAS...'
+                  : 'EX: DESCONTO NEGOCIADO P/ PAGTO ANTECIPADO, JUROS/MULTA POR ATRASO...'
+              }
+              className="w-full px-3 py-1.5 bg-white border border-black rounded-lg text-xs font-medium text-black uppercase placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-black"
             />
           </div>
         </div>
 
         {/* RODAPÉ COM AÇÕES */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-5 sm:px-6 py-3 bg-[#cad4e6] border-t border-black shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-[#cad4e6] border-t border-black shrink-0">
           <div className="text-xs text-black font-semibold truncate mr-2">
-            {isBalanced ? (
+            {!isBalanced ? (
+              <span className="text-rose-700 font-bold">
+                Ajuste os valores para habilitar a confirmação.
+              </span>
+            ) : !isServiceMode && !selectedBankAccountId ? (
+              <span className="text-amber-900 bg-amber-100 border border-black px-2 py-0.5 rounded-md font-bold inline-flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>Selecione o Banco ou Caixa de destino para confirmar a baixa</span>
+              </span>
+            ) : (
               <span className="text-emerald-800 font-bold">
                 ✓ Saldo validado com sucesso.
                 {totalInterestAdded > 0 && ` (+ ${formatCurrencyBRL(totalInterestAdded)} em juros aplicados)`}
-              </span>
-            ) : (
-              <span className="text-rose-700 font-bold">
-                Ajuste os valores para habilitar a confirmação.
               </span>
             )}
           </div>
@@ -2161,12 +2263,12 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
+              className="px-4 py-1.5 text-xs font-bold text-black bg-white hover:bg-gray-100 border border-black rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
             {lines.some((l) => !l.paymentMethod) && isBalanced && (
-              <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1.5 rounded-lg border border-black flex items-center gap-1.5 shadow-2xs">
+              <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-lg border border-black flex items-center gap-1.5 shadow-2xs">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-700" />
                 <span>Selecione a Forma de Pagamento</span>
               </span>
@@ -2177,7 +2279,7 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                 type="button"
                 onClick={() => handleConfirm('save_open')}
                 disabled={!isBalanced || lines.some((l) => !l.paymentMethod)}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
                   isBalanced && lines.every((l) => Boolean(l.paymentMethod))
                     ? 'bg-blue-700 hover:bg-blue-800 text-white border border-blue-950 cursor-pointer'
                     : 'text-slate-600 bg-slate-200 border border-slate-400 cursor-not-allowed'
@@ -2192,9 +2294,9 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
             <button
               type="button"
               onClick={() => handleConfirm('settle')}
-              disabled={!isBalanced || lines.some((l) => !l.paymentMethod)}
-              className={`inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
-                isBalanced && lines.every((l) => Boolean(l.paymentMethod))
+              disabled={!isBalanced || lines.some((l) => !l.paymentMethod) || (!isServiceMode && !selectedBankAccountId)}
+              className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg shadow-xs transition uppercase ${
+                isBalanced && lines.every((l) => Boolean(l.paymentMethod)) && (isServiceMode || Boolean(selectedBankAccountId))
                   ? 'text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-800 cursor-pointer'
                   : 'text-slate-600 bg-slate-200 border border-slate-400 cursor-not-allowed'
               }`}
@@ -2203,6 +2305,8 @@ export const BillingPaymentModal: React.FC<BillingPaymentModalProps> = ({
                   ? 'Distribua o valor total para habilitar'
                   : lines.some((l) => !l.paymentMethod)
                   ? 'Selecione uma forma de pagamento para habilitar'
+                  : !isServiceMode && !selectedBankAccountId
+                  ? 'Selecione o Banco ou Caixa de destino para habilitar'
                   : isServiceMode
                   ? 'Confirmar faturamento e enviar ao Contas a Receber'
                   : 'Confirmar recebimento / quitação com baixa financeira'

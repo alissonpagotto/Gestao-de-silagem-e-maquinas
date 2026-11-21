@@ -15,6 +15,9 @@ import {
 } from '../../lib/cfopCatalog';
 import {
   buildDanfeOficialNfeHtml,
+  buildDanfeViewerToolbarCss,
+  buildDanfeViewerToolbarHtml,
+  buildDanfeViewerZoomScript,
   DanfeOficialItem,
   resolveDestinatarioDanfe,
 } from '../../lib/danfeOficialHtml';
@@ -525,6 +528,24 @@ function buildDacteHtml(
             size: A4 portrait;
             margin: 0mm;
           }
+          ${buildDanfeViewerToolbarCss()}
+          @media screen {
+            html, body {
+              background: #525659;
+            }
+            body {
+              padding: 68px 0 20px 0;
+            }
+            .sefaz-sheet {
+              width: 210mm;
+              min-height: 297mm;
+              height: 297mm;
+              margin: 0 auto;
+              padding: 8mm;
+              background: #ffffff;
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+            }
+          }
           @media print {
             html, body {
               width: 100%;
@@ -536,37 +557,31 @@ function buildDacteHtml(
               print-color-adjust: exact;
             }
             .sefaz-sheet {
-              width: 210mm;
+              width: 100% !important;
               min-height: 297mm;
               height: 297mm;
-              margin: 0 auto !important;
+              margin: 0 !important;
               padding: 8mm !important;
               box-sizing: border-box;
               overflow: hidden;
               box-shadow: none !important;
+              transform: none !important;
+              zoom: 1 !important;
             }
-            .no-print { display: none !important; }
+            .no-print, .danfe-toolbar { display: none !important; }
           }
           * { box-sizing: border-box; }
           html, body { width: 100%; margin: 0; padding: 0; }
           body {
             font-family: Arial, Helvetica, sans-serif;
             color: #000000;
-            background: #e5e7eb;
-            padding: 6mm 0 10mm 0;
             text-transform: uppercase;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .sefaz-sheet {
-            width: 210mm;
-            min-height: 297mm;
-            height: 297mm;
-            margin: 0 auto;
-            padding: 8mm;
             box-sizing: border-box;
             background: #ffffff;
-            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
             display: flex;
             flex-direction: column;
           }
@@ -736,10 +751,7 @@ function buildDacteHtml(
         </style>
       </head>
       <body>
-        <div class="no-print" style="margin-bottom:8px;display:flex;justify-content:flex-end;gap:8px;width:210mm;margin-left:auto;margin-right:auto;">
-          <button onclick="window.focus();window.print()" style="padding:6px 14px;background:#111827;color:#fff;border:1px solid #000;border-radius:4px;font-weight:800;cursor:pointer;font-size:11px;">IMPRIMIR / SALVAR PDF</button>
-          <button onclick="window.close()" style="padding:6px 14px;background:#f3f4f6;color:#000;border:1px solid #000;border-radius:4px;font-weight:800;cursor:pointer;font-size:11px;">FECHAR</button>
-        </div>
+        ${buildDanfeViewerToolbarHtml(`DACTE (CT-e) Nº ${numeroFormatado} - ${corporateName}`)}
 
         <div class="sefaz-sheet">
           <div class="sefaz-top-fixed">
@@ -1079,6 +1091,7 @@ function buildDacteHtml(
           </div>
         </div>
 
+        ${buildDanfeViewerZoomScript('.sefaz-sheet')}
         <script>
           (function () {
             var didPrint = false;
@@ -2070,6 +2083,24 @@ export function buildNotaSaidaHtml(
             size: A4 portrait;
             margin: 0mm;
           }
+          ${buildDanfeViewerToolbarCss()}
+          @media screen {
+            html, body {
+              background: #525659;
+            }
+            body {
+              padding: 68px 0 20px 0;
+            }
+            .sefaz-sheet {
+              width: 210mm;
+              min-height: 297mm;
+              height: 297mm;
+              margin: 0 auto;
+              padding: 8mm 8mm;
+              background: #ffffff;
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+            }
+          }
           @media print {
             html, body {
               width: 100%;
@@ -2081,16 +2112,18 @@ export function buildNotaSaidaHtml(
               print-color-adjust: exact;
             }
             .sefaz-sheet {
-              width: 210mm;
+              width: 100% !important;
               min-height: 297mm;
               height: 297mm;
-              margin: 0 auto !important;
+              margin: 0 !important;
               padding: 8mm 8mm !important;
               box-sizing: border-box;
               overflow: hidden;
               box-shadow: none !important;
+              transform: none !important;
+              zoom: 1 !important;
             }
-            .no-print { display: none !important; }
+            .no-print, .danfe-toolbar { display: none !important; }
           }
           * { box-sizing: border-box; }
           html, body {
@@ -2101,21 +2134,13 @@ export function buildNotaSaidaHtml(
           body {
             font-family: Arial, Helvetica, sans-serif;
             color: #000000;
-            background: #e5e7eb;
-            padding: 6mm 0 10mm 0;
             text-transform: uppercase;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .sefaz-sheet {
-            width: 210mm;
-            min-height: 297mm;
-            height: 297mm;
-            margin: 0 auto;
-            padding: 8mm 8mm;
             box-sizing: border-box;
             background: #ffffff;
-            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
             display: flex;
             flex-direction: column;
           }
@@ -2352,10 +2377,7 @@ export function buildNotaSaidaHtml(
         </style>
       </head>
       <body>
-        <div class="no-print" style="margin-bottom:8px;display:flex;justify-content:flex-end;gap:8px;width:210mm;margin-left:auto;margin-right:auto;">
-          <button onclick="window.focus();window.print()" style="padding:6px 14px;background:#111827;color:#fff;border:1px solid #000;border-radius:4px;font-weight:800;cursor:pointer;font-size:11px;">IMPRIMIR / SALVAR PDF</button>
-          <button onclick="window.close()" style="padding:6px 14px;background:#f3f4f6;color:#000;border:1px solid #000;border-radius:4px;font-weight:800;cursor:pointer;font-size:11px;">FECHAR</button>
-        </div>
+        ${buildDanfeViewerToolbarHtml(`${docMeta.tituloCentro} (${docMeta.sigla}) Nº ${numeroFormatado} - ${corporateName}`)}
 
         <div class="sefaz-sheet">
           <div class="sefaz-top-fixed">
@@ -2488,6 +2510,7 @@ export function buildNotaSaidaHtml(
           </div>
         </div>
 
+        ${buildDanfeViewerZoomScript('.sefaz-sheet')}
         <script>
           (function () {
             var didPrint = false;

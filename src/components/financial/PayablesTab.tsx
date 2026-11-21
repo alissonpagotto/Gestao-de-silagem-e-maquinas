@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { CAIXA_INTERNO_ID, CAIXA_INTERNO_LABEL } from '../../lib/caixaStorage';
 import { formatReversalTooltip } from '../../lib/financialAudit';
 import { PaymentSettlementModal } from './PaymentSettlementModal';
 import { ReverseAuditModal } from './ReverseAuditModal';
@@ -46,6 +47,13 @@ interface PayablesTabProps {
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    settlementNotes?: string;
+    originalAmount?: number;
+    fineAmount?: number;
+    interestAmount?: number;
+    discountAmount?: number;
+    paidAmount?: number;
+    paidViaCashBox?: boolean;
     chequeOrigin?: 'proprio' | 'terceiros';
     checkNumber?: string;
     chequeGoodForDate?: string;
@@ -152,8 +160,11 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
   );
 
   const totalPending = pendingExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  const totalPaid = paidExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  const totalGeneral = competenceExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalPaid = paidExpenses.reduce((acc, e) => acc + (Number(e.paidAmount ?? e.amount) || 0), 0);
+  const totalGeneral = competenceExpenses.reduce(
+    (acc, e) => acc + (e.status === 'pago' ? Number(e.paidAmount ?? e.amount) || 0 : Number(e.amount) || 0),
+    0
+  );
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -534,9 +545,35 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                         )}
                       </td>
 
-                      {/* Valor */}
-                      <td className="py-1 px-2.5 text-right font-black text-black whitespace-nowrap text-xs font-mono">
-                        {formatCurrencyBRL(exp.amount)}
+                      {/* Valor Original + Encargos / Descontos / Valor Real Pago */}
+                      <td className="py-1 px-2.5 text-right whitespace-nowrap font-mono">
+                        {(() => {
+                          const originalVal = Number(exp.originalAmount ?? exp.amount) || 0;
+                          const charges = (Number(exp.fineAmount) || 0) + (Number(exp.interestAmount) || 0);
+                          const discount = Number(exp.discountAmount) || 0;
+                          const paidVal = Number(exp.paidAmount ?? exp.amount) || 0;
+                          const hasAdjustments = charges > 0.009 || discount > 0.009 || (isPaid && Math.abs(paidVal - originalVal) > 0.009);
+                          return (
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className="font-black text-black text-xs">{formatCurrencyBRL(originalVal)}</span>
+                              {charges > 0.009 && (
+                                <span className="text-[10px] font-semibold text-red-700">
+                                  + {formatCurrencyBRL(charges)} (Juros/Multa)
+                                </span>
+                              )}
+                              {discount > 0.009 && (
+                                <span className="text-[10px] font-semibold text-emerald-700">
+                                  - {formatCurrencyBRL(discount)} (Desconto)
+                                </span>
+                              )}
+                              {isPaid && hasAdjustments && (
+                                <span className="text-[10px] font-black text-slate-900 bg-white/80 px-1 rounded border border-slate-300 mt-0.5">
+                                  Valor Real Pago: {formatCurrencyBRL(paidVal)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Status / Ações */}
@@ -704,12 +741,14 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
           kind="pagar"
           titleDescription={reversingExpense.description}
           partyName={reversingExpense.supplier}
-          amount={reversingExpense.amount}
+          amount={Number(reversingExpense.paidAmount ?? reversingExpense.amount) || 0}
           dueDate={reversingExpense.dueDate}
           paymentDate={reversingExpense.paymentDate}
           bankOrCashLabel={
-            reversingExpense.bankAccountName ||
-            (reversingExpense.paymentMethod === 'dinheiro' ? 'Caixa / Dinheiro' : reversingExpense.paymentMethod)
+            reversingExpense.paidViaCashBox || reversingExpense.bankAccountId === CAIXA_INTERNO_ID
+              ? CAIXA_INTERNO_LABEL
+              : reversingExpense.bankAccountName ||
+                (reversingExpense.paymentMethod === 'dinheiro' ? 'Caixa / Dinheiro' : reversingExpense.paymentMethod)
           }
         />
       )}

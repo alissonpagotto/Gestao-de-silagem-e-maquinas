@@ -14,6 +14,7 @@ import {
   Search,
   Info,
   Settings,
+  Wallet,
 } from 'lucide-react';
 import { Expense, BankAccount, Employee, PaymentMethod, FinanceiroCheque } from '../../types';
 import {
@@ -22,6 +23,11 @@ import {
   getStoredFinanceiroCheques,
   saveStoredFinanceiroCheques,
 } from '../../lib/storage';
+import {
+  CAIXA_INTERNO_ID,
+  CAIXA_INTERNO_LABEL,
+  getCaixaInternoSaldoAtual,
+} from '../../lib/caixaStorage';
 import { fetchFinanceiroCheques, saveFinanceiroCheque } from '../../lib/supabaseService';
 import { BankLogoIcon } from './BankLogoIcon';
 import {
@@ -31,6 +37,23 @@ import {
   extractGlobalPaymentMethodFromRecord,
 } from '../../lib/paymentMethodsStorage';
 import { PaymentMethodsManagerModal } from '../common/PaymentMethodsManager';
+
+const formatCurrencyInputMask = (val: number | undefined | null): string => {
+  if (val === undefined || val === null || isNaN(val) || val === 0) return '0,00';
+  return val.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const parseCurrencyMaskToFloat = (raw: string): number => {
+  if (!raw) return 0;
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return 0;
+  const cents = parseInt(digits, 10);
+  if (isNaN(cents)) return 0;
+  return Number((cents / 100).toFixed(2));
+};
 
 export interface PaymentSettlementData {
   paymentDate: string;
@@ -42,6 +65,13 @@ export interface PaymentSettlementData {
   paymentMethod: PaymentMethod;
   authenticationCode?: string;
   notes?: string;
+  settlementNotes?: string;
+  originalAmount?: number;
+  fineAmount?: number;
+  interestAmount?: number;
+  discountAmount?: number;
+  paidAmount?: number;
+  paidViaCashBox?: boolean;
   chequeOrigin?: 'proprio' | 'terceiros';
   checkNumber?: string;
   chequeGoodForDate?: string;
@@ -66,6 +96,13 @@ interface PaymentSettlementModalProps {
     paymentMethod: PaymentMethod;
     authenticationCode?: string;
     notes?: string;
+    settlementNotes?: string;
+    originalAmount?: number;
+    fineAmount?: number;
+    interestAmount?: number;
+    discountAmount?: number;
+    paidAmount?: number;
+    paidViaCashBox?: boolean;
     chequeOrigin?: 'proprio' | 'terceiros';
     checkNumber?: string;
     chequeGoodForDate?: string;
@@ -94,6 +131,10 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [authenticationCode, setAuthenticationCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [fineAmount, setFineAmount] = useState<number>(0);
+  const [interestAmount, setInterestAmount] = useState<number>(0);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [caixaInternoBalance, setCaixaInternoBalance] = useState<number>(() => getCaixaInternoSaldoAtual());
   const [errorMessage, setErrorMessage] = useState('');
 
   // Estados específicos para Cheque
@@ -114,6 +155,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
 
     const refreshCustody = () => {
       setCustodyCheques(getStoredFinanceiroCheques());
+      setCaixaInternoBalance(getCaixaInternoSaldoAtual());
     };
 
     refreshCustody();
@@ -124,9 +166,11 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
       .catch(() => {});
 
     window.addEventListener('financeiro_cheques_updated', refreshCustody);
+    window.addEventListener('agrocontrol_caixa_operacional_updated', refreshCustody);
     window.addEventListener('storage', refreshCustody);
     return () => {
       window.removeEventListener('financeiro_cheques_updated', refreshCustody);
+      window.removeEventListener('agrocontrol_caixa_operacional_updated', refreshCustody);
       window.removeEventListener('storage', refreshCustody);
     };
   }, [isOpen]);
@@ -146,6 +190,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
 
     setErrorMessage('');
     setPaymentDate(today);
+    setCaixaInternoBalance(getCaixaInternoSaldoAtual());
 
     // Inicializa Fornecedor do Crédito
     setCreditSupplier(expense.creditSupplier || expense.supplier || '');
@@ -157,6 +202,11 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
     } else {
       setPaymentMethod('pix');
     }
+
+    // Valores de Multa, Juros e Desconto
+    setFineAmount(Number(expense.fineAmount) || 0);
+    setInterestAmount(Number(expense.interestAmount) || 0);
+    setDiscountAmount(Number(expense.discountAmount) || 0);
 
     // Campos de Cheque
     setChequeOrigin(expense.chequeOrigin || 'proprio');
@@ -177,23 +227,19 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
       setCustomEmployeeName('');
     }
 
-    // Seleção de conta bancária padrão
-    if (expense.bankAccountId && bankAccounts.some((a) => a.id === expense.bankAccountId)) {
-      setSelectedBankAccountId(expense.bankAccountId);
-    } else if (bankAccounts.length > 0) {
-      setSelectedBankAccountId(bankAccounts[0].id);
-    } else {
-      setSelectedBankAccountId('');
-    }
+    // Mantém Qual Banco / Caixa em branco por padrão para exigir escolha explícita do usuário
+    setSelectedBankAccountId('');
 
     setAuthenticationCode(expense.paymentAuthenticationCode || '');
-    setNotes(expense.notes || '');
+    setNotes(expense.settlementNotes || '');
   }, [isOpen, expense?.id]);
 
   // Lista de funcionários ativos
   const activeEmployees = useMemo(() => {
     return employees.filter((e) => e.active !== false);
   }, [employees]);
+
+  const isCashBoxSelected = selectedBankAccountId === CAIXA_INTERNO_ID;
 
   // Conta bancária selecionada
   const selectedAccount = useMemo(() => {
@@ -225,11 +271,19 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
 
   const isThirdPartyCheque = paymentMethod === 'cheque' && chequeOrigin === 'terceiros';
   const isOwnCheque = paymentMethod === 'cheque' && chequeOrigin === 'proprio';
+  const isMissingBankAccount =
+    !isThirdPartyCheque && (!selectedBankAccountId || (!isCashBoxSelected && !selectedAccount));
 
-  // Saldo após o débito calculado
-  const accountBalanceBefore = selectedAccount?.balance ?? 0;
-  const expenseAmount = expense?.amount ?? 0;
-  const accountBalanceAfter = accountBalanceBefore - expenseAmount;
+  // Cálculo Financeiro em Tempo Real: Valor Original + Multa + Juros - Desconto = Valor Efetivo Pago
+  const originalExpenseAmount = Number(expense?.originalAmount ?? expense?.amount ?? 0) || 0;
+  const effectivePaidAmount = useMemo(() => {
+    const net = originalExpenseAmount + (Number(fineAmount) || 0) + (Number(interestAmount) || 0) - (Number(discountAmount) || 0);
+    return Math.max(0, Number(net.toFixed(2)));
+  }, [originalExpenseAmount, fineAmount, interestAmount, discountAmount]);
+
+  // Saldo após o débito calculado (Conta Bancária ou Caixa Interno)
+  const accountBalanceBefore = isCashBoxSelected ? caixaInternoBalance : (selectedAccount?.balance ?? 0);
+  const accountBalanceAfter = Number((accountBalanceBefore - effectivePaidAmount).toFixed(2));
 
   // Análise de vencimento
   const dueDate = expense?.dueDate || expense?.date || '';
@@ -276,10 +330,10 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
       }
     }
 
-    // Validação 3: Qual Banco (apenas quando NÃO for Cheque de Terceiros)
+    // Validação 3: Qual Banco / Caixa Interno (apenas quando NÃO for Cheque de Terceiros)
     if (!isThirdPartyCheque) {
-      if (!selectedBankAccountId || !selectedAccount) {
-        setErrorMessage('Selecione obrigatoriamente "Qual Banco" (Conta Bancária de onde sairá o dinheiro).');
+      if (!selectedBankAccountId || (!isCashBoxSelected && !selectedAccount)) {
+        setErrorMessage('Selecione obrigatoriamente a Conta Bancária ou Caixa Interno de onde sairá o dinheiro.');
         return;
       }
     }
@@ -370,19 +424,35 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
       finalNotes = finalNotes ? `${finalNotes} | ${finalSummary}` : finalSummary;
     }
 
+    const resolvedBankId = isThirdPartyCheque
+      ? ''
+      : isCashBoxSelected
+        ? CAIXA_INTERNO_ID
+        : selectedAccount!.id;
+    const resolvedBankName = isThirdPartyCheque
+      ? `Cheque de Terceiros (${finalCheckNumber || 'Custódia'})`
+      : isCashBoxSelected
+        ? CAIXA_INTERNO_LABEL
+        : selectedAccount!.name;
+
     onConfirmSettlement({
       expenseId: expense.id,
       paymentDate,
       paidByEmployeeId: employeeId,
       paidByEmployeeName: employeeName,
-      bankAccountId: isThirdPartyCheque ? '' : selectedAccount!.id,
-      bankAccountName: isThirdPartyCheque
-        ? `Cheque de Terceiros (${finalCheckNumber || 'Custódia'})`
-        : selectedAccount!.name,
+      bankAccountId: resolvedBankId,
+      bankAccountName: resolvedBankName,
       creditSupplier: resolvedSupplier,
       paymentMethod,
       authenticationCode: authenticationCode.trim() || undefined,
       notes: finalNotes,
+      settlementNotes: notes.trim() || undefined,
+      originalAmount: originalExpenseAmount,
+      fineAmount: Number(fineAmount) || 0,
+      interestAmount: Number(interestAmount) || 0,
+      discountAmount: Number(discountAmount) || 0,
+      paidAmount: effectivePaidAmount,
+      paidViaCashBox: !isThirdPartyCheque && isCashBoxSelected,
       chequeOrigin: paymentMethod === 'cheque' ? chequeOrigin : undefined,
       checkNumber: finalCheckNumber,
       chequeGoodForDate: isOwnCheque ? ownChequeGoodForDate : undefined,
@@ -393,7 +463,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
     onClose();
   };
 
-  const diffCustody = selectedCustodyTotal - expenseAmount;
+  const diffCustody = selectedCustodyTotal - effectivePaidAmount;
 
   return (
     <div
@@ -401,20 +471,20 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 overflow-hidden overflow-y-hidden animate-in fade-in"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.60)' }}
     >
-      <div className="w-[88vw] max-w-[1300px] h-[92vh] max-h-[92vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
+      <div className="w-[92vw] max-w-[1260px] max-h-[94vh] bg-[#cad4e6] rounded-xl shadow-2xl overflow-hidden border border-black my-auto flex flex-col justify-between mx-auto">
         {/* CABEÇALHO */}
-        <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between text-slate-900 shrink-0 bg-[#cad4e6] border-b border-black">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white flex items-center justify-center text-slate-900 shrink-0 border border-black shadow-2xs">
+        <div className="px-4 py-2 flex items-center justify-between text-slate-900 shrink-0 bg-[#cad4e6] border-b border-black">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-slate-900 shrink-0 border border-black shadow-2xs">
               <FileCheck2 className="w-4 h-4 text-emerald-600" />
             </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black flex items-center gap-1.5 leading-tight">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-black leading-tight">
                 BAIXA DE CONTA A PAGAR
               </h3>
-              <p className="text-[11px] text-slate-800 font-medium leading-tight">
-                Identificação de responsável, vencimento e débito em conta bancária ou repasse de custódia
-              </p>
+              <span className="text-[11px] text-slate-800 font-medium hidden sm:inline leading-tight">
+                • Responsável, vencimento e débito em conta ou caixa interno
+              </span>
             </div>
           </div>
 
@@ -422,7 +492,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
             type="button"
             id="btn-fechar-modal-baixa"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-800 hover:text-black hover:bg-black/10 transition cursor-pointer"
+            className="p-1 rounded-lg text-slate-800 hover:text-black hover:bg-black/10 transition cursor-pointer"
             title="Fechar Modal"
           >
             <X className="w-4 h-4 text-black" />
@@ -434,12 +504,12 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
           onSubmit={handleSubmit}
           className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#cad4e6] text-black"
         >
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 space-y-2">
           {/* Alerta de Validação */}
           {errorMessage && (
             <div
               id="alerta-erro-baixa"
-              className="p-3 bg-rose-100 border border-black rounded-xl flex items-center space-x-2 text-rose-900 text-xs font-black animate-in fade-in"
+              className="p-2 bg-rose-100 border border-black rounded-lg flex items-center space-x-2 text-rose-900 text-xs font-black animate-in fade-in"
             >
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{errorMessage}</span>
@@ -447,83 +517,173 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
           )}
 
           {/* 1. CARD RESUMO DA DESPESA A PAGAR */}
-          <div className="bg-[#e0e6f1] rounded-2xl p-4 border border-black shadow-2xs space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
-                  Título Selecionado
-                </span>
-                <h4 className="text-sm sm:text-base font-black text-black">
-                  {expense.supplier || 'Fornecedor não especificado'}
-                </h4>
-                <p className="text-xs text-slate-800 font-medium">
+          <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
+                    Título:
+                  </span>
+                  <h4 className="text-xs sm:text-sm font-black text-black truncate">
+                    {expense.supplier || 'Fornecedor não especificado'}
+                  </h4>
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-gray-400 text-black text-[10px] font-bold">
+                    {expense.categoryName || 'Geral'}
+                  </span>
+                  {expense.invoiceNumber && (
+                    <span className="text-[10px] text-slate-700 font-mono font-bold">
+                      NF: {expense.invoiceNumber}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-800 font-medium truncate mt-0.5">
                   {expense.description}
                 </p>
               </div>
 
-              <div className="text-right shrink-0">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 block">
-                  Valor a Pagar
-                </span>
-                <div className="text-xl sm:text-2xl font-black text-black font-['Outfit']">
-                  {formatCurrencyBRL(expense.amount)}
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="text-right">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-700 block leading-none">
+                    Vencimento Original
+                  </span>
+                  <div className="flex items-center justify-end gap-1 mt-0.5 text-xs font-bold text-black font-mono">
+                    <Clock className="w-3 h-3 text-slate-700" />
+                    <span>{dueDate ? formatDateBR(dueDate) : 'N/I'}</span>
+                    {dueDate && isOverdue && (
+                      <span className="text-[9px] font-black bg-rose-100 text-rose-800 px-1 rounded border border-rose-300">
+                        Atraso
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right border-l border-black/20 pl-3">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-700 block leading-none">
+                    Original
+                  </span>
+                  <div className="text-xs sm:text-sm font-bold text-slate-700 font-['Outfit']">
+                    {formatCurrencyBRL(originalExpenseAmount)}
+                  </div>
+                </div>
+                <div className="text-right border-l border-black/20 pl-3">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 block leading-none">
+                    Efetivo a Pagar
+                  </span>
+                  <div className="text-base sm:text-lg font-black text-black font-['Outfit'] leading-tight">
+                    {formatCurrencyBRL(effectivePaidAmount)}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Linha Informativa: Categoria e Data de Vencimento Original */}
-            <div className="pt-2 border-t border-black/20 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-800">
-              <div className="flex items-center space-x-2">
-                <span className="px-2 py-0.5 rounded-md bg-white border border-gray-400 text-black text-[11px] font-bold">
-                  {expense.categoryName || 'Geral'}
+          {/* 1B. BLOCO DE CÁLCULO FINANCEIRO EM TEMPO REAL (MULTA, JUROS, DESCONTO, VALOR EFETIVO PAGO) */}
+          <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-black">
+                Cálculo Financeiro em Tempo Real (Encargos &amp; Descontos)
+              </span>
+              <span className="text-[10px] font-bold text-slate-700">
+                Original + Multa + Juros - Desconto = Valor Efetivo Pago
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 items-stretch">
+              <div className="bg-slate-100 border border-slate-400 rounded-lg p-2 flex flex-col justify-between">
+                <span className="text-[10px] font-black uppercase text-slate-700 block leading-tight">
+                  Valor Original (R$)
                 </span>
-                {expense.invoiceNumber && (
-                  <span className="text-[11px] text-slate-700 font-mono">
-                    NF: {expense.invoiceNumber}
-                  </span>
-                )}
+                <div className="text-sm font-black text-slate-900 font-mono mt-0.5">
+                  {formatCurrencyBRL(originalExpenseAmount)}
+                </div>
               </div>
 
-              <div className="flex items-center space-x-1.5 text-xs">
-                <Clock className="w-3.5 h-3.5 text-slate-700" />
-                <span>Vencimento Original:</span>
-                <strong className="font-bold text-black font-mono">
-                  {dueDate ? formatDateBR(dueDate) : 'Não informado'}
-                </strong>
-                {dueDate && isOverdue && (
-                  <span className="text-[10px] font-black bg-rose-100 text-rose-800 px-1.5 py-0.2 rounded border border-rose-300">
-                    Liquidação em Atraso
-                  </span>
-                )}
+              <div className="bg-white border border-gray-400 rounded-lg p-2 flex flex-col justify-between">
+                <label htmlFor="input-multa-baixa" className="text-[10px] font-black uppercase text-rose-700 block mb-0.5 leading-tight">
+                  (+) Multa (R$)
+                </label>
+                <input
+                  id="input-multa-baixa"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInputMask(fineAmount)}
+                  onChange={(e) => {
+                    setFineAmount(parseCurrencyMaskToFloat(e.target.value));
+                    setErrorMessage('');
+                  }}
+                  className="w-full px-2 py-1 text-xs sm:text-sm font-black font-mono text-rose-700 bg-rose-50/40 border border-slate-400 rounded-md focus:ring-2 focus:ring-rose-500 outline-hidden text-right"
+                />
+              </div>
+
+              <div className="bg-white border border-gray-400 rounded-lg p-2 flex flex-col justify-between">
+                <label htmlFor="input-juros-baixa" className="text-[10px] font-black uppercase text-rose-700 block mb-0.5 leading-tight">
+                  (+) Juros / Encargos (R$)
+                </label>
+                <input
+                  id="input-juros-baixa"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInputMask(interestAmount)}
+                  onChange={(e) => {
+                    setInterestAmount(parseCurrencyMaskToFloat(e.target.value));
+                    setErrorMessage('');
+                  }}
+                  className="w-full px-2 py-1 text-xs sm:text-sm font-black font-mono text-rose-700 bg-rose-50/40 border border-slate-400 rounded-md focus:ring-2 focus:ring-rose-500 outline-hidden text-right"
+                />
+              </div>
+
+              <div className="bg-white border border-gray-400 rounded-lg p-2 flex flex-col justify-between">
+                <label htmlFor="input-desconto-baixa" className="text-[10px] font-black uppercase text-emerald-700 block mb-0.5 leading-tight">
+                  (-) Desconto / Abatimento (R$)
+                </label>
+                <input
+                  id="input-desconto-baixa"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInputMask(discountAmount)}
+                  onChange={(e) => {
+                    setDiscountAmount(parseCurrencyMaskToFloat(e.target.value));
+                    setErrorMessage('');
+                  }}
+                  className="w-full px-2 py-1 text-xs sm:text-sm font-black font-mono text-emerald-700 bg-emerald-50/40 border border-slate-400 rounded-md focus:ring-2 focus:ring-emerald-600 outline-hidden text-right"
+                />
+              </div>
+
+              <div className="bg-emerald-50 border-2 border-emerald-700 rounded-lg p-2 flex flex-col justify-between shadow-2xs">
+                <span className="text-[10px] font-black uppercase text-emerald-900 block leading-tight">
+                  (=) Efetivo Pago (R$)
+                </span>
+                <div className="text-sm sm:text-base font-black text-emerald-800 font-['Outfit'] mt-0.5 text-right">
+                  {formatCurrencyBRL(effectivePaidAmount)}
+                </div>
               </div>
             </div>
           </div>
 
           {/* 2. BLOCO MOVIDO PARA O TOPO: DATA DO PAGAMENTO EFETIVO & FORMA DE PAGAMENTO UTILIZADA */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {/* Data do Pagamento */}
-            <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-1.5">
-              <label htmlFor="input-data-pagamento-baixa" className="block text-xs font-black text-black flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-[#0963cb]" />
-                <span>Data do Pagamento Efetivo <span className="text-rose-600">*</span></span>
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1">
+              <label htmlFor="input-data-pagamento-baixa" className="block text-xs font-black text-black flex items-center justify-between gap-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#0963cb]" />
+                  <span>Data do Pagamento Efetivo <span className="text-rose-600">*</span></span>
+                </span>
+                <span className="text-[10px] text-slate-700 font-medium">
+                  {paymentDate === today ? 'Hoje' : formatDateBR(paymentDate)}
+                </span>
               </label>
-              <div className="relative">
-                <input
-                  id="input-data-pagamento-baixa"
-                  type="date"
-                  required
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
-                />
-              </div>
-              <span className="text-[10px] text-slate-700 font-medium block">
-                {paymentDate === today ? 'Liquidando na data de hoje' : `Data selecionada: ${formatDateBR(paymentDate)}`}
-              </span>
+              <input
+                id="input-data-pagamento-baixa"
+                type="date"
+                required
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
+              />
             </div>
 
             {/* Forma de Pagamento (Sincronizada com Lista Única Global) */}
-            <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-1.5">
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1">
               <div className="flex items-center justify-between">
                 <label htmlFor="select-metodo-pagamento-baixa" className="block text-xs font-black text-black flex items-center gap-1.5">
                   <WalletCards className="w-3.5 h-3.5 text-[#0963cb]" />
@@ -546,7 +706,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                   setPaymentMethod(e.target.value as PaymentMethod);
                   setErrorMessage('');
                 }}
-                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-black rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer uppercase"
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-black rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer uppercase"
               >
                 {activeGlobalPaymentMethods.map((m) => {
                   const key = getPaymentMethodKey(m);
@@ -563,9 +723,6 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                     </option>
                   )}
               </select>
-              <span className="text-[10px] text-slate-700 font-medium block">
-                Canal bancário ou meio de pagamento utilizado
-              </span>
             </div>
           </div>
 
@@ -779,17 +936,17 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
             </div>
           )}
 
-          {/* 4. QUAL BANCO (Oculto quando Cheque de Terceiros - Repasse da Custódia) */}
+          {/* 4. QUAL BANCO / CAIXA INTERNO (Oculto quando Cheque de Terceiros - Repasse da Custódia) */}
           {!isThirdPartyCheque && (
-            <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-2">
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1.5">
               <label
                 htmlFor="select-conta-baixa"
                 className="block text-xs font-black text-black flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <Landmark className="w-4 h-4 text-[#0963cb]" />
+                  <Landmark className="w-3.5 h-3.5 text-[#0963cb]" />
                   <span>
-                    Qual Banco (Conta Bancária de onde sairá o dinheiro) <span className="text-rose-600">*</span>
+                    Qual Banco / Caixa de onde sairá o dinheiro <span className="text-rose-600">*</span>
                   </span>
                 </span>
                 <span className="text-[10px] text-rose-600 font-bold bg-rose-50 border border-rose-300 px-1.5 py-0.5 rounded">
@@ -797,74 +954,79 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                 </span>
               </label>
 
-              {bankAccounts.length === 0 ? (
-                <div className="p-3 bg-amber-50 border border-black rounded-xl text-xs text-amber-900 font-medium">
-                  Nenhuma conta bancária cadastrada no sistema. Cadastre uma conta na aba "Contas Bancárias" antes de realizar a baixa.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-center">
-                  <select
-                    id="select-conta-baixa"
-                    required
-                    value={selectedBankAccountId}
-                    onChange={(e) => {
-                      setSelectedBankAccountId(e.target.value);
-                      setErrorMessage('');
-                    }}
-                    className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
-                  >
-                    <option value="">-- Selecione o Banco / Conta para Saída do Dinheiro --</option>
-                    {bankAccounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.bankCode ? `[${acc.bankCode}] ` : ''}
-                        {acc.name} ({acc.bankName}) - Saldo: {formatCurrencyBRL(acc.balance)}
-                      </option>
-                    ))}
-                  </select>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 items-center">
+                <select
+                  id="select-conta-baixa"
+                  required
+                  value={selectedBankAccountId}
+                  onChange={(e) => {
+                    setSelectedBankAccountId(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
+                >
+                  <option value="">-- Selecione o Banco ou Caixa --</option>
+                  <option value={CAIXA_INTERNO_ID}>
+                    {CAIXA_INTERNO_LABEL} — Saldo em Dinheiro: {formatCurrencyBRL(caixaInternoBalance)}
+                  </option>
+                  {bankAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.bankCode ? `[${acc.bankCode}] ` : ''}
+                      {acc.name} ({acc.bankName}) - Saldo: {formatCurrencyBRL(acc.balance)}
+                    </option>
+                  ))}
+                </select>
 
-                  {/* Pré-visualização do impacto no saldo */}
-                  {selectedAccount && (
-                    <div className="p-2.5 rounded-xl bg-white border border-gray-400 flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
-                          <BankLogoIcon code={selectedAccount.bankCode} name={selectedAccount.bankName} size={24} />
-                        </div>
-                        <div>
-                          <div className="font-bold text-black text-xs">{selectedAccount.name}</div>
-                          <div className="text-[11px] text-slate-600">
-                            {selectedAccount.bankName} {selectedAccount.accountNumber ? `• CC: ${selectedAccount.accountNumber}` : ''}
-                          </div>
-                        </div>
+                {/* Pré-visualização do impacto no saldo (Caixa Interno ou Conta Bancária) */}
+                {(isCashBoxSelected || selectedAccount) && (
+                  <div className="px-2.5 py-1.5 rounded-lg bg-white border border-gray-400 flex items-center justify-between text-xs">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 overflow-hidden shadow-2xs bg-emerald-50 border border-emerald-200">
+                        {isCashBoxSelected ? (
+                          <Wallet className="w-3.5 h-3.5 text-emerald-700" />
+                        ) : (
+                          <BankLogoIcon code={selectedAccount!.bankCode} name={selectedAccount!.bankName} size={22} />
+                        )}
                       </div>
-
-                      <div className="text-right">
-                        <div className="text-[10px] text-slate-600 font-semibold">
-                          Saldo Atual: <strong className="text-black">{formatCurrencyBRL(accountBalanceBefore)}</strong>
+                      <div className="min-w-0">
+                        <div className="font-bold text-black text-xs truncate">
+                          {isCashBoxSelected ? CAIXA_INTERNO_LABEL : selectedAccount!.name}
                         </div>
-                        <div className="text-[11px] font-black flex items-center justify-end gap-1">
-                          <span className="text-slate-600">Após Débito:</span>
-                          <span className={accountBalanceAfter < 0 ? 'text-rose-600' : 'text-emerald-700'}>
-                            {formatCurrencyBRL(accountBalanceAfter)}
-                          </span>
+                        <div className="text-[10px] text-slate-600 truncate">
+                          {isCashBoxSelected
+                            ? 'Sangria automática no Caixa'
+                            : `${selectedAccount!.bankName} ${selectedAccount!.accountNumber ? `• CC: ${selectedAccount!.accountNumber}` : ''}`}
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
+
+                    <div className="text-right shrink-0 pl-2">
+                      <div className="text-[10px] text-slate-600 font-semibold">
+                        Saldo: <strong className="text-black">{formatCurrencyBRL(accountBalanceBefore)}</strong>
+                      </div>
+                      <div className="text-[11px] font-black flex items-center justify-end gap-1">
+                        <span className="text-slate-600">Após:</span>
+                        <span className={accountBalanceAfter < 0 ? 'text-rose-600' : 'text-emerald-700'}>
+                          {formatCurrencyBRL(accountBalanceAfter)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* 5. FORNECEDOR DO CRÉDITO & RESPONSÁVEL PELO PAGAMENTO */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
             {/* Qual o Fornecedor do Crédito */}
-            <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-2">
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1">
               <label
                 htmlFor="input-fornecedor-credito"
                 className="block text-xs font-black text-black flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-[#0963cb]" />
+                  <Building2 className="w-3.5 h-3.5 text-[#0963cb]" />
                   <span>
                     Qual o Fornecedor do Crédito (Favorecido) <span className="text-rose-600">*</span>
                   </span>
@@ -884,21 +1046,18 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                   setErrorMessage('');
                 }}
                 placeholder="Ex: John Deere Financial, Banco do Brasil, Fornecedor X..."
-                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
               />
-              <span className="text-[10px] text-slate-700 font-medium block">
-                Informe a instituição financeira, banco ou fornecedor favorecido deste pagamento
-              </span>
             </div>
 
             {/* Responsável pelo Pagamento */}
-            <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-2">
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1">
               <label
                 htmlFor="select-funcionario-baixa"
                 className="block text-xs font-black text-black flex items-center justify-between"
               >
                 <span className="flex items-center gap-1.5">
-                  <UserCheck className="w-4 h-4 text-[#0963cb]" />
+                  <UserCheck className="w-3.5 h-3.5 text-[#0963cb]" />
                   <span>
                     Responsável pelo Pagamento (Quem realizou) <span className="text-rose-600">*</span>
                   </span>
@@ -914,7 +1073,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                   setSelectedEmployeeId(e.target.value);
                   setErrorMessage('');
                 }}
-                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs cursor-pointer"
               >
                 <option value="">-- Selecione o Funcionário Responsável --</option>
                 {activeEmployees.map((emp) => (
@@ -932,56 +1091,91 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                     value={customEmployeeName}
                     onChange={(e) => setCustomEmployeeName(e.target.value)}
                     placeholder="Digite o nome completo de quem realizou o pagamento..."
-                    className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
+                    className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
                   />
                 </div>
               )}
-              <span className="text-[10px] text-slate-700 font-medium block">
-                Registrado para auditoria, prestação de contas e histórico de conformidade financeira
-              </span>
             </div>
           </div>
 
-          {/* 6. CÓDIGO DE AUTENTICAÇÃO / COMPROVANTE (OPCIONAL) */}
-          <div className="bg-[#e0e6f1] rounded-2xl p-3.5 border border-black shadow-2xs space-y-1.5">
-            <label htmlFor="input-codigo-autenticacao-baixa" className="block text-xs font-black text-black flex items-center justify-between">
-              <span>Código de Autenticação Bancária / ID da Transação (Opcional)</span>
-              <span className="text-[10px] text-slate-700 font-semibold">Comprovante</span>
-            </label>
-            <input
-              id="input-codigo-autenticacao-baixa"
-              type="text"
-              value={authenticationCode}
-              onChange={(e) => setAuthenticationCode(e.target.value)}
-              placeholder="Ex: E1234567820260912... ou Nº do documento"
-              className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-xl focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs font-mono"
-            />
+          {/* 6. CÓDIGO DE AUTENTICAÇÃO & OBSERVAÇÃO DA BAIXA (OPCIONAL) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1">
+              <label htmlFor="input-codigo-autenticacao-baixa" className="block text-xs font-black text-black flex items-center justify-between">
+                <span>Código de Autenticação Bancária / ID da Transação (Opcional)</span>
+                <span className="text-[10px] text-slate-700 font-semibold">Comprovante</span>
+              </label>
+              <input
+                id="input-codigo-autenticacao-baixa"
+                type="text"
+                value={authenticationCode}
+                onChange={(e) => setAuthenticationCode(e.target.value)}
+                placeholder="Ex: E1234567820260912... ou Nº do documento"
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs font-mono"
+              />
+            </div>
+
+            <div className="bg-[#e0e6f1] rounded-xl p-2.5 border border-black shadow-2xs space-y-1">
+              <label htmlFor="input-observacao-baixa" className="block text-xs font-black text-black flex items-center justify-between">
+                <span>Observação da Baixa (Opcional)</span>
+                <span className="text-[10px] text-slate-700 font-semibold">Auditoria</span>
+              </label>
+              <input
+                id="input-observacao-baixa"
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Ex: Desconto negociado p/ pagto antecipado, multa por atraso..."
+                className="w-full px-2.5 py-1.5 text-xs sm:text-sm font-semibold bg-white text-black border border-gray-400 rounded-lg focus:ring-2 focus:ring-[#0963cb] outline-hidden shadow-2xs"
+              />
+            </div>
           </div>
 
           </div>
 
           {/* BOTÕES DE AÇÃO */}
-          <div className="flex items-center justify-end space-x-2 px-4 sm:px-5 py-3 border-t border-black bg-[#cad4e6] shrink-0">
-            <button
-              type="button"
-              id="btn-cancelar-baixa"
-              onClick={onClose}
-              className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-white border border-black text-black hover:bg-slate-100 cursor-pointer transition shadow-2xs"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              id="btn-confirmar-baixa-pagamento"
-              className="px-6 py-2 text-xs sm:text-sm font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5"
-            >
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span>
-                {isThirdPartyCheque
-                  ? 'Confirmar Baixa com Cheque(s) de Terceiros'
-                  : 'Confirmar Baixa e Debitar Conta'}
-              </span>
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-t border-black bg-[#cad4e6] shrink-0">
+            <div className="text-[11px] font-bold">
+              {isMissingBankAccount ? (
+                <span className="text-amber-900 bg-amber-100 border border-black px-2 py-1 rounded-md inline-flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Selecione o Banco ou Caixa para liberar a baixa</span>
+                </span>
+              ) : (
+                <span className="text-emerald-900">✓ Pronto para confirmar a liquidação.</span>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                id="btn-cancelar-baixa"
+                onClick={onClose}
+                className="px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-white border border-black text-black hover:bg-slate-100 cursor-pointer transition shadow-2xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                id="btn-confirmar-baixa-pagamento"
+                disabled={isMissingBankAccount}
+                title={isMissingBankAccount ? 'Selecione o Banco ou Caixa de onde sairá o dinheiro' : 'Confirmar liquidação do título'}
+                className={`px-5 py-1.5 text-xs sm:text-sm font-black rounded-lg shadow-md transition flex items-center space-x-1.5 ${
+                  isMissingBankAccount
+                    ? 'bg-slate-300 text-slate-600 border border-slate-400 cursor-not-allowed shadow-none'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-800 cursor-pointer active:scale-98'
+                }`}
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>
+                  {isThirdPartyCheque
+                    ? 'Confirmar Baixa com Cheque(s) de Terceiros'
+                    : isCashBoxSelected
+                      ? `Confirmar Baixa (${formatCurrencyBRL(effectivePaidAmount)}) via Caixa Interno`
+                      : `Confirmar Baixa e Debitar ${formatCurrencyBRL(effectivePaidAmount)}`}
+                </span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
