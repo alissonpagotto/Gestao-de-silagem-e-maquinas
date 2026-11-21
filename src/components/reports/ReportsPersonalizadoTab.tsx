@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   SlidersHorizontal,
   Search,
   Printer,
   Download,
-  CheckSquare,
-  Square,
+  ChevronDown,
   Database,
 } from 'lucide-react';
 import {
@@ -43,13 +42,17 @@ import {
   getStoredBrokerSettlements,
   getStoredClients,
   getStoredDocumentosEntrada,
+  getStoredExpenses,
   getStoredFinanceiroCheques,
   getStoredInventoryBalances,
   getStoredNotasSaida,
+  getStoredOrders,
+  getStoredServices,
   getStoredSettlements,
   getStoredSuppliers,
   getStoredTerminations,
   getStoredTrocasDevolucoes,
+  isExpenseSettledRecord,
 } from '../../lib/storage';
 import {
   CaixaOperacional,
@@ -721,21 +724,73 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
   const [statusFilter, setStatusFilter] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fontes armazenadas em storage local / serviços auxiliares
-  const [cheques] = useState<FinanceiroCheque[]>(() => getStoredFinanceiroCheques());
-  const [notasSaida] = useState<NotaSaidaRecord[]>(() => getStoredNotasSaida());
-  const [notasEntrada] = useState<DocumentoEntradaRecord[]>(() => getStoredDocumentosEntrada());
-  const [devolucoes] = useState<TrocaDevolucaoRecord[]>(() => getStoredTrocasDevolucoes());
-  const [bankTransactions] = useState<BankTransaction[]>(() => getStoredBankTransactions());
-  const [storedBankAccounts] = useState<BankAccount[]>(() => getStoredBankAccounts());
-  const [settlements] = useState<ThirdPartySettlement[]>(() => getStoredSettlements());
-  const [brokerSettlements] = useState<BrokerSettlement[]>(() => getStoredBrokerSettlements());
-  const [inventoryBalances] = useState<InventoryBalanceSession[]>(() => getStoredInventoryBalances());
-  const [terminations] = useState<TerminationRecord[]>(() => getStoredTerminations());
-  const [storedClients] = useState<Client[]>(() => getStoredClients());
-  const [storedSuppliers] = useState<Supplier[]>(() => getStoredSuppliers());
-  const [toolKits] = useState<ToolKitRecord[]>(() => getStoredToolKits());
-  const [caixaConferencias] = useState<CaixaConferenciaRecord[]>(() => getStoredCaixaConferencias());
+  // Controle de Consulta Sob Demanda (executa apenas na carga inicial e ao clicar em 🔍 BUSCAR)
+  const [executedQuery, setExecutedQuery] = useState<{
+    dataset: AdHocDatasetKey;
+    startDate: string;
+    endDate: string;
+    statusFilter: string;
+    searchTerm: string;
+    refreshTick: number;
+  }>(() => ({
+    dataset: 'pagar',
+    startDate: defaultStart,
+    endDate: defaultEnd,
+    statusFilter: 'todos',
+    searchTerm: '',
+    refreshTick: 0,
+  }));
+
+  // Dropdown / Combobox compacto de Colunas Visíveis
+  const [isColumnsDropdownOpen, setIsColumnsDropdownOpen] = useState(false);
+  const columnsDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isColumnsDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        columnsDropdownRef.current &&
+        !columnsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsColumnsDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsColumnsDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isColumnsDropdownOpen]);
+
+  // Fontes armazenadas em storage local / serviços auxiliares (atualizadas na carga inicial e ao clicar em 🔍 BUSCAR)
+  const readStorageSnapshot = useCallback(
+    () => ({
+      cheques: getStoredFinanceiroCheques(),
+      notasSaida: getStoredNotasSaida(),
+      notasEntrada: getStoredDocumentosEntrada(),
+      devolucoes: getStoredTrocasDevolucoes(),
+      bankTransactions: getStoredBankTransactions(),
+      storedBankAccounts: getStoredBankAccounts(),
+      settlements: getStoredSettlements(),
+      brokerSettlements: getStoredBrokerSettlements(),
+      inventoryBalances: getStoredInventoryBalances(),
+      terminations: getStoredTerminations(),
+      storedClients: getStoredClients(),
+      storedSuppliers: getStoredSuppliers(),
+      toolKits: getStoredToolKits(),
+      caixaConferencias: getStoredCaixaConferencias(),
+      storedExpenses: getStoredExpenses(),
+      storedOrders: getStoredOrders(),
+      storedServices: getStoredServices(),
+    }),
+    []
+  );
+
+  const [storageSnapshot, setStorageSnapshot] = useState(readStorageSnapshot);
   const [caixaFerramentasItems, setCaixaFerramentasItems] = useState<CaixaFerramentaVeiculoRecord[]>([]);
 
   useEffect(() => {
@@ -760,7 +815,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       map.set(current.id, current.status === 'ABERTO' ? syncCaixaComVendas(current) : current);
     }
     return Array.from(map.values());
-  }, []);
+  }, [executedQuery.refreshTick]);
 
   useEffect(() => {
     setCustomStartDate(defaultStart);
@@ -772,6 +827,11 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
     [selectedDataset]
   );
 
+  const executedSchema = useMemo(
+    () => DATASET_SCHEMAS.find((d) => d.key === executedQuery.dataset) || DATASET_SCHEMAS[0],
+    [executedQuery.dataset]
+  );
+
   const [visibleColKeys, setVisibleColKeys] = useState<string[]>(() =>
     DATASET_SCHEMAS[0].columns.map((c) => c.key)
   );
@@ -779,6 +839,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
   const handleSelectDataset = (key: AdHocDatasetKey) => {
     setSelectedDataset(key);
     setStatusFilter('todos');
+    setIsColumnsDropdownOpen(false);
     const nextSchema = DATASET_SCHEMAS.find((d) => d.key === key) || DATASET_SCHEMAS[0];
     setVisibleColKeys(nextSchema.columns.map((c) => c.key));
   };
@@ -789,32 +850,173 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
     );
   };
 
-  const visibleColumns = useMemo(
-    () => activeSchema.columns.filter((c) => visibleColKeys.includes(c.key)),
+  const handleExecuteSearch = () => {
+    setIsColumnsDropdownOpen(false);
+    setStorageSnapshot(readStorageSnapshot());
+    setExecutedQuery((prev) => ({
+      dataset: selectedDataset,
+      startDate: customStartDate,
+      endDate: customEndDate,
+      statusFilter,
+      searchTerm,
+      refreshTick: prev.refreshTick + 1,
+    }));
+  };
+
+  const hasPendingFilterChanges =
+    executedQuery.dataset !== selectedDataset ||
+    executedQuery.startDate !== customStartDate ||
+    executedQuery.endDate !== customEndDate ||
+    executedQuery.statusFilter !== statusFilter ||
+    executedQuery.searchTerm !== searchTerm;
+
+  const selectedColumnsCount = useMemo(
+    () => activeSchema.columns.filter((c) => visibleColKeys.includes(c.key)).length,
     [activeSchema, visibleColKeys]
   );
+
+  const visibleColumns = useMemo(() => {
+    if (executedQuery.dataset === selectedDataset) {
+      return executedSchema.columns.filter((c) => visibleColKeys.includes(c.key));
+    }
+    return executedSchema.columns;
+  }, [executedQuery.dataset, selectedDataset, executedSchema, visibleColKeys]);
+
+  const {
+    cheques,
+    notasSaida,
+    notasEntrada,
+    devolucoes,
+    bankTransactions,
+    storedBankAccounts,
+    settlements,
+    brokerSettlements,
+    inventoryBalances,
+    terminations,
+    storedClients,
+    storedSuppliers,
+    toolKits,
+    caixaConferencias,
+    storedExpenses,
+    storedOrders,
+    storedServices,
+  } = storageSnapshot;
 
   const effectiveBankAccounts = bankAccounts.length > 0 ? bankAccounts : storedBankAccounts;
   const effectiveClients = clients.length > 0 ? clients : storedClients;
   const effectiveSuppliers = suppliers.length > 0 ? suppliers : storedSuppliers;
+
+  const isPayableRecordSettled = (e: Expense): boolean => {
+    if (!e) return false;
+    const rawStatus = String(e.status ?? '').trim().toLowerCase();
+    return (
+      isExpenseSettledRecord(e) ||
+      rawStatus === 'paid' ||
+      rawStatus === 'received' ||
+      rawStatus === 'pago' ||
+      e.paid === true ||
+      e.status_pago === true ||
+      Boolean(e.paidAt && String(e.paidAt).trim()) ||
+      Boolean(e.paymentDate && String(e.paymentDate).trim())
+    );
+  };
+
+  // Mescla e deduplica Despesas / Contas a Pagar entre props e localStorage
+  const effectiveExpenses = useMemo(() => {
+    const base = expenses && expenses.length > 0 ? [...expenses] : [];
+    const storedById = new Map<string, Expense>();
+    (storedExpenses || []).forEach((s) => {
+      if (s?.id) storedById.set(s.id, s);
+    });
+
+    const sourceList =
+      base.length > 0
+        ? base.map((item) => {
+            const storedMatch = item?.id ? storedById.get(item.id) : undefined;
+            if (!storedMatch) return item;
+            if (!isPayableRecordSettled(item) && isPayableRecordSettled(storedMatch)) {
+              return storedMatch;
+            }
+            return item;
+          })
+        : storedExpenses || [];
+
+    const dedupMap = new Map<string, Expense>();
+    sourceList.forEach((exp) => {
+      if (!exp) return;
+      const notaRef = (exp as any).notaId || (exp as any).documento_entrada_id || (exp as any).nota_fiscal_id;
+      const parcRef = (exp as any).numero_parcela;
+      const key = notaRef && parcRef ? `${notaRef}_${parcRef}` : exp.id;
+      const existing = dedupMap.get(key);
+      if (!existing || (!isPayableRecordSettled(existing) && isPayableRecordSettled(exp))) {
+        dedupMap.set(key, exp);
+      }
+    });
+    return Array.from(dedupMap.values());
+  }, [expenses, storedExpenses]);
+
+  const effectiveOrders = useMemo(() => {
+    if (orders && orders.length > 0) {
+      const storedById = new Map<string, SilageOrder>();
+      (storedOrders || []).forEach((s) => {
+        if (s?.id) storedById.set(s.id, s);
+      });
+      return orders.map((o) => {
+        const stored = o?.id ? storedById.get(o.id) : undefined;
+        if (!stored) return o;
+        if (o.paymentStatus !== 'pago' && (stored.paymentStatus === 'pago' || stored.paid === true)) {
+          return stored;
+        }
+        return o;
+      });
+    }
+    return storedOrders || [];
+  }, [orders, storedOrders]);
+
+  const effectiveServices = useMemo(() => {
+    if (services && services.length > 0) {
+      const storedById = new Map<string, ServiceOrder>();
+      (storedServices || []).forEach((s) => {
+        if (s?.id) storedById.set(s.id, s);
+      });
+      return services.map((s) => {
+        const stored = s?.id ? storedById.get(s.id) : undefined;
+        if (!stored) return s;
+        if (s.paymentStatus !== 'pago' && (stored.paymentStatus === 'pago' || stored.paid === true)) {
+          return stored;
+        }
+        return s;
+      });
+    }
+    return storedServices || [];
+  }, [services, storedServices]);
 
   const mapExpenseRow = (e: Expense, usePaymentDateForFilter = false): Record<string, unknown> => {
     const orig = Number(e.originalAmount ?? e.amount) || 0;
     const fine = Number(e.fineAmount) || 0;
     const interest = Number(e.interestAmount) || 0;
     const discount = Number(e.discountAmount) || 0;
-    const isPaid = e.status === 'pago';
-    const real = isPaid ? Number(e.paidAmount ?? e.amount) || 0 : 0;
+    const isPaid = isPayableRecordSettled(e) && e.status !== 'compensado_estoque';
+    const computedReal = Math.max(0, orig + fine + interest - discount);
+    const real = isPaid
+      ? e.paidAmount !== undefined && e.paidAmount !== null
+        ? Number(e.paidAmount) || 0
+        : e.originalAmount !== undefined && e.originalAmount !== null
+        ? computedReal
+        : Number(e.amount) || computedReal
+      : 0;
     const payDate = toIsoDateStr(e.paymentDate || e.paidAt) || '';
-    const dueIso = toIsoDateStr(e.dueDate || e.date) || '';
+    const dueIso = toIsoDateStr(e.dueDate || (e as any).data_vencimento || e.date || e.createdAt) || '';
     const hasChargesOrDiscounts = fine + interest > 0.009 || discount > 0.009;
     return {
       _date: usePaymentDateForFilter ? payDate || dueIso : dueIso,
-      _status: e.status === 'pago' ? 'pago' : e.status === 'atrasado' ? 'atrasado' : 'pendente',
+      _dueDate: dueIso,
+      _paymentDate: payDate,
+      _status: isPaid ? 'pago' : e.status === 'atrasado' ? 'atrasado' : 'pendente',
       _hasAcrescimosDescontos: hasChargesOrDiscounts,
       dueDate: dueIso,
-      paymentDate: payDate,
-      supplier: e.supplier || 'Fornecedor N/I',
+      paymentDate: payDate || (isPaid ? dueIso : ''),
+      supplier: e.supplier || (e as any).fornecedor || 'Fornecedor N/I',
       description: e.description || '',
       categoryName: e.categoryName || e.category || '-',
       costCenterName: e.costCenterName || '-',
@@ -833,10 +1035,20 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
   const buildReceivableRows = (onlyPaid: boolean): Array<Record<string, unknown>> => {
     const list: Array<Record<string, unknown>> = [];
 
-    (orders || [])
+    (effectiveOrders || [])
       .filter((o) => o && o.status !== 'cancelado')
       .forEach((o) => {
-        const isPaid = o.paymentStatus === 'pago';
+        const payStatus = String(o.paymentStatus ?? '').trim().toLowerCase();
+        const ordStatus = String(o.status ?? '').trim().toLowerCase();
+        const isPaid =
+          payStatus === 'pago' ||
+          payStatus === 'paid' ||
+          payStatus === 'received' ||
+          ordStatus === 'paid' ||
+          ordStatus === 'received' ||
+          o.paid === true ||
+          Boolean(o.paidAt && String(o.paidAt).trim()) ||
+          Boolean(o.paymentDate && String(o.paymentDate).trim());
         if (onlyPaid && !isPaid) return;
         const dueIso = toIsoDateStr(o.dueDate || o.deliveryDate || o.date || o.createdAt);
         const payDate = toIsoDateStr(o.paymentDate || o.paidAt);
@@ -844,13 +1056,22 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         const fine = Number(o.fineAmount) || 0;
         const interest = Number(o.interestAmount) || 0;
         const discount = Number(o.discountAmount) || 0;
-        const real = isPaid ? Number(o.paidAmount ?? o.totalAmount) || 0 : 0;
+        const computedReal = Math.max(0, orig + fine + interest - discount);
+        const real = isPaid
+          ? o.paidAmount !== undefined && o.paidAmount !== null
+            ? Number(o.paidAmount) || 0
+            : o.originalAmount !== undefined && o.originalAmount !== null
+            ? computedReal
+            : Number(o.totalAmount) || computedReal
+          : 0;
         list.push({
           _date: onlyPaid ? payDate || dueIso : dueIso,
+          _dueDate: dueIso,
+          _paymentDate: payDate,
           _status: isPaid ? 'pago' : 'pendente',
           _hasAcrescimosDescontos: fine + interest > 0.009 || discount > 0.009,
           dueDate: dueIso,
-          paymentDate: payDate,
+          paymentDate: payDate || (isPaid ? dueIso : ''),
           clientName: o.clientName || 'Cliente N/I',
           origin: 'Venda / Pedido',
           description: `${o.orderNumber ? `#${o.orderNumber} ` : ''}${o.productType || ''}`.trim(),
@@ -865,18 +1086,40 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         });
       });
 
-    (services || [])
-      .filter(
-        (s) =>
-          s &&
-          s.status !== 'cancelado' &&
-          (s.status === 'faturado' ||
-            s.billingStatus === 'faturado' ||
-            !!s.billedAt ||
-            (s.status === 'finalizado' && !!s.billedAt))
-      )
+    (effectiveServices || [])
+      .filter((s) => {
+        if (!s || s.status === 'cancelado') return false;
+        const sPayStatus = String(s.paymentStatus ?? '').trim().toLowerCase();
+        const sStatus = String(s.status ?? '').trim().toLowerCase();
+        const isExplicitPaid =
+          sStatus === 'paid' ||
+          sStatus === 'received' ||
+          sPayStatus === 'pago' ||
+          sPayStatus === 'paid' ||
+          sPayStatus === 'received' ||
+          s.paid === true ||
+          Boolean(s.paidAt && String(s.paidAt).trim()) ||
+          Boolean(s.paymentDate && String(s.paymentDate).trim());
+        return (
+          sStatus === 'faturado' ||
+          s.billingStatus === 'faturado' ||
+          !!s.billedAt ||
+          isExplicitPaid
+        );
+      })
       .forEach((s) => {
-        const isPaid = s.status === 'finalizado' || s.paymentStatus === 'pago';
+        const sPayStatus = String(s.paymentStatus ?? '').trim().toLowerCase();
+        const sStatus = String(s.status ?? '').trim().toLowerCase();
+        const isPaid =
+          sStatus === 'finalizado' ||
+          sStatus === 'paid' ||
+          sStatus === 'received' ||
+          sPayStatus === 'pago' ||
+          sPayStatus === 'paid' ||
+          sPayStatus === 'received' ||
+          s.paid === true ||
+          Boolean(s.paidAt && String(s.paidAt).trim()) ||
+          Boolean(s.paymentDate && String(s.paymentDate).trim());
         if (onlyPaid && !isPaid) return;
         const dueIso = toIsoDateStr(s.dueDate || s.date || s.startDate);
         const payDate = toIsoDateStr(s.paymentDate || s.paidAt);
@@ -884,13 +1127,22 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         const fine = Number(s.fineAmount) || 0;
         const interest = Number(s.interestAmount) || 0;
         const discount = Number(s.discountAmount) || 0;
-        const real = isPaid ? Number(s.paidAmount ?? s.totalAmount) || 0 : 0;
+        const computedReal = Math.max(0, orig + fine + interest - discount);
+        const real = isPaid
+          ? s.paidAmount !== undefined && s.paidAmount !== null
+            ? Number(s.paidAmount) || 0
+            : s.originalAmount !== undefined && s.originalAmount !== null
+            ? computedReal
+            : Number(s.totalAmount) || computedReal
+          : 0;
         list.push({
           _date: onlyPaid ? payDate || dueIso : dueIso,
+          _dueDate: dueIso,
+          _paymentDate: payDate,
           _status: isPaid ? 'pago' : 'pendente',
           _hasAcrescimosDescontos: fine + interest > 0.009 || discount > 0.009,
           dueDate: dueIso,
-          paymentDate: payDate,
+          paymentDate: payDate || (isPaid ? dueIso : ''),
           clientName: s.clientName || 'Cliente N/I',
           origin: 'Prestação de Serviço',
           description: s.serviceType || 'Serviço',
@@ -906,9 +1158,27 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
 
     (notasSaida || [])
-      .filter((n) => n.lancarContasReceber && n.status !== 'CANCELADA' && n.status !== 'RASCUNHO')
+      .filter((n) => {
+        if (!n || n.status === 'CANCELADA' || n.status === 'RASCUNHO') return false;
+        const recStatus = String(n.receberStatus ?? '').trim().toLowerCase();
+        const isPaid =
+          recStatus === 'pago' ||
+          recStatus === 'paid' ||
+          recStatus === 'received' ||
+          Boolean((n as any).paid === true) ||
+          Boolean(n.receberPaymentDate && String(n.receberPaymentDate).trim()) ||
+          Boolean(n.paidAt && String(n.paidAt).trim());
+        return Boolean(n.lancarContasReceber) || isPaid;
+      })
       .forEach((n) => {
-        const isPaid = n.receberStatus === 'pago';
+        const recStatus = String(n.receberStatus ?? '').trim().toLowerCase();
+        const isPaid =
+          recStatus === 'pago' ||
+          recStatus === 'paid' ||
+          recStatus === 'received' ||
+          Boolean((n as any).paid === true) ||
+          Boolean(n.receberPaymentDate && String(n.receberPaymentDate).trim()) ||
+          Boolean(n.paidAt && String(n.paidAt).trim());
         if (onlyPaid && !isPaid) return;
         const dueIso = toIsoDateStr(n.dataVencimento || n.dataEmissao || n.createdAt);
         const payDate = toIsoDateStr(n.receberPaymentDate || n.paidAt);
@@ -916,13 +1186,22 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         const fine = Number(n.fineAmount) || 0;
         const interest = Number(n.interestAmount) || 0;
         const discount = Number(n.discountAmount) || 0;
-        const real = isPaid ? Number(n.paidAmount ?? n.valorTotal) || 0 : 0;
+        const computedReal = Math.max(0, orig + fine + interest - discount);
+        const real = isPaid
+          ? n.paidAmount !== undefined && n.paidAmount !== null
+            ? Number(n.paidAmount) || 0
+            : n.originalAmount !== undefined && n.originalAmount !== null
+            ? computedReal
+            : Number(n.valorTotal) || computedReal
+          : 0;
         list.push({
           _date: onlyPaid ? payDate || dueIso : dueIso,
+          _dueDate: dueIso,
+          _paymentDate: payDate,
           _status: isPaid ? 'pago' : 'pendente',
           _hasAcrescimosDescontos: fine + interest > 0.009 || discount > 0.009,
           dueDate: dueIso,
-          paymentDate: payDate,
+          paymentDate: payDate || (isPaid ? dueIso : ''),
           clientName: n.cteTomadorFinalNome || n.destinatarioNome || 'Destinatário N/I',
           origin: 'Nota Fiscal Saída',
           description: `NF ${n.numero}${n.serie ? `/${n.serie}` : ''}`,
@@ -940,26 +1219,28 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
     return list;
   };
 
+  const activeQueryDataset = executedQuery.dataset;
+
   const rawRows = useMemo<Array<Record<string, unknown>>>(() => {
-    if (selectedDataset === 'pagar' || selectedDataset === 'despesas') {
-      return (expenses || []).map((e) => mapExpenseRow(e, false));
+    if (activeQueryDataset === 'pagar' || activeQueryDataset === 'despesas') {
+      return (effectiveExpenses || []).map((e) => mapExpenseRow(e, false));
     }
 
-    if (selectedDataset === 'contas_pagas') {
-      return (expenses || [])
-        .filter((e) => e && e.status === 'pago')
+    if (activeQueryDataset === 'contas_pagas') {
+      return (effectiveExpenses || [])
+        .filter((e) => isPayableRecordSettled(e) && e.status !== 'compensado_estoque')
         .map((e) => mapExpenseRow(e, true));
     }
 
-    if (selectedDataset === 'receber') {
+    if (activeQueryDataset === 'receber') {
       return buildReceivableRows(false);
     }
 
-    if (selectedDataset === 'contas_recebidas') {
+    if (activeQueryDataset === 'contas_recebidas') {
       return buildReceivableRows(true);
     }
 
-    if (selectedDataset === 'bancos_extrato') {
+    if (activeQueryDataset === 'bancos_extrato') {
       const accountNameMap = new Map<string, string>();
       effectiveBankAccounts.forEach((acc) => {
         accountNameMap.set(acc.id, acc.name || acc.accountName || acc.bankName || 'Conta Bancária');
@@ -999,7 +1280,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       return [...txRows, ...balanceRows];
     }
 
-    if (selectedDataset === 'fluxo_caixa') {
+    if (activeQueryDataset === 'fluxo_caixa') {
       return caixasSessoes.map((cx) => {
         const t = calcularTotaisCaixa(cx);
         return {
@@ -1020,7 +1301,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
     }
 
-    if (selectedDataset === 'cheques') {
+    if (activeQueryDataset === 'cheques') {
       return (cheques || []).map((c) => {
         const d = toIsoDateStr(c.data_vencimento || c.dataVencimento);
         return {
@@ -1037,7 +1318,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
     }
 
-    if (selectedDataset === 'acertos_terceiros') {
+    if (activeQueryDataset === 'acertos_terceiros') {
       const list: Array<Record<string, unknown>> = [];
       (settlements || []).forEach((s) => {
         const d = toIsoDateStr(s.date || s.createdAt);
@@ -1076,7 +1357,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       return list;
     }
 
-    if (selectedDataset === 'notas_entrada') {
+    if (activeQueryDataset === 'notas_entrada') {
       return (notasEntrada || []).map((doc) => {
         const dEnt = toIsoDateStr(doc.data_entrada || doc.data || doc.created_at);
         const dEmis = toIsoDateStr(doc.data_emissao || doc.data);
@@ -1098,7 +1379,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
     }
 
-    if (selectedDataset === 'notas_saida') {
+    if (activeQueryDataset === 'notas_saida') {
       return (notasSaida || []).map((ns) => {
         const dEmis = toIsoDateStr(ns.dataEmissao || ns.createdAt);
         const normalizedStatus =
@@ -1122,7 +1403,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
     }
 
-    if (selectedDataset === 'devolucoes') {
+    if (activeQueryDataset === 'devolucoes') {
       return (devolucoes || []).map((dev) => {
         const d = toIsoDateStr(dev.data || dev.createdAt);
         return {
@@ -1149,8 +1430,8 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
     }
 
-    if (selectedDataset === 'vendas') {
-      return (orders || [])
+    if (activeQueryDataset === 'vendas') {
+      return (effectiveOrders || [])
         .filter((o) => o && o.status !== 'cancelado')
         .map((o) => ({
           _date: toIsoDateStr(o.deliveryDate || o.date || o.createdAt),
@@ -1167,8 +1448,8 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         }));
     }
 
-    if (selectedDataset === 'servicos') {
-      return (services || []).map((s) => ({
+    if (activeQueryDataset === 'servicos') {
+      return (effectiveServices || []).map((s) => ({
         _date: toIsoDateStr(s.startDate || s.date || s.dueDate),
         _status: s.status || '',
         startDate: toIsoDateStr(s.startDate || s.date || s.dueDate),
@@ -1182,7 +1463,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       }));
     }
 
-    if (selectedDataset === 'estoque') {
+    if (activeQueryDataset === 'estoque') {
       return (inventory || []).map((i) => {
         const qty = Number(i.quantity ?? i.quantidade_atual ?? 0);
         const minQty = Number(i.minQuantity ?? 0);
@@ -1204,7 +1485,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       });
     }
 
-    if (selectedDataset === 'balanco_estoque') {
+    if (activeQueryDataset === 'balanco_estoque') {
       const list: Array<Record<string, unknown>> = [];
       (inventoryBalances || []).forEach((bal) => {
         const d = toIsoDateStr(bal.completedAt || bal.createdAt);
@@ -1255,7 +1536,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       return list;
     }
 
-    if (selectedDataset === 'almoxarifado_kits') {
+    if (activeQueryDataset === 'almoxarifado_kits') {
       const list: Array<Record<string, unknown>> = [];
       const metaMap = getCaixaMetaMap();
       const invById = new Map<string, InventoryItem>();
@@ -1325,7 +1606,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       return list;
     }
 
-    if (selectedDataset === 'frota') {
+    if (activeQueryDataset === 'frota') {
       const maintByMachId = new Map<string, number>();
       (maintenanceLogs || []).forEach((ml) => {
         if (ml.machineryId) {
@@ -1368,7 +1649,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       return [...vehicleRows, ...maintenanceRows];
     }
 
-    if (selectedDataset === 'abastecimentos') {
+    if (activeQueryDataset === 'abastecimentos') {
       return (fuelLogs || []).map((f) => ({
         _date: toIsoDateStr(f.date),
         _status: 'todos',
@@ -1383,7 +1664,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       }));
     }
 
-    if (selectedDataset === 'rh_folha_rescisoes') {
+    if (activeQueryDataset === 'rh_folha_rescisoes') {
       const empRoleById = new Map<string, string>();
       (employees || []).forEach((emp) => empRoleById.set(emp.id, emp.role || '-'));
 
@@ -1468,7 +1749,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       return list;
     }
 
-    if (selectedDataset === 'clientes') {
+    if (activeQueryDataset === 'clientes') {
       return (effectiveClients || []).map((c) => ({
         _date: '',
         _status: c.status || 'cliente_ativo',
@@ -1484,7 +1765,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       }));
     }
 
-    if (selectedDataset === 'fornecedores') {
+    if (activeQueryDataset === 'fornecedores') {
       return (effectiveSuppliers || []).map((s) => ({
         _date: '',
         _status: String(s.category || '').toLowerCase().includes('transport') ? 'transportadora' : 'fornecedor',
@@ -1513,10 +1794,11 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       status: emp.status || 'ativo',
     }));
   }, [
-    selectedDataset,
-    expenses,
-    orders,
-    services,
+    activeQueryDataset,
+    executedQuery.refreshTick,
+    effectiveExpenses,
+    effectiveOrders,
+    effectiveServices,
     notasSaida,
     notasEntrada,
     devolucoes,
@@ -1543,40 +1825,57 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
   ]);
 
   const filteredRows = useMemo(() => {
-    const term = searchTerm.toLowerCase().trim();
+    const term = executedQuery.searchTerm.toLowerCase().trim();
+    const qStart = executedQuery.startDate;
+    const qEnd = executedQuery.endDate;
+    const qStatus = executedQuery.statusFilter;
+    const isSettledDataset =
+      activeQueryDataset === 'contas_pagas' || activeQueryDataset === 'contas_recebidas';
+
+    const inRange = (d?: string) =>
+      Boolean(d) && (!qStart || d >= qStart) && (!qEnd || d <= qEnd);
+
     return rawRows.filter((row) => {
-      if (activeSchema.hasDateRange && !row._bypassDateRange) {
-        const d = String(row._date || '');
-        if (!d || (customStartDate && d < customStartDate) || (customEndDate && d > customEndDate)) {
-          return false;
-        }
-      }
-      if (statusFilter !== 'todos') {
-        if (statusFilter === 'com_acrescimos_descontos') {
-          if (!row._hasAcrescimosDescontos) return false;
-        } else if (
-          (selectedDataset === 'pagar' || selectedDataset === 'receber' || selectedDataset === 'despesas') &&
-          statusFilter === 'pendente'
-        ) {
-          if (row._status === 'pago') return false;
-        } else if (selectedDataset === 'acertos_terceiros' && (statusFilter === 'terceiro' || statusFilter === 'agenciador')) {
-          if (row._kind !== statusFilter) return false;
-        } else if (selectedDataset === 'balanco_estoque' && statusFilter === 'com_divergencia') {
-          if (row._status === 'ok') return false;
-        } else if (selectedDataset === 'almoxarifado_kits') {
-          if (statusFilter === 'divergencia') {
-            if (row._status !== 'divergencia') return false;
-          } else if (row._kind !== statusFilter) {
+      if (executedSchema.hasDateRange && !row._bypassDateRange) {
+        if (isSettledDataset) {
+          const matchesDue = inRange(String(row._dueDate || ''));
+          const matchesPay = inRange(String(row._paymentDate || ''));
+          if (!matchesDue && !matchesPay) {
             return false;
           }
-        } else if (selectedDataset === 'frota' && (statusFilter === 'veiculo' || statusFilter === 'manutencao')) {
-          if (row._kind !== statusFilter) return false;
+        } else {
+          const d = String(row._date || '');
+          if (!d || (qStart && d < qStart) || (qEnd && d > qEnd)) {
+            return false;
+          }
+        }
+      }
+      if (qStatus !== 'todos') {
+        if (qStatus === 'com_acrescimos_descontos') {
+          if (!row._hasAcrescimosDescontos) return false;
         } else if (
-          selectedDataset === 'rh_folha_rescisoes' &&
-          (statusFilter === 'folha' || statusFilter === 'ferias' || statusFilter === 'rescisao')
+          (activeQueryDataset === 'pagar' || activeQueryDataset === 'receber' || activeQueryDataset === 'despesas') &&
+          qStatus === 'pendente'
         ) {
-          if (row._kind !== statusFilter) return false;
-        } else if (String(row._status || '') !== statusFilter) {
+          if (row._status === 'pago') return false;
+        } else if (activeQueryDataset === 'acertos_terceiros' && (qStatus === 'terceiro' || qStatus === 'agenciador')) {
+          if (row._kind !== qStatus) return false;
+        } else if (activeQueryDataset === 'balanco_estoque' && qStatus === 'com_divergencia') {
+          if (row._status === 'ok') return false;
+        } else if (activeQueryDataset === 'almoxarifado_kits') {
+          if (qStatus === 'divergencia') {
+            if (row._status !== 'divergencia') return false;
+          } else if (row._kind !== qStatus) {
+            return false;
+          }
+        } else if (activeQueryDataset === 'frota' && (qStatus === 'veiculo' || qStatus === 'manutencao')) {
+          if (row._kind !== qStatus) return false;
+        } else if (
+          activeQueryDataset === 'rh_folha_rescisoes' &&
+          (qStatus === 'folha' || qStatus === 'ferias' || qStatus === 'rescisao')
+        ) {
+          if (row._kind !== qStatus) return false;
+        } else if (String(row._status || '') !== qStatus) {
           return false;
         }
       }
@@ -1588,21 +1887,21 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
       }
       return true;
     });
-  }, [rawRows, activeSchema.hasDateRange, customStartDate, customEndDate, statusFilter, selectedDataset, searchTerm]);
+  }, [rawRows, executedSchema.hasDateRange, executedQuery, activeQueryDataset]);
 
   const printConfig = useMemo(
     () =>
       buildAdHocCustomReport({
         companyProfile,
-        datasetLabel: activeSchema.label,
+        datasetLabel: executedSchema.label,
         columns: visibleColumns,
         rows: filteredRows,
-        startDate: activeSchema.hasDateRange ? customStartDate : '',
-        endDate: activeSchema.hasDateRange ? customEndDate : '',
-        statusFilter,
-        searchTerm,
+        startDate: executedSchema.hasDateRange ? executedQuery.startDate : '',
+        endDate: executedSchema.hasDateRange ? executedQuery.endDate : '',
+        statusFilter: executedQuery.statusFilter,
+        searchTerm: executedQuery.searchTerm,
       }),
-    [companyProfile, activeSchema, visibleColumns, filteredRows, customStartDate, customEndDate, statusFilter, searchTerm]
+    [companyProfile, executedSchema, visibleColumns, filteredRows, executedQuery]
   );
 
   useEffect(() => {
@@ -1659,15 +1958,15 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `relatorio_personalizado_${selectedDataset}.csv`;
+    link.download = `relatorio_personalizado_${activeQueryDataset}.csv`;
     link.click();
   };
 
   return (
     <div className="flex-1 min-h-0 h-full max-h-full flex flex-col gap-2.5 overflow-hidden animate-fade-in financial-subtab-clean">
-      {/* 1. Painel de Configuração (Base de Dados, Período & Ações) */}
+      {/* 1. Painel Compacto de Configuração (Módulo, Datas, Status, Combobox de Colunas, Busca & Ações) */}
       <div className="reports-filter-bar shrink-0 bg-[#cad4e6] dark:bg-stone-900 p-2.5 rounded-lg border border-black dark:border-stone-800 shadow-xs flex flex-wrap items-end gap-2">
-        <div className="min-w-[260px] max-w-[380px] flex-1">
+        <div className="min-w-[230px] max-w-[340px] flex-1">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 mb-1">
             <span className="inline-flex items-center gap-1">
               <Database className="w-3 h-3" />
@@ -1701,7 +2000,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold"
+                className="px-2 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold"
               />
             </div>
             <div>
@@ -1712,7 +2011,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold"
+                className="px-2 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold"
               />
             </div>
           </>
@@ -1725,7 +2024,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold cursor-pointer"
+            className="px-2 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-semibold cursor-pointer"
           >
             {activeSchema.statusOptions.map((st) => (
               <option key={st.value} value={st.value}>
@@ -1735,7 +2034,79 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
           </select>
         </div>
 
-        <div className="flex-1 min-w-[180px]">
+        {/* 3. Colunas Visíveis (Combobox Compacto com Painel Flutuante) */}
+        <div ref={columnsDropdownRef} className="relative min-w-[215px]">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 mb-1">
+            <span className="inline-flex items-center gap-1">
+              <SlidersHorizontal className="w-3 h-3 text-emerald-700" />
+              3. Colunas Visíveis
+            </span>
+          </label>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={isColumnsDropdownOpen}
+            onClick={() => setIsColumnsDropdownOpen((prev) => !prev)}
+            className="w-full px-2.5 py-1.5 rounded-lg border border-black/60 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-bold flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer whitespace-nowrap shadow-2xs"
+          >
+            <span>
+              Colunas Selecionadas: {selectedColumnsCount} de {activeSchema.columns.length}
+            </span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 shrink-0 text-stone-600 dark:text-stone-400 transition-transform ${
+                isColumnsDropdownOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {isColumnsDropdownOpen && (
+            <div className="absolute left-0 top-full mt-1 z-50 w-72 sm:w-80 bg-white dark:bg-stone-900 border border-black dark:border-stone-700 rounded-lg shadow-xl overflow-hidden">
+              <div className="px-3 py-2 bg-[#cad4e6] dark:bg-stone-800 border-b border-black/30 dark:border-stone-700 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-stone-900 dark:text-stone-200">
+                  Colunas ({selectedColumnsCount}/{activeSchema.columns.length})
+                </span>
+                <div className="flex items-center gap-2 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleColKeys(activeSchema.columns.map((c) => c.key))}
+                    className="text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Selecionar Todas
+                  </button>
+                  <span className="text-stone-400">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleColKeys([])}
+                    className="text-rose-700 dark:text-rose-400 hover:underline cursor-pointer"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto p-1.5 space-y-0.5">
+                {activeSchema.columns.map((col) => {
+                  const checked = visibleColKeys.includes(col.key);
+                  return (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#e0e6f1] dark:hover:bg-stone-800 cursor-pointer select-none text-xs font-semibold text-stone-800 dark:text-stone-200"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleColumn(col.key)}
+                        className="w-3.5 h-3.5 accent-emerald-700 rounded cursor-pointer shrink-0"
+                      />
+                      <span className="truncate">{col.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-[160px]">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-400 mb-1">
             Busca Textual
           </label>
@@ -1745,6 +2116,12 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleExecuteSearch();
+                }
+              }}
               placeholder="Filtrar por qualquer campo..."
               className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-slate-400 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-medium"
             />
@@ -1754,9 +2131,17 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
+            onClick={handleExecuteSearch}
+            className="inline-flex items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white border border-black font-bold px-4 py-1.5 rounded-md text-xs shadow-sm transition cursor-pointer whitespace-nowrap"
+          >
+            <span>🔍 BUSCAR</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => onOpenPrintModal(printConfig)}
             disabled={visibleColumns.length === 0}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white border border-emerald-900 font-bold text-xs rounded-lg transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white border border-emerald-900 font-bold text-xs rounded-lg transition cursor-pointer whitespace-nowrap"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Imprimir A4 Personalizado</span>
@@ -1766,7 +2151,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
             type="button"
             onClick={handleExportCsv}
             disabled={visibleColumns.length === 0}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#e0e6f1] hover:bg-[#d2dced] disabled:opacity-50 text-black border border-black font-bold text-xs rounded-lg transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#e0e6f1] hover:bg-[#d2dced] disabled:opacity-50 text-black border border-black font-bold text-xs rounded-lg transition cursor-pointer whitespace-nowrap"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Exportar CSV/Excel</span>
@@ -1774,59 +2159,19 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
         </div>
       </div>
 
-      {/* 2. Seletor de Colunas Visíveis (Checkboxes) */}
-      <div className="reports-kpi-card shrink-0 bg-[#e0e6f1] dark:bg-stone-900 px-3 py-2 rounded-lg border border-black dark:border-stone-800 shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-          <span className="text-[11px] font-black uppercase tracking-wider text-stone-800 dark:text-stone-200 inline-flex items-center gap-1.5">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-700" />
-            3. Colunas Visíveis na Prévia e Impressão ({visibleColumns.length}/{activeSchema.columns.length})
-          </span>
-          <div className="flex items-center gap-2 text-[11px] font-bold">
-            <button
-              type="button"
-              onClick={() => setVisibleColKeys(activeSchema.columns.map((c) => c.key))}
-              className="text-emerald-700 hover:underline cursor-pointer"
-            >
-              Selecionar Todas
-            </button>
-            <span className="text-stone-400">•</span>
-            <button
-              type="button"
-              onClick={() => setVisibleColKeys([])}
-              className="text-rose-700 hover:underline cursor-pointer"
-            >
-              Limpar
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {activeSchema.columns.map((col) => {
-            const checked = visibleColKeys.includes(col.key);
-            return (
-              <button
-                key={col.key}
-                type="button"
-                onClick={() => toggleColumn(col.key)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition cursor-pointer ${
-                  checked
-                    ? 'bg-emerald-700 text-white border-emerald-800'
-                    : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-slate-400 dark:border-stone-700 hover:bg-slate-100'
-                }`}
-              >
-                {checked ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                <span>{col.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. Prévia em Tempo Real na Tela */}
+      {/* 2. Prévia na Tela (Sob Demanda) */}
       <div className="flex-1 min-h-0 flex flex-col bg-[#e0e6f1] dark:bg-stone-900 border border-black dark:border-stone-800 rounded-lg overflow-hidden shadow-xs">
-        <div className="shrink-0 px-3 py-1.5 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 flex items-center justify-between text-[11px] font-bold text-stone-900 dark:text-stone-200">
-          <span>
-            Prévia em Tempo Real — {activeSchema.group} &gt; {activeSchema.label}
-          </span>
+        <div className="shrink-0 px-3 py-1.5 bg-[#cad4e6] dark:bg-stone-800 border-b border-black dark:border-stone-700 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-stone-900 dark:text-stone-200">
+          <div className="flex items-center gap-2">
+            <span>
+              Prévia — {executedSchema.group} &gt; {executedSchema.label}
+            </span>
+            {hasPendingFilterChanges && (
+              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-400 text-[10px] font-bold">
+                Filtros alterados — clique em 🔍 BUSCAR para atualizar
+              </span>
+            )}
+          </div>
           <span>{filteredRows.length} registro(s) encontrado(s)</span>
         </div>
 
