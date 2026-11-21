@@ -746,9 +746,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         : currentPreset.pageWidthMm;
     const sheetHeightMm =
       currentPreset.category === 'carta'
-        ? 279
+        ? 278.5
         : currentPreset.category === 'a4'
-        ? 296.5
+        ? 296
         : currentPreset.pageHeightMm;
     const pageSizeCss =
       currentPreset.category === 'carta'
@@ -815,9 +815,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         break-inside: avoid;
         overflow: hidden;
       }
+      .label-sheet:last-child,
       .label-sheet:last-of-type {
-        page-break-after: avoid !important;
-        break-after: avoid !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
       }
     `;
 
@@ -887,7 +888,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   <style>
     @page {
       size: ${pageSizeCss};
-      margin: 0mm;
+      margin: 0mm !important;
     }
     *, *::before, *::after {
       box-sizing: border-box;
@@ -938,10 +939,6 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       }
     }
     @media print {
-      @page {
-        size: ${pageSizeCss};
-        margin: 0mm;
-      }
       html, body {
         margin: 0 !important;
         padding: 0 !important;
@@ -982,9 +979,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         break-inside: avoid !important;
         overflow: hidden !important;
       }
+      .label-sheet:last-child,
       .label-sheet:last-of-type {
-        page-break-after: avoid !important;
-        break-after: avoid !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
       }
       .label-cell,
       .gondola-label,
