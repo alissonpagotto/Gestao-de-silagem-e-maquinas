@@ -8041,3 +8041,567 @@ export function mirrorRestoredBackupToActiveScope(
   }
 }
 
+// ============================================================================
+// OVERLAY GLOBAL AUTOMÁTICO E CONTEXTUAL DE PROCESSAMENTO (AGROCONTROL)
+// Detecta operações demoradas (>120ms-150ms) em cliques de ação, chamadas fetch
+// e oferece API pública `runWithLoader(mensagem, fn)` / `window.agroLoading(msg)`.
+// ============================================================================
+
+export interface GlobalProcessingState {
+  visible: boolean;
+  message: string;
+  activeCount: number;
+  isManualLocked: boolean;
+}
+
+interface ProcessingToken {
+  id: number;
+  message: string;
+  visible: boolean;
+  source: 'manual' | 'click' | 'fetch';
+  startedAt: number;
+  shownAt: number | null;
+  minVisibleMs: number;
+  showTimer?: ReturnType<typeof setTimeout>;
+  maxTimer?: ReturnType<typeof setTimeout>;
+}
+
+declare global {
+  interface Window {
+    agroLoading?: (message?: string | false | null) => () => void;
+    runWithLoader?: typeof runWithLoader;
+  }
+}
+
+const ACTION_BUTTON_KEYWORDS = [
+  'salvar',
+  'atualizar',
+  'finalizar',
+  'confirmar',
+  'importar',
+  'exportar',
+  'gerar',
+  'emitir',
+  'liquidar',
+  'baixar',
+  'estornar',
+  'sincronizar',
+  'restaurar',
+  'concluir',
+  'zerar',
+];
+
+const processingTokens = new Map<number, ProcessingToken>();
+const processingListeners = new Set<(state: GlobalProcessingState) => void>();
+let nextProcessingTokenId = 1;
+let manualWindowReleaseFn: (() => void) | null = null;
+let monitorRefCount = 0;
+let uninstallMonitorCallbacks: Array<() => void> = [];
+let originalFetchRef: typeof window.fetch | null = null;
+let originalFetchDescriptor: PropertyDescriptor | undefined = undefined;
+
+function normalizeActionText(raw: string): string {
+  return String(raw || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function cleanButtonLabel(raw: string): string {
+  // Remove emojis, ícones soltos, quebras de linha e múltiplos espaços
+  const cleaned = String(raw || '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[•\-+►▶✓✔✅🧾🖨️💾📝🚪⚙️🔄📦]+\s*/, '')
+    .trim();
+  if (!cleaned) return '';
+  return cleaned.length > 54 ? `${cleaned.slice(0, 51).trim()}...` : cleaned;
+}
+
+function matchesActionButtonLabel(label: string): boolean {
+  if (!label) return false;
+  const norm = normalizeActionText(label);
+  return ACTION_BUTTON_KEYWORDS.some((kw) => {
+    const regex = new RegExp(`(^|[^a-z])${kw}`, 'i');
+    return regex.test(norm);
+  });
+}
+
+function buildContextualClickMessage(rawLabel: string): string {
+  const clean = cleanButtonLabel(rawLabel);
+  if (!clean) return 'Processando solicitação...';
+  const norm = normalizeActionText(clean);
+  if (norm.includes('xml')) return 'Processando Importação de XML...';
+  if (norm.includes('backup') && norm.includes('restaur')) return 'Restaurando Backup e Sincronizando Dados...';
+  if (norm.includes('backup')) return 'Gerando Backup Completo do Sistema...';
+  if (norm.includes('balanco')) return 'Processando Fechamento de Balanço...';
+  if (norm.includes('sincroniz')) return 'Sincronizando Dados...';
+  const suffix = clean.endsWith('...') ? '' : '...';
+  return `Executando: ${clean}${suffix}`;
+}
+
+function buildContextualFetchMessage(urlStr: string): string {
+  const lower = String(urlStr || '').toLowerCase();
+  if (lower.includes('cnpj') || lower.includes('brasilapi') || lower.includes('receitaws') || lower.includes('minhareceita')) {
+    return 'Consultando dados do CNPJ...';
+  }
+  if (lower.includes('viacep') || lower.includes('/cep')) {
+    return 'Consultando endereço por CEP...';
+  }
+  if (lower.includes('supabase')) {
+    return 'Sincronizando dados com a nuvem...';
+  }
+  if (lower.includes('sefaz') || lower.includes('nfe') || lower.includes('nfce')) {
+    return 'Comunicando com serviços fiscais...';
+  }
+  return 'Consultando dados externos...';
+}
+
+function shouldIgnoreFetchUrl(urlStr: string, init?: RequestInit): boolean {
+  const lower = String(urlStr || '').toLowerCase();
+  if (!lower) return false;
+  if (
+    lower.includes('/@vite') ||
+    lower.includes('/@fs') ||
+    lower.includes('/@react-refresh') ||
+    lower.includes('.hot-update') ||
+    lower.startsWith('chrome-extension://') ||
+    lower.startsWith('data:') ||
+    lower.startsWith('blob:')
+  ) {
+    return true;
+  }
+  if (init?.headers) {
+    try {
+      const headers = new Headers(init.headers);
+      if (headers.get('X-Agro-Silent') === '1' || headers.get('x-agro-silent') === '1') {
+        return true;
+      }
+    } catch {
+      // ignora headers customizados inválidos
+    }
+  }
+  return false;
+}
+
+export function getGlobalProcessingState(): GlobalProcessingState {
+  let visibleTokens: ProcessingToken[] = [];
+  let manualLocked = false;
+
+  processingTokens.forEach((tok) => {
+    if (tok.source === 'manual') manualLocked = true;
+    if (tok.visible) visibleTokens.push(tok);
+  });
+
+  if (visibleTokens.length === 0) {
+    return {
+      visible: false,
+      message: '',
+      activeCount: processingTokens.size,
+      isManualLocked: manualLocked,
+    };
+  }
+
+  // Prioriza mensagem manual > clique contextual > fetch
+  const priorityWeight: Record<ProcessingToken['source'], number> = {
+    manual: 3,
+    click: 2,
+    fetch: 1,
+  };
+
+  visibleTokens.sort((a, b) => {
+    const pDiff = priorityWeight[b.source] - priorityWeight[a.source];
+    if (pDiff !== 0) return pDiff;
+    return b.startedAt - a.startedAt;
+  });
+
+  return {
+    visible: true,
+    message: visibleTokens[0].message,
+    activeCount: visibleTokens.length,
+    isManualLocked: manualLocked,
+  };
+}
+
+function emitGlobalProcessingState(): void {
+  const snapshot = getGlobalProcessingState();
+  processingListeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch {
+      // evita que um assinante interrompa os demais
+    }
+  });
+}
+
+export function subscribeGlobalProcessing(
+  listener: (state: GlobalProcessingState) => void
+): () => void {
+  processingListeners.add(listener);
+  listener(getGlobalProcessingState());
+  return () => {
+    processingListeners.delete(listener);
+  };
+}
+
+export function showAgroLoading(
+  message = 'Processando solicitação...',
+  options?: {
+    delayMs?: number;
+    minVisibleMs?: number;
+    maxDurationMs?: number;
+    source?: 'manual' | 'click' | 'fetch';
+  }
+): () => void {
+  const id = nextProcessingTokenId++;
+  const delayMs = options?.delayMs ?? 0;
+  const minVisibleMs = options?.minVisibleMs ?? (delayMs === 0 ? 180 : 240);
+  const maxDurationMs = options?.maxDurationMs ?? 30000;
+  const source = options?.source ?? 'manual';
+
+  const token: ProcessingToken = {
+    id,
+    message: String(message || 'Processando solicitação...').trim(),
+    visible: delayMs <= 0,
+    source,
+    startedAt: Date.now(),
+    shownAt: delayMs <= 0 ? Date.now() : null,
+    minVisibleMs,
+  };
+
+  let released = false;
+
+  const finalizeRemoval = () => {
+    const existing = processingTokens.get(id);
+    if (!existing) return;
+    if (existing.showTimer) clearTimeout(existing.showTimer);
+    if (existing.maxTimer) clearTimeout(existing.maxTimer);
+    processingTokens.delete(id);
+    emitGlobalProcessingState();
+  };
+
+  const release = () => {
+    if (released) return;
+    released = true;
+    const existing = processingTokens.get(id);
+    if (!existing) return;
+
+    if (existing.showTimer) {
+      clearTimeout(existing.showTimer);
+      existing.showTimer = undefined;
+    }
+
+    if (!existing.visible) {
+      finalizeRemoval();
+      return;
+    }
+
+    const elapsedVisible = existing.shownAt ? Date.now() - existing.shownAt : 0;
+    const remaining = Math.max(0, existing.minVisibleMs - elapsedVisible);
+    if (remaining > 0) {
+      setTimeout(finalizeRemoval, remaining);
+    } else {
+      finalizeRemoval();
+    }
+  };
+
+  if (delayMs > 0) {
+    token.showTimer = setTimeout(() => {
+      const current = processingTokens.get(id);
+      if (!current || released) return;
+      current.visible = true;
+      current.shownAt = Date.now();
+      emitGlobalProcessingState();
+    }, delayMs);
+  }
+
+  if (maxDurationMs > 0) {
+    token.maxTimer = setTimeout(() => {
+      finalizeRemoval();
+    }, maxDurationMs);
+  }
+
+  processingTokens.set(id, token);
+  if (token.visible) {
+    emitGlobalProcessingState();
+  }
+
+  return release;
+}
+
+export function hideAgroLoading(): void {
+  if (manualWindowReleaseFn) {
+    const fn = manualWindowReleaseFn;
+    manualWindowReleaseFn = null;
+    fn();
+  }
+}
+
+function waitForVisualFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      setTimeout(resolve, 16);
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      setTimeout(resolve, 16);
+    });
+  });
+}
+
+/**
+ * Executa uma função síncrona ou assíncrona exibindo imediatamente o Overlay Global
+ * de Processamento, liberando 1 frame visual antes de tarefas síncronas pesadas e
+ * bloqueando duplo clique até o término.
+ */
+export async function runWithLoader<T>(
+  mensagem: string,
+  fn: () => T | Promise<T>
+): Promise<T> {
+  const release = showAgroLoading(mensagem, {
+    delayMs: 0,
+    minVisibleMs: 220,
+    maxDurationMs: 60000,
+    source: 'manual',
+  });
+  try {
+    await waitForVisualFrame();
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
+export function installGlobalProcessingMonitor(): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return () => {};
+  }
+
+  monitorRefCount += 1;
+
+  // Expõe API pública global
+  window.agroLoading = (message?: string | false | null) => {
+    if (message === false || message === null || message === '') {
+      hideAgroLoading();
+      return () => {};
+    }
+    hideAgroLoading();
+    const release = showAgroLoading(
+      typeof message === 'string' && message.trim() ? message.trim() : 'Processando solicitação...',
+      { delayMs: 0, minVisibleMs: 200, maxDurationMs: 60000, source: 'manual' }
+    );
+    manualWindowReleaseFn = release;
+    return () => {
+      if (manualWindowReleaseFn === release) {
+        manualWindowReleaseFn = null;
+      }
+      release();
+    };
+  };
+  window.runWithLoader = runWithLoader;
+
+  if (monitorRefCount === 1) {
+    const triggerActionMonitor = (rawLabel: string) => {
+      const contextualMsg = buildContextualClickMessage(rawLabel);
+      const clickStartedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const release = showAgroLoading(contextualMsg, {
+        delayMs: 120,
+        minVisibleMs: 300,
+        maxDurationMs: 12000,
+        source: 'click',
+      });
+
+      const scheduleCheckRelease = () => {
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const elapsed = now - clickStartedAt;
+
+        if (elapsed >= 120) {
+          // A thread principal ficou ocupada >120ms durante o clique: garante feedback visual breve
+          const showNow = showAgroLoading(contextualMsg, {
+            delayMs: 0,
+            minVisibleMs: 280,
+            maxDurationMs: 4000,
+            source: 'click',
+          });
+          release();
+          setTimeout(showNow, 80);
+        } else {
+          // Operação instantânea (<120ms): cancela sem piscar
+          release();
+        }
+      };
+
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => {
+          setTimeout(scheduleCheckRelease, 16);
+        });
+      } else {
+        setTimeout(scheduleCheckRelease, 32);
+      }
+    };
+
+    // A) Listener global em fase de captura para botões de ação/gravação
+    const handleGlobalClickCapture = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      // Bloqueia duplo clique quando o overlay já está visível ou uma operação manual está travada
+      const state = getGlobalProcessingState();
+      if (state.isManualLocked || state.visible) {
+        if (!target.closest('#agro-global-processing-overlay')) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
+
+      if (target.closest('#agro-global-processing-overlay')) return;
+
+      const btn = target.closest(
+        'button, [role="button"], input[type="submit"], input[type="button"]'
+      ) as (HTMLElement & { disabled?: boolean; value?: string }) | null;
+
+      if (!btn) return;
+      if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+      if (btn.getAttribute('data-no-global-loader') === 'true') return;
+
+      const rawLabel =
+        btn.getAttribute('data-loader-label') ||
+        btn.getAttribute('aria-label') ||
+        (btn instanceof HTMLInputElement ? btn.value : btn.innerText || btn.textContent || '');
+
+      if (!matchesActionButtonLabel(rawLabel)) return;
+
+      triggerActionMonitor(rawLabel);
+    };
+
+    const handleGlobalSubmitCapture = (event: SubmitEvent) => {
+      const state = getGlobalProcessingState();
+      if (state.isManualLocked || state.visible) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const submitter = (event as any).submitter as
+        | (HTMLElement & { value?: string })
+        | null
+        | undefined;
+      if (!submitter) return;
+      if (submitter.getAttribute('data-no-global-loader') === 'true') return;
+
+      const rawLabel =
+        submitter.getAttribute('data-loader-label') ||
+        submitter.getAttribute('aria-label') ||
+        (submitter instanceof HTMLInputElement
+          ? submitter.value
+          : submitter.innerText || submitter.textContent || '');
+
+      if (!matchesActionButtonLabel(rawLabel)) return;
+      triggerActionMonitor(rawLabel);
+    };
+
+    document.addEventListener('click', handleGlobalClickCapture, true);
+    document.addEventListener('submit', handleGlobalSubmitCapture, true);
+
+    // B) Interceptor global de window.fetch (>150ms) com suporte a ambientes onde window.fetch é getter-only
+    let fetchPatchedSuccessfully = false;
+    try {
+      const currentFetch = window.fetch;
+      if (typeof currentFetch === 'function' && !(currentFetch as any).__agroLoaderPatched) {
+        const ownDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
+        const canRedefine = !ownDesc || ownDesc.configurable === true;
+        const canAssign = Boolean(ownDesc && (ownDesc.writable === true || typeof ownDesc.set === 'function'));
+
+        if (canRedefine || canAssign) {
+          originalFetchDescriptor = ownDesc;
+          originalFetchRef = currentFetch.bind(window);
+          const wrappedFetch: typeof window.fetch = async (input, init) => {
+            const urlStr =
+              typeof input === 'string'
+                ? input
+                : input instanceof URL
+                  ? input.toString()
+                  : (input as Request)?.url || '';
+
+            if (shouldIgnoreFetchUrl(urlStr, init)) {
+              return originalFetchRef!(input, init);
+            }
+
+            const msg = buildContextualFetchMessage(urlStr);
+            const release = showAgroLoading(msg, {
+              delayMs: 150,
+              minVisibleMs: 240,
+              maxDurationMs: 30000,
+              source: 'fetch',
+            });
+
+            try {
+              return await originalFetchRef!(input, init);
+            } finally {
+              release();
+            }
+          };
+          (wrappedFetch as any).__agroLoaderPatched = true;
+
+          if (canRedefine) {
+            Object.defineProperty(window, 'fetch', {
+              value: wrappedFetch,
+              writable: true,
+              configurable: true,
+              enumerable: ownDesc?.enumerable ?? true,
+            });
+            fetchPatchedSuccessfully = true;
+          } else if (canAssign) {
+            window.fetch = wrappedFetch;
+            fetchPatchedSuccessfully = true;
+          }
+        }
+      }
+    } catch {
+      // Alguns ambientes/sandboxes expõem window.fetch como getter não configurável; ignora sem interromper o app
+      originalFetchRef = null;
+      originalFetchDescriptor = undefined;
+      fetchPatchedSuccessfully = false;
+    }
+
+    uninstallMonitorCallbacks = [
+      () => {
+        document.removeEventListener('click', handleGlobalClickCapture, true);
+        document.removeEventListener('submit', handleGlobalSubmitCapture, true);
+      },
+      () => {
+        if (fetchPatchedSuccessfully && originalFetchRef) {
+          try {
+            if ((window.fetch as any)?.__agroLoaderPatched) {
+              if (originalFetchDescriptor) {
+                Object.defineProperty(window, 'fetch', originalFetchDescriptor);
+              } else {
+                Object.defineProperty(window, 'fetch', {
+                  value: originalFetchRef,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true,
+                });
+              }
+            }
+          } catch {
+            // Falha silenciosa na restauração de window.fetch
+          }
+        }
+        originalFetchRef = null;
+        originalFetchDescriptor = undefined;
+      },
+    ];
+  }
+
+  return () => {
+    monitorRefCount = Math.max(0, monitorRefCount - 1);
+    if (monitorRefCount === 0) {
+      uninstallMonitorCallbacks.forEach((cb) => cb());
+      uninstallMonitorCallbacks = [];
+    }
+  };
+}
+
+

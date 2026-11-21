@@ -57,6 +57,7 @@ import {
   getStoredDocumentosEntrada,
   getStoredExpenses,
   getStoredFiscalRecords,
+  runWithLoader,
 } from '../../lib/storage';
 import {
   ThirdPartyPlateEntry,
@@ -860,6 +861,11 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
 
     const now = new Date().toISOString();
     const isEditing = !!activeSupplier;
+    const loaderTitle = isEditing
+      ? 'Salvando Atualização do Fornecedor...'
+      : 'Cadastrando Fornecedor...';
+
+    void runWithLoader(loaderTitle, () => {
     const supplierId = activeSupplier?.id || `sup_${Date.now()}`;
     const finalCode = (
       code ||
@@ -1005,6 +1011,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         setFeedback(null);
       }, 4000);
     }
+    });
   };
 
   // Lista de veículos/placas vinculados a este fornecedor/transportadora

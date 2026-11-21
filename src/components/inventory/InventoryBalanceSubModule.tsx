@@ -43,6 +43,7 @@ import {
   saveStoredInventory,
   saveCompanyEstoque,
   recordStockEntryMovements,
+  runWithLoader,
 } from '../../lib/storage';
 import { getActiveUserSession } from '../../lib/cadastrosBaseStorage';
 import { generatePrintableHtml, executePrint } from '../../lib/printService';
@@ -527,7 +528,7 @@ export const InventoryBalanceSubModule: React.FC<InventoryBalanceSubModuleProps>
   // Fechamento auditado & atualização oficial do estoque
   const handleConfirmFinishBalance = () => {
     if (!activeSession || activeSession.status === 'CONCLUIDO') return;
-
+    void runWithLoader('Processando Fechamento de Balanço e Atualizando Estoque...', () => {
     const metrics = computeSessionMetrics(activeSession.items);
     const nowIso = new Date().toISOString();
     const todayDate = nowIso.split('T')[0];
@@ -636,6 +637,7 @@ export const InventoryBalanceSubModule: React.FC<InventoryBalanceSubModuleProps>
     setFeedbackBanner({
       type: 'success',
       text: `Balanço #${activeSession.code} concluído e auditado! ${changedProducts.length} produto(s) atualizado(s) no Estoque Geral com movimentações registradas.`,
+    });
     });
   };
 

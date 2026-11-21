@@ -108,6 +108,7 @@ import {
   getStoredInventoryCategories,
   saveStoredInventoryCategories,
   getActiveCompanyId,
+  runWithLoader,
   saveCompanyData,
   getStoredTireInventory,
   saveStoredTireInventory,
@@ -7296,6 +7297,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     setIsSavingManualEntry(true);
     try {
+      await runWithLoader('Finalizando Nota Fiscal e Lançando Parcelas...', async () => {
       let activeDocId = currentManualDoc?.id;
       let finalDoc: DocumentoEntradaRecord;
 
@@ -7644,6 +7646,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         isOpen: true,
         documentoEntrada: finalDocWithItems,
         pendingPrintPrompt: pendingPrint,
+      });
       });
     } catch (err) {
       console.error('Erro ao confirmar parcelas da entrada manual:', err);
@@ -10208,7 +10211,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   };
 
   const handleProcessXml = (text: string) => {
-    processXmlDirectly(text);
+    void runWithLoader('Processando Importação de XML...', () => {
+      processXmlDirectly(text);
+    });
   };
 
   // Upload direto e simples via FileReader nativo protegido contra quebra de interface
@@ -10227,21 +10232,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        try {
-          const text = e.target?.result as string;
-          if (!text || !text.trim()) {
-            console.error("Conteúdo lido do arquivo está vazio");
+        void runWithLoader('Processando Importação de XML...', () => {
+          try {
+            const text = e.target?.result as string;
+            if (!text || !text.trim()) {
+              console.error("Conteúdo lido do arquivo está vazio");
+              setErrorMessage(XML_CORRUPTED_FRIENDLY_ERROR);
+              setParsedData(null);
+              return;
+            }
+            // Processa o conteúdo XML com validação completa e try-catch
+            processXmlDirectly(text);
+          } catch (readErr) {
+            console.error("Erro ao ler conteúdo do arquivo XML:", readErr);
             setErrorMessage(XML_CORRUPTED_FRIENDLY_ERROR);
             setParsedData(null);
-            return;
           }
-          // Processa o conteúdo XML com validação completa e try-catch
-          processXmlDirectly(text);
-        } catch (readErr) {
-          console.error("Erro ao ler conteúdo do arquivo XML:", readErr);
-          setErrorMessage(XML_CORRUPTED_FRIENDLY_ERROR);
-          setParsedData(null);
-        }
+        });
       };
       reader.onerror = (err) => {
         console.error("Erro no FileReader ao ler arquivo no navegador:", err);
@@ -11703,6 +11710,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const handleConfirmAndSaveInstallments = async (detailedInstallments: NfeDetailedInstallment[]) => {
     if (!parsedData) return;
 
+    await runWithLoader('Finalizando Nota Fiscal e Atualizando Estoque...', async () => {
     // IDENTIFICADORES CANÔNICOS DA NF-e (calculados antes para vincular Estoque + Financeiro + Fiscal atomicamente)
     const cleanInvoiceNumber = (parsedData.invoiceNumber || '').replace(/\s*\(\d+\/\d+\)/g, '').trim();
     const cleanDigitsOnly = cleanInvoiceNumber.replace(/\D/g, '');
@@ -12348,6 +12356,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
     setSessionCreatedProductIds(new Set());
     setTimeout(() => setSuccessMessage(''), 5000);
+    });
   };
 
   const handleConfirmImport = () => {

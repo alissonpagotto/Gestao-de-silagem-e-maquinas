@@ -24,6 +24,7 @@ import {
   getStoredCompanyProfile,
   isBackupExcludedKey,
   mirrorRestoredBackupToActiveScope,
+  runWithLoader,
   safeLocalStorageSetItem,
 } from '../../lib/storage';
 import {
@@ -626,12 +627,14 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
   const handleDownloadBackup = async () => {
     try {
       setIsProcessing(true);
-      const result = await exportAgroControlBackup(subscriberName, companyCnpj);
-      await refreshStorageCounters();
-      setLastBackupReport(result);
-      setFeedback({
-        type: 'success',
-        text: `Backup integral v2.0 gerado! "${result.filename}" baixado com ${result.totalKeys} chaves de dados + ${result.totalMediaFiles} arquivos/mídias do IndexedDB.`,
+      await runWithLoader('Gerando Backup Completo do Sistema...', async () => {
+        const result = await exportAgroControlBackup(subscriberName, companyCnpj);
+        await refreshStorageCounters();
+        setLastBackupReport(result);
+        setFeedback({
+          type: 'success',
+          text: `Backup integral v2.0 gerado! "${result.filename}" baixado com ${result.totalKeys} chaves de dados + ${result.totalMediaFiles} arquivos/mídias do IndexedDB.`,
+        });
       });
     } catch (err) {
       console.error('Erro ao gerar backup:', err);
@@ -726,15 +729,17 @@ export const DataBackupSecurityBlock: React.FC<DataBackupSecurityBlockProps> = (
     if (!pendingRawJson) return;
     try {
       setIsProcessing(true);
-      const { restoredKeys, restoredMedia } = await handleRestoreBackup(pendingRawJson);
-      setIsConfirmModalOpen(false);
-      setFeedback({
-        type: 'success',
-        text: `Backup restaurado com sucesso: ${restoredKeys} chaves de dados + ${restoredMedia} arquivos de mídia/documentos recuperados!`,
+      await runWithLoader('Restaurando Backup e Sincronizando Dados...', async () => {
+        const { restoredKeys, restoredMedia } = await handleRestoreBackup(pendingRawJson);
+        setIsConfirmModalOpen(false);
+        setFeedback({
+          type: 'success',
+          text: `Backup restaurado com sucesso: ${restoredKeys} chaves de dados + ${restoredMedia} arquivos de mídia/documentos recuperados!`,
+        });
+        setTimeout(() => {
+          window.location.reload();
+        }, 350);
       });
-      setTimeout(() => {
-        window.location.reload();
-      }, 350);
     } catch (err) {
       console.error('Erro ao restaurar backup:', err);
       setIsProcessing(false);

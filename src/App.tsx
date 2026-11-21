@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -128,7 +129,11 @@ import {
   getStoredDocumentosEntrada,
   getStoredFiscalRecords,
   getStoredFinanceiroCheques,
-  saveStoredFinanceiroCheques
+  saveStoredFinanceiroCheques,
+  GlobalProcessingState,
+  getGlobalProcessingState,
+  subscribeGlobalProcessing,
+  installGlobalProcessingMonitor,
 } from './lib/storage';
 import {
   recordFinancialReversalAudit,
@@ -257,7 +262,52 @@ import {
 } from './lib/supabaseService';
 import { supabase } from './lib/supabaseClient';
 
-export default function App() {
+export const GlobalProcessingOverlay: React.FC = () => {
+  const [state, setState] = useState<GlobalProcessingState>(() => getGlobalProcessingState());
+
+  useEffect(() => {
+    const uninstallMonitor = installGlobalProcessingMonitor();
+    const unsubscribe = subscribeGlobalProcessing(setState);
+    return () => {
+      unsubscribe();
+      uninstallMonitor();
+    };
+  }, []);
+
+  if (!state.visible) return null;
+
+  const overlayContent = (
+    <div
+      id="agro-global-processing-overlay"
+      role="status"
+      aria-live="assertive"
+      aria-busy="true"
+      className="fixed inset-0 z-[10050] bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center p-4 pointer-events-auto select-none no-print"
+    >
+      <div className="bg-[#e0e6f1] border-2 border-black rounded-xl p-5 shadow-2xl max-w-sm w-full text-center no-modal-clamp">
+        <div className="flex justify-center mb-3">
+          <div className="w-11 h-11 rounded-full border-4 border-emerald-700/25 border-t-emerald-700 animate-spin" />
+        </div>
+        <h3 className="text-sm font-black uppercase tracking-wide text-slate-900 leading-snug break-words">
+          {state.message || 'Processando solicitação...'}
+        </h3>
+        <p className="mt-1.5 text-xs font-semibold text-slate-700 leading-relaxed">
+          O sistema está processando sua solicitação. Aguarde um instante...
+        </p>
+        <div className="mt-4 w-full h-2 rounded-full bg-slate-300 border border-black/40 overflow-hidden relative">
+          <div className="h-full w-2/5 rounded-full bg-emerald-700 agro-progress-indeterminate" />
+        </div>
+      </div>
+    </div>
+  );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(overlayContent, document.body);
+  }
+  return overlayContent;
+};
+
+function AppContent() {
   // State Initialization from LocalStorage (resiliente, amarrado à empresa/PC)
   const [expenses, setExpenses] = useState<Expense[]>(() => getCompanyDespesas());
   const [categories, setCategories] = useState<ExpenseCategory[]>(() => getStoredCategories());
@@ -5074,5 +5124,14 @@ export default function App() {
       )}
 
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <AppContent />
+      <GlobalProcessingOverlay />
+    </>
   );
 }
