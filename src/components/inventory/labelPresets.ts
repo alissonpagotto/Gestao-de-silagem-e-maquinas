@@ -165,10 +165,18 @@ function createCartaPreset(params: {
 }): LabelPresetConfig {
   const pageWidthMm = 215.9;
   const pageHeightMm = 279.4;
-  const marginTopMm = params.marginTopMm ?? 12.7;
-  const marginLeftMm = params.marginLeftMm ?? 4.76;
-  const colGapMm = params.colGapMm ?? 3.18;
+  const colGapMm =
+    params.colGapMm ??
+    (params.cols >= 4 ? 7.6 : params.cols === 3 ? 3.18 : params.cols === 2 ? 4.8 : 0);
   const rowGapMm = params.rowGapMm ?? 0;
+  const totalGridWidth =
+    params.cols * params.labelWidthMm + Math.max(0, params.cols - 1) * colGapMm;
+  const totalGridHeight =
+    params.rows * params.labelHeightMm + Math.max(0, params.rows - 1) * rowGapMm;
+  const marginTopMm =
+    params.marginTopMm ?? Number(((pageHeightMm - totalGridHeight) / 2).toFixed(2));
+  const marginLeftMm =
+    params.marginLeftMm ?? Number(((pageWidthMm - totalGridWidth) / 2).toFixed(2));
   const totalPerSheet = params.cols * params.rows;
 
   return {
@@ -208,7 +216,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 18,
     labelWidthMm: 26.0,
     labelHeightMm: 15.0,
-    colGapMm: 0,
+    colGapMm: 2.5,
   }),
   createA4Preset({
     id: 'a4_96_a4348',
@@ -226,10 +234,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 13,
     labelWidthMm: 38.2,
     labelHeightMm: 21.2,
-    marginTopMm: 10.7,
-    marginLeftMm: 4.65,
     colGapMm: 2.5,
-    rowGapMm: 0,
   }),
   createA4Preset({
     id: 'a4_44_a4350',
@@ -238,7 +243,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 11,
     labelWidthMm: 48.5,
     labelHeightMm: 25.4,
-    colGapMm: 0,
+    colGapMm: 2.5,
   }),
   createA4Preset({
     id: 'a4_33_a4355',
@@ -256,7 +261,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 10,
     labelWidthMm: 66.7,
     labelHeightMm: 25.4,
-    colGapMm: 0,
+    colGapMm: 2.5,
   }),
   createA4Preset({
     id: 'a4_24_a4360',
@@ -274,7 +279,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 11,
     labelWidthMm: 99.0,
     labelHeightMm: 25.4,
-    colGapMm: 2.5,
+    colGapMm: 2.0,
   }),
   createA4Preset({
     id: 'a4_18_a4361',
@@ -292,7 +297,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 8,
     labelWidthMm: 99.0,
     labelHeightMm: 33.9,
-    colGapMm: 2.5,
+    colGapMm: 2.0,
   }),
   createA4Preset({
     id: 'a4_14_a4363',
@@ -301,7 +306,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 7,
     labelWidthMm: 99.0,
     labelHeightMm: 38.1,
-    colGapMm: 2.5,
+    colGapMm: 2.0,
   }),
   createA4Preset({
     id: 'a4_10_a4367',
@@ -310,7 +315,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 5,
     labelWidthMm: 99.0,
     labelHeightMm: 55.0,
-    colGapMm: 2.5,
+    colGapMm: 2.0,
   }),
   createA4Preset({
     id: 'a4_8_a4368',
@@ -319,7 +324,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 4,
     labelWidthMm: 99.0,
     labelHeightMm: 67.7,
-    colGapMm: 2.5,
+    colGapMm: 2.0,
   }),
   createA4Preset({
     id: 'a4_4_a4372',
@@ -328,7 +333,7 @@ export const A4_PRESETS: LabelPresetConfig[] = [
     rows: 2,
     labelWidthMm: 99.0,
     labelHeightMm: 138.5,
-    colGapMm: 2.5,
+    colGapMm: 2.0,
   }),
   createA4Preset({
     id: 'a4_2_a4373',
@@ -358,8 +363,6 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 20,
     labelWidthMm: 44.45,
     labelHeightMm: 12.7,
-    marginTopMm: 12.7,
-    marginLeftMm: 7.6,
     colGapMm: 7.6,
     rowGapMm: 0,
   }),
@@ -370,8 +373,6 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 15,
     labelWidthMm: 44.45,
     labelHeightMm: 16.93,
-    marginTopMm: 12.7,
-    marginLeftMm: 7.6,
     colGapMm: 7.6,
     rowGapMm: 0,
   }),
@@ -382,8 +383,6 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 10,
     labelWidthMm: 66.7,
     labelHeightMm: 25.4,
-    marginTopMm: 12.7,
-    marginLeftMm: 4.76,
     colGapMm: 3.18,
     rowGapMm: 0,
   }),
@@ -394,9 +393,7 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 10,
     labelWidthMm: 101.6,
     labelHeightMm: 25.4,
-    marginTopMm: 12.7,
-    marginLeftMm: 4.76,
-    colGapMm: 3.18,
+    colGapMm: 4.8,
     rowGapMm: 0,
   }),
   createCartaPreset({
@@ -406,9 +403,7 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 7,
     labelWidthMm: 101.6,
     labelHeightMm: 33.9,
-    marginTopMm: 21.05,
-    marginLeftMm: 4.76,
-    colGapMm: 3.18,
+    colGapMm: 4.8,
     rowGapMm: 0,
   }),
   createCartaPreset({
@@ -418,9 +413,7 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 5,
     labelWidthMm: 101.6,
     labelHeightMm: 50.8,
-    marginTopMm: 12.7,
-    marginLeftMm: 6.35,
-    colGapMm: 0,
+    colGapMm: 4.8,
     rowGapMm: 0,
   }),
   createCartaPreset({
@@ -430,9 +423,7 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 3,
     labelWidthMm: 101.6,
     labelHeightMm: 84.7,
-    marginTopMm: 12.7,
-    marginLeftMm: 4.0,
-    colGapMm: 4.83,
+    colGapMm: 4.8,
     rowGapMm: 0,
   }),
   createCartaPreset({
@@ -442,9 +433,7 @@ export const CARTA_PRESETS: LabelPresetConfig[] = [
     rows: 2,
     labelWidthMm: 101.6,
     labelHeightMm: 127.0,
-    marginTopMm: 12.7,
-    marginLeftMm: 6.35,
-    colGapMm: 0,
+    colGapMm: 4.8,
     rowGapMm: 0,
   }),
 ];
@@ -455,23 +444,25 @@ function createThermalPreset(params: {
   cols: number;
   widthMm: number;
   heightMm: number;
-  gapXMm: number;
+  gapXMm?: number;
   rowGapMm?: number;
   marginLeftMm?: number;
   marginTopMm?: number;
   pageWidthMm?: number;
   pageHeightMm?: number;
-  pageSize: string;
+  pageSize?: string;
   description: string;
   badge: string;
 }): LabelPresetConfig {
   const marginLeftMm = params.marginLeftMm ?? 0;
   const marginTopMm = params.marginTopMm ?? 0;
-  const rowGapMm = params.rowGapMm ?? 0;
+  const gapXMm = params.gapXMm ?? (params.cols > 1 ? 3.0 : 0);
+  const rowGapMm = params.rowGapMm ?? 3.0;
   const totalWidth =
     params.pageWidthMm ??
-    Number((marginLeftMm * 2 + params.cols * params.widthMm + Math.max(0, params.cols - 1) * params.gapXMm).toFixed(2));
+    Number((marginLeftMm * 2 + params.cols * params.widthMm + Math.max(0, params.cols - 1) * gapXMm).toFixed(2));
   const totalHeight = params.pageHeightMm ?? params.heightMm;
+  const pageSize = params.pageSize ?? `${totalWidth}mm ${totalHeight}mm`;
   return {
     id: params.id,
     name: params.name,
@@ -488,13 +479,13 @@ function createThermalPreset(params: {
     rows: 1,
     marginTopMm,
     marginLeftMm,
-    colGapMm: params.gapXMm,
+    colGapMm: gapXMm,
     rowGapMm,
-    gapXMm: params.gapXMm,
+    gapXMm,
     gapYMm: rowGapMm,
     paddingTopMm: marginTopMm,
     paddingLeftMm: marginLeftMm,
-    pageSize: params.pageSize,
+    pageSize,
     description: params.description,
     badge: params.badge,
   };
@@ -508,6 +499,7 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     widthMm: 60.0,
     heightMm: 30.0,
     gapXMm: 0,
+    rowGapMm: 3.0,
     pageSize: '60mm 30mm',
     description: 'Rolo térmico contínuo 1 coluna • 60mm x 30mm',
     badge: '1 Col (60x30)',
@@ -519,6 +511,7 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     widthMm: 40.0,
     heightMm: 25.0,
     gapXMm: 0,
+    rowGapMm: 3.0,
     pageSize: '40mm 25mm',
     description: 'Rolo térmico compacto • 40mm x 25mm',
     badge: '1 Col (40x25)',
@@ -530,6 +523,7 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     widthMm: 50.0,
     heightMm: 40.0,
     gapXMm: 0,
+    rowGapMm: 3.0,
     pageSize: '50mm 40mm',
     description: 'Rolo térmico médio • 50mm x 40mm',
     badge: '1 Col (50x40)',
@@ -541,6 +535,7 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     widthMm: 100.0,
     heightMm: 50.0,
     gapXMm: 0,
+    rowGapMm: 3.0,
     pageSize: '100mm 50mm',
     description: 'Rolo térmico para caixas e fardos • 100mm x 50mm',
     badge: '1 Col (100x50)',
@@ -566,8 +561,9 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     cols: 2,
     widthMm: 37.0,
     heightMm: 30.0,
-    gapXMm: 2.0,
-    pageSize: '76mm 30mm',
+    gapXMm: 3.0,
+    rowGapMm: 3.0,
+    pageSize: '77mm 30mm',
     description: 'Rolo com 2 colunas lado a lado • 37mm x 30mm cada',
     badge: '2 Col (37x30)',
   }),
@@ -577,8 +573,9 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     cols: 3,
     widthMm: 33.0,
     heightMm: 22.0,
-    gapXMm: 2.0,
-    pageSize: '103mm 22mm',
+    gapXMm: 3.0,
+    rowGapMm: 3.0,
+    pageSize: '105mm 22mm',
     description: 'Rolo com 3 colunas lado a lado • 33mm x 22mm cada',
     badge: '3 Col (33x22)',
   }),
@@ -588,8 +585,9 @@ export const THERMAL_PRESETS: LabelPresetConfig[] = [
     cols: 5,
     widthMm: 15.0,
     heightMm: 50.0,
-    gapXMm: 1.5,
-    pageSize: '82mm 50mm',
+    gapXMm: 3.0,
+    rowGapMm: 3.0,
+    pageSize: '87mm 50mm',
     description: 'Rolo com 5 colunas verticais • 15mm x 50mm cada',
     badge: '5 Col (15x50)',
   }),
@@ -615,6 +613,25 @@ function clampNumber(val: unknown, fallback: number, min: number, max: number): 
   const num = Number(val);
   if (!Number.isFinite(num)) return fallback;
   return Number(Math.min(max, Math.max(min, num)).toFixed(2));
+}
+
+export function computeCenteredSheetMargins(
+  paperType: 'a4' | 'carta',
+  labelWidthMm: number,
+  labelHeightMm: number,
+  cols: number,
+  rows: number,
+  colGapMm: number = 0,
+  rowGapMm: number = 0
+): { marginTopMm: number; marginLeftMm: number } {
+  const sheetW = paperType === 'carta' ? 215.9 : 210;
+  const sheetH = paperType === 'carta' ? 279.4 : 297;
+  const contentW = cols * labelWidthMm + Math.max(0, cols - 1) * colGapMm;
+  const contentH = rows * labelHeightMm + Math.max(0, rows - 1) * rowGapMm;
+  return {
+    marginLeftMm: Number(Math.max(0, (sheetW - contentW) / 2).toFixed(2)),
+    marginTopMm: Number(Math.max(0, (sheetH - contentH) / 2).toFixed(2)),
+  };
 }
 
 export function buildCustomLabelPreset(
@@ -649,8 +666,8 @@ export function buildCustomLabelPreset(
     badge = `Personalizada Carta ${cols}×${rows} (${cols * rows} un)`;
     description = `${cols * rows} etiquetas/folha Carta • ${labelWidthMm}×${labelHeightMm}mm • ${cols}×${rows}`;
   } else if (paperType === 'termica') {
-    pageWidthMm = Number((marginLeftMm + cols * labelWidthMm + Math.max(0, cols - 1) * colGapMm).toFixed(2));
-    pageHeightMm = Number((marginTopMm + rows * labelHeightMm + Math.max(0, rows - 1) * rowGapMm).toFixed(2));
+    pageWidthMm = Number((marginLeftMm * 2 + cols * labelWidthMm + Math.max(0, cols - 1) * colGapMm).toFixed(2));
+    pageHeightMm = Number((marginTopMm * 2 + rows * labelHeightMm + Math.max(0, rows - 1) * rowGapMm).toFixed(2));
     pageSize = `${pageWidthMm}mm ${pageHeightMm}mm`;
     totalPerSheet = rows > 1 ? cols * rows : undefined;
     badge = `Personalizada Térmica ${cols}×${rows} (${labelWidthMm}×${labelHeightMm})`;
