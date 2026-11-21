@@ -20,6 +20,7 @@ import { InventoryItem } from '../../types';
 import { generateBarcodeSvgString, generateBarcodeBars } from './barcodeGenerator';
 import { executePrint } from '../../lib/printService';
 import { formatCurrencyBRL } from '../../lib/storage';
+import { buildDanfeViewerToolbarCss, buildDanfeViewerZoomScript } from '../../lib/danfeOficialHtml';
 import { 
   type LabelSizePreset, 
   type LabelPresetConfig, 
@@ -85,6 +86,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     defaultQuantityRule ?? (onBackToQueue ? 'invoice' : 'single')
   );
   const [defaultCopies, setDefaultCopies] = useState<number>(1);
+  const [defaultCopiesInput, setDefaultCopiesInput] = useState<string>('1');
   const [customCopies, setCustomCopies] = useState<Record<string, number>>({});
   const [isPrinting, setIsPrinting] = useState(false);
   const [previewTab, setPreviewTab] = useState<'label' | 'sheet'>('label');
@@ -157,6 +159,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       });
       setCustomCopies(synced);
       setDefaultCopies(1);
+      setDefaultCopiesInput('1');
     }
   }, [isOpen, itemsToPrint, defaultQuantityRule, onBackToQueue]);
 
@@ -229,6 +232,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     const updated: Record<string, number> = {};
     if (rule === 'single') {
       setDefaultCopies(1);
+      setDefaultCopiesInput('1');
       itemsToPrint.forEach(({ product: item }) => {
         updated[item.id] = 1;
       });
@@ -242,9 +246,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   };
 
   // Aplica quantidade padrão manual para todos os itens da lista
-  const handleApplyGlobalCopies = (qty: number) => {
-    const valid = Math.max(1, qty);
+  const handleApplyGlobalCopies = (qty: number, rawInput?: string) => {
+    const valid = Math.min(999, Math.max(1, Math.round(qty) || 1));
     setDefaultCopies(valid);
+    setDefaultCopiesInput(rawInput !== undefined ? rawInput : String(valid));
     const updated: Record<string, number> = {};
     itemsToPrint.forEach(({ product: item }) => {
       updated[item.id] = valid;
@@ -267,7 +272,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       }
     });
     return list;
-  }, [itemsToPrint, customCopies, defaultCopies]);
+  }, [itemsToPrint, customCopies, defaultCopies, quantityRule]);
 
   if (!isOpen || itemsToPrint.length === 0) return null;
 
@@ -463,7 +468,6 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         min-height: ${preset.labelHeightMm}mm;
         max-height: ${preset.labelHeightMm}mm;
         box-sizing: border-box;
-        border: 0.3px dashed #bbbbbb;
         background: #ffffff;
         color: #000000;
         padding: ${metrics.paddingMm};
@@ -725,7 +729,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   // Gerador do HTML de impressão calibrado milimetricamente para A4, Carta e Térmica
   const generateLabelsHtml = (): string => {
     const metrics = getLabelDesignMetrics(currentPreset);
-    let pageCss = '';
+    let pageSizeCss = `${currentPreset.pageWidthMm}mm ${currentPreset.pageHeightMm}mm`;
+    let layoutCss = '';
     let bodyContent = '';
 
     if (currentPreset.category === 'a4' || currentPreset.category === 'carta') {
@@ -733,33 +738,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       const safeStartPos = Math.max(1, Math.min(startPosition, slotsPerSheet));
       const cols = currentPreset.cols || 3;
       const rows = currentPreset.rows || Math.ceil(slotsPerSheet / cols);
-      const sheetHeightSafeMm = Number((currentPreset.pageHeightMm - 0.4).toFixed(2));
-      const pageSizeCss = currentPreset.category === 'carta' ? 'letter portrait' : 'A4 portrait';
+      const lockedSheetWidthMm = currentPreset.category === 'carta' ? 215.9 : 210;
+      const lockedSheetHeightMm = currentPreset.category === 'carta' ? 279 : 296.5;
+      pageSizeCss = currentPreset.category === 'carta' ? 'letter portrait' : 'A4 portrait';
 
-      pageCss = `
-        @page {
-          size: ${pageSizeCss};
-          margin: 0;
-        }
-        *, *::before, *::after {
-          box-sizing: border-box;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        html, body {
-          margin: 0 !important;
-          padding: 0 !important;
-          width: ${currentPreset.pageWidthMm}mm;
-          background: #ffffff;
-          color: #000000;
-          box-sizing: border-box;
-        }
-        header, footer, .no-print, .print-metadata {
-          display: none !important;
-        }
-        .label-sheet {
-          width: ${currentPreset.pageWidthMm}mm;
-          height: ${sheetHeightSafeMm}mm;
+      layoutCss = `
+        .label-page {
+          width: ${lockedSheetWidthMm}mm;
+          height: ${lockedSheetHeightMm}mm;
           margin: 0;
           padding-top: ${currentPreset.marginTopMm}mm;
           padding-left: ${currentPreset.marginLeftMm}mm;
@@ -779,7 +765,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           break-inside: avoid;
           overflow: hidden;
         }
-        .label-sheet:last-of-type {
+        .label-page:last-of-type {
           page-break-after: avoid !important;
           break-after: avoid !important;
         }
@@ -801,30 +787,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           visibility: hidden !important;
           border: none !important;
         }
-        .label-barcode-container svg {
-          max-width: 100% !important;
-          max-height: 100% !important;
-          width: auto !important;
-          height: auto !important;
-          display: block !important;
-          margin: 0 auto !important;
-        }
         @media print {
-          @page {
-            size: ${pageSizeCss};
-            margin: 0;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: ${currentPreset.pageWidthMm}mm !important;
-          }
-          header, footer, .no-print, .print-metadata {
-            display: none !important;
-          }
-          .label-sheet {
-            width: ${currentPreset.pageWidthMm}mm !important;
-            height: ${sheetHeightSafeMm}mm !important;
+          .label-page {
+            width: ${lockedSheetWidthMm}mm !important;
+            height: ${lockedSheetHeightMm}mm !important;
             margin: 0 !important;
             padding-top: ${currentPreset.marginTopMm}mm !important;
             padding-left: ${currentPreset.marginLeftMm}mm !important;
@@ -844,30 +810,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             break-inside: avoid !important;
             overflow: hidden !important;
           }
-          .label-sheet:last-of-type {
+          .label-page:last-of-type {
             page-break-after: avoid !important;
             break-after: avoid !important;
-          }
-          .gondola-label {
-            border: none !important;
-          }
-          .gondola-label,
-          .sheet-slot {
-            width: ${currentPreset.labelWidthMm}mm !important;
-            min-width: ${currentPreset.labelWidthMm}mm !important;
-            max-width: ${currentPreset.labelWidthMm}mm !important;
-            height: ${currentPreset.labelHeightMm}mm !important;
-            min-height: ${currentPreset.labelHeightMm}mm !important;
-            max-height: ${currentPreset.labelHeightMm}mm !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-            overflow: hidden !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-          }
-          .sheet-slot.empty-slot {
-            visibility: hidden !important;
-            border: none !important;
           }
         }
       `;
@@ -894,7 +839,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         }
 
         sheetsHtml.push(`
-          <div class="label-sheet">
+          <div class="label-page">
             ${slotsHtml.join('\n')}
           </div>
         `);
@@ -906,22 +851,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       // IMPRESSORAS TÉRMICAS (1 coluna, multi-colunas ou personalizadas)
       const cols = Math.max(1, currentPreset.cols || currentPreset.columns || 1);
       const rows = Math.max(1, currentPreset.rows || 1);
+      pageSizeCss = `${currentPreset.pageWidthMm}mm ${currentPreset.pageHeightMm}mm`;
+
       if (cols === 1 && rows === 1) {
-        pageCss = `
-          @page { 
-            size: ${currentPreset.pageSize}; 
-            margin: 0; 
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            background: #ffffff;
-            color: #000000;
-          }
-          header, footer, .no-print, .print-metadata {
-            display: none !important;
-          }
-          .thermal-page {
+        layoutCss = `
+          .label-page.thermal-page {
             width: ${currentPreset.pageWidthMm}mm;
             height: ${currentPreset.pageHeightMm}mm;
             padding-top: ${currentPreset.marginTopMm}mm;
@@ -931,19 +865,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             break-after: page;
             overflow: hidden;
           }
-          .thermal-page:last-of-type {
+          .label-page.thermal-page:last-of-type {
             page-break-after: avoid !important;
             break-after: avoid !important;
-          }
-          @media print {
-            .gondola-label {
-              border: none !important;
-            }
           }
         `;
 
         const pagesHtml = flatLabelsList.map(item => `
-          <div class="thermal-page">
+          <div class="label-page thermal-page">
             ${renderSingleLabelHtml(item, currentPreset, metrics)}
           </div>
         `);
@@ -951,21 +880,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       } else {
         // Rolo térmico multi-colunas ou multi-linhas (Dupla, Tripla, Mini ou Personalizada)
         const perBlock = cols * rows;
-        pageCss = `
-          @page { 
-            size: ${currentPreset.pageSize}; 
-            margin: 0; 
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            background: #ffffff;
-            color: #000000;
-          }
-          header, footer, .no-print, .print-metadata {
-            display: none !important;
-          }
-          .thermal-row-page {
+        layoutCss = `
+          .label-page.thermal-row-page {
             width: ${currentPreset.pageWidthMm}mm;
             height: ${currentPreset.pageHeightMm}mm;
             padding-top: ${currentPreset.marginTopMm}mm;
@@ -976,18 +892,15 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm);
             column-gap: ${currentPreset.colGapMm}mm;
             row-gap: ${currentPreset.rowGapMm}mm;
+            align-content: start;
+            justify-content: start;
             page-break-after: always;
             break-after: page;
             overflow: hidden;
           }
-          .thermal-row-page:last-of-type {
+          .label-page.thermal-row-page:last-of-type {
             page-break-after: avoid !important;
             break-after: avoid !important;
-          }
-          @media print {
-            .gondola-label {
-              border: none !important;
-            }
           }
         `;
 
@@ -1002,7 +915,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           }
 
           rowsHtml.push(`
-            <div class="thermal-row-page">
+            <div class="label-page thermal-row-page">
               ${colsHtml.join('\n')}
             </div>
           `);
@@ -1011,23 +924,31 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       }
     }
 
+    const toolbarTitle = `${currentPreset.badge.toUpperCase()} • ${flatLabelsList.length} ETIQUETA(S)`.replace(/[<>&"]/g, '');
+
     return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <title></title>
   <style>
-    ${pageCss}
+    @page {
+      size: ${pageSizeCss};
+      margin: 0mm;
+    }
     *, *::before, *::after {
       box-sizing: border-box;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    html, body {
+      margin: 0;
+      padding: 0;
       color: #000000;
-      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
+    ${buildDanfeViewerToolbarCss()}
+    ${layoutCss}
     .label-barcode-container svg {
       max-width: 100% !important;
       max-height: 100% !important;
@@ -1036,7 +957,86 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       display: block !important;
       margin: 0 auto !important;
     }
+    @media screen {
+      html, body {
+        background: #525659 !important;
+        min-height: 100vh;
+      }
+      body {
+        padding: 68px 16px 28px 16px !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .labels-preview-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        transform-origin: top center;
+      }
+      .label-page {
+        background: #ffffff;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+      }
+      .gondola-label {
+        border: 1px dashed #cbd5e1;
+      }
+    }
+    @media print {
+      @page {
+        size: ${pageSizeCss};
+        margin: 0mm;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: ${currentPreset.pageWidthMm}mm !important;
+        background: #ffffff !important;
+        display: block !important;
+      }
+      header, footer, .no-print, .danfe-toolbar, .print-metadata {
+        display: none !important;
+      }
+      .labels-preview-stage {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        gap: 0 !important;
+        transform: none !important;
+        zoom: 1 !important;
+      }
+      .label-page {
+        box-shadow: none !important;
+        margin: 0 !important;
+      }
+      .gondola-label {
+        border: none !important;
+      }
+    }
   </style>
+</head>
+<body>
+  <div class="no-print danfe-toolbar" role="toolbar" aria-label="Controles de visualização e impressão">
+    <div class="danfe-toolbar-left">
+      <span class="danfe-toolbar-title">${toolbarTitle}</span>
+    </div>
+    <div class="danfe-zoom-group">
+      <button type="button" id="danfe-zoom-out" class="danfe-zoom-btn" title="Reduzir zoom (-10%)">➖</button>
+      <span id="danfe-zoom-indicator" class="danfe-zoom-value" title="Clique para redefinir para 100%">100%</span>
+      <button type="button" id="danfe-zoom-in" class="danfe-zoom-btn" title="Aumentar zoom (+10%)">➕</button>
+    </div>
+    <div class="danfe-toolbar-actions">
+      <button type="button" class="danfe-btn-print" onclick="window.focus();window.print();">🖨️ Imprimir / Salvar PDF</button>
+      <button type="button" class="danfe-btn-close" onclick="window.close();">✖️ Fechar</button>
+    </div>
+  </div>
+
+  <div id="labels-preview-stage" class="labels-preview-stage">
+    ${bodyContent}
+  </div>
+
+  ${buildDanfeViewerZoomScript('#labels-preview-stage')}
   <script>
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
@@ -1049,9 +1049,6 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       }, 350);
     });
   </script>
-</head>
-<body>
-  ${bodyContent}
 </body>
 </html>`;
   };
@@ -1350,13 +1347,34 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     type="number"
                     min="1"
                     max="999"
-                    value={defaultCopies}
-                    onChange={(e) => handleApplyGlobalCopies(parseInt(e.target.value, 10) || 1)}
+                    value={defaultCopiesInput}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw.trim() === '') {
+                        setDefaultCopiesInput('');
+                        return;
+                      }
+                      const parsed = parseInt(raw, 10);
+                      if (!Number.isNaN(parsed)) {
+                        const clamped = Math.min(999, Math.max(1, parsed));
+                        handleApplyGlobalCopies(clamped, parsed > 999 ? '999' : raw);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!defaultCopiesInput.trim() || Number(defaultCopiesInput) < 1) {
+                        setDefaultCopiesInput(String(defaultCopies));
+                      } else {
+                        const clamped = Math.min(999, Math.max(1, parseInt(defaultCopiesInput, 10) || defaultCopies));
+                        setDefaultCopiesInput(String(clamped));
+                      }
+                    }}
+                    aria-label="Quantidade de etiquetas"
                     className="w-full h-8 text-center font-mono font-black text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   />
                   <button
                     type="button"
-                    onClick={() => handleApplyGlobalCopies(defaultCopies + 1)}
+                    onClick={() => handleApplyGlobalCopies(Math.min(999, defaultCopies + 1))}
                     className="w-8 h-8 rounded-lg border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 font-bold text-slate-700 dark:text-stone-300 hover:bg-slate-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-xs shadow-2xs"
                   >
                     +
@@ -1952,12 +1970,18 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                         min="1"
                         max="999"
                         value={copies}
-                        onChange={(e) => setItemCopies(item.id, parseInt(e.target.value, 10) || 1)}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) => {
+                          const parsed = parseInt(e.target.value, 10);
+                          if (!Number.isNaN(parsed)) {
+                            setItemCopies(item.id, Math.min(999, Math.max(1, parsed)));
+                          }
+                        }}
                         className="w-12 h-6 text-center font-mono font-bold text-xs rounded-md border border-slate-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
                       />
                       <button
                         type="button"
-                        onClick={() => setItemCopies(item.id, copies + 1)}
+                        onClick={() => setItemCopies(item.id, Math.min(999, copies + 1))}
                         className="w-6 h-6 rounded-md border border-slate-300 dark:border-stone-700 bg-gradient-to-b from-white to-slate-100 dark:from-stone-800 dark:to-stone-900 text-slate-700 dark:text-stone-200 hover:bg-slate-100 dark:hover:bg-stone-700 shadow-2xs transition flex items-center justify-center font-bold cursor-pointer active:scale-95"
                       >
                         +
