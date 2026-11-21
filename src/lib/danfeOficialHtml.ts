@@ -565,16 +565,16 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
     .map(
       (pg) => `
       <tr>
-        <td style="font-size:7pt;font-weight:700;padding:2px 5px;">${escapeHtml(pg.descricao)}</td>
-        <td class="tr mono" style="font-size:7pt;font-weight:700;padding:2px 5px;">${escapeHtml(formatCurrencyDanfeBR(pg.valor))}</td>
+        <td style="font-size:9.5pt;font-weight:400;padding:2px 5px;">${escapeHtml(pg.descricao)}</td>
+        <td class="tr mono" style="font-size:9.5pt;font-weight:400;padding:2px 5px;">${escapeHtml(formatCurrencyDanfeBR(pg.valor))}</td>
       </tr>`
     )
     .join('');
 
-  // 14 colunas oficiais da grade DADOS DOS PRODUTOS / SERVIÇOS
+  // 14 colunas oficiais da grade DADOS DOS PRODUTOS / SERVIÇOS (soma exata = 100%)
   const colWidths = [
     '6%',    // 1. CÓDIGO PRODUTO
-    '20.5%', // 2. DESCRIÇÃO DO PRODUTO / SERVIÇO
+    '19.5%', // 2. DESCRIÇÃO DO PRODUTO / SERVIÇO
     '7%',    // 3. NCM/SH
     '6%',    // 4. CSOSN / CST
     '4.5%',  // 5. CFOP
@@ -586,7 +586,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
     '7.5%',  // 11. BASE DE CÁLC. ICMS
     '6%',    // 12. VALOR ICMS
     '5%',    // 13. VALOR IPI
-    '5.5%',  // 14. ALÍQ. % (ICMS / IPI)
+    '6.5%',  // 14. ALÍQ. % (ICMS / IPI)
   ];
 
   const colgroupHtml = `<colgroup>${colWidths.map((w) => `<col style="width:${w};" />`).join('')}</colgroup>`;
@@ -604,7 +604,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
             (it) => `
           <tr class="prod-row">
             <td class="tc mono">${escapeHtml(it.codigo || '001')}</td>
-            <td class="tl" style="font-weight:700;">${escapeHtml(it.descricao)}</td>
+            <td class="tl">${escapeHtml(it.descricao)}</td>
             <td class="tc mono">${escapeHtml(it.ncm || '00000000')}</td>
             <td class="tc mono">${escapeHtml(it.csosnCst || '102')}</td>
             <td class="tc mono">${escapeHtml(cleanDigits(it.cfop || '') || it.cfop || '5102')}</td>
@@ -612,7 +612,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
             <td class="tr mono">${formatNumBR(it.quantidade, 2, 3)}</td>
             <td class="tr mono">${formatNumBR(it.valorUnitario, 2, 2)}</td>
             <td class="tr mono">${formatNumBR(it.valorDesconto, 2, 2)}</td>
-            <td class="tr mono" style="font-weight:700;">${formatNumBR(it.valorTotal, 2, 2)}</td>
+            <td class="tr mono">${formatNumBR(it.valorTotal, 2, 2)}</td>
             <td class="tr mono">${formatNumBR(it.baseIcms, 2, 2)}</td>
             <td class="tr mono">${formatNumBR(it.valorIcms, 2, 2)}</td>
             <td class="tr mono">${formatNumBR(it.valorIpi, 2, 2)}</td>
@@ -623,7 +623,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       : `
         <tr class="prod-row">
           <td class="tc mono">001</td>
-          <td class="tl" style="font-weight:700;">MERCADORIA / PRODUTO CONFORME DOCUMENTO</td>
+          <td class="tl">MERCADORIA / PRODUTO CONFORME DOCUMENTO</td>
           <td class="tc mono">00000000</td>
           <td class="tc mono">102</td>
           <td class="tc mono">5102</td>
@@ -631,7 +631,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
           <td class="tr mono">1,00</td>
           <td class="tr mono">${formatNumBR(input.totais.valorTotalNota, 2, 2)}</td>
           <td class="tr mono">0,00</td>
-          <td class="tr mono" style="font-weight:700;">${formatNumBR(input.totais.valorTotalNota, 2, 2)}</td>
+          <td class="tr mono">${formatNumBR(input.totais.valorTotalNota, 2, 2)}</td>
           <td class="tr mono">0,00</td>
           <td class="tr mono">0,00</td>
           <td class="tr mono">0,00</td>
@@ -657,7 +657,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
   <style>
     @page {
       size: A4 portrait;
-      margin: 7mm;
+      margin: 4mm;
     }
     * {
       box-sizing: border-box;
@@ -666,19 +666,18 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
     }
     html, body {
       width: 100%;
+      height: 100%;
       margin: 0;
       padding: 0;
       background: #ffffff;
       color: #000000;
-      font-family: Arial, Helvetica, sans-serif;
-    }
-    body {
-      padding: ${isPreview ? '8px' : '10px'};
+      font-family: "Times New Roman", Times, Georgia, serif;
+      font-weight: 400;
     }
     @media print {
       html, body {
         width: 100%;
-        height: auto;
+        height: 100%;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
@@ -686,18 +685,19 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       .no-print { display: none !important; }
       .danfe-sheet {
         width: 100% !important;
-        max-width: 196mm !important;
-        min-height: 282mm !important;
-        margin: 0 auto !important;
+        max-width: none !important;
+        min-height: 288mm !important;
+        margin: 0 !important;
         padding: 0 !important;
         box-sizing: border-box !important;
         border: none !important;
+        display: flex !important;
+        flex-direction: column !important;
       }
     }
     .no-print {
       width: 100%;
-      max-width: 196mm;
-      margin: 0 auto 8px auto;
+      margin: 0 0 6px 0;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
@@ -707,7 +707,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       background: #000000;
       color: #ffffff;
       border: 1px solid #000000;
-      font-weight: 700;
+      font-weight: 400;
       font-size: 11px;
       cursor: pointer;
     }
@@ -716,27 +716,25 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       background: #ffffff;
       color: #000000;
       border: 1px solid #000000;
-      font-weight: 700;
+      font-weight: 400;
       font-size: 11px;
       cursor: pointer;
     }
     .preview-banner {
       width: 100%;
-      max-width: 196mm;
-      margin: 0 auto 8px auto;
+      margin: 0 0 6px 0;
       background: #ffffff;
-      border: 1.5px solid #000000;
+      border: 1px solid #000000;
       color: #000000;
-      padding: 6px 10px;
+      padding: 5px 10px;
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 400;
       text-align: center;
     }
     .danfe-sheet {
       width: 100%;
-      max-width: 196mm;
-      min-height: 282mm;
-      margin: 0 auto;
+      min-height: 288mm;
+      margin: 0;
       padding: 0;
       box-sizing: border-box;
       background: #ffffff;
@@ -775,50 +773,54 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       vertical-align: top;
       background: #ffffff;
       overflow: hidden;
+      font-weight: 400;
     }
     .cut-line {
       width: 100%;
       border-bottom: 1px dashed #000000;
-      margin: 2.5mm 0;
+      margin: 2mm 0;
     }
     .sec-title {
-      font-size: 6.3pt;
-      font-weight: 800;
+      font-size: 6.5pt;
+      font-weight: 400;
       letter-spacing: 0.2px;
-      margin: 3.5px 0 1px 0;
+      margin: 3px 0 1px 0;
       line-height: 1.1;
       color: #000000;
       text-transform: uppercase;
     }
     .lbl {
       display: block;
-      font-size: 5.5pt;
-      font-weight: 700;
+      font-size: 6.5pt;
+      font-weight: 400;
       line-height: 1.05;
       text-transform: uppercase;
       color: #000000;
       margin-bottom: 1.5px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
     .val {
       display: block;
-      font-size: 7.8pt;
-      font-weight: 700;
+      font-size: 10pt;
+      font-weight: 400;
       line-height: 1.15;
       color: #000000;
       word-break: break-word;
     }
     .val-sm {
       display: block;
-      font-size: 7pt;
-      font-weight: 700;
+      font-size: 9.5pt;
+      font-weight: 400;
       line-height: 1.15;
       color: #000000;
       word-break: break-word;
     }
-    .mono { font-family: "Courier New", Courier, monospace; }
+    .mono {
+      font-family: "Times New Roman", Times, Georgia, serif;
+      font-variant-numeric: tabular-nums;
+    }
     .tc { text-align: center; }
     .tl { text-align: left; }
     .tr { text-align: right; }
@@ -837,15 +839,15 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       flex-shrink: 0;
     }
     .danfe-title {
-      font-size: 12.5pt;
-      font-weight: 900;
+      font-size: 14pt;
+      font-weight: 700;
       letter-spacing: 0.6px;
       line-height: 1.05;
       margin: 0;
     }
     .danfe-subtitle {
-      font-size: 5.8pt;
-      font-weight: 700;
+      font-size: 6.5pt;
+      font-weight: 400;
       line-height: 1.15;
       margin: 2px 0 3px 0;
     }
@@ -855,14 +857,14 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       justify-content: center;
       gap: 5px;
       margin: 2px auto 3px auto;
-      font-size: 6pt;
-      font-weight: 700;
+      font-size: 6.5pt;
+      font-weight: 400;
     }
     .tipo-op-num {
       border: 1px solid #000000;
       padding: 1.5px 6px;
-      font-size: 9pt;
-      font-weight: 900;
+      font-size: 10pt;
+      font-weight: 400;
       background: #ffffff;
     }
 
@@ -876,6 +878,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       border: 1px solid #000000;
       background: #ffffff;
       overflow: hidden;
+      box-sizing: border-box;
     }
     table.prod-table {
       width: 100%;
@@ -890,15 +893,17 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       border-top: none;
       border-right: none;
       padding: 2px 1.5px;
-      font-size: 6.5px;
-      font-weight: 800;
+      font-size: 6.5pt;
+      font-weight: 400;
       line-height: 1.12;
-      white-space: nowrap;
+      white-space: normal;
+      word-break: normal;
       text-align: center;
       vertical-align: middle;
       background: #ffffff;
       color: #000000;
       text-transform: uppercase;
+      overflow: hidden;
     }
     table.prod-table th:first-child,
     table.prod-table td:first-child {
@@ -910,7 +915,8 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       border-top: none;
       border-right: none;
       padding: 2px 2.5px;
-      font-size: 6.4pt;
+      font-size: 8.5pt;
+      font-weight: 400;
       line-height: 1.18;
       vertical-align: top;
       background: #ffffff;
@@ -939,8 +945,8 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 6.2pt;
-      font-weight: 700;
+      font-size: 7pt;
+      font-weight: 400;
       color: #000000;
       line-height: 1.1;
     }
@@ -965,13 +971,13 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       <table class="danfe-box">
         <colgroup><col style="width:26%" /><col style="width:56%" /><col style="width:18%" /></colgroup>
         <tr>
-          <td colspan="2" style="padding:3px 5px;font-size:6.2pt;line-height:1.25;">
-            Recebemos de <strong>${escapeHtml(emitRazao)}</strong> os produtos e/ou serviços constantes da Nota Fiscal Eletrônica indicada ao lado. Emissão: <strong>${escapeHtml(dataEmissaoBR)}</strong> Dest/Reme: <strong>${escapeHtml(destNome)}</strong> Valor Total: <strong>${escapeHtml(formatCurrencyDanfeBR(input.totais.valorTotalNota))}</strong>
+          <td colspan="2" style="padding:3px 5px;font-size:7.5pt;font-weight:400;line-height:1.25;">
+            Recebemos de ${escapeHtml(emitRazao)} os produtos e/ou serviços constantes da Nota Fiscal Eletrônica indicada ao lado. Emissão: ${escapeHtml(dataEmissaoBR)} Dest/Reme: ${escapeHtml(destNome)} Valor Total: ${escapeHtml(formatCurrencyDanfeBR(input.totais.valorTotalNota))}
           </td>
           <td rowspan="2" style="text-align:center;vertical-align:middle;padding:3px 4px;">
-            <div style="font-size:8.5pt;font-weight:900;line-height:1.15;">NF-e</div>
-            <div style="font-size:7.6pt;font-weight:900;line-height:1.2;">Nº ${escapeHtml(numero9)}</div>
-            <div style="font-size:6.8pt;font-weight:700;line-height:1.15;">Série ${escapeHtml(serieFormatted)}</div>
+            <div style="font-size:10pt;font-weight:700;line-height:1.15;">NF-e</div>
+            <div style="font-size:8.5pt;font-weight:400;line-height:1.2;">Nº ${escapeHtml(numero9)}</div>
+            <div style="font-size:8pt;font-weight:400;line-height:1.15;">Série ${escapeHtml(serieFormatted)}</div>
           </td>
         </tr>
         <tr>
@@ -984,14 +990,14 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
 
       <!-- 2. CABEÇALHO PRINCIPAL EM 3 COLUNAS -->
       <table class="danfe-box">
-        <colgroup><col style="width:42%" /><col style="width:19%" /><col style="width:39%" /></colgroup>
+        <colgroup><col style="width:40%" /><col style="width:18%" /><col style="width:42%" /></colgroup>
         <tr>
           <td rowspan="3" style="padding:4px 5px;vertical-align:top;">
             <div class="emit-flex">
               ${input.emitente.logoUrl ? `<img class="emit-logo" src="${escapeHtml(input.emitente.logoUrl)}" alt="Logo" />` : ''}
               <div style="flex:1;min-width:0;">
-                <div style="font-size:8.2pt;font-weight:900;line-height:1.15;margin-bottom:2px;word-break:break-word;">${escapeHtml(emitRazao)}</div>
-                <div style="font-size:6.8pt;line-height:1.25;word-break:break-word;">
+                <div style="font-size:10pt;font-weight:700;line-height:1.15;margin-bottom:2px;word-break:break-word;">${escapeHtml(emitRazao)}</div>
+                <div style="font-size:8.5pt;font-weight:400;line-height:1.22;word-break:break-word;">
                   ${escapeHtml(input.emitente.endereco || 'Endereço não informado')}<br/>
                   ${input.emitente.bairro ? `${escapeHtml(input.emitente.bairro)}<br/>` : ''}
                   ${emitLocationLine ? `${escapeHtml(emitLocationLine)}<br/>` : ''}
@@ -1008,9 +1014,9 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
               <div class="tipo-op-num">${input.tipoOperacao}</div>
             </div>
             <div style="line-height:1.2;">
-              <div style="font-size:8pt;font-weight:900;">Nº ${escapeHtml(numero9)}</div>
-              <div style="font-size:7pt;font-weight:700;">Série ${escapeHtml(serieFormatted)}</div>
-              <div style="font-size:6.4pt;font-weight:700;">Folha 1/1</div>
+              <div style="font-size:9.5pt;font-weight:400;">Nº ${escapeHtml(numero9)}</div>
+              <div style="font-size:8.5pt;font-weight:400;">Série ${escapeHtml(serieFormatted)}</div>
+              <div style="font-size:7.5pt;font-weight:400;">Folha 1/1</div>
             </div>
           </td>
           <td style="padding:4px 6px 3px 6px;">
@@ -1020,31 +1026,29 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
         <tr>
           <td style="padding:2px 4px;">
             <span class="lbl">CHAVE DE ACESSO</span>
-            <span class="val-sm mono tc" style="font-size:6.8pt;letter-spacing:0.1px;">${escapeHtml(chaveFormatada)}</span>
+            <span class="val-sm mono tc" style="font-size:8.5pt;font-weight:700;letter-spacing:0.15px;white-space:nowrap;overflow:visible;">${escapeHtml(chaveFormatada)}</span>
           </td>
         </tr>
         <tr>
-          <td style="padding:2.5px 4px;font-size:5.8pt;line-height:1.2;text-align:center;vertical-align:middle;">
-            Consulta de autenticidade no portal nacional da NF-e <strong>www.nfe.fazenda.gov.br/portal</strong> ou no site da Sefaz autorizadora
+          <td style="padding:2.5px 4px;font-size:6.5pt;font-weight:400;line-height:1.2;text-align:center;vertical-align:middle;">
+            Consulta de autenticidade no portal nacional da NF-e www.nfe.fazenda.gov.br/portal ou no site da Sefaz autorizadora
           </td>
         </tr>
       </table>
 
       <!-- FAIXAS DE AUTORIZAÇÃO -->
       <table class="danfe-box no-top">
-        <colgroup><col style="width:58%" /><col style="width:42%" /></colgroup>
+        <colgroup><col style="width:55%" /><col style="width:45%" /></colgroup>
         <tr>
           <td><span class="lbl">NATUREZA DA OPERAÇÃO</span><span class="val-sm">${escapeHtml(input.naturezaOperacao)}</span></td>
           <td>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
-              <span class="lbl" style="margin-bottom:0;">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
-              ${
-                input.isHomologacao
-                  ? `<span style="display:inline-block;padding:0.5px 4px;border:1px solid #000000;font-size:5.2pt;font-weight:900;letter-spacing:0.3px;line-height:1.15;white-space:nowrap;">HOMOLOGAÇÃO — SEM VALOR FISCAL</span>`
-                  : ''
-              }
-            </div>
+            <span class="lbl">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
             <span class="val-sm mono" style="margin-top:1.5px;">${escapeHtml(input.protocoloAutorizacao)}</span>
+            ${
+              input.isHomologacao
+                ? `<div style="margin-top:2px;"><span style="display:inline-block;padding:1px 4px;border:1px solid #000000;font-size:6pt;font-weight:400;letter-spacing:0.2px;line-height:1.15;white-space:nowrap;">HOMOLOGAÇÃO — SEM VALOR FISCAL</span></div>`
+                : ''
+            }
           </td>
         </tr>
       </table>
@@ -1092,8 +1096,8 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
       <table class="danfe-box">
         <colgroup><col style="width:72%" /><col style="width:28%" /></colgroup>
         <tr>
-          <th class="tl" style="font-size:5.5pt;font-weight:700;padding:1.5px 5px;text-transform:uppercase;">Descrição</th>
-          <th class="tr" style="font-size:5.5pt;font-weight:700;padding:1.5px 5px;text-transform:uppercase;">Valor</th>
+          <th class="tl" style="font-size:6.5pt;font-weight:400;padding:2px 5px;text-transform:uppercase;">Descrição</th>
+          <th class="tr" style="font-size:6.5pt;font-weight:400;padding:2px 5px;text-transform:uppercase;">Valor</th>
         </tr>
         ${pagamentosRowsHtml}
       </table>
@@ -1118,7 +1122,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
           <td><span class="lbl">DESCONTO</span><span class="val-sm tr mono">${formatNumBR(input.totais.desconto)}</span></td>
           <td><span class="lbl">OUTRAS DESPESAS ACESSÓRIAS</span><span class="val-sm tr mono">${formatNumBR(input.totais.outrasDespesas)}</span></td>
           <td><span class="lbl">VALOR DO IPI</span><span class="val-sm tr mono">${formatNumBR(input.totais.valorIpi)}</span></td>
-          <td><span class="lbl">VALOR TOTAL DA NOTA</span><span class="val tr mono" style="font-size:8.4pt;">${formatNumBR(input.totais.valorTotalNota)}</span></td>
+          <td><span class="lbl">VALOR TOTAL DA NOTA</span><span class="val tr mono">${formatNumBR(input.totais.valorTotalNota)}</span></td>
         </tr>
       </table>
 
@@ -1186,7 +1190,7 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
         <tr>
           <td class="da-cell">
             <span class="lbl">INFORMAÇÕES COMPLEMENTARES</span>
-            <div style="font-size:6.5pt;font-weight:600;line-height:1.25;white-space:pre-line;word-break:break-word;">${escapeHtml(combinedInfoComplementares)}</div>
+            <div style="font-size:8.5pt;font-weight:400;line-height:1.25;white-space:pre-line;word-break:break-word;">${escapeHtml(combinedInfoComplementares)}</div>
           </td>
           <td class="da-cell">
             <span class="lbl">RESERVADO AO FISCO</span>
