@@ -130,35 +130,35 @@ const DATASET_GROUPS: AdHocDatasetGroup[] = [
 ];
 
 const FINANCIAL_PAYABLE_COLUMNS: AdHocColumnDef[] = [
-  { key: 'dueDate', label: 'Vencimento', format: 'date' },
-  { key: 'paymentDate', label: 'Data Baixa / Pagto.', format: 'date' },
-  { key: 'supplier', label: 'Fornecedor', format: 'text' },
-  { key: 'description', label: 'Descrição', format: 'text' },
-  { key: 'categoryName', label: 'Categoria', format: 'text' },
-  { key: 'bankAccountName', label: 'Banco / Caixa', format: 'text' },
-  { key: 'paymentMethod', label: 'Forma Pagto.', format: 'text' },
-  { key: 'originalAmount', label: 'Valor Original (R$)', align: 'right', format: 'currency', summable: true },
-  { key: 'fineAmount', label: '(+) Multa (R$)', align: 'right', format: 'currency', summable: true, tone: 'charge' },
-  { key: 'interestAmount', label: '(+) Juros (R$)', align: 'right', format: 'currency', summable: true, tone: 'charge' },
-  { key: 'discountAmount', label: '(-) Desconto / Abatimento (R$)', align: 'right', format: 'currency', summable: true, tone: 'discount' },
-  { key: 'realAmount', label: '(=) Valor Real Pago / Recebido (R$)', align: 'right', format: 'currency', summable: true, tone: 'real' },
-  { key: 'status', label: 'Status', align: 'center', format: 'text' },
+  { key: 'dueDate', label: 'Vencimento', shortLabel: 'VENC.', format: 'date' },
+  { key: 'paymentDate', label: 'Data Baixa / Pagto.', shortLabel: 'BAIXA', format: 'date' },
+  { key: 'supplier', label: 'Fornecedor', shortLabel: 'FORNECEDOR', format: 'text' },
+  { key: 'description', label: 'Descrição', shortLabel: 'DESCRIÇÃO', format: 'text' },
+  { key: 'categoryName', label: 'Categoria', shortLabel: 'CATEGORIA', format: 'text' },
+  { key: 'bankAccountName', label: 'Banco / Caixa', shortLabel: 'BANCO/CAIXA', format: 'text' },
+  { key: 'paymentMethod', label: 'Forma Pagto.', shortLabel: 'PAGTO.', format: 'text' },
+  { key: 'originalAmount', label: 'Valor Original (R$)', shortLabel: 'ORIGINAL', align: 'right', format: 'currency', summable: true },
+  { key: 'fineAmount', label: '(+) Multa (R$)', shortLabel: '(+) MULTA', align: 'right', format: 'currency', summable: true, tone: 'charge' },
+  { key: 'interestAmount', label: '(+) Juros (R$)', shortLabel: '(+) JUROS', align: 'right', format: 'currency', summable: true, tone: 'charge' },
+  { key: 'discountAmount', label: '(-) Desconto / Abatimento (R$)', shortLabel: '(-) DESC.', align: 'right', format: 'currency', summable: true, tone: 'discount' },
+  { key: 'realAmount', label: '(=) Valor Real Pago / Recebido (R$)', shortLabel: '(=) REAL PAGO', align: 'right', format: 'currency', summable: true, tone: 'real' },
+  { key: 'status', label: 'Status', shortLabel: 'STATUS', align: 'center', format: 'text' },
 ];
 
 const FINANCIAL_RECEIVABLE_COLUMNS: AdHocColumnDef[] = [
-  { key: 'dueDate', label: 'Vencimento', format: 'date' },
-  { key: 'paymentDate', label: 'Data Baixa / Pagto.', format: 'date' },
-  { key: 'clientName', label: 'Cliente', format: 'text' },
-  { key: 'origin', label: 'Origem', format: 'text' },
-  { key: 'description', label: 'Referência', format: 'text' },
-  { key: 'bankAccountName', label: 'Banco / Caixa', format: 'text' },
-  { key: 'paymentMethod', label: 'Forma Pagto.', format: 'text' },
-  { key: 'originalAmount', label: 'Valor Original (R$)', align: 'right', format: 'currency', summable: true },
-  { key: 'fineAmount', label: '(+) Multa (R$)', align: 'right', format: 'currency', summable: true, tone: 'charge' },
-  { key: 'interestAmount', label: '(+) Juros (R$)', align: 'right', format: 'currency', summable: true, tone: 'charge' },
-  { key: 'discountAmount', label: '(-) Desconto / Abatimento (R$)', align: 'right', format: 'currency', summable: true, tone: 'discount' },
-  { key: 'realAmount', label: '(=) Valor Real Pago / Recebido (R$)', align: 'right', format: 'currency', summable: true, tone: 'real' },
-  { key: 'status', label: 'Status', align: 'center', format: 'text' },
+  { key: 'dueDate', label: 'Vencimento', shortLabel: 'VENC.', format: 'date' },
+  { key: 'paymentDate', label: 'Data Baixa / Pagto.', shortLabel: 'BAIXA', format: 'date' },
+  { key: 'clientName', label: 'Cliente', shortLabel: 'CLIENTE', format: 'text' },
+  { key: 'origin', label: 'Origem', shortLabel: 'ORIGEM', format: 'text' },
+  { key: 'description', label: 'Referência', shortLabel: 'DESCRIÇÃO', format: 'text' },
+  { key: 'bankAccountName', label: 'Banco / Caixa', shortLabel: 'BANCO/CAIXA', format: 'text' },
+  { key: 'paymentMethod', label: 'Forma Pagto.', shortLabel: 'PAGTO.', format: 'text' },
+  { key: 'originalAmount', label: 'Valor Original (R$)', shortLabel: 'ORIGINAL', align: 'right', format: 'currency', summable: true },
+  { key: 'fineAmount', label: '(+) Multa (R$)', shortLabel: '(+) MULTA', align: 'right', format: 'currency', summable: true, tone: 'charge' },
+  { key: 'interestAmount', label: '(+) Juros (R$)', shortLabel: '(+) JUROS', align: 'right', format: 'currency', summable: true, tone: 'charge' },
+  { key: 'discountAmount', label: '(-) Desconto / Abatimento (R$)', shortLabel: '(-) DESC.', align: 'right', format: 'currency', summable: true, tone: 'discount' },
+  { key: 'realAmount', label: '(=) Valor Real Pago / Recebido (R$)', shortLabel: '(=) REAL REC.', align: 'right', format: 'currency', summable: true, tone: 'real' },
+  { key: 'status', label: 'Status', shortLabel: 'STATUS', align: 'center', format: 'text' },
 ];
 
 const DATASET_SCHEMAS: DatasetSchema[] = [
@@ -316,20 +316,20 @@ const DATASET_SCHEMAS: DatasetSchema[] = [
       { value: 'com_acrescimos_descontos', label: 'Com Juros, Multas ou Descontos' },
     ],
     columns: [
-      { key: 'dueDate', label: 'Vencimento', format: 'date' },
-      { key: 'paymentDate', label: 'Data Baixa / Pagto.', format: 'date' },
-      { key: 'description', label: 'Descrição', format: 'text' },
-      { key: 'categoryName', label: 'Categoria', format: 'text' },
-      { key: 'supplier', label: 'Fornecedor', format: 'text' },
-      { key: 'costCenterName', label: 'Centro de Custo', format: 'text' },
-      { key: 'machineryName', label: 'Veículo / Máquina', format: 'text' },
-      { key: 'bankAccountName', label: 'Banco / Caixa', format: 'text' },
-      { key: 'originalAmount', label: 'Valor Original (R$)', align: 'right', format: 'currency', summable: true },
-      { key: 'fineAmount', label: '(+) Multa (R$)', align: 'right', format: 'currency', summable: true, tone: 'charge' },
-      { key: 'interestAmount', label: '(+) Juros (R$)', align: 'right', format: 'currency', summable: true, tone: 'charge' },
-      { key: 'discountAmount', label: '(-) Desconto / Abatimento (R$)', align: 'right', format: 'currency', summable: true, tone: 'discount' },
-      { key: 'realAmount', label: '(=) Valor Real Pago / Recebido (R$)', align: 'right', format: 'currency', summable: true, tone: 'real' },
-      { key: 'status', label: 'Status', align: 'center', format: 'text' },
+      { key: 'dueDate', label: 'Vencimento', shortLabel: 'VENC.', format: 'date' },
+      { key: 'paymentDate', label: 'Data Baixa / Pagto.', shortLabel: 'BAIXA', format: 'date' },
+      { key: 'description', label: 'Descrição', shortLabel: 'DESCRIÇÃO', format: 'text' },
+      { key: 'categoryName', label: 'Categoria', shortLabel: 'CATEGORIA', format: 'text' },
+      { key: 'supplier', label: 'Fornecedor', shortLabel: 'FORNECEDOR', format: 'text' },
+      { key: 'costCenterName', label: 'Centro de Custo', shortLabel: 'CENTRO CUSTO', format: 'text' },
+      { key: 'machineryName', label: 'Veículo / Máquina', shortLabel: 'VEÍCULO', format: 'text' },
+      { key: 'bankAccountName', label: 'Banco / Caixa', shortLabel: 'BANCO/CAIXA', format: 'text' },
+      { key: 'originalAmount', label: 'Valor Original (R$)', shortLabel: 'ORIGINAL', align: 'right', format: 'currency', summable: true },
+      { key: 'fineAmount', label: '(+) Multa (R$)', shortLabel: '(+) MULTA', align: 'right', format: 'currency', summable: true, tone: 'charge' },
+      { key: 'interestAmount', label: '(+) Juros (R$)', shortLabel: '(+) JUROS', align: 'right', format: 'currency', summable: true, tone: 'charge' },
+      { key: 'discountAmount', label: '(-) Desconto / Abatimento (R$)', shortLabel: '(-) DESC.', align: 'right', format: 'currency', summable: true, tone: 'discount' },
+      { key: 'realAmount', label: '(=) Valor Real Pago / Recebido (R$)', shortLabel: '(=) REAL PAGO', align: 'right', format: 'currency', summable: true, tone: 'real' },
+      { key: 'status', label: 'Status', shortLabel: 'STATUS', align: 'center', format: 'text' },
     ],
   },
 
@@ -676,6 +676,32 @@ function toIsoDateStr(raw?: string | null): string {
   return '';
 }
 
+function summarizeObjectiveDescription(rawText: string): string {
+  const trimmed = rawText.trim();
+  if (!trimmed || trimmed === '-') return '-';
+  const beforePipe = trimmed.split('|')[0]?.trim() || trimmed;
+  const beforeDash = beforePipe.split(/\s+[-–—]\s+/)[0]?.trim() || beforePipe;
+  return beforeDash || trimmed;
+}
+
+const ENTITY_EXPANDABLE_COL_KEYS = new Set([
+  'supplier',
+  'clientName',
+  'fornecedor',
+  'destinatario',
+  'envolvidoNome',
+  'personName',
+]);
+
+const COMPACT_SINGLE_LINE_COL_LIMITS: Record<string, string> = {
+  categoryName: 'max-w-[92px]',
+  bankAccountName: 'max-w-[90px]',
+  paymentMethod: 'max-w-[70px]',
+  origin: 'max-w-[85px]',
+  costCenterName: 'max-w-[95px]',
+  machineryName: 'max-w-[95px]',
+};
+
 interface ReportsPersonalizadoTabProps {
   expenses: Expense[];
   orders: SilageOrder[];
@@ -741,9 +767,17 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
     refreshTick: 0,
   }));
 
-  // Dropdown / Combobox compacto de Colunas Visíveis
+  // Dropdown / Combobox compacto de Colunas Visíveis e células expansíveis de Fornecedor/Cliente
   const [isColumnsDropdownOpen, setIsColumnsDropdownOpen] = useState(false);
+  const [expandedEntityCells, setExpandedEntityCells] = useState<Record<string, boolean>>({});
   const columnsDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleEntityExpand = useCallback((cellKey: string) => {
+    setExpandedEntityCells((prev) => ({
+      ...prev,
+      [cellKey]: !prev[cellKey],
+    }));
+  }, []);
 
   useEffect(() => {
     if (!isColumnsDropdownOpen) return;
@@ -852,6 +886,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
 
   const handleExecuteSearch = () => {
     setIsColumnsDropdownOpen(false);
+    setExpandedEntityCells({});
     setStorageSnapshot(readStorageSnapshot());
     setExecutedQuery((prev) => ({
       dataset: selectedDataset,
@@ -2181,13 +2216,14 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
               Marque pelo menos uma coluna acima para visualizar os dados.
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[11px] font-bold text-black dark:text-stone-300 uppercase tracking-wider border-b border-black dark:border-stone-700 shadow-sm">
+            <table className="w-full text-left text-[11px]">
+              <thead className="sticky top-0 z-20 bg-[#cad4e6] dark:bg-stone-800 text-[10px] font-bold text-black dark:text-stone-300 uppercase tracking-tight border-b border-black dark:border-stone-700 shadow-sm">
                 <tr>
                   {visibleColumns.map((col) => (
                     <th
                       key={col.key}
-                      className={`py-2.5 px-3.5 whitespace-nowrap ${
+                      title={col.label}
+                      className={`py-2 px-1.5 whitespace-nowrap ${
                         col.align === 'right'
                           ? 'text-right'
                           : col.align === 'center'
@@ -2195,7 +2231,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                           : 'text-left'
                       }`}
                     >
-                      {col.label}
+                      {col.shortLabel || col.label}
                     </th>
                   ))}
                 </tr>
@@ -2222,12 +2258,29 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                               : 'text-stone-500 dark:text-stone-400 font-medium whitespace-nowrap';
                         } else if (col.format === 'currency') {
                           valueColorClass = 'text-emerald-800 dark:text-emerald-400 font-black whitespace-nowrap';
+                        } else if (col.format === 'date' || col.key === 'status') {
+                          valueColorClass = 'text-stone-800 dark:text-stone-200 whitespace-nowrap';
                         }
+
+                        const rawDisplay = formatCellDisplay(row[col.key], col);
+                        const isDescriptionCol = col.key === 'description';
+                        const isEntityCol = ENTITY_EXPANDABLE_COL_KEYS.has(col.key);
+                        const compactMaxW = COMPACT_SINGLE_LINE_COL_LIMITS[col.key];
+                        const cellKey = `${idx}-${col.key}`;
+                        const isEntityExpanded = Boolean(expandedEntityCells[cellKey]);
+                        const canExpandEntity = isEntityCol && rawDisplay !== '-' && rawDisplay.length > 18;
 
                         return (
                           <td
                             key={col.key}
-                            className={`py-2 px-3.5 ${
+                            title={
+                              isDescriptionCol && rawDisplay !== '-'
+                                ? rawDisplay
+                                : compactMaxW && rawDisplay !== '-'
+                                ? rawDisplay
+                                : undefined
+                            }
+                            className={`px-1.5 py-1.5 text-[11px] ${
                               col.align === 'right'
                                 ? 'text-right font-bold'
                                 : col.align === 'center'
@@ -2235,7 +2288,46 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                                 : 'text-left'
                             } ${valueColorClass}`}
                           >
-                            {formatCellDisplay(row[col.key], col)}
+                            {isDescriptionCol ? (
+                              <div className="whitespace-nowrap truncate max-w-[160px]">
+                                {summarizeObjectiveDescription(rawDisplay)}
+                              </div>
+                            ) : isEntityCol ? (
+                              canExpandEntity ? (
+                                <div
+                                  onClick={() => toggleEntityExpand(cellKey)}
+                                  title={isEntityExpanded ? 'Clique para recolher' : rawDisplay}
+                                  className="inline-flex items-center gap-1 max-w-full cursor-pointer group"
+                                >
+                                  <span
+                                    className={
+                                      isEntityExpanded
+                                        ? 'whitespace-normal break-words max-w-[200px]'
+                                        : 'whitespace-nowrap truncate max-w-[125px]'
+                                    }
+                                  >
+                                    {rawDisplay}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleEntityExpand(cellKey);
+                                    }}
+                                    aria-label={isEntityExpanded ? 'Recolher nome' : 'Expandir nome completo'}
+                                    className="shrink-0 w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-slate-400/80 dark:border-stone-600 bg-white/80 dark:bg-stone-800 group-hover:bg-slate-200 dark:group-hover:bg-stone-700 text-[9px] font-black leading-none text-stone-700 dark:text-stone-200 cursor-pointer"
+                                  >
+                                    {isEntityExpanded ? '−' : '+'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="whitespace-nowrap">{rawDisplay}</span>
+                              )
+                            ) : compactMaxW ? (
+                              <div className={`whitespace-nowrap truncate ${compactMaxW}`}>{rawDisplay}</div>
+                            ) : (
+                              rawDisplay
+                            )}
                           </td>
                         );
                       })}
@@ -2253,13 +2345,13 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                 )}
               </tbody>
               {filteredRows.length > 0 && visibleColumns.some((c) => c.summable) && (
-                <tfoot className="sticky bottom-0 z-10 bg-[#cad4e6] dark:bg-stone-800 border-t-2 border-black font-black text-xs">
+                <tfoot className="sticky bottom-0 z-10 bg-[#cad4e6] dark:bg-stone-800 border-t-2 border-black font-black text-[11px]">
                   <tr>
                     {visibleColumns.map((col, idx) => {
                       if (idx === 0 && !col.summable) {
                         return (
-                          <td key={col.key} className="py-2 px-3.5 uppercase whitespace-nowrap">
-                            Totais ({filteredRows.length} reg.)
+                          <td key={col.key} className="px-1.5 py-1.5 uppercase whitespace-nowrap">
+                            Totais ({filteredRows.length})
                           </td>
                         );
                       }
@@ -2272,7 +2364,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                         return (
                           <td
                             key={col.key}
-                            className={`py-2 px-3.5 whitespace-nowrap ${
+                            className={`px-1.5 py-1.5 whitespace-nowrap ${
                               col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                             } ${totalToneClass}`}
                           >
@@ -2282,7 +2374,7 @@ export const ReportsPersonalizadoTab: React.FC<ReportsPersonalizadoTabProps> = (
                           </td>
                         );
                       }
-                      return <td key={col.key} className="py-2 px-3.5" />;
+                      return <td key={col.key} className="px-1.5 py-1.5" />;
                     })}
                   </tr>
                 </tfoot>

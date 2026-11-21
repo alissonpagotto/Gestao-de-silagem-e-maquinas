@@ -184,7 +184,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       },
       {
         id: 'personalizado',
-        label: '🛠️ Personalizado (Ad-Hoc)',
+        label: '🛠️ RELATÓRIO PERSONALIZADO',
         icon: SlidersHorizontal,
         subItems: [
           { key: 'personalizado', label: 'Construtor Ad-Hoc', icon: SlidersHorizontal },

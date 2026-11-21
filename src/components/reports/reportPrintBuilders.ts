@@ -2678,6 +2678,7 @@ export function buildExcecoesAlertasReport(params: {
 export interface AdHocColumnDef {
   key: string;
   label: string;
+  shortLabel?: string;
   align?: 'left' | 'right' | 'center';
   format?: 'currency' | 'date' | 'number' | 'text';
   summable?: boolean;
