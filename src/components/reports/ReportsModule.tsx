@@ -162,6 +162,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   employees = [],
   inventory = [],
   maintenanceLogs = [],
+  suppliers = [],
+  bankAccounts = [],
   payrolls = [],
   vacations = [],
   advances = [],
@@ -178,6 +180,15 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           { key: 'dashboard', label: 'Dashboard Consolidado', icon: LayoutDashboard },
           { key: 'resumo', label: 'DRE Gerencial Completo', icon: FileText },
           { key: 'dre_veiculo', label: 'DRE por Veículo / Máquina', icon: Tractor },
+        ],
+      },
+      {
+        id: 'personalizado',
+        label: '🛠️ Personalizado (Ad-Hoc)',
+        icon: SlidersHorizontal,
+        subItems: [
+          { key: 'personalizado', label: 'Construtor Ad-Hoc', icon: SlidersHorizontal },
+          { key: 'exportar', label: 'Exportar Excel', icon: Download },
         ],
       },
       {
@@ -224,15 +235,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         label: '🚨 Exceções & Alertas',
         icon: ShieldAlert,
         subItems: [{ key: 'excecoes', label: 'Pendências Críticas', icon: ShieldAlert }],
-      },
-      {
-        id: 'personalizado',
-        label: '🛠️ Personalizado (Ad-Hoc)',
-        icon: SlidersHorizontal,
-        subItems: [
-          { key: 'personalizado', label: 'Construtor Ad-Hoc', icon: SlidersHorizontal },
-          { key: 'exportar', label: 'Exportar Excel', icon: Download },
-        ],
       },
     ],
     [segmentCtx.servicesTabNavLabel]
@@ -736,7 +738,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                 inventory={inventory}
                 fuelLogs={fuelLogs}
                 machineries={machineries}
+                maintenanceLogs={maintenanceLogs}
                 employees={employees}
+                clients={clients}
+                suppliers={suppliers}
+                bankAccounts={bankAccounts}
+                payrolls={payrolls}
+                vacations={vacations}
+                advances={advances}
                 companyProfile={companyProfile}
                 startDate={startDate}
                 endDate={endDate}

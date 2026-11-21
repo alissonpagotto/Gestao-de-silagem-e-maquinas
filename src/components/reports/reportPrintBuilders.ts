@@ -2681,6 +2681,7 @@ export interface AdHocColumnDef {
   align?: 'left' | 'right' | 'center';
   format?: 'currency' | 'date' | 'number' | 'text';
   summable?: boolean;
+  tone?: 'charge' | 'discount' | 'real' | 'default';
 }
 
 export function buildAdHocCustomReport(params: {
@@ -2746,8 +2747,16 @@ export function buildAdHocCustomReport(params: {
                     ${columns
                       .map((col) => {
                         const align = col.align || 'left';
-                        const weight = col.format === 'currency' ? 'font-weight:700;' : '';
-                        return `<td style="text-align:${align};${weight}">${formatCell(row[col.key], col)}</td>`;
+                        const numVal = Number(row[col.key]) || 0;
+                        let colorCss = '';
+                        if (col.tone === 'charge') {
+                          colorCss = numVal > 0.009 ? 'color:#b91c1c;font-weight:800;' : 'color:#64748b;';
+                        } else if (col.tone === 'discount') {
+                          colorCss = numVal > 0.009 ? 'color:#047857;font-weight:800;' : 'color:#64748b;';
+                        } else if (col.format === 'currency') {
+                          colorCss = 'font-weight:700;';
+                        }
+                        return `<td style="text-align:${align};${colorCss}">${formatCell(row[col.key], col)}</td>`;
                       })
                       .join('')}
                   </tr>
@@ -2769,7 +2778,13 @@ export function buildAdHocCustomReport(params: {
                   }
                   if (col.summable) {
                     const sum = rows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0);
-                    return `<td style="text-align:${col.align || 'right'};color:#047857;">${
+                    const totalColor =
+                      col.tone === 'charge' && sum > 0.009
+                        ? '#b91c1c'
+                        : col.tone === 'discount' && sum > 0.009
+                        ? '#047857'
+                        : '#047857';
+                    return `<td style="text-align:${col.align || 'right'};color:${totalColor};">${
                       col.format === 'currency'
                         ? formatCurrencyBRL(sum)
                         : sum.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
