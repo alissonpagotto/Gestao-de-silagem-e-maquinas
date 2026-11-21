@@ -1,11 +1,30 @@
-export type LabelSizePreset = 
-  // 1. Folhas A4
-  | 'a4_4x15_61x19'
-  | 'a4_4x12_47x25'
-  | 'a4_3x10_70x30'
-  | 'a4_2x10_99x29'
-  | 'a4_2x7_102x38'
-  // 2. Impressoras Térmicas
+export type LabelSizePreset =
+  // 1. Folha A4 (210 x 297 mm — Padrão Pimaco / Colacril)
+  | 'a4_126_a4349'
+  | 'a4_96_a4348'
+  | 'a4_65_a4351'
+  | 'a4_44_a4350'
+  | 'a4_33_a4355'
+  | 'a4_30_a4356'
+  | 'a4_24_a4360'
+  | 'a4_22_a4354'
+  | 'a4_18_a4361'
+  | 'a4_16_a4362'
+  | 'a4_14_a4363'
+  | 'a4_10_a4367'
+  | 'a4_8_a4368'
+  | 'a4_4_a4372'
+  | 'a4_2_a4373'
+  | 'a4_1_a4375'
+  // 2. Folha Carta / Letter (215,9 x 279,4 mm — Padrão Pimaco 6080/6180)
+  | 'carta_80_6087'
+  | 'carta_60_6089'
+  | 'carta_30_6080'
+  | 'carta_20_6081'
+  | 'carta_14_6082'
+  | 'carta_10_6083'
+  | 'carta_6_6084'
+  // 3. Impressoras Térmicas (Rolos Contínuos)
   | 'termica_gondola_60x30'
   | 'termica_padrao_40x25'
   | 'termica_media_50x40'
@@ -13,320 +32,919 @@ export type LabelSizePreset =
   | 'termica_dupla_37x30'
   | 'termica_tripla_33x22'
   | 'termica_mini_15x50'
+  // Personalizados (inline e salvos)
+  | 'custom_inline'
+  | `custom_${string}`
   // Compatibilidade legada
+  | 'a4_4x15_61x19'
+  | 'a4_4x12_47x25'
+  | 'a4_3x10_70x30'
+  | 'a4_2x10_99x29'
+  | 'a4_2x7_102x38'
   | 'gondola_100x35'
   | 'gondola_80x30'
   | 'termica_60x40'
   | 'a4_grade';
 
+export type CustomPaperType = 'a4' | 'carta' | 'termica';
+
+export interface CustomLabelDraft {
+  id?: string;
+  name: string;
+  paperType: CustomPaperType;
+  labelWidthMm: number;
+  labelHeightMm: number;
+  cols: number;
+  rows: number;
+  marginTopMm: number;
+  marginLeftMm: number;
+  colGapMm: number;
+  rowGapMm: number;
+}
+
 export interface LabelPresetConfig {
   id: LabelSizePreset;
   name: string;
-  category: 'a4' | 'termica';
+  category: 'a4' | 'carta' | 'termica';
   categoryLabel: string;
-  columns: number;
-  rows?: number;
+  isCustom?: boolean;
+  // Dimensões físicas da página (mm)
+  pageWidthMm: number;
+  pageHeightMm: number;
+  // Dimensões físicas da etiqueta (mm)
+  labelWidthMm: number;
+  labelHeightMm: number;
   widthMm: number;
   heightMm: number;
+  // Grade
+  cols: number;
+  columns: number;
+  rows: number;
+  // Calibração milimétrica de margens e espaçamentos
+  marginTopMm: number;
+  marginLeftMm: number;
+  colGapMm: number;
+  rowGapMm: number;
   gapXMm: number;
   gapYMm: number;
   paddingTopMm: number;
   paddingLeftMm: number;
-  paddingRightMm?: number;
-  paddingBottomMm?: number;
   pageSize: string;
   totalPerSheet?: number;
   description: string;
   badge: string;
 }
 
+const A4_CATEGORY_LABEL = 'Grupo 1 — Folha A4 (210 × 297 mm — Padrão Pimaco / Colacril)';
+const CARTA_CATEGORY_LABEL = 'Grupo 2 — Folha Carta / Letter (215,9 × 279,4 mm — Padrão Pimaco 6080/6180)';
+const THERMAL_CATEGORY_LABEL = 'Grupo 3 — Impressoras Térmicas (Rolos Contínuos — Largura × Altura)';
+
+function createA4Preset(params: {
+  id: LabelSizePreset;
+  name: string;
+  cols: number;
+  rows: number;
+  labelWidthMm: number;
+  labelHeightMm: number;
+  colGapMm: number;
+  rowGapMm?: number;
+}): LabelPresetConfig {
+  const pageWidthMm = 210;
+  const pageHeightMm = 297;
+  const rowGapMm = params.rowGapMm ?? 0;
+  const totalGridWidth = params.cols * params.labelWidthMm + (params.cols - 1) * params.colGapMm;
+  const totalGridHeight = params.rows * params.labelHeightMm + (params.rows - 1) * rowGapMm;
+  const marginTopMm = Number(((pageHeightMm - totalGridHeight) / 2).toFixed(2));
+  const marginLeftMm = Number(((pageWidthMm - totalGridWidth) / 2).toFixed(2));
+  const totalPerSheet = params.cols * params.rows;
+
+  return {
+    id: params.id,
+    name: params.name,
+    category: 'a4',
+    categoryLabel: A4_CATEGORY_LABEL,
+    pageWidthMm,
+    pageHeightMm,
+    labelWidthMm: params.labelWidthMm,
+    labelHeightMm: params.labelHeightMm,
+    widthMm: params.labelWidthMm,
+    heightMm: params.labelHeightMm,
+    cols: params.cols,
+    columns: params.cols,
+    rows: params.rows,
+    marginTopMm,
+    marginLeftMm,
+    colGapMm: params.colGapMm,
+    rowGapMm,
+    gapXMm: params.colGapMm,
+    gapYMm: rowGapMm,
+    paddingTopMm: marginTopMm,
+    paddingLeftMm: marginLeftMm,
+    pageSize: 'A4 portrait',
+    totalPerSheet,
+    description: `${totalPerSheet} etiquetas/folha • ${params.labelWidthMm}×${params.labelHeightMm}mm • ${params.cols}×${params.rows}`,
+    badge: `A4 ${params.cols}×${params.rows} (${totalPerSheet} un)`,
+  };
+}
+
+function createCartaPreset(params: {
+  id: LabelSizePreset;
+  name: string;
+  cols: number;
+  rows: number;
+  labelWidthMm: number;
+  labelHeightMm: number;
+  marginTopMm?: number;
+  marginLeftMm?: number;
+  colGapMm?: number;
+  rowGapMm?: number;
+}): LabelPresetConfig {
+  const pageWidthMm = 215.9;
+  const pageHeightMm = 279.4;
+  const marginTopMm = params.marginTopMm ?? 12.7;
+  const marginLeftMm = params.marginLeftMm ?? 4.76;
+  const colGapMm = params.colGapMm ?? 3.18;
+  const rowGapMm = params.rowGapMm ?? 0;
+  const totalPerSheet = params.cols * params.rows;
+
+  return {
+    id: params.id,
+    name: params.name,
+    category: 'carta',
+    categoryLabel: CARTA_CATEGORY_LABEL,
+    pageWidthMm,
+    pageHeightMm,
+    labelWidthMm: params.labelWidthMm,
+    labelHeightMm: params.labelHeightMm,
+    widthMm: params.labelWidthMm,
+    heightMm: params.labelHeightMm,
+    cols: params.cols,
+    columns: params.cols,
+    rows: params.rows,
+    marginTopMm,
+    marginLeftMm,
+    colGapMm,
+    rowGapMm,
+    gapXMm: colGapMm,
+    gapYMm: rowGapMm,
+    paddingTopMm: marginTopMm,
+    paddingLeftMm: marginLeftMm,
+    pageSize: 'letter portrait',
+    totalPerSheet,
+    description: `${totalPerSheet} etiquetas/folha Carta • ${params.labelWidthMm}×${params.labelHeightMm}mm • ${params.cols}×${params.rows}`,
+    badge: `Carta ${params.cols}×${params.rows} (${totalPerSheet} un)`,
+  };
+}
+
 export const A4_PRESETS: LabelPresetConfig[] = [
-  {
-    id: 'a4_4x15_61x19',
-    name: 'A4 - 4 Colunas x 15 Linhas (61.0mm x 19.0mm - Ex: Pimaco 6182)',
-    category: 'a4',
-    categoryLabel: '1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)',
-    columns: 4,
-    rows: 15,
-    widthMm: 61.0,
-    heightMm: 19.0,
-    gapXMm: 3.0,
-    gapYMm: 3.0,
-    paddingTopMm: 10.0,
-    paddingLeftMm: 5.0,
-    paddingRightMm: 5.0,
-    paddingBottomMm: 10.0,
-    pageSize: 'A4',
-    totalPerSheet: 60,
-    description: '60 etiquetas por folha • Formato 61.0mm x 19.0mm',
-    badge: '4x15 (60 un)'
-  },
-  {
-    id: 'a4_4x12_47x25',
-    name: 'A4 - 4 Colunas x 12 Linhas (46.7mm x 25.4mm - Ex: Pimaco 6187)',
-    category: 'a4',
-    categoryLabel: '1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)',
-    columns: 4,
-    rows: 12,
-    widthMm: 46.7,
-    heightMm: 25.4,
-    gapXMm: 3.0,
-    gapYMm: 3.0,
-    paddingTopMm: 10.0,
-    paddingLeftMm: 5.0,
-    paddingRightMm: 5.0,
-    paddingBottomMm: 10.0,
-    pageSize: 'A4',
-    totalPerSheet: 48,
-    description: '48 etiquetas por folha • Formato 46.7mm x 25.4mm',
-    badge: '4x12 (48 un)'
-  },
-  {
-    id: 'a4_3x10_70x30',
-    name: 'A4 - 3 Colunas x 10 Linhas (70.0mm x 29.7mm - Ex: Pimaco 6281)',
-    category: 'a4',
-    categoryLabel: '1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)',
-    columns: 3,
+  createA4Preset({
+    id: 'a4_126_a4349',
+    name: 'A4 — 126 Etiquetas (A4349 / A4249 • 26,0 × 15,0 mm • 7 col × 18 lin)',
+    cols: 7,
+    rows: 18,
+    labelWidthMm: 26.0,
+    labelHeightMm: 15.0,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_96_a4348',
+    name: 'A4 — 96 Etiquetas (A4348 / A4248 • 31,0 × 17,0 mm • 6 col × 16 lin)',
+    cols: 6,
+    rows: 16,
+    labelWidthMm: 31.0,
+    labelHeightMm: 17.0,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_65_a4351',
+    name: 'A4 — 65 Etiquetas (A4351 / A4251 • 38,2 × 21,2 mm • 5 col × 13 lin)',
+    cols: 5,
+    rows: 13,
+    labelWidthMm: 38.2,
+    labelHeightMm: 21.2,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_44_a4350',
+    name: 'A4 — 44 Etiquetas (A4350 / A4250 • 48,5 × 25,4 mm • 4 col × 11 lin)',
+    cols: 4,
+    rows: 11,
+    labelWidthMm: 48.5,
+    labelHeightMm: 25.4,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_33_a4355',
+    name: 'A4 — 33 Etiquetas (A4355 / A4255 • 63,5 × 25,4 mm • 3 col × 11 lin)',
+    cols: 3,
+    rows: 11,
+    labelWidthMm: 63.5,
+    labelHeightMm: 25.4,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_30_a4356',
+    name: 'A4 — 30 Etiquetas (A4356 / A4256 • 66,7 × 25,4 mm • 3 col × 10 lin)',
+    cols: 3,
     rows: 10,
-    widthMm: 70.0,
-    heightMm: 29.7,
-    gapXMm: 3.0,
-    gapYMm: 3.0,
-    paddingTopMm: 10.0,
-    paddingLeftMm: 5.0,
-    paddingRightMm: 5.0,
-    paddingBottomMm: 10.0,
-    pageSize: 'A4',
-    totalPerSheet: 30,
-    description: '30 etiquetas por folha • Formato 70.0mm x 29.7mm',
-    badge: '3x10 (30 un)'
-  },
-  {
-    id: 'a4_2x10_99x29',
-    name: 'A4 - 2 Colunas x 10 Linhas (99.0mm x 28.9mm - Ex: Pimaco 6180)',
-    category: 'a4',
-    categoryLabel: '1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)',
-    columns: 2,
-    rows: 10,
-    widthMm: 99.0,
-    heightMm: 28.9,
-    gapXMm: 3.0,
-    gapYMm: 3.0,
-    paddingTopMm: 10.0,
-    paddingLeftMm: 5.0,
-    paddingRightMm: 5.0,
-    paddingBottomMm: 10.0,
-    pageSize: 'A4',
-    totalPerSheet: 20,
-    description: '20 etiquetas por folha • Formato 99.0mm x 28.9mm',
-    badge: '2x10 (20 un)'
-  },
-  {
-    id: 'a4_2x7_102x38',
-    name: 'A4 - 2 Colunas x 7 Linhas  (101.6mm x 38.1mm - Ex: Pimaco 6181)',
-    category: 'a4',
-    categoryLabel: '1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)',
-    columns: 2,
+    labelWidthMm: 66.7,
+    labelHeightMm: 25.4,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_24_a4360',
+    name: 'A4 — 24 Etiquetas (A4360 / A4260 • 63,5 × 33,9 mm • 3 col × 8 lin)',
+    cols: 3,
+    rows: 8,
+    labelWidthMm: 63.5,
+    labelHeightMm: 33.9,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_22_a4354',
+    name: 'A4 — 22 Etiquetas (A4354 / A4254 • 99,0 × 25,4 mm • 2 col × 11 lin)',
+    cols: 2,
+    rows: 11,
+    labelWidthMm: 99.0,
+    labelHeightMm: 25.4,
+    colGapMm: 2.5,
+  }),
+  createA4Preset({
+    id: 'a4_18_a4361',
+    name: 'A4 — 18 Etiquetas (A4361 / A4261 • 63,5 × 46,5 mm • 3 col × 6 lin)',
+    cols: 3,
+    rows: 6,
+    labelWidthMm: 63.5,
+    labelHeightMm: 46.5,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_16_a4362',
+    name: 'A4 — 16 Etiquetas (A4362 / A4262 • 99,0 × 33,9 mm • 2 col × 8 lin)',
+    cols: 2,
+    rows: 8,
+    labelWidthMm: 99.0,
+    labelHeightMm: 33.9,
+    colGapMm: 2.5,
+  }),
+  createA4Preset({
+    id: 'a4_14_a4363',
+    name: 'A4 — 14 Etiquetas (A4363 / A4263 • 99,0 × 38,1 mm • 2 col × 7 lin)',
+    cols: 2,
     rows: 7,
-    widthMm: 101.6,
-    heightMm: 38.1,
-    gapXMm: 3.0,
-    gapYMm: 3.0,
-    paddingTopMm: 10.0,
-    paddingLeftMm: 5.0,
-    paddingRightMm: 5.0,
-    paddingBottomMm: 10.0,
-    pageSize: 'A4',
-    totalPerSheet: 14,
-    description: '14 etiquetas por folha • Formato 101.6mm x 38.1mm',
-    badge: '2x7 (14 un)'
-  }
+    labelWidthMm: 99.0,
+    labelHeightMm: 38.1,
+    colGapMm: 2.5,
+  }),
+  createA4Preset({
+    id: 'a4_10_a4367',
+    name: 'A4 — 10 Etiquetas (A4367 / A4267 • 99,0 × 55,0 mm • 2 col × 5 lin)',
+    cols: 2,
+    rows: 5,
+    labelWidthMm: 99.0,
+    labelHeightMm: 55.0,
+    colGapMm: 2.5,
+  }),
+  createA4Preset({
+    id: 'a4_8_a4368',
+    name: 'A4 — 8 Etiquetas (A4368 / A4268 • 99,0 × 67,7 mm • 2 col × 4 lin)',
+    cols: 2,
+    rows: 4,
+    labelWidthMm: 99.0,
+    labelHeightMm: 67.7,
+    colGapMm: 2.5,
+  }),
+  createA4Preset({
+    id: 'a4_4_a4372',
+    name: 'A4 — 4 Etiquetas (A4372 / A4272 • 99,0 × 138,5 mm • 2 col × 2 lin)',
+    cols: 2,
+    rows: 2,
+    labelWidthMm: 99.0,
+    labelHeightMm: 138.5,
+    colGapMm: 2.5,
+  }),
+  createA4Preset({
+    id: 'a4_2_a4373',
+    name: 'A4 — 2 Etiquetas (A4373 / A4273 • 199,6 × 138,5 mm • 1 col × 2 lin)',
+    cols: 1,
+    rows: 2,
+    labelWidthMm: 199.6,
+    labelHeightMm: 138.5,
+    colGapMm: 0,
+  }),
+  createA4Preset({
+    id: 'a4_1_a4375',
+    name: 'A4 — 1 Etiqueta (A4375 / A4275 • 199,6 × 288,5 mm • Folha Inteira)',
+    cols: 1,
+    rows: 1,
+    labelWidthMm: 199.6,
+    labelHeightMm: 288.5,
+    colGapMm: 0,
+  }),
 ];
 
-export const THERMAL_PRESETS: LabelPresetConfig[] = [
-  {
-    id: 'termica_gondola_60x30',
-    name: 'Térmica Gôndola - 1 Coluna (60mm x 30mm - Padrão do print anterior)',
+export const CARTA_PRESETS: LabelPresetConfig[] = [
+  createCartaPreset({
+    id: 'carta_80_6087',
+    name: 'Carta — 80 Etiquetas (6087 / 6187 • 44,45 × 12,7 mm • 4 col × 20 lin)',
+    cols: 4,
+    rows: 20,
+    labelWidthMm: 44.45,
+    labelHeightMm: 12.7,
+    marginTopMm: 12.7,
+    marginLeftMm: 7.62,
+    colGapMm: 7.62,
+    rowGapMm: 0,
+  }),
+  createCartaPreset({
+    id: 'carta_60_6089',
+    name: 'Carta — 60 Etiquetas (6089 / 6189 • 44,45 × 16,93 mm • 4 col × 15 lin)',
+    cols: 4,
+    rows: 15,
+    labelWidthMm: 44.45,
+    labelHeightMm: 16.93,
+    marginTopMm: 12.7,
+    marginLeftMm: 7.62,
+    colGapMm: 7.62,
+    rowGapMm: 0,
+  }),
+  createCartaPreset({
+    id: 'carta_30_6080',
+    name: 'Carta — 30 Etiquetas (6080 / 6180 • 66,7 × 25,4 mm • 3 col × 10 lin)',
+    cols: 3,
+    rows: 10,
+    labelWidthMm: 66.7,
+    labelHeightMm: 25.4,
+    marginTopMm: 12.7,
+    marginLeftMm: 4.76,
+    colGapMm: 3.18,
+    rowGapMm: 0,
+  }),
+  createCartaPreset({
+    id: 'carta_20_6081',
+    name: 'Carta — 20 Etiquetas (6081 / 6181 • 101,6 × 25,4 mm • 2 col × 10 lin)',
+    cols: 2,
+    rows: 10,
+    labelWidthMm: 101.6,
+    labelHeightMm: 25.4,
+    marginTopMm: 12.7,
+    marginLeftMm: 4.76,
+    colGapMm: 3.18,
+    rowGapMm: 0,
+  }),
+  createCartaPreset({
+    id: 'carta_14_6082',
+    name: 'Carta — 14 Etiquetas (6082 / 6182 • 101,6 × 33,9 mm • 2 col × 7 lin)',
+    cols: 2,
+    rows: 7,
+    labelWidthMm: 101.6,
+    labelHeightMm: 33.9,
+    marginTopMm: 21.05,
+    marginLeftMm: 4.76,
+    colGapMm: 3.18,
+    rowGapMm: 0,
+  }),
+  createCartaPreset({
+    id: 'carta_10_6083',
+    name: 'Carta — 10 Etiquetas (6083 / 6183 • 101,6 × 50,8 mm • 2 col × 5 lin)',
+    cols: 2,
+    rows: 5,
+    labelWidthMm: 101.6,
+    labelHeightMm: 50.8,
+    marginTopMm: 12.7,
+    marginLeftMm: 4.76,
+    colGapMm: 3.18,
+    rowGapMm: 0,
+  }),
+  createCartaPreset({
+    id: 'carta_6_6084',
+    name: 'Carta — 6 Etiquetas (6084 / 6184 • 101,6 × 84,7 mm • 2 col × 3 lin)',
+    cols: 2,
+    rows: 3,
+    labelWidthMm: 101.6,
+    labelHeightMm: 84.7,
+    marginTopMm: 12.7,
+    marginLeftMm: 4.76,
+    colGapMm: 3.18,
+    rowGapMm: 0,
+  }),
+];
+
+function createThermalPreset(params: {
+  id: LabelSizePreset;
+  name: string;
+  cols: number;
+  widthMm: number;
+  heightMm: number;
+  gapXMm: number;
+  pageSize: string;
+  description: string;
+  badge: string;
+}): LabelPresetConfig {
+  const totalWidth = params.cols * params.widthMm + Math.max(0, params.cols - 1) * params.gapXMm;
+  return {
+    id: params.id,
+    name: params.name,
     category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 1,
+    categoryLabel: THERMAL_CATEGORY_LABEL,
+    pageWidthMm: totalWidth,
+    pageHeightMm: params.heightMm,
+    labelWidthMm: params.widthMm,
+    labelHeightMm: params.heightMm,
+    widthMm: params.widthMm,
+    heightMm: params.heightMm,
+    cols: params.cols,
+    columns: params.cols,
+    rows: 1,
+    marginTopMm: 0,
+    marginLeftMm: 0,
+    colGapMm: params.gapXMm,
+    rowGapMm: 0,
+    gapXMm: params.gapXMm,
+    gapYMm: 0,
+    paddingTopMm: 0,
+    paddingLeftMm: 0,
+    pageSize: params.pageSize,
+    description: params.description,
+    badge: params.badge,
+  };
+}
+
+export const THERMAL_PRESETS: LabelPresetConfig[] = [
+  createThermalPreset({
+    id: 'termica_gondola_60x30',
+    name: 'Térmica Gôndola - 1 Coluna (60mm x 30mm - Padrão)',
+    cols: 1,
     widthMm: 60.0,
     heightMm: 30.0,
     gapXMm: 0,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '60mm 30mm',
     description: 'Rolo térmico contínuo 1 coluna • 60mm x 30mm',
-    badge: '1 Col (60x30)'
-  },
-  {
+    badge: '1 Col (60x30)',
+  }),
+  createThermalPreset({
     id: 'termica_padrao_40x25',
-    name: 'Térmica Padrão   - 1 Coluna (40mm x 25mm)',
-    category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 1,
+    name: 'Térmica Padrão - 1 Coluna (40mm x 25mm)',
+    cols: 1,
     widthMm: 40.0,
     heightMm: 25.0,
     gapXMm: 0,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '40mm 25mm',
     description: 'Rolo térmico compacto • 40mm x 25mm',
-    badge: '1 Col (40x25)'
-  },
-  {
+    badge: '1 Col (40x25)',
+  }),
+  createThermalPreset({
     id: 'termica_media_50x40',
-    name: 'Térmica Média     - 1 Coluna (50mm x 40mm)',
-    category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 1,
+    name: 'Térmica Média - 1 Coluna (50mm x 40mm)',
+    cols: 1,
     widthMm: 50.0,
     heightMm: 40.0,
     gapXMm: 0,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '50mm 40mm',
     description: 'Rolo térmico médio • 50mm x 40mm',
-    badge: '1 Col (50x40)'
-  },
-  {
+    badge: '1 Col (50x40)',
+  }),
+  createThermalPreset({
     id: 'termica_grande_100x50',
-    name: 'Térmica Grande    - 1 Coluna (100mm x 50mm - Ideal para caixas grandes)',
-    category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 1,
+    name: 'Térmica Grande - 1 Coluna (100mm x 50mm - Caixas grandes)',
+    cols: 1,
     widthMm: 100.0,
     heightMm: 50.0,
     gapXMm: 0,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '100mm 50mm',
     description: 'Rolo térmico para caixas e fardos • 100mm x 50mm',
-    badge: '1 Col (100x50)'
-  },
-  {
+    badge: '1 Col (100x50)',
+  }),
+  createThermalPreset({
     id: 'termica_dupla_37x30',
-    name: 'Térmica Dupla     - 2 Colunas Lado a Lado (37mm x 30mm cada)',
-    category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 2,
+    name: 'Térmica Dupla - 2 Colunas Lado a Lado (37mm x 30mm cada)',
+    cols: 2,
     widthMm: 37.0,
     heightMm: 30.0,
     gapXMm: 2.0,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '76mm 30mm',
     description: 'Rolo com 2 colunas lado a lado • 37mm x 30mm cada',
-    badge: '2 Col (37x30)'
-  },
-  {
+    badge: '2 Col (37x30)',
+  }),
+  createThermalPreset({
     id: 'termica_tripla_33x22',
-    name: 'Térmica Tripla    - 3 Colunas Lado a Lado (33mm x 22mm cada)',
-    category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 3,
+    name: 'Térmica Tripla - 3 Colunas Lado a Lado (33mm x 22mm cada)',
+    cols: 3,
     widthMm: 33.0,
     heightMm: 22.0,
     gapXMm: 2.0,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '103mm 22mm',
     description: 'Rolo com 3 colunas lado a lado • 33mm x 22mm cada',
-    badge: '3 Col (33x22)'
-  },
-  {
+    badge: '3 Col (33x22)',
+  }),
+  createThermalPreset({
     id: 'termica_mini_15x50',
-    name: 'Térmica Mini      - 5 Colunas Lado a Lado (15mm x 50mm cada)',
-    category: 'termica',
-    categoryLabel: '2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)',
-    columns: 5,
+    name: 'Térmica Mini - 5 Colunas Lado a Lado (15mm x 50mm cada)',
+    cols: 5,
     widthMm: 15.0,
     heightMm: 50.0,
     gapXMm: 1.5,
-    gapYMm: 0,
-    paddingTopMm: 0,
-    paddingLeftMm: 0,
     pageSize: '82mm 50mm',
     description: 'Rolo com 5 colunas verticais • 15mm x 50mm cada',
-    badge: '5 Col (15x50)'
-  }
+    badge: '5 Col (15x50)',
+  }),
 ];
 
-export const ALL_PRESETS: LabelPresetConfig[] = [...A4_PRESETS, ...THERMAL_PRESETS];
+export const CUSTOM_LABELS_STORAGE_KEY = 'agrocontrol_custom_labels';
+const CUSTOM_CATEGORY_LABEL = '⭐ Meus Modelos Personalizados';
 
-export function getLabelPresetConfig(id: string): LabelPresetConfig {
+export const DEFAULT_CUSTOM_LABEL_DRAFT: CustomLabelDraft = {
+  name: 'Etiqueta Personalizada 60×30',
+  paperType: 'a4',
+  labelWidthMm: 60.0,
+  labelHeightMm: 30.0,
+  cols: 3,
+  rows: 9,
+  marginTopMm: 13.5,
+  marginLeftMm: 12.0,
+  colGapMm: 3.0,
+  rowGapMm: 0,
+};
+
+function clampNumber(val: unknown, fallback: number, min: number, max: number): number {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return fallback;
+  return Number(Math.min(max, Math.max(min, num)).toFixed(2));
+}
+
+export function buildCustomLabelPreset(
+  draft: CustomLabelDraft,
+  idOverride?: LabelSizePreset
+): LabelPresetConfig {
+  const paperType: CustomPaperType =
+    draft.paperType === 'carta' || draft.paperType === 'termica' ? draft.paperType : 'a4';
+  const labelWidthMm = clampNumber(draft.labelWidthMm, 60, 10, 215);
+  const labelHeightMm = clampNumber(draft.labelHeightMm, 30, 8, 297);
+  const cols = Math.round(clampNumber(draft.cols, 1, 1, 20));
+  const rows = paperType === 'termica' ? Math.round(clampNumber(draft.rows, 1, 1, 20)) : Math.round(clampNumber(draft.rows, 1, 1, 40));
+  const marginTopMm = clampNumber(draft.marginTopMm, 0, 0, 100);
+  const marginLeftMm = clampNumber(draft.marginLeftMm, 0, 0, 100);
+  const colGapMm = clampNumber(draft.colGapMm, 0, 0, 50);
+  const rowGapMm = clampNumber(draft.rowGapMm, 0, 0, 50);
+
+  const rawName = (draft.name || '').trim();
+  const displayName = rawName || `Personalizada ${labelWidthMm}×${labelHeightMm} mm`;
+
+  let pageWidthMm = 210;
+  let pageHeightMm = 297;
+  let pageSize = 'A4 portrait';
+  let totalPerSheet: number | undefined = cols * rows;
+  let badge = `Personalizada ${cols}×${rows} (${cols * rows} un)`;
+  let description = `${cols * rows} etiquetas/folha A4 • ${labelWidthMm}×${labelHeightMm}mm • ${cols}×${rows}`;
+
+  if (paperType === 'carta') {
+    pageWidthMm = 215.9;
+    pageHeightMm = 279.4;
+    pageSize = 'letter portrait';
+    badge = `Personalizada Carta ${cols}×${rows} (${cols * rows} un)`;
+    description = `${cols * rows} etiquetas/folha Carta • ${labelWidthMm}×${labelHeightMm}mm • ${cols}×${rows}`;
+  } else if (paperType === 'termica') {
+    pageWidthMm = Number((marginLeftMm + cols * labelWidthMm + Math.max(0, cols - 1) * colGapMm).toFixed(2));
+    pageHeightMm = Number((marginTopMm + rows * labelHeightMm + Math.max(0, rows - 1) * rowGapMm).toFixed(2));
+    pageSize = `${pageWidthMm}mm ${pageHeightMm}mm`;
+    totalPerSheet = rows > 1 ? cols * rows : undefined;
+    badge = `Personalizada Térmica ${cols}×${rows} (${labelWidthMm}×${labelHeightMm})`;
+    description = `Rolo térmico ${cols} col × ${rows} lin • ${labelWidthMm}×${labelHeightMm}mm`;
+  }
+
+  const presetId: LabelSizePreset =
+    idOverride || (draft.id && draft.id.startsWith('custom_') ? (draft.id as LabelSizePreset) : 'custom_inline');
+
+  return {
+    id: presetId,
+    name: `${displayName} (${labelWidthMm} × ${labelHeightMm} mm • ${cols} col × ${rows} lin)`,
+    category: paperType,
+    categoryLabel: CUSTOM_CATEGORY_LABEL,
+    isCustom: true,
+    pageWidthMm,
+    pageHeightMm,
+    labelWidthMm,
+    labelHeightMm,
+    widthMm: labelWidthMm,
+    heightMm: labelHeightMm,
+    cols,
+    columns: cols,
+    rows,
+    marginTopMm,
+    marginLeftMm,
+    colGapMm,
+    rowGapMm,
+    gapXMm: colGapMm,
+    gapYMm: rowGapMm,
+    paddingTopMm: marginTopMm,
+    paddingLeftMm: marginLeftMm,
+    pageSize,
+    totalPerSheet,
+    description,
+    badge,
+  };
+}
+
+export function extractDraftFromPreset(preset: LabelPresetConfig): CustomLabelDraft {
+  // Remove sufixo automático de dimensões se vier de um modelo salvo
+  const cleanName = preset.name.replace(/\s*\([^)]*mm\s*•[^)]*\)\s*$/, '').trim();
+  return {
+    id: preset.isCustom ? preset.id : undefined,
+    name: cleanName || preset.name,
+    paperType: preset.category,
+    labelWidthMm: preset.labelWidthMm,
+    labelHeightMm: preset.labelHeightMm,
+    cols: preset.cols,
+    rows: preset.rows,
+    marginTopMm: preset.marginTopMm,
+    marginLeftMm: preset.marginLeftMm,
+    colGapMm: preset.colGapMm,
+    rowGapMm: preset.rowGapMm,
+  };
+}
+
+export function loadCustomLabelPresets(): LabelPresetConfig[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_LABELS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item === 'object')
+      .map((item, idx) => {
+        const id: LabelSizePreset =
+          typeof item.id === 'string' && item.id.startsWith('custom_') && item.id !== 'custom_inline'
+            ? (item.id as LabelSizePreset)
+            : (`custom_${Date.now()}_${idx}` as LabelSizePreset);
+        const draft: CustomLabelDraft = {
+          id,
+          name: String(item.name || item.rawName || `Personalizada ${idx + 1}`).replace(/\s*\([^)]*mm\s*•[^)]*\)\s*$/, '').trim(),
+          paperType: (item.paperType || item.category || 'a4') as CustomPaperType,
+          labelWidthMm: Number(item.labelWidthMm ?? item.widthMm ?? 60),
+          labelHeightMm: Number(item.labelHeightMm ?? item.heightMm ?? 30),
+          cols: Number(item.cols ?? item.columns ?? 3),
+          rows: Number(item.rows ?? 9),
+          marginTopMm: Number(item.marginTopMm ?? item.paddingTopMm ?? 0),
+          marginLeftMm: Number(item.marginLeftMm ?? item.paddingLeftMm ?? 0),
+          colGapMm: Number(item.colGapMm ?? item.gapXMm ?? 0),
+          rowGapMm: Number(item.rowGapMm ?? item.gapYMm ?? 0),
+        };
+        return buildCustomLabelPreset(draft, id);
+      });
+  } catch {
+    return [];
+  }
+}
+
+function persistCustomLabelDrafts(presets: LabelPresetConfig[]): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const serialized = presets.map((p) => ({
+    id: p.id,
+    name: p.name.replace(/\s*\([^)]*mm\s*•[^)]*\)\s*$/, '').trim(),
+    paperType: p.category,
+    labelWidthMm: p.labelWidthMm,
+    labelHeightMm: p.labelHeightMm,
+    cols: p.cols,
+    rows: p.rows,
+    marginTopMm: p.marginTopMm,
+    marginLeftMm: p.marginLeftMm,
+    colGapMm: p.colGapMm,
+    rowGapMm: p.rowGapMm,
+  }));
+  window.localStorage.setItem(CUSTOM_LABELS_STORAGE_KEY, JSON.stringify(serialized));
+}
+
+export function saveCustomLabelPreset(draft: CustomLabelDraft): {
+  saved: LabelPresetConfig;
+  all: LabelPresetConfig[];
+} {
+  const existing = loadCustomLabelPresets();
+  const newId: LabelSizePreset = `custom_${Date.now()}`;
+  const saved = buildCustomLabelPreset(draft, newId);
+  const all = [saved, ...existing];
+  persistCustomLabelDrafts(all);
+  return { saved, all };
+}
+
+export function deleteCustomLabelPreset(id: string): LabelPresetConfig[] {
+  const existing = loadCustomLabelPresets();
+  const filtered = existing.filter((p) => p.id !== id);
+  persistCustomLabelDrafts(filtered);
+  return filtered;
+}
+
+export const ALL_PRESETS: LabelPresetConfig[] = [
+  ...A4_PRESETS,
+  ...CARTA_PRESETS,
+  ...THERMAL_PRESETS,
+];
+
+export function getLabelPresetConfig(
+  id: string,
+  customPresets?: LabelPresetConfig[]
+): LabelPresetConfig {
   // Aliases legados
-  if (id === 'gondola_100x35') return ALL_PRESETS.find(p => p.id === 'termica_grande_100x50') || THERMAL_PRESETS[0];
-  if (id === 'gondola_80x30' || id === 'termica_60x40') return ALL_PRESETS.find(p => p.id === 'termica_gondola_60x30') || THERMAL_PRESETS[0];
-  if (id === 'a4_grade') return ALL_PRESETS.find(p => p.id === 'a4_3x10_70x30') || A4_PRESETS[2];
+  if (id === 'a4_4x15_61x19') return ALL_PRESETS.find((p) => p.id === 'a4_65_a4351') || A4_PRESETS[2];
+  if (id === 'a4_4x12_47x25') return ALL_PRESETS.find((p) => p.id === 'a4_44_a4350') || A4_PRESETS[3];
+  if (id === 'a4_3x10_70x30' || id === 'a4_grade') return ALL_PRESETS.find((p) => p.id === 'a4_30_a4356') || A4_PRESETS[5];
+  if (id === 'a4_2x10_99x29') return ALL_PRESETS.find((p) => p.id === 'carta_20_6081') || CARTA_PRESETS[3];
+  if (id === 'a4_2x7_102x38') return ALL_PRESETS.find((p) => p.id === 'a4_14_a4363') || A4_PRESETS[10];
+  if (id === 'gondola_100x35') return ALL_PRESETS.find((p) => p.id === 'termica_grande_100x50') || THERMAL_PRESETS[0];
+  if (id === 'gondola_80x30' || id === 'termica_60x40') return ALL_PRESETS.find((p) => p.id === 'termica_gondola_60x30') || THERMAL_PRESETS[0];
 
-  const found = ALL_PRESETS.find(p => p.id === id);
+  if (id.startsWith('custom_') && id !== 'custom_inline') {
+    const pool = customPresets ?? loadCustomLabelPresets();
+    const customMatch = pool.find((p) => p.id === id);
+    if (customMatch) return customMatch;
+  }
+
+  const found = ALL_PRESETS.find((p) => p.id === id);
   return found || THERMAL_PRESETS[0];
 }
 
+export interface LabelDesignMetrics {
+  barcodeHeight: number;
+  narrowWidth: number;
+  codeFontSizePt: number;
+  nameFontSizePt: number;
+  addressCodeFontSizePt: number;
+  addressLegendFontSizePt: number;
+  priceFontSizePt: number;
+  priceSymbolFontSizePt: number;
+  priceUnitFontSizePt: number;
+  headerMinMm: number;
+  headerMaxMm: number;
+  headerLines: 1 | 2;
+  paddingMm: string;
+  isNarrowVertical: boolean;
+  isUltraCompact: boolean;
+  isCompact: boolean;
+}
+
 /**
- * Retorna os parâmetros de escala e dimensões tipográficas para cada modelo
+ * Retorna os parâmetros de escala e dimensões tipográficas calibrados por altura e largura física
+ * para impedir qualquer estouro interno ou desalinhamento vertical na impressão.
  */
-export function getLabelDesignMetrics(preset: LabelPresetConfig) {
-  const isNarrowVertical = preset.widthMm <= 20; // Térmica mini 15x50
-  const isCompact = preset.heightMm <= 22; // 19mm, 22mm
-  const isMedium = preset.heightMm > 22 && preset.heightMm <= 32; // 25.4mm, 28.9mm, 29.7mm, 30mm
-  const isLarge = preset.heightMm > 32; // 38.1mm, 40mm, 50mm
+export function getLabelDesignMetrics(preset: LabelPresetConfig): LabelDesignMetrics {
+  const w = preset.labelWidthMm;
+  const h = preset.labelHeightMm;
+
+  const isNarrowVertical = w <= 20; // Térmica mini 15x50
 
   if (isNarrowVertical) {
     return {
-      barcodeHeight: 16,
-      narrowWidth: 1.0,
-      codeFontSizePt: 5.5,
-      nameFontSizePt: 6.0,
-      addressCodeFontSizePt: 8.5,
-      addressLegendFontSizePt: 3.5,
-      priceFontSizePt: 6.5,
-      isNarrowVertical: true
-    };
-  }
-
-  if (isCompact) {
-    return {
       barcodeHeight: 14,
-      narrowWidth: 1.2,
-      codeFontSizePt: 6.0,
-      nameFontSizePt: 6.5,
-      addressCodeFontSizePt: 10.5,
-      addressLegendFontSizePt: 4.0,
-      priceFontSizePt: 6.5,
-      isNarrowVertical: false
+      narrowWidth: 0.9,
+      codeFontSizePt: 5.0,
+      nameFontSizePt: 5.5,
+      addressCodeFontSizePt: 7.5,
+      addressLegendFontSizePt: 3.0,
+      priceFontSizePt: 6.0,
+      priceSymbolFontSizePt: 4.2,
+      priceUnitFontSizePt: 4.2,
+      headerMinMm: 4.5,
+      headerMaxMm: 6.0,
+      headerLines: 2,
+      paddingMm: '0.6mm 0.8mm',
+      isNarrowVertical: true,
+      isUltraCompact: false,
+      isCompact: true,
     };
   }
 
-  if (isMedium) {
+  // Etiquetas ultra-baixas (<= 14mm: ex Carta 6087 12.7mm)
+  if (h <= 14) {
     return {
-      barcodeHeight: 18,
-      narrowWidth: 1.5,
-      codeFontSizePt: 7.0,
-      nameFontSizePt: 8.0,
-      addressCodeFontSizePt: 13.5,
-      addressLegendFontSizePt: 4.5,
-      priceFontSizePt: 7.5,
-      isNarrowVertical: false
+      barcodeHeight: 6,
+      narrowWidth: 0.75,
+      codeFontSizePt: 4.6,
+      nameFontSizePt: 4.8,
+      addressCodeFontSizePt: 5.8,
+      addressLegendFontSizePt: 2.3,
+      priceFontSizePt: 5.8,
+      priceSymbolFontSizePt: 3.8,
+      priceUnitFontSizePt: 3.8,
+      headerMinMm: 2.7,
+      headerMaxMm: 3.1,
+      headerLines: 1,
+      paddingMm: '0.35mm 0.7mm',
+      isNarrowVertical: false,
+      isUltraCompact: true,
+      isCompact: true,
     };
   }
 
-  // isLarge
+  // Etiquetas muito baixas / estreitas (14mm < h <= 18mm: ex A4349 26x15mm, A4348 31x17mm, Carta 6089 44.45x16.93mm)
+  if (h <= 18) {
+    const isTinyWidth = w <= 32;
+    return {
+      barcodeHeight: isTinyWidth ? 7 : 8,
+      narrowWidth: isTinyWidth ? 0.65 : 0.85,
+      codeFontSizePt: isTinyWidth ? 4.4 : 5.2,
+      nameFontSizePt: isTinyWidth ? 4.4 : 5.2,
+      addressCodeFontSizePt: isTinyWidth ? 4.8 : 6.4,
+      addressLegendFontSizePt: isTinyWidth ? 2.1 : 2.6,
+      priceFontSizePt: isTinyWidth ? 5.2 : 6.4,
+      priceSymbolFontSizePt: isTinyWidth ? 3.5 : 4.2,
+      priceUnitFontSizePt: isTinyWidth ? 3.5 : 4.2,
+      headerMinMm: 3.0,
+      headerMaxMm: 3.6,
+      headerLines: 1,
+      paddingMm: isTinyWidth ? '0.4mm 0.6mm' : '0.45mm 0.8mm',
+      isNarrowVertical: false,
+      isUltraCompact: true,
+      isCompact: true,
+    };
+  }
+
+  // Etiquetas compactas (18mm < h <= 22.5mm: ex A4351 38.2x21.2mm, Térmica Tripla 33x22mm)
+  if (h <= 22.5) {
+    const isNarrow = w <= 40;
+    return {
+      barcodeHeight: 10,
+      narrowWidth: isNarrow ? 0.8 : 0.95,
+      codeFontSizePt: 5.5,
+      nameFontSizePt: 5.6,
+      addressCodeFontSizePt: isNarrow ? 6.8 : 8.0,
+      addressLegendFontSizePt: 2.8,
+      priceFontSizePt: isNarrow ? 6.8 : 7.8,
+      priceSymbolFontSizePt: 4.5,
+      priceUnitFontSizePt: 4.5,
+      headerMinMm: 4.0,
+      headerMaxMm: 4.7,
+      headerLines: 2,
+      paddingMm: '0.55mm 0.9mm',
+      isNarrowVertical: false,
+      isUltraCompact: false,
+      isCompact: true,
+    };
+  }
+
+  // Etiquetas médias (22.5mm < h <= 39mm: ex 25.4mm, 30mm, 33.9mm, 38.1mm)
+  if (h <= 39) {
+    const isWide = w >= 85;
+    const isNarrow = w <= 52;
+    return {
+      barcodeHeight: h >= 33 ? 17 : 14,
+      narrowWidth: isNarrow ? 0.95 : 1.35,
+      codeFontSizePt: isNarrow ? 6.5 : 7.5,
+      nameFontSizePt: isNarrow ? 6.0 : isWide ? 8.0 : 6.8,
+      addressCodeFontSizePt: isNarrow ? 8.2 : isWide ? 11.5 : 9.8,
+      addressLegendFontSizePt: isNarrow ? 3.2 : 4.0,
+      priceFontSizePt: isNarrow ? 7.6 : isWide ? 11.2 : 8.8,
+      priceSymbolFontSizePt: isNarrow ? 4.8 : 5.8,
+      priceUnitFontSizePt: isNarrow ? 4.8 : 5.8,
+      headerMinMm: 4.8,
+      headerMaxMm: 6.2,
+      headerLines: 2,
+      paddingMm: isNarrow ? '0.8mm 1.1mm' : '1.0mm 1.5mm',
+      isNarrowVertical: false,
+      isUltraCompact: false,
+      isCompact: false,
+    };
+  }
+
+  // Etiquetas grandes (39mm < h <= 90mm: ex 46.5mm, 50.8mm, 55mm, 67.7mm, 84.7mm)
+  if (h <= 90) {
+    const isWide = w >= 90;
+    return {
+      barcodeHeight: h >= 65 ? 28 : 22,
+      narrowWidth: isWide ? 1.8 : 1.4,
+      codeFontSizePt: isWide ? 9.0 : 8.0,
+      nameFontSizePt: isWide ? 9.8 : 8.5,
+      addressCodeFontSizePt: isWide ? 15.0 : 12.5,
+      addressLegendFontSizePt: 5.0,
+      priceFontSizePt: isWide ? 14.5 : 11.5,
+      priceSymbolFontSizePt: 7.0,
+      priceUnitFontSizePt: 7.0,
+      headerMinMm: 6.5,
+      headerMaxMm: 10.0,
+      headerLines: 2,
+      paddingMm: '1.5mm 2.0mm',
+      isNarrowVertical: false,
+      isUltraCompact: false,
+      isCompact: false,
+    };
+  }
+
+  // Etiquetas extra grandes / pallet / folha inteira (h > 90mm: ex 138.5mm, 288.5mm)
   return {
-    barcodeHeight: 24,
-    narrowWidth: 1.8,
-    codeFontSizePt: 8.0,
-    nameFontSizePt: 9.0,
-    addressCodeFontSizePt: 16.5,
-    addressLegendFontSizePt: 5.2,
-    priceFontSizePt: 8.5,
-    isNarrowVertical: false
+    barcodeHeight: h >= 200 ? 64 : 44,
+    narrowWidth: w >= 150 ? 2.8 : 2.0,
+    codeFontSizePt: h >= 200 ? 15.0 : 11.5,
+    nameFontSizePt: h >= 200 ? 18.0 : 13.5,
+    addressCodeFontSizePt: h >= 200 ? 26.0 : 19.0,
+    addressLegendFontSizePt: h >= 200 ? 8.0 : 6.2,
+    priceFontSizePt: h >= 200 ? 28.0 : 20.0,
+    priceSymbolFontSizePt: h >= 200 ? 12.0 : 9.0,
+    priceUnitFontSizePt: h >= 200 ? 12.0 : 9.0,
+    headerMinMm: h >= 200 ? 20.0 : 12.0,
+    headerMaxMm: h >= 200 ? 34.0 : 20.0,
+    headerLines: 2,
+    paddingMm: '3.0mm 4.0mm',
+    isNarrowVertical: false,
+    isUltraCompact: false,
+    isCompact: false,
   };
 }

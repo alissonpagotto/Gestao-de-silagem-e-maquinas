@@ -13,7 +13,8 @@ import {
   Sparkles,
   HelpCircle,
   Copy,
-  ArrowLeft
+  ArrowLeft,
+  Trash2
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { generateBarcodeSvgString, generateBarcodeBars } from './barcodeGenerator';
@@ -22,9 +23,18 @@ import { formatCurrencyBRL } from '../../lib/storage';
 import { 
   type LabelSizePreset, 
   type LabelPresetConfig, 
+  type LabelDesignMetrics,
+  type CustomLabelDraft,
+  type CustomPaperType,
   A4_PRESETS, 
+  CARTA_PRESETS,
   THERMAL_PRESETS, 
-  ALL_PRESETS, 
+  DEFAULT_CUSTOM_LABEL_DRAFT,
+  buildCustomLabelPreset,
+  extractDraftFromPreset,
+  loadCustomLabelPresets,
+  saveCustomLabelPreset,
+  deleteCustomLabelPreset,
   getLabelPresetConfig, 
   getLabelDesignMetrics 
 } from './labelPresets';
@@ -62,6 +72,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 }) => {
   // Configurações do Formato de Impressão
   const [labelSize, setLabelSize] = useState<LabelSizePreset>('termica_gondola_60x30');
+  const [customPresets, setCustomPresets] = useState<LabelPresetConfig[]>(() => loadCustomLabelPresets());
+  const [isCustomPanelOpen, setIsCustomPanelOpen] = useState<boolean>(false);
+  const [customDraft, setCustomDraft] = useState<CustomLabelDraft>(DEFAULT_CUSTOM_LABEL_DRAFT);
+  const [customSavedFeedback, setCustomSavedFeedback] = useState<string | null>(null);
   const [startPosition, setStartPosition] = useState<number>(1);
   const [showBarcode, setShowBarcode] = useState(true);
   const [showPrice, setShowPrice] = useState(true);
@@ -75,13 +89,16 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   const [isPrinting, setIsPrinting] = useState(false);
   const [previewTab, setPreviewTab] = useState<'label' | 'sheet'>('label');
 
-  // Obtém o preset ativo
+  // Obtém o preset ativo (incluindo personalizado em tempo real ou salvo)
   const currentPreset = useMemo<LabelPresetConfig>(() => {
-    return getLabelPresetConfig(labelSize);
-  }, [labelSize]);
+    if (labelSize === 'custom_inline') {
+      return buildCustomLabelPreset(customDraft, 'custom_inline');
+    }
+    return getLabelPresetConfig(labelSize, customPresets);
+  }, [labelSize, customDraft, customPresets]);
 
-  const isA4 = currentPreset.category === 'a4';
-  const totalSlotsPerSheet = currentPreset.totalPerSheet || 30;
+  const isSheetPreset = currentPreset.category === 'a4' || currentPreset.category === 'carta';
+  const totalSlotsPerSheet = currentPreset.totalPerSheet || (currentPreset.cols * currentPreset.rows) || 30;
 
   // Lista normalizada de produtos para impressão (preservando a quantidade original da Nota Fiscal)
   const itemsToPrint = useMemo<LabelProductItem[]>(() => {
@@ -124,9 +141,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     }, 0);
   }, [itemsToPrint]);
 
-  // Sincroniza as quantidades quando o modal abre ou o lote muda, aplicando a Regra de Quantidade Padrão ativa
+  // Sincroniza as quantidades e modelos personalizados quando o modal abre ou o lote muda
   useEffect(() => {
     if (!isOpen) return;
+    setCustomPresets(loadCustomLabelPresets());
+    setCustomSavedFeedback(null);
     const initialRule: LabelQuantityRule = defaultQuantityRule ?? (onBackToQueue ? 'invoice' : 'single');
     setQuantityRule(initialRule);
 
@@ -140,6 +159,52 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       setDefaultCopies(1);
     }
   }, [isOpen, itemsToPrint, defaultQuantityRule, onBackToQueue]);
+
+  useEffect(() => {
+    if (startPosition > totalSlotsPerSheet) {
+      setStartPosition(Math.max(1, totalSlotsPerSheet));
+    }
+  }, [totalSlotsPerSheet, startPosition]);
+
+  const handleToggleCustomPanel = () => {
+    if (!isCustomPanelOpen) {
+      if (labelSize !== 'custom_inline') {
+        const seed = extractDraftFromPreset(currentPreset);
+        setCustomDraft({
+          ...seed,
+          id: undefined,
+          name: currentPreset.isCustom ? seed.name : `Personalizada ${seed.labelWidthMm}×${seed.labelHeightMm}`,
+        });
+        setLabelSize('custom_inline');
+      }
+      setIsCustomPanelOpen(true);
+    } else {
+      setIsCustomPanelOpen(false);
+    }
+  };
+
+  const handleUpdateCustomDraft = (patch: Partial<CustomLabelDraft>) => {
+    setCustomDraft((prev) => ({ ...prev, ...patch }));
+    if (labelSize !== 'custom_inline') {
+      setLabelSize('custom_inline');
+    }
+  };
+
+  const handleSaveCustomPreset = () => {
+    const { saved, all } = saveCustomLabelPreset(customDraft);
+    setCustomPresets(all);
+    setLabelSize(saved.id);
+    setCustomSavedFeedback('Modelo salvo na lista!');
+    setTimeout(() => setCustomSavedFeedback(null), 2500);
+  };
+
+  const handleDeleteCustomPreset = (idToDelete: string) => {
+    const remaining = deleteCustomLabelPreset(idToDelete);
+    setCustomPresets(remaining);
+    if (labelSize === idToDelete) {
+      setLabelSize(remaining[0]?.id || 'termica_gondola_60x30');
+    }
+  };
 
   // Primeiro produto para pré-visualização ao vivo
   const previewProduct = itemsToPrint[0]?.product;
@@ -270,158 +335,177 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     return 0;
   };
 
-  // Renderiza o HTML individual de uma etiqueta compatível com CSS print
+  // Renderiza o HTML individual de uma etiqueta compatível com CSS print e calibração milimétrica
   const renderSingleLabelHtml = (
-    item: InventoryItem, 
-    preset: LabelPresetConfig, 
-    metrics: ReturnType<typeof getLabelDesignMetrics>,
-    effectiveHeightMm?: number
+    item: InventoryItem,
+    preset: LabelPresetConfig,
+    metrics: LabelDesignMetrics
   ): string => {
     const barcodeValue = resolveBarcodeCode(item);
     const addressParts = resolveAddressParts(item);
-    const internalCode = item.code || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
+    const internalCode = item.code || item.codigo_produto || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
     const prodName = item.nome_comercial || item.name || 'Produto sem descrição';
     const prodBrand = item.brand || item.marca ? ` • ${item.brand || item.marca}` : '';
     const unit = (item.unidade_medida || item.unit || 'UN').toUpperCase();
     const salePrice = resolveProductPrice(item);
 
-    const labelHeightMm = effectiveHeightMm ?? preset.heightMm;
-    const isA4 = preset.category === 'a4';
-    const isA4FourCols = isA4 && preset.columns >= 4;
-    const isCompact = labelHeightMm <= 22;
-    const isSmallPad = labelHeightMm <= 25 || preset.widthMm <= 40;
-
-    const barcodeNarrowWidth = isA4FourCols ? 0.95 : metrics.narrowWidth;
-    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 13) : (isCompact ? Math.min(metrics.barcodeHeight, 11) : metrics.barcodeHeight);
-    const barcodeDigitsFontPt = isA4FourCols ? 6.8 : (isCompact ? 7.8 : Math.max(9.0, metrics.codeFontSizePt * 1.3));
-    const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 8.8) : Math.min(metrics.addressCodeFontSizePt, 12.0);
-    const addressLegendFontPt = isA4FourCols ? 3.3 : metrics.addressLegendFontSizePt;
-    const descFontPt = isA4FourCols ? 5.8 : (isCompact ? 6.2 : (preset.widthMm >= 80 ? 8.2 : 7.2));
-    const priceMainFontPt = isA4FourCols ? 7.2 : (isCompact ? 7.8 : (preset.widthMm >= 80 ? 11.5 : 9.2));
-    const priceUnitFontPt = isA4FourCols ? 4.8 : (isCompact ? 5.2 : 6.2);
+    const isTinyWidth = preset.labelWidthMm <= 34;
+    const hideLegendOnUltraLow = preset.labelHeightMm <= 14.5 && showBarcode && showInternalCode;
+    const barcodeMaxHeightMm =
+      preset.labelHeightMm <= 14
+        ? 3.8
+        : preset.labelHeightMm <= 18
+        ? 4.8
+        : preset.labelHeightMm <= 22.5
+        ? 6.5
+        : preset.labelHeightMm <= 32
+        ? 9.0
+        : preset.labelHeightMm <= 45
+        ? 13.0
+        : preset.labelHeightMm <= 90
+        ? 19.0
+        : 36.0;
 
     const formattedPriceStr = formatCurrencyBRL(salePrice);
     const priceNumericStr = formattedPriceStr.replace(/^R\$\s*/, '') || '0,00';
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
-      height: barcodeHeight,
-      narrowWidth: barcodeNarrowWidth,
-      wideWidth: barcodeNarrowWidth * 2.2,
+      height: metrics.barcodeHeight,
+      narrowWidth: metrics.narrowWidth,
+      wideWidth: metrics.narrowWidth * 2.15,
       showText: false,
-      fontSize: 18,
+      fontSize: 16,
       textColor: '#000000',
-      barColor: '#000000'
+      barColor: '#000000',
     });
 
-    const addressColumnsHtml = addressParts.map((part, idx) => `
+    const addressColumnsHtml = addressParts
+      .map(
+        (part, idx) => `
       <div class="address-col" style="
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        min-width: ${isA4FourCols ? '12px' : '18px'};
+        min-width: ${isTinyWidth ? '0px' : metrics.isCompact ? '8px' : '14px'};
       ">
         <div class="address-code" style="
-          font-size: ${addressNumFontPt}pt;
+          font-size: ${metrics.addressCodeFontSizePt}pt;
           font-weight: 900;
           font-family: 'Courier New', Courier, monospace;
-          line-height: 0.95;
+          line-height: 0.92;
           color: #000000;
           background: #ffffff;
           white-space: nowrap;
         ">
           ${part}
         </div>
-        <div class="address-legend" style="
-          font-size: ${addressLegendFontPt}pt;
+        ${
+          hideLegendOnUltraLow
+            ? ''
+            : `<div class="address-legend" style="
+          font-size: ${metrics.addressLegendFontSizePt}pt;
           font-weight: 800;
           letter-spacing: 0px;
           color: #000000;
           background: #ffffff;
-          line-height: 1;
-          margin-top: 1px;
+          line-height: 0.95;
+          margin-top: 0.5px;
           white-space: nowrap;
           text-align: center;
         ">
           ${ADDRESS_LEGEND_LABELS[idx]}
-        </div>
+        </div>`
+        }
       </div>
-      ${idx < addressParts.length - 1 ? `
+      ${
+        idx < addressParts.length - 1
+          ? `
         <div class="address-sep" style="
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: flex-start;
-          padding: 0 0.5px;
+          padding: 0 0.3px;
         ">
           <div style="
-            font-size: ${addressNumFontPt}pt;
+            font-size: ${metrics.addressCodeFontSizePt}pt;
             font-weight: 900;
             font-family: 'Courier New', Courier, monospace;
             line-height: 0.85;
             color: #000000;
           ">.</div>
-          <div style="
-            font-size: ${addressLegendFontPt}pt;
+          ${
+            hideLegendOnUltraLow
+              ? ''
+              : `<div style="
+            font-size: ${metrics.addressLegendFontSizePt}pt;
             font-weight: 800;
-            line-height: 1;
-            margin-top: 1px;
+            line-height: 0.95;
+            margin-top: 0.5px;
             color: #000000;
-          ">.</div>
+          ">.</div>`
+          }
         </div>
-      ` : ''}
-    `).join('');
+      `
+          : ''
+      }
+    `
+      )
+      .join('');
 
     return `
       <div class="gondola-label" style="
-        width: ${isA4 ? '100%' : `${preset.widthMm}mm`};
-        max-width: 100%;
-        min-width: 0;
-        height: ${labelHeightMm}mm;
-        max-height: ${labelHeightMm}mm;
+        width: ${preset.labelWidthMm}mm;
+        min-width: ${preset.labelWidthMm}mm;
+        max-width: ${preset.labelWidthMm}mm;
+        height: ${preset.labelHeightMm}mm;
+        min-height: ${preset.labelHeightMm}mm;
+        max-height: ${preset.labelHeightMm}mm;
         box-sizing: border-box;
-        border: 0.5px dashed #999999;
+        border: 0.3px dashed #bbbbbb;
         background: #ffffff;
         color: #000000;
-        padding: ${isA4FourCols ? '0.7mm 1.2mm' : (isSmallPad ? '0.9mm 1.2mm' : '1.2mm 1.6mm')};
+        padding: ${metrics.paddingMm};
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         position: relative;
         overflow: hidden;
       ">
-        <!-- Topo: Linha superior dedicada à Descrição do Produto (até 2 linhas automáticas, font slim) -->
+        <!-- Topo: Descrição do Produto -->
         <div class="label-header" style="
           display: flex;
           align-items: center;
           justify-content: center;
-          line-height: 1.15;
+          line-height: 1.08;
           background: #ffffff;
           color: #000000;
-          border-bottom: 0.5px solid #000000;
-          padding-bottom: 0.8px;
-          margin-bottom: 0.8px;
+          border-bottom: 0.4px solid #000000;
+          padding-bottom: 0.5px;
+          margin-bottom: 0.5px;
           width: 100%;
           max-width: 100%;
-          min-height: ${isA4FourCols ? '4.8mm' : (isCompact ? '5.0mm' : '5.8mm')};
-          max-height: ${isA4FourCols ? '5.4mm' : (isCompact ? '5.6mm' : '6.8mm')};
+          min-height: ${metrics.headerMinMm}mm;
+          max-height: ${metrics.headerMaxMm}mm;
           overflow: hidden;
           box-sizing: border-box;
+          flex-shrink: 0;
         ">
           <div class="label-product-name" style="
-            font-size: ${descFontPt}pt;
-            font-weight: 500;
+            font-size: ${metrics.nameFontSizePt}pt;
+            font-weight: 600;
             color: #000000;
             background: #ffffff;
             text-transform: uppercase;
             text-align: center;
             display: -webkit-box;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: ${metrics.headerLines};
             -webkit-box-orient: vertical;
             overflow: hidden;
             word-break: break-word;
-            line-height: 1.15;
-            max-height: 2.3em;
+            line-height: 1.08;
+            max-height: ${metrics.headerLines === 1 ? '1.15em' : '2.2em'};
             width: 100%;
             min-width: 0;
           " title="${prodName}">
@@ -429,13 +513,13 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           </div>
         </div>
 
-        <!-- Metade Inferior em Duas Colunas (Esquerda 73%: Código de Barras + Endereço | Direita 27%: Preço + Unidade) -->
+        <!-- Metade Inferior em Duas Colunas (Esquerda 72%: Código de Barras + Endereço | Direita 28%: Preço + Unidade) -->
         <div class="label-lower-columns" style="
           display: flex;
           flex-direction: row;
           align-items: stretch;
           justify-content: space-between;
-          gap: 2px;
+          gap: ${isTinyWidth ? '1px' : '2px'};
           flex: 1;
           width: 100%;
           max-width: 100%;
@@ -443,109 +527,136 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           overflow: hidden;
           box-sizing: border-box;
         ">
-          ${(showBarcode || showAddress || showInternalCode) ? `
-            <!-- Coluna Esquerda (~73%): Código de Barras + Bloco de Endereçamento alinhados à esquerda -->
+          ${
+            showBarcode || showAddress || showInternalCode
+              ? `
             <div class="label-left-col" style="
-              width: ${showPrice ? '73%' : '100%'};
-              max-width: ${showPrice ? '73%' : '100%'};
-              flex: 0 0 ${showPrice ? '73%' : '100%'};
+              width: ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
+              max-width: ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
+              flex: 0 0 ${showPrice ? (isTinyWidth ? '70%' : '73%') : '100%'};
               display: flex;
               flex-direction: column;
               justify-content: ${showBarcode ? 'space-between' : 'center'};
               align-items: stretch;
               min-width: 0;
+              min-height: 0;
               overflow: hidden;
               box-sizing: border-box;
             ">
-              ${showBarcode ? `
-                <!-- Código de Barras centralizado na coluna esquerda com dígitos em destaque logo abaixo -->
+              ${
+                showBarcode
+                  ? `
                 <div class="label-barcode-container" style="
                   display: flex;
                   flex-direction: column;
                   justify-content: center;
                   align-items: center;
                   flex: 1;
+                  min-height: 0;
                   width: 100%;
                   max-width: 100%;
                   overflow: hidden;
-                  margin: 0.5px 0;
+                  margin: 0;
                   box-sizing: border-box;
                   background: #ffffff;
                 ">
-                  ${barcodeSvg}
+                  <div style="width:100%;max-height:${barcodeMaxHeightMm}mm;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                    ${barcodeSvg}
+                  </div>
                   <div class="barcode-digits-text" style="
-                    font-size: ${barcodeDigitsFontPt}pt;
+                    font-size: ${metrics.codeFontSizePt}pt;
                     font-weight: 800;
                     font-family: 'Courier New', Courier, monospace;
                     color: #000000;
                     background: #ffffff;
                     text-align: center;
-                    letter-spacing: 0.6px;
-                    line-height: 1.05;
-                    margin-top: 1px;
+                    letter-spacing: ${isTinyWidth ? '0.2px' : '0.4px'};
+                    line-height: 1;
+                    margin-top: 0.5px;
                     white-space: nowrap;
+                    overflow: hidden;
+                    max-width: 100%;
                   ">
                     ${barcodeValue}
                   </div>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
-              <!-- Bloco de Endereçamento na coluna esquerda -->
-              ${(showAddress || showInternalCode) ? `
+              ${
+                showAddress || showInternalCode
+                  ? `
                 <div class="label-address-box" style="
-                  border: 0.5px solid #000000;
+                  border: 0.4px solid #000000;
                   background: #ffffff;
                   color: #000000;
-                  border-radius: 2px;
-                  padding: ${showBarcode ? '1px 1.5px 1.5px 1.5px' : '2.5px 2px'};
+                  border-radius: 1.5px;
+                  padding: ${metrics.isUltraCompact ? '0.5px 1px' : showBarcode ? '1px 1.5px' : '2px 2px'};
                   text-align: center;
                   margin-top: 0.5px;
                   width: 100%;
                   max-width: 100%;
-                  ${!showBarcode ? 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;' : ''}
+                  ${!showBarcode ? 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;' : 'flex-shrink: 0;'}
                   overflow: hidden;
                   box-sizing: border-box;
                 ">
-                  ${showInternalCode ? `
+                  ${
+                    showInternalCode
+                      ? `
                     <div class="label-internal-code" style="
-                      font-size: ${isA4FourCols ? 4.8 : Math.max(5.2, metrics.codeFontSizePt * (showBarcode ? 0.78 : 0.9))}pt;
+                      font-size: ${Math.max(3.8, metrics.codeFontSizePt * (metrics.isUltraCompact ? 0.78 : showBarcode ? 0.76 : 0.9))}pt;
                       font-family: 'Courier New', Courier, monospace;
                       font-weight: 700;
-                      letter-spacing: 0.2px;
-                      line-height: 1;
-                      margin-bottom: ${showBarcode ? '1px' : '2px'};
+                      letter-spacing: 0.1px;
+                      line-height: 0.95;
+                      margin-bottom: ${showAddress ? '0.5px' : '0'};
                       color: #000000;
                       background: #ffffff;
                       white-space: nowrap;
                       overflow: hidden;
                       text-overflow: ellipsis;
+                      max-width: 100%;
                     ">
                       CÓD: ${internalCode}
                     </div>
-                  ` : ''}
-                  ${showAddress ? `
+                  `
+                      : ''
+                  }
+                  ${
+                    showAddress
+                      ? `
                     <div class="address-columns-row" style="
                       display: flex;
                       align-items: flex-start;
                       justify-content: center;
-                      gap: ${isA4FourCols ? '0.5px' : '1.5px'};
+                      gap: ${isTinyWidth ? '0.3px' : '1px'};
                       width: 100%;
                       background: #ffffff;
                       color: #000000;
+                      overflow: hidden;
                     ">
                       ${addressColumnsHtml}
                     </div>
-                  ` : ''}
+                  `
+                      : ''
+                  }
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
-          ` : ''}
+          `
+              : ''
+          }
 
-          <!-- Coluna Direita (~27%): Cifrão R$ acima e Preço numérico logo abaixo, com unidade na base -->
-          ${showPrice ? `
+          ${
+            showPrice
+              ? `
             <div class="label-right-price-col" style="
               flex: 1;
               min-width: 0;
+              min-height: 0;
               display: flex;
               flex-direction: column;
               align-items: center;
@@ -563,88 +674,82 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 align-items: center;
                 justify-content: center;
                 text-align: center;
-                border: 0.5px solid #000000;
-                border-radius: 2px;
-                padding: ${isA4FourCols ? '1px 1px' : '1.5px 1.5px'};
+                border: 0.4px solid #000000;
+                border-radius: 1.5px;
+                padding: ${metrics.isUltraCompact ? '0.5px' : '1px 1.5px'};
                 background: #ffffff;
                 color: #000000;
                 box-sizing: border-box;
+                overflow: hidden;
               ">
                 <div class="label-price-symbol" style="
-                  font-size: ${isA4FourCols ? 4.8 : (isCompact ? 5.2 : 6.0)}pt;
+                  font-size: ${metrics.priceSymbolFontSizePt}pt;
                   font-weight: 700;
                   color: #000000;
                   background: #ffffff;
-                  line-height: 0.95;
-                  letter-spacing: 0.2px;
+                  line-height: 0.9;
                 ">
                   R$
                 </div>
                 <div class="label-price-value" style="
-                  font-size: ${priceMainFontPt}pt;
+                  font-size: ${metrics.priceFontSizePt}pt;
                   font-weight: 900;
                   color: #000000;
                   background: #ffffff;
-                  line-height: 1.05;
+                  line-height: 1;
                   white-space: nowrap;
                 ">
                   ${priceNumericStr}
                 </div>
                 <div class="label-price-unit" style="
-                  font-size: ${priceUnitFontPt}pt;
+                  font-size: ${metrics.priceUnitFontSizePt}pt;
                   font-weight: 700;
                   color: #000000;
                   background: #ffffff;
-                  line-height: 1;
-                  margin-top: 0.5px;
+                  line-height: 0.95;
+                  margin-top: 0.3px;
                   white-space: nowrap;
                 ">
                   / ${unit}
                 </div>
               </div>
             </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       </div>
     `;
   };
 
-  // Gerador do HTML de impressão de todas as etiquetas
+  // Gerador do HTML de impressão calibrado milimetricamente para A4, Carta e Térmica
   const generateLabelsHtml = (): string => {
     const metrics = getLabelDesignMetrics(currentPreset);
     let pageCss = '';
     let bodyContent = '';
 
-    if (currentPreset.category === 'a4') {
-      const slotsPerSheet = currentPreset.totalPerSheet || 30;
+    if (currentPreset.category === 'a4' || currentPreset.category === 'carta') {
+      const slotsPerSheet = currentPreset.totalPerSheet || currentPreset.cols * currentPreset.rows || 30;
       const safeStartPos = Math.max(1, Math.min(startPosition, slotsPerSheet));
-      const cols = currentPreset.columns || 4;
+      const cols = currentPreset.cols || 3;
       const rows = currentPreset.rows || Math.ceil(slotsPerSheet / cols);
-      const gapMm = rows >= 12 ? 2 : 2.5;
-      // Garante que todas as linhas da grade A4 caibam em 1 única folha A4 (297mm - 20mm de margem body = 277mm úteis)
-      const maxSheetHeightMm = 275;
-      const maxRowHeightMm = Number(((maxSheetHeightMm - (rows - 1) * gapMm) / rows).toFixed(2));
-      const effectiveHeightMm = Math.min(currentPreset.heightMm, maxRowHeightMm);
+      const sheetHeightSafeMm = Number((currentPreset.pageHeightMm - 0.4).toFixed(2));
+      const pageSizeCss = currentPreset.category === 'carta' ? 'letter portrait' : 'A4 portrait';
 
       pageCss = `
-        @page { 
-          margin: 0; 
-          size: A4; 
+        @page {
+          size: ${pageSizeCss};
+          margin: 0;
         }
         *, *::before, *::after {
           box-sizing: border-box;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        html {
-          margin: 0;
-          padding: 0;
-          background: #ffffff;
-          box-sizing: border-box;
-        }
-        body {
-          margin: 10mm;
-          padding: 0;
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: ${currentPreset.pageWidthMm}mm;
           background: #ffffff;
           color: #000000;
           box-sizing: border-box;
@@ -652,38 +757,47 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         header, footer, .no-print, .print-metadata {
           display: none !important;
         }
-        .a4-sheet {
-          width: 100%;
-          max-width: 100%;
+        .label-sheet {
+          width: ${currentPreset.pageWidthMm}mm;
+          height: ${sheetHeightSafeMm}mm;
+          margin: 0;
+          padding-top: ${currentPreset.marginTopMm}mm;
+          padding-left: ${currentPreset.marginLeftMm}mm;
+          padding-right: 0;
+          padding-bottom: 0;
           box-sizing: border-box;
-          margin: 0 auto;
-          padding: 0;
           display: grid;
-          grid-template-columns: repeat(${cols}, minmax(0, 1fr));
-          gap: ${gapMm}mm;
+          grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm);
+          grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm);
+          column-gap: ${currentPreset.colGapMm}mm;
+          row-gap: ${currentPreset.rowGapMm}mm;
+          align-content: start;
+          justify-content: start;
           page-break-after: always;
           break-after: page;
           page-break-inside: avoid;
           break-inside: avoid;
           overflow: hidden;
         }
-        .a4-sheet:last-of-type {
+        .label-sheet:last-of-type {
           page-break-after: avoid !important;
           break-after: avoid !important;
         }
         .gondola-label,
-        .a4-slot {
-          width: 100% !important;
-          max-width: 100% !important;
-          min-width: 0 !important;
-          height: ${effectiveHeightMm}mm !important;
-          max-height: ${effectiveHeightMm}mm !important;
+        .sheet-slot {
+          width: ${currentPreset.labelWidthMm}mm !important;
+          min-width: ${currentPreset.labelWidthMm}mm !important;
+          max-width: ${currentPreset.labelWidthMm}mm !important;
+          height: ${currentPreset.labelHeightMm}mm !important;
+          min-height: ${currentPreset.labelHeightMm}mm !important;
+          max-height: ${currentPreset.labelHeightMm}mm !important;
+          margin: 0 !important;
           box-sizing: border-box !important;
           overflow: hidden !important;
           background: #ffffff !important;
           color: #000000 !important;
         }
-        .a4-slot.empty-slot {
+        .sheet-slot.empty-slot {
           visibility: hidden !important;
           border: none !important;
         }
@@ -696,43 +810,62 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           margin: 0 auto !important;
         }
         @media print {
-          @page { margin: 0; size: A4; }
-          body { margin: 10mm; }
+          @page {
+            size: ${pageSizeCss};
+            margin: 0;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: ${currentPreset.pageWidthMm}mm !important;
+          }
           header, footer, .no-print, .print-metadata {
             display: none !important;
           }
-          .a4-sheet {
-            width: 100% !important;
-            max-width: 100% !important;
+          .label-sheet {
+            width: ${currentPreset.pageWidthMm}mm !important;
+            height: ${sheetHeightSafeMm}mm !important;
+            margin: 0 !important;
+            padding-top: ${currentPreset.marginTopMm}mm !important;
+            padding-left: ${currentPreset.marginLeftMm}mm !important;
+            padding-right: 0 !important;
+            padding-bottom: 0 !important;
             box-sizing: border-box !important;
-            margin: 0 auto !important;
-            padding: 0 !important;
             display: grid !important;
-            grid-template-columns: repeat(${cols}, minmax(0, 1fr)) !important;
-            gap: ${gapMm}mm !important;
+            grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm) !important;
+            grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm) !important;
+            column-gap: ${currentPreset.colGapMm}mm !important;
+            row-gap: ${currentPreset.rowGapMm}mm !important;
+            align-content: start !important;
+            justify-content: start !important;
             page-break-after: always !important;
             break-after: page !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             overflow: hidden !important;
           }
-          .a4-sheet:last-of-type {
+          .label-sheet:last-of-type {
             page-break-after: avoid !important;
             break-after: avoid !important;
           }
+          .gondola-label {
+            border: none !important;
+          }
           .gondola-label,
-          .a4-slot {
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 0 !important;
-            height: ${effectiveHeightMm}mm !important;
-            max-height: ${effectiveHeightMm}mm !important;
+          .sheet-slot {
+            width: ${currentPreset.labelWidthMm}mm !important;
+            min-width: ${currentPreset.labelWidthMm}mm !important;
+            max-width: ${currentPreset.labelWidthMm}mm !important;
+            height: ${currentPreset.labelHeightMm}mm !important;
+            min-height: ${currentPreset.labelHeightMm}mm !important;
+            max-height: ${currentPreset.labelHeightMm}mm !important;
+            margin: 0 !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
             background: #ffffff !important;
             color: #000000 !important;
           }
-          .a4-slot.empty-slot {
+          .sheet-slot.empty-slot {
             visibility: hidden !important;
             border: none !important;
           }
@@ -748,22 +881,20 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         const isFirstSheet = sheetNum === 1;
         const initialOffset = isFirstSheet ? safeStartPos - 1 : 0;
 
-        // Adiciona slots em branco apenas para posições iniciais puladas (reaproveitamento da folha A4)
         for (let s = 0; s < initialOffset; s++) {
           slotsHtml.push(`
-            <div class="a4-slot empty-slot" style="width:100%;max-width:100%;min-width:0;height:${effectiveHeightMm}mm;box-sizing:border-box;visibility:hidden;"></div>
+            <div class="sheet-slot empty-slot" style="width:${currentPreset.labelWidthMm}mm;height:${currentPreset.labelHeightMm}mm;box-sizing:border-box;visibility:hidden;border:none;"></div>
           `);
         }
 
-        // Preenche com as etiquetas reais
         const slotsAvailable = slotsPerSheet - initialOffset;
         for (let s = 0; s < slotsAvailable && currentFlatIdx < flatLabelsList.length; s++) {
           const item = flatLabelsList[currentFlatIdx++];
-          slotsHtml.push(renderSingleLabelHtml(item, currentPreset, metrics, effectiveHeightMm));
+          slotsHtml.push(renderSingleLabelHtml(item, currentPreset, metrics));
         }
 
         sheetsHtml.push(`
-          <div class="a4-sheet">
+          <div class="label-sheet">
             ${slotsHtml.join('\n')}
           </div>
         `);
@@ -772,8 +903,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
       bodyContent = sheetsHtml.join('\n');
     } else {
-      // IMPRESSORAS TÉRMICAS
-      if (currentPreset.columns === 1) {
+      // IMPRESSORAS TÉRMICAS (1 coluna, multi-colunas ou personalizadas)
+      const cols = Math.max(1, currentPreset.cols || currentPreset.columns || 1);
+      const rows = Math.max(1, currentPreset.rows || 1);
+      if (cols === 1 && rows === 1) {
         pageCss = `
           @page { 
             size: ${currentPreset.pageSize}; 
@@ -789,8 +922,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             display: none !important;
           }
           .thermal-page {
-            width: ${currentPreset.widthMm}mm;
-            height: ${currentPreset.heightMm}mm;
+            width: ${currentPreset.pageWidthMm}mm;
+            height: ${currentPreset.pageHeightMm}mm;
+            padding-top: ${currentPreset.marginTopMm}mm;
+            padding-left: ${currentPreset.marginLeftMm}mm;
             box-sizing: border-box;
             page-break-after: always;
             break-after: page;
@@ -814,8 +949,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         `);
         bodyContent = pagesHtml.join('\n');
       } else {
-        // Rolo térmico multi-colunas (Dupla, Tripla ou Mini)
-        const cols = currentPreset.columns;
+        // Rolo térmico multi-colunas ou multi-linhas (Dupla, Tripla, Mini ou Personalizada)
+        const perBlock = cols * rows;
         pageCss = `
           @page { 
             size: ${currentPreset.pageSize}; 
@@ -831,12 +966,16 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             display: none !important;
           }
           .thermal-row-page {
-            width: 100%;
-            height: ${currentPreset.heightMm}mm;
+            width: ${currentPreset.pageWidthMm}mm;
+            height: ${currentPreset.pageHeightMm}mm;
+            padding-top: ${currentPreset.marginTopMm}mm;
+            padding-left: ${currentPreset.marginLeftMm}mm;
             box-sizing: border-box;
             display: grid;
-            grid-template-columns: repeat(${cols}, ${currentPreset.widthMm}mm);
-            column-gap: ${currentPreset.gapXMm}mm;
+            grid-template-columns: repeat(${cols}, ${currentPreset.labelWidthMm}mm);
+            grid-template-rows: repeat(${rows}, ${currentPreset.labelHeightMm}mm);
+            column-gap: ${currentPreset.colGapMm}mm;
+            row-gap: ${currentPreset.rowGapMm}mm;
             page-break-after: always;
             break-after: page;
             overflow: hidden;
@@ -853,12 +992,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         `;
 
         const rowsHtml: string[] = [];
-        for (let i = 0; i < flatLabelsList.length; i += cols) {
-          const chunk = flatLabelsList.slice(i, i + cols);
+        for (let i = 0; i < flatLabelsList.length; i += perBlock) {
+          const chunk = flatLabelsList.slice(i, i + perBlock);
           const colsHtml = chunk.map(item => renderSingleLabelHtml(item, currentPreset, metrics));
-          while (colsHtml.length < cols) {
+          while (colsHtml.length < perBlock) {
             colsHtml.push(`
-              <div class="empty-slot" style="width:${currentPreset.widthMm}mm;height:${currentPreset.heightMm}mm;visibility:hidden;"></div>
+              <div class="empty-slot" style="width:${currentPreset.labelWidthMm}mm;height:${currentPreset.labelHeightMm}mm;visibility:hidden;"></div>
             `);
           }
 
@@ -888,6 +1027,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #000000;
       background: #ffffff;
+    }
+    .label-barcode-container svg {
+      max-width: 100% !important;
+      max-height: 100% !important;
+      width: auto !important;
+      height: auto !important;
+      display: block !important;
+      margin: 0 auto !important;
     }
   </style>
   <script>
@@ -1091,43 +1238,102 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           <div className="p-2.5 sm:p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-700 shadow-2xs space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
               
-              {/* Dropdown com os 12 modelos exatos */}
-              <div className="md:col-span-8">
+              {/* Dropdown organizado + Botão Criar Etiqueta Personalizada */}
+              <div className="md:col-span-9">
                 <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center space-x-1.5">
                   <LayoutGrid className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                   <span>MODELO E TAMANHO DA ETIQUETA</span>
                 </label>
-                <select
-                  value={labelSize}
-                  onChange={(e) => {
-                    const next = e.target.value as LabelSizePreset;
-                    setLabelSize(next);
-                    const cfg = getLabelPresetConfig(next);
-                    if (cfg.category === 'a4') {
-                      setStartPosition(1);
-                    }
-                  }}
-                  className="w-full h-8 sm:h-8.5 px-2.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer shadow-2xs"
-                >
-                  <optgroup label="1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)">
-                    {A4_PRESETS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)">
-                    {THERMAL_PRESETS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={labelSize}
+                    onChange={(e) => {
+                      const next = e.target.value as LabelSizePreset;
+                      if (next === 'custom_inline') {
+                        if (labelSize !== 'custom_inline') {
+                          const seed = extractDraftFromPreset(currentPreset);
+                          setCustomDraft({
+                            ...seed,
+                            id: undefined,
+                            name: currentPreset.isCustom ? seed.name : `Personalizada ${seed.labelWidthMm}×${seed.labelHeightMm}`,
+                          });
+                        }
+                        setLabelSize('custom_inline');
+                        setIsCustomPanelOpen(true);
+                        return;
+                      }
+                      setLabelSize(next);
+                      const cfg = getLabelPresetConfig(next, customPresets);
+                      if (cfg.category === 'a4' || cfg.category === 'carta') {
+                        setStartPosition(1);
+                      }
+                      if (cfg.isCustom) {
+                        setCustomDraft(extractDraftFromPreset(cfg));
+                      }
+                    }}
+                    className="flex-1 min-w-0 h-8 sm:h-8.5 px-2.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer shadow-2xs"
+                  >
+                    <option value="custom_inline">📐 Personalizado (Definir Medidas em mm)</option>
+                    {customPresets.length > 0 && (
+                      <optgroup label="⭐ Meus Modelos Personalizados">
+                        {customPresets.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Grupo 1 — Folha A4 (210 × 297 mm — Padrão Pimaco / Colacril)">
+                      {A4_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Grupo 2 — Folha Carta / Letter (215,9 × 279,4 mm — Padrão Pimaco 6080/6180)">
+                      {CARTA_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Grupo 3 — Impressoras Térmicas (Rolos Contínuos — Largura × Altura)">
+                      {THERMAL_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleCustomPanel}
+                    className={`h-8 sm:h-8.5 px-2.5 text-[11px] font-bold rounded-lg border border-black transition cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1 shadow-2xs ${
+                      isCustomPanelOpen || labelSize === 'custom_inline'
+                        ? 'bg-amber-200 hover:bg-amber-300 text-black'
+                        : 'bg-white hover:bg-slate-100 text-black dark:bg-stone-800 dark:text-stone-100 dark:border-stone-600'
+                    }`}
+                    title="Definir tamanho personalizado de etiqueta em milímetros"
+                  >
+                    <span>⚙️ + Tamanho Personalizado</span>
+                  </button>
+
+                  {currentPreset.isCustom && labelSize !== 'custom_inline' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomPreset(currentPreset.id)}
+                      className="h-8 sm:h-8.5 px-2 rounded-lg border border-black bg-red-50 hover:bg-red-100 text-red-700 transition cursor-pointer shrink-0 flex items-center justify-center shadow-2xs"
+                      title="Excluir este modelo personalizado"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Quantidade Global de Cópias */}
-              <div className="md:col-span-4">
+              <div className="md:col-span-3">
                 <label className="block text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-stone-400 tracking-wider mb-1 flex items-center space-x-1">
                   <Copy className="w-3 h-3 text-slate-500" />
                   <span>QUANTIDADE DE ETIQUETAS</span>
@@ -1159,6 +1365,243 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
 
             </div>
+
+            {/* Painel Rápido de Etiqueta Personalizada (Atualiza pré-visualização em tempo real) */}
+            {isCustomPanelOpen && (
+              <div className="p-2.5 rounded-lg bg-white/95 dark:bg-stone-900/90 border border-black dark:border-stone-600 shadow-2xs space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-700 pb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black uppercase text-slate-800 dark:text-stone-100">
+                      📐 Medidas Personalizadas da Etiqueta (mm)
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                      {currentPreset.labelWidthMm} × {currentPreset.labelHeightMm} mm • {currentPreset.cols}×{currentPreset.rows}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomPanelOpen(false)}
+                    className="text-[10px] font-bold uppercase text-slate-600 hover:text-black dark:text-stone-400 dark:hover:text-white px-2 py-0.5 rounded border border-slate-300 dark:border-stone-700 cursor-pointer"
+                  >
+                    Ocultar Painel
+                  </button>
+                </div>
+
+                {/* Linha 1: Nome, Tipo de Papel, Largura, Altura */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-5">
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Nome do Modelo
+                    </label>
+                    <input
+                      type="text"
+                      value={customDraft.name}
+                      onChange={(e) => handleUpdateCustomDraft({ name: e.target.value })}
+                      placeholder="Ex: Etiqueta Caixa Grande 80x40"
+                      className="w-full h-7.5 px-2 text-xs font-semibold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Tipo de Papel
+                    </label>
+                    <select
+                      value={customDraft.paperType}
+                      onChange={(e) => {
+                        const nextPaper = e.target.value as CustomPaperType;
+                        handleUpdateCustomDraft({
+                          paperType: nextPaper,
+                          ...(nextPaper === 'termica'
+                            ? { rows: 1, marginTopMm: 0, marginLeftMm: 0, rowGapMm: 0 }
+                            : {}),
+                        });
+                      }}
+                      className="w-full h-7.5 px-2 text-xs font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none cursor-pointer"
+                    >
+                      <option value="a4">Folha A4 (210×297mm)</option>
+                      <option value="carta">Folha Carta (215,9×279,4mm)</option>
+                      <option value="termica">Rolo Térmico</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Largura (mm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="10"
+                      max="215"
+                      value={customDraft.labelWidthMm}
+                      onChange={(e) => handleUpdateCustomDraft({ labelWidthMm: parseFloat(e.target.value) || 10 })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Altura (mm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="8"
+                      max="297"
+                      value={customDraft.labelHeightMm}
+                      onChange={(e) => handleUpdateCustomDraft({ labelHeightMm: parseFloat(e.target.value) || 8 })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Linha 2: Colunas, Linhas, Margens e Espaçamentos */}
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Colunas / Linha
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={customDraft.cols}
+                      onChange={(e) => handleUpdateCustomDraft({ cols: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Linhas / Folha
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      value={customDraft.rows}
+                      onChange={(e) => handleUpdateCustomDraft({ rows: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Margem Sup. (mm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={customDraft.marginTopMm}
+                      onChange={(e) => handleUpdateCustomDraft({ marginTopMm: Math.max(0, parseFloat(e.target.value) || 0) })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Margem Esq. (mm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={customDraft.marginLeftMm}
+                      onChange={(e) => handleUpdateCustomDraft({ marginLeftMm: Math.max(0, parseFloat(e.target.value) || 0) })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Esp. Horiz. (mm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="50"
+                      value={customDraft.colGapMm}
+                      onChange={(e) => handleUpdateCustomDraft({ colGapMm: Math.max(0, parseFloat(e.target.value) || 0) })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 dark:text-stone-400 mb-0.5">
+                      Esp. Vert. (mm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="50"
+                      value={customDraft.rowGapMm}
+                      onChange={(e) => handleUpdateCustomDraft({ rowGapMm: Math.max(0, parseFloat(e.target.value) || 0) })}
+                      className="w-full h-7.5 px-2 text-xs font-mono font-bold rounded border border-slate-400 dark:border-stone-600 bg-white dark:bg-stone-800 text-slate-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Rodapé do Painel: Lista rápida de modelos salvos + Botão Salvar Modelo na Lista */}
+                <div className="pt-1.5 border-t border-slate-200 dark:border-stone-700 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                    {customPresets.length > 0 ? (
+                      <>
+                        <span className="text-[10px] font-black uppercase text-slate-500 dark:text-stone-400">
+                          ⭐ Salvos:
+                        </span>
+                        {customPresets.map((saved) => (
+                          <div
+                            key={saved.id}
+                            className={`inline-flex items-center rounded border text-[10px] font-bold overflow-hidden ${
+                              labelSize === saved.id
+                                ? 'border-sky-600 bg-sky-50 text-sky-900 dark:bg-sky-950/60 dark:text-sky-200'
+                                : 'border-slate-300 bg-slate-50 text-slate-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLabelSize(saved.id);
+                                setCustomDraft(extractDraftFromPreset(saved));
+                              }}
+                              className="px-2 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 cursor-pointer truncate max-w-[180px]"
+                              title={`Aplicar ${saved.name}`}
+                            >
+                              {saved.name.replace(/\s*\([^)]*mm\s*•[^)]*\)\s*$/, '')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCustomPreset(saved.id)}
+                              className="px-1.5 py-0.5 border-l border-slate-300 dark:border-stone-700 text-red-600 hover:bg-red-100 dark:hover:bg-red-950/50 cursor-pointer"
+                              title="Excluir modelo"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                        Ajuste os milímetros acima: o preview abaixo e a impressão atualizam na hora.
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {customSavedFeedback && (
+                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                        ✓ {customSavedFeedback}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomPreset}
+                      className="px-3 py-1.5 text-xs font-bold text-white bg-sky-700 hover:bg-sky-800 border border-black rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span>💾 Salvar Modelo na Lista</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Regra de Quantidade Padrão (Radio Buttons) */}
             <div className="pt-2 border-t border-slate-200 dark:border-stone-700/60 space-y-1.5">
@@ -1223,27 +1666,33 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
             </div>
 
-            {/* Configurações Avançadas e Reaproveitamento para A4 */}
-            {isA4 && (
+            {/* Configurações Avançadas e Reaproveitamento para Folhas Adesivas (A4 e Carta) */}
+            {isSheetPreset && (
               <div className="pt-2 border-t border-slate-200 dark:border-stone-700/60 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                 <div className="sm:col-span-7">
-                  <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-800 dark:text-stone-200 uppercase">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Reaproveitamento de Folhas A4</span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-bold text-slate-800 dark:text-stone-200 uppercase">
+                    <span className="flex items-center space-x-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Reaproveitamento de Folhas ({currentPreset.category === 'carta' ? 'Carta' : 'A4'})</span>
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold text-sky-700 dark:text-sky-400 lowercase">
+                      margem sup {currentPreset.marginTopMm}mm • esq {currentPreset.marginLeftMm}mm • gap {currentPreset.colGapMm}×{currentPreset.rowGapMm}mm
+                    </span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-stone-400 mt-0.5">
-                    Defina em qual etiqueta da folha a impressão deve começar para reaproveitar folhas com adesivos já destacados.
+                    Escolha a posição inicial na folha para reaproveitar folhas adesivas parcialmente usadas sem perder papel.
                   </p>
                 </div>
 
                 <div className="sm:col-span-5 flex items-center justify-end space-x-2">
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-stone-300 whitespace-nowrap uppercase">
-                    Iniciar na posição:
+                  <label htmlFor="input-start-position-sheet" className="text-[11px] font-bold text-slate-700 dark:text-stone-300 whitespace-nowrap uppercase">
+                    Iniciar na posição da folha (1 a {totalSlotsPerSheet}):
                   </label>
                   <div className="flex items-center space-x-1">
                     <input
+                      id="input-start-position-sheet"
                       type="number"
-                      min="1"
+                      min={1}
                       max={totalSlotsPerSheet}
                       value={startPosition}
                       onChange={(e) => {
@@ -1252,11 +1701,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                           setStartPosition(Math.max(1, Math.min(val, totalSlotsPerSheet)));
                         }
                       }}
-                      className="w-14 h-7 text-center font-mono font-extrabold text-xs rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/40 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-16 h-7 text-center font-mono font-extrabold text-xs rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/40 text-slate-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     />
-                    <span className="text-[11px] font-semibold text-slate-400 font-mono">
-                      / {totalSlotsPerSheet}
-                    </span>
                     {startPosition > 1 && (
                       <button
                         type="button"
@@ -1272,7 +1718,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
             )}
 
-            {/* Alternância de Abas de Pré-visualização se for A4 */}
+            {/* Alternância de Abas de Pré-visualização se for folha A4/Carta */}
             <div className="pt-2 border-t border-slate-200 dark:border-stone-700/60 flex items-center justify-between">
               <div className="flex items-center space-x-1.5">
                 <button
@@ -1287,7 +1733,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   <Eye className="w-3 h-3" />
                   <span>Modelo da Etiqueta</span>
                 </button>
-                {isA4 && (
+                {isSheetPreset && (
                   <button
                     type="button"
                     onClick={() => setPreviewTab('sheet')}
@@ -1298,7 +1744,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     }`}
                   >
                     <LayoutGrid className="w-3 h-3" />
-                    <span>Grade Folha A4 ({currentPreset.columns}x{currentPreset.rows})</span>
+                    <span>Grade Folha {currentPreset.category === 'carta' ? 'Carta' : 'A4'} ({currentPreset.columns}x{currentPreset.rows})</span>
                   </button>
                 )}
               </div>
@@ -1346,8 +1792,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
           </div>
 
-          {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4 Completa */}
-          {previewTab === 'label' || !isA4 ? (
+          {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4/Carta Completa */}
+          {previewTab === 'label' || !isSheetPreset ? (
             <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-700 shadow-2xs flex flex-col items-center justify-between min-h-[340px] h-[56vh] max-h-[60vh] overflow-hidden">
               <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-slate-700 dark:text-stone-300 shrink-0">
                 <span className="uppercase text-[10px] sm:text-[11px] font-black text-slate-600 dark:text-stone-400">Total de etiquetas geradas: {flatLabelsList.length}</span>
@@ -1371,11 +1817,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               )}
 
               <div className="text-[10px] text-slate-500 dark:text-stone-400 mt-2 font-mono shrink-0">
-                Dimensões reais de corte: {currentPreset.widthMm}mm × {currentPreset.heightMm}mm ({currentPreset.name.split('(')[0].trim()})
+                Dimensões reais de corte: {currentPreset.labelWidthMm}mm × {currentPreset.labelHeightMm}mm • Página {currentPreset.pageWidthMm}×{currentPreset.pageHeightMm}mm
               </div>
             </div>
           ) : (
-            /* Visualização Interativa da Grade A4 com clique na posição inicial */
+            /* Visualização Interativa da Grade (A4 / Carta) com clique na posição inicial */
             <div className="p-3 bg-[#e0e6f1] dark:bg-stone-800/60 rounded-xl border border-black dark:border-stone-700 shadow-2xs flex flex-col items-center min-h-[340px] h-[56vh] max-h-[60vh] overflow-hidden">
               <div className="w-full max-w-xl flex items-center justify-between text-xs mb-2 shrink-0">
                 <span className="font-bold text-slate-700 dark:text-stone-300 flex items-center space-x-1.5 uppercase text-[10px] sm:text-[11px]">
@@ -1383,11 +1829,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   <span>Clique em qualquer posição para começar a impressão</span>
                 </span>
                 <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-stone-400">
-                  Folha A4: {currentPreset.columns} colunas × {currentPreset.rows} linhas ({totalSlotsPerSheet} un)
+                  Folha {currentPreset.category === 'carta' ? 'Carta' : 'A4'}: {currentPreset.columns} colunas × {currentPreset.rows} linhas ({totalSlotsPerSheet} un)
                 </span>
               </div>
 
-              {/* Simulação da Folha A4 em Escala */}
+              {/* Simulação da Folha em Escala */}
               <div 
                 className="w-full max-w-xl flex-1 bg-white dark:bg-stone-900 border border-slate-400 dark:border-stone-700 rounded-xl p-3 shadow-md overflow-y-auto scrollbar-none min-h-0"
               >
@@ -1462,7 +1908,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 QUANTIDADE DE CÓPIAS POR PRODUTO
               </span>
               <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-                TOTAL: {totalLabelsCount} ETIQUETAS • {isA4 ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} FOLHA(S) A4` : 'ROLO CONTÍNUO'}
+                TOTAL: {totalLabelsCount} ETIQUETAS • {isSheetPreset ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} FOLHA(S) ${currentPreset.category === 'carta' ? 'CARTA' : 'A4'}` : 'ROLO CONTÍNUO'}
               </span>
             </div>
 
