@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
   Trash2,
@@ -20,10 +20,23 @@ import {
 import {
   Client,
   CompanyProfile,
+  NotaSaidaRecord,
   PendenciaDevolucaoRecord,
   PendenciaDevolucaoStatus,
   TrocaDevolucaoRecord,
 } from '../../types';
+import { SefazModalStage, SefazTransmissionModal } from './SefazTransmissionModal';
+import {
+  generateSefazChaveAcesso44,
+  generateSefazProtocoloAutorizacao,
+  getCertificateStatusInfo,
+} from '../../lib/fiscalCertificate';
+import {
+  resolveCrtFromProfile,
+  resolveInventoryNcmForItem,
+  SefazValidationIssue,
+  validateDevolucaoPreSefaz,
+} from '../../lib/sefazValidator';
 import {
   emitOfficialReturnNfeToCentral,
   formatDateBR,
@@ -389,8 +402,29 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   const [nfeNatureza, setNfeNatureza] = useState('DEVOLUÇÃO DE MERCADORIA ADQUIRIDA');
   const [nfeChaveRef, setNfeChaveRef] = useState('');
   const [nfeOrigem, setNfeOrigem] = useState('');
+  const [nfeItemNcmMap, setNfeItemNcmMap] = useState<Record<string, string>>({});
+  const [nfeItemCsosnMap, setNfeItemCsosnMap] = useState<Record<string, string>>({});
   const [printDanfeOnSave, setPrintDanfeOnSave] = useState(true);
   const [nfeError, setNfeError] = useState('');
+
+  // Modal de Validação Pré-SEFAZ & Transmissão Oficial (4 etapas + Protocolo)
+  const [sefazModalStage, setSefazModalStage] = useState<SefazModalStage>('closed');
+  const [sefazStep, setSefazStep] = useState<number>(1);
+  const [sefazTargetNota, setSefazTargetNota] = useState<NotaSaidaRecord | null>(null);
+  const [sefazAuthorizedRecord, setSefazAuthorizedRecord] = useState<TrocaDevolucaoRecord | null>(null);
+  const [sefazSimulationMode, setSefazSimulationMode] = useState<boolean>(true);
+  const [sefazValidationIssues, setSefazValidationIssues] = useState<SefazValidationIssue[]>([]);
+  const [sefazPreviewProtocolo, setSefazPreviewProtocolo] = useState<string>('');
+  const sefazTimersRef = useRef<number[]>([]);
+
+  const clearSefazTimers = () => {
+    sefazTimersRef.current.forEach((id) => window.clearTimeout(id));
+    sefazTimersRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => clearSefazTimers();
+  }, []);
 
   // Modal de Descarte / Baixa como Perda
   const [discardTarget, setDiscardTarget] = useState<TrocaDevolucaoRecord | null>(null);
@@ -569,6 +603,20 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
   const handleOpenEmitOfficialNfe = (rec: TrocaDevolucaoRecord) => {
     const isForn =
       rec.envolvidoTipo === 'fornecedor' || rec.tipoOperacao === 'devolucao_fornecedor';
+    const crtInfo = resolveCrtFromProfile(company);
+    const defaultCsosn = crtInfo.crt === '3' ? '00' : '102';
+    const initialNcmMap: Record<string, string> = {};
+    const initialCsosnMap: Record<string, string> = {};
+    (rec.itensDevolvidos || []).forEach((it) => {
+      initialNcmMap[it.id] = resolveInventoryNcmForItem({
+        ncm: it.ncm,
+        codigo: it.productCode,
+        descricao: it.productName,
+        productId: it.productId,
+      });
+      initialCsosnMap[it.id] = it.csosnCst || defaultCsosn;
+    });
+
     setNfeTarget(rec);
     setNfeNumero(rec.notaDevolucaoNumber || getNextOfficialReturnNfeNumber());
     setNfeCfop(rec.cfopDevolucao || (isForn ? '5.202' : '1.202'));
@@ -578,6 +626,8 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
     );
     setNfeChaveRef(rec.chaveNfeReferenciada || '');
     setNfeOrigem(rec.numeroVendaOuNotaOrigem || '');
+    setNfeItemNcmMap(initialNcmMap);
+    setNfeItemCsosnMap(initialCsosnMap);
     setPrintDanfeOnSave(true);
     setNfeError('');
   };
@@ -599,52 +649,140 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
       setNfeError('Informe a Natureza da Operação.');
       return;
     }
-    const cleanChaveRef = nfeChaveRef.replace(/\D/g, '');
-    if (cleanChaveRef.length > 0 && cleanChaveRef.length !== 44) {
-      setNfeError(
-        `A Chave de Acesso da NF-e Referenciada deve conter 44 dígitos (atual: ${cleanChaveRef.length}).`
-      );
-      return;
-    }
 
-    const updatedRecord = emitOfficialReturnNfeToCentral(
-      {
+    const activeCompany = company || getStoredCompanyProfile();
+    const seriePadrao = (activeCompany?.seriePadraoNotas || '001').replace(/\D/g, '').padStart(3, '0').slice(-3);
+
+    // 1. VALIDADOR PRÉ-SEFAZ COMPLETO (Emitente, Destinatário, Itens NCM/CFOP/CSOSN, finNFe=4 Chave 44 dígitos)
+    const preValidation = validateDevolucaoPreSefaz({
+      record: {
         ...nfeTarget,
         numeroVendaOuNotaOrigem: nfeOrigem.trim() || nfeTarget.numeroVendaOuNotaOrigem,
       },
-      {
+      itens: nfeTarget.itensDevolvidos || [],
+      cfopDevolucao: nfeCfop,
+      chaveNfeReferenciada: nfeChaveRef,
+      companyProfile: activeCompany,
+      itensNcmOverride: nfeItemNcmMap,
+      itensCsosnOverride: nfeItemCsosnMap,
+    });
+
+    const certInfo = getCertificateStatusInfo(activeCompany);
+    const isProdCertReady =
+      activeCompany?.ambienteSefaz === 'producao' && certInfo.isActive;
+    const ambienteEfetivo: 'homologacao' | 'producao' = isProdCertReady
+      ? 'producao'
+      : 'homologacao';
+    const isSimulacao = !isProdCertReady;
+
+    const cleanChaveRef = nfeChaveRef.replace(/\D/g, '');
+    const draftNotaSummary: NotaSaidaRecord = {
+      id: nfeTarget.fiscalDocId || `nfe_dev_${nfeTarget.id}`,
+      companyId: nfeTarget.companyId || getActiveCompanyId() || undefined,
+      tipoDocumento: 'NF-e',
+      numero: trimmedNum,
+      serie: seriePadrao,
+      dataEmissao: nfeTarget.data || new Date().toISOString().split('T')[0],
+      destinatarioId: nfeTarget.envolvidoId,
+      destinatarioNome: nfeTarget.envolvidoNome,
+      destinatarioCpfCnpj: nfeTarget.envolvidoDocumento,
+      descricao: `${nfeNatureza.trim().toUpperCase()} — ${nfeTarget.protocolo}`,
+      valorTotal: Number(nfeTarget.totalDevolvido || 0),
+      condicaoPagamento: nfeTarget.destinoFinanceiroLabel || 'Devolução / Compensação Fiscal',
+      lancarContasReceber: false,
+      status: 'PENDENTE',
+      ambienteSefaz: ambienteEfetivo,
+      transmitidaEmModoSimulacao: isSimulacao,
+      nfeNaturezaOperacao: nfeNatureza.trim().toUpperCase(),
+      nfeCfop: nfeCfop.replace(/\./g, ''),
+      nfeFinalidade: '4 - Devolução de mercadoria',
+      nfeReferenciada: cleanChaveRef,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!preValidation.valid) {
+      setSefazTargetNota(draftNotaSummary);
+      setSefazSimulationMode(isSimulacao);
+      setSefazValidationIssues(preValidation.issues);
+      setSefazAuthorizedRecord(null);
+      setSefazModalStage('validation_error');
+      return;
+    }
+
+    // 2. FLUXO REALISTA DE TRANSMISSÃO SEFAZ (4 ETAPAS + PROTOCOLO OFICIAL)
+    clearSefazTimers();
+    const targetSnapshot = {
+      ...nfeTarget,
+      numeroVendaOuNotaOrigem: nfeOrigem.trim() || nfeTarget.numeroVendaOuNotaOrigem,
+    };
+    const protoInfo = generateSefazProtocoloAutorizacao(activeCompany);
+    const chaveAcesso44 = generateSefazChaveAcesso44(draftNotaSummary, activeCompany);
+
+    setSefazValidationIssues([]);
+    setSefazAuthorizedRecord(null);
+    setSefazSimulationMode(isSimulacao);
+    setSefazPreviewProtocolo(protoInfo.protocoloNumero);
+    setSefazTargetNota({
+      ...draftNotaSummary,
+      chaveAcesso: chaveAcesso44,
+    });
+    setSefazStep(1);
+    setSefazModalStage('transmitting');
+
+    const t1 = window.setTimeout(() => setSefazStep(2), 550);
+    const t2 = window.setTimeout(() => setSefazStep(3), 1150);
+    const t3 = window.setTimeout(() => setSefazStep(4), 1750);
+    const t4 = window.setTimeout(() => {
+      const updatedRecord = emitOfficialReturnNfeToCentral(targetSnapshot, {
         numeroNfe: trimmedNum,
+        serieNfe: seriePadrao,
         cfopDevolucao: nfeCfop,
         naturezaOperacao: nfeNatureza,
         chaveNfeReferenciada: cleanChaveRef,
-        companyProfile: company,
-      }
-    );
+        chaveNfe: chaveAcesso44,
+        protocoloAutorizacao: protoInfo.protocoloCompleto,
+        dataAutorizacao: protoInfo.isoTimestamp,
+        ambienteSefaz: ambienteEfetivo,
+        transmitidaEmModoSimulacao: isSimulacao,
+        itensNcmMap: nfeItemNcmMap,
+        itensCsosnMap: nfeItemCsosnMap,
+        companyProfile: activeCompany,
+      });
 
-    const allTrocas = getStoredTrocasDevolucoes();
-    const existsInStore = allTrocas.some((r) => r.id === nfeTarget.id);
-    const nextTrocas = existsInStore
-      ? allTrocas.map((r) => (r.id === nfeTarget.id ? updatedRecord : r))
-      : [updatedRecord, ...allTrocas];
-    saveStoredTrocasDevolucoes(nextTrocas);
+      const allTrocas = getStoredTrocasDevolucoes();
+      const existsInStore = allTrocas.some((r) => r.id === targetSnapshot.id);
+      const nextTrocas = existsInStore
+        ? allTrocas.map((r) => (r.id === targetSnapshot.id ? updatedRecord : r))
+        : [updatedRecord, ...allTrocas];
+      saveStoredTrocasDevolucoes(nextTrocas);
 
-    syncMatchingPendencias(nfeTarget, {
-      status: 'NF-e Emitida',
-      notaDevolucaoNumber: updatedRecord.notaDevolucaoNumber,
-      decidedAt: updatedRecord.fiscalDecidedAt,
-    });
+      syncMatchingPendencias(targetSnapshot, {
+        status: 'NF-e Emitida',
+        notaDevolucaoNumber: updatedRecord.notaDevolucaoNumber,
+        decidedAt: updatedRecord.fiscalDecidedAt,
+      });
 
-    setRecords(getUnifiedFiscalDevolucoes());
-    setSuccessMsg(
-      `NF-e de Devolução Oficial Nº ${updatedRecord.notaDevolucaoNumber} emitida, gravada na Central de Documentos e vinculada ao protocolo ${nfeTarget.protocolo}!`
-    );
-    setTimeout(() => setSuccessMsg(''), 6500);
+      setRecords(getUnifiedFiscalDevolucoes());
+      setSuccessMsg(
+        `NF-e de Devolução Oficial Nº ${updatedRecord.notaDevolucaoNumber} AUTORIZADA (cStat 100 — Protocolo ${protoInfo.protocoloNumero}) e gravada na Central de Documentos!`
+      );
+      setTimeout(() => setSuccessMsg(''), 7000);
 
-    if (printDanfeOnSave) {
-      printDanfeDevolucaoOficialA4(updatedRecord, company);
-    }
+      setSefazAuthorizedRecord(updatedRecord);
+      setSefazTargetNota({
+        ...draftNotaSummary,
+        status: 'AUTORIZADA',
+        chaveAcesso: updatedRecord.notaDevolucaoChave || chaveAcesso44,
+        protocoloAutorizacao: updatedRecord.protocoloAutorizacao || protoInfo.protocoloCompleto,
+        dataAutorizacao: protoInfo.isoTimestamp,
+        ambienteSefaz: ambienteEfetivo,
+        transmitidaEmModoSimulacao: isSimulacao,
+      });
+      setSefazModalStage('authorized');
+      setNfeTarget(null);
+    }, 2300);
 
-    setNfeTarget(null);
+    sefazTimersRef.current = [t1, t2, t3, t4];
   };
 
   // Ação 2: Abrir Modal de Descarte / Baixar como Perda
@@ -1818,7 +1956,10 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleConfirmEmitOfficialNfe} className="p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950">
+            <form
+              onSubmit={handleConfirmEmitOfficialNfe}
+              className="p-4 space-y-3 bg-[#cad4e6] dark:bg-stone-950 max-h-[82vh] overflow-y-auto"
+            >
               <div className="bg-[#e0e6f1] dark:bg-stone-800 border border-black dark:border-stone-700 rounded-lg p-3 space-y-1 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-bold">
@@ -1833,10 +1974,8 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-700 dark:text-stone-300">
-                  Itens:{' '}
-                  {(nfeTarget.itensDevolvidos || [])
-                    .map((i) => `${i.quantity}x ${i.productName}`)
-                    .join(', ')}
+                  Destinatário: <strong>{nfeTarget.envolvidoNome}</strong>
+                  {nfeTarget.envolvidoDocumento ? ` • ${nfeTarget.envolvidoDocumento}` : ''}
                 </div>
               </div>
 
@@ -1913,9 +2052,16 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-bold uppercase tracking-wider">
-                      Chave de Acesso NF-e Referenciada (44 dígitos)
+                      Chave de Acesso NF-e Referenciada (finNFe = 4 — 44 dígitos){' '}
+                      <span className="text-rose-600">*</span>
                     </label>
-                    <span className="text-[10px] font-mono font-black text-slate-600">
+                    <span
+                      className={`text-[10px] font-mono font-black ${
+                        nfeChaveRef.replace(/\D/g, '').length === 44
+                          ? 'text-emerald-700'
+                          : 'text-rose-700'
+                      }`}
+                    >
                       {nfeChaveRef.replace(/\D/g, '').length}/44
                     </span>
                   </div>
@@ -1927,8 +2073,12 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                       setNfeChaveRef(e.target.value.replace(/\D/g, '').slice(0, 44));
                       if (nfeError) setNfeError('');
                     }}
-                    placeholder="44 dígitos da NF-e de origem (opcional se avulsa)"
-                    className="w-full px-2.5 py-1.5 text-xs font-mono rounded border border-gray-400 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none"
+                    placeholder="Obrigatório na NF-e de Devolução: 44 dígitos numéricos da NF-e de origem"
+                    className={`w-full px-2.5 py-1.5 text-xs font-mono rounded border bg-white dark:bg-stone-900 text-black dark:text-stone-100 outline-none ${
+                      nfeChaveRef.replace(/\D/g, '').length === 44
+                        ? 'border-emerald-600'
+                        : 'border-amber-600'
+                    }`}
                   />
                 </div>
 
@@ -1945,6 +2095,71 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                   />
                 </div>
 
+                {(nfeTarget.itensDevolvidos || []).length > 0 && (
+                  <div className="pt-1">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-stone-200 mb-1">
+                      Classificação Fiscal dos Itens (NCM 8 dígitos &amp; CSOSN/CST) *
+                    </div>
+                    <div className="border border-gray-400 dark:border-stone-700 rounded overflow-hidden bg-white dark:bg-stone-900">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-slate-200 dark:bg-stone-800 text-[10px] font-black uppercase text-slate-900 dark:text-stone-200">
+                          <tr>
+                            <th className="px-2 py-1 text-left">Produto</th>
+                            <th className="px-2 py-1 text-center w-24">NCM (8 dig.)</th>
+                            <th className="px-2 py-1 text-center w-20">CSOSN/CST</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-stone-700">
+                          {(nfeTarget.itensDevolvidos || []).map((it) => {
+                            const curNcm = nfeItemNcmMap[it.id] ?? '';
+                            const curCsosn = nfeItemCsosnMap[it.id] ?? '102';
+                            const ncmValid = curNcm.replace(/\D/g, '').length === 8 && curNcm !== '00000000';
+                            return (
+                              <tr key={it.id}>
+                                <td className="px-2 py-1 font-semibold truncate max-w-[200px]">
+                                  {it.quantity}x {it.productName}
+                                </td>
+                                <td className="px-1.5 py-1">
+                                  <input
+                                    type="text"
+                                    maxLength={8}
+                                    value={curNcm}
+                                    onChange={(e) =>
+                                      setNfeItemNcmMap((prev) => ({
+                                        ...prev,
+                                        [it.id]: e.target.value.replace(/\D/g, '').slice(0, 8),
+                                      }))
+                                    }
+                                    placeholder="00000000"
+                                    className={`w-full px-1.5 py-0.5 text-[11px] font-mono font-bold text-center rounded border bg-white dark:bg-stone-950 ${
+                                      ncmValid ? 'border-emerald-600' : 'border-rose-500 bg-rose-50/40'
+                                    }`}
+                                  />
+                                </td>
+                                <td className="px-1.5 py-1">
+                                  <input
+                                    type="text"
+                                    maxLength={4}
+                                    value={curCsosn}
+                                    onChange={(e) =>
+                                      setNfeItemCsosnMap((prev) => ({
+                                        ...prev,
+                                        [it.id]: e.target.value.replace(/\D/g, '').slice(0, 4),
+                                      }))
+                                    }
+                                    placeholder="102"
+                                    className="w-full px-1.5 py-0.5 text-[11px] font-mono font-bold text-center rounded border border-gray-400 bg-white dark:bg-stone-950"
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 <label className="inline-flex items-center gap-2 pt-1 text-xs font-bold cursor-pointer">
                   <input
                     type="checkbox"
@@ -1952,7 +2167,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                     onChange={(e) => setPrintDanfeOnSave(e.target.checked)}
                     className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
                   />
-                  <span>Gerar e abrir DANFE Oficial (NF-e 55) pronto para impressão/PDF</span>
+                  <span>Exibir botão de impressão imediata do DANFE Oficial (NF-e 55) após protocolo SEFAZ</span>
                 </label>
               </div>
 
@@ -1969,7 +2184,7 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-900 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>🧾 Emitir NF-e Oficial &amp; Abrir DANFE</span>
+                  <span>🧾 Validar &amp; Transmitir NF-e à SEFAZ</span>
                 </button>
               </div>
             </form>
@@ -2296,6 +2511,29 @@ export const DevolucaoNotasView: React.FC<DevolucaoNotasViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Crítica Pré-SEFAZ & Transmissão Oficial (4 etapas + Protocolo de Autorização) */}
+      <SefazTransmissionModal
+        stage={sefazModalStage}
+        currentStep={sefazStep}
+        targetNota={sefazTargetNota}
+        certInfo={getCertificateStatusInfo(company || getStoredCompanyProfile())}
+        ambienteEfetivo={sefazTargetNota?.ambienteSefaz || (sefazSimulationMode ? 'homologacao' : 'producao')}
+        simulationMode={sefazSimulationMode}
+        ufEmitente={(company || getStoredCompanyProfile())?.state || 'PR'}
+        validationIssues={sefazValidationIssues}
+        previewProtocoloNumero={sefazPreviewProtocolo}
+        onClose={() => {
+          clearSefazTimers();
+          setSefazModalStage('closed');
+        }}
+        onConfirmSimulation={() => {}}
+        onPrintAuthorized={() => {
+          if (sefazAuthorizedRecord) {
+            printDanfeDevolucaoOficialA4(sefazAuthorizedRecord, company || getStoredCompanyProfile());
+          }
+        }}
+      />
     </div>
   );
 };

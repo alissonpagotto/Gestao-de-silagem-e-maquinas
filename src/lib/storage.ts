@@ -6857,6 +6857,13 @@ export function emitOfficialReturnNfeToCentral(
     naturezaOperacao?: string;
     numeroNfe?: string;
     serieNfe?: string;
+    protocoloAutorizacao?: string;
+    dataAutorizacao?: string;
+    chaveNfe?: string;
+    ambienteSefaz?: 'homologacao' | 'producao';
+    transmitidaEmModoSimulacao?: boolean;
+    itensNcmMap?: Record<string, string>;
+    itensCsosnMap?: Record<string, string>;
     companyProfile?: CompanyProfile | null;
   } = {}
 ): TrocaDevolucaoRecord {
@@ -6881,7 +6888,7 @@ export function emitOfficialReturnNfeToCentral(
     .replace(/\D/g, '')
     .slice(0, 44);
 
-  const serie = (options.serieNfe || record.serieNfe || '001')
+  const serie = (options.serieNfe || record.serieNfe || options.companyProfile?.seriePadraoNotas || '001')
     .replace(/\D/g, '')
     .padStart(3, '0')
     .slice(-3);
@@ -6891,23 +6898,45 @@ export function emitOfficialReturnNfeToCentral(
     getNextOfficialReturnNfeNumber()
   ).trim();
   const issueDate = record.data || new Date().toISOString().split('T')[0];
-  const nowIso = new Date().toISOString();
+  const nowIso = options.dataAutorizacao || new Date().toISOString();
 
+  const optChaveClean = String(options.chaveNfe || '').replace(/\D/g, '');
   const existingChaveClean = String(record.notaDevolucaoChave || '').replace(/\D/g, '');
   const chaveNfe =
-    existingChaveClean.length === 44
-      ? existingChaveClean
-      : generateOfficialReturnNfeKey(numeroNfe, serie, options.companyProfile?.cnpj, issueDate);
+    optChaveClean.length === 44
+      ? optChaveClean
+      : existingChaveClean.length === 44
+        ? existingChaveClean
+        : generateOfficialReturnNfeKey(
+            numeroNfe,
+            serie,
+            options.companyProfile?.cnpj || options.companyProfile?.cnpjCpf,
+            issueDate
+          );
 
+  const nowDt = new Date(nowIso);
+  const fallbackDtBr = `${String(nowDt.getDate()).padStart(2, '0')}/${String(nowDt.getMonth() + 1).padStart(2, '0')}/${nowDt.getFullYear()} ${String(nowDt.getHours()).padStart(2, '0')}:${String(nowDt.getMinutes()).padStart(2, '0')}:${String(nowDt.getSeconds()).padStart(2, '0')}`;
   const protocoloAutorizacao =
+    options.protocoloAutorizacao ||
     record.protocoloAutorizacao ||
-    `141${new Date().getFullYear().toString().slice(-2)}${String(Date.now()).slice(-10)}`;
+    `141${String(nowDt.getFullYear()).slice(-2)}${String(nowDt.getTime()).slice(-10)} - ${fallbackDtBr}`;
+
+  const ambienteEfetivo: 'homologacao' | 'producao' =
+    options.ambienteSefaz ||
+    (options.companyProfile?.ambienteSefaz === 'producao' && !options.transmitidaEmModoSimulacao
+      ? 'producao'
+      : 'homologacao');
 
   const fiscalDocId = record.fiscalDocId || `nfe_dev_${record.id}`;
   const valorTotal = Number(
     (record.totalDevolvido > 0 ? record.totalDevolvido : Math.abs(record.saldoFinal || 0)).toFixed(2)
   );
-  const itensList = record.itensDevolvidos || [];
+  const itensList = (record.itensDevolvidos || []).map((it) => ({
+    ...it,
+    ncm: options.itensNcmMap?.[it.id] || it.ncm,
+    csosnCst: options.itensCsosnMap?.[it.id] || it.csosnCst || '102',
+    cfop: it.cfop || cfop.replace(/\./g, ''),
+  }));
 
   if (isFornecedor) {
     const notaSaida: NotaSaidaRecord = {
@@ -6928,7 +6957,8 @@ export function emitOfficialReturnNfeToCentral(
       status: 'AUTORIZADA',
       protocoloAutorizacao,
       dataAutorizacao: nowIso,
-      ambienteSefaz: 'producao',
+      ambienteSefaz: ambienteEfetivo,
+      transmitidaEmModoSimulacao: options.transmitidaEmModoSimulacao ?? ambienteEfetivo !== 'producao',
       nfeNaturezaOperacao: natureza,
       nfeCfop: cfop.replace(/\./g, ''),
       nfeFinalidade: '4 - Devolução de mercadoria',
@@ -6939,7 +6969,9 @@ export function emitOfficialReturnNfeToCentral(
         inventoryItemId: it.productId,
         codigo: it.productCode || String(idx + 1),
         descricao: it.productName,
-        cfop: cfop.replace(/\./g, ''),
+        ncm: it.ncm,
+        csosnCst: it.csosnCst || '102',
+        cfop: (it.cfop || cfop).replace(/\./g, ''),
         unidade: it.unit || 'UN',
         quantidade: Number(it.quantity) || 1,
         valorUnitario: Number(it.unitPrice) || 0,
@@ -7004,6 +7036,7 @@ export function emitOfficialReturnNfeToCentral(
 
   return {
     ...record,
+    itensDevolvidos: itensList,
     tipoDocumento: 'nfe_oficial',
     cfopDevolucao: cfop,
     chaveNfeReferenciada: chaveRef || undefined,

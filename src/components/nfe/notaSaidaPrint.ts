@@ -18,6 +18,7 @@ import {
   DanfeOficialItem,
   resolveDestinatarioDanfe,
 } from '../../lib/danfeOficialHtml';
+import { getCertificateStatusInfo } from '../../lib/fiscalCertificate';
 
 const escapeHtml = (value?: string | number | null): string => {
   if (value === undefined || value === null) return '';
@@ -1166,14 +1167,21 @@ export function buildNotaSaidaHtml(
   const chaveFormatada = formatChaveAcessoGroups(chave44);
   const barcodeSvg = generateCode128CSvg(chave44);
 
-  const isHomologacao = resolveIsHomologacaoAmbiente(companyProfile);
+  const certStatusPrint = getCertificateStatusInfo(companyProfile || getStoredCompanyProfile());
+  const isHomologacao =
+    nota.transmitidaEmModoSimulacao === true ||
+    nota.ambienteSefaz === 'homologacao' ||
+    resolveIsHomologacaoAmbiente(companyProfile) ||
+    !certStatusPrint.isActive ||
+    certStatusPrint.simulado;
   const emissionYearShort = (nota.dataEmissao || '').slice(2, 4) || new Date().getFullYear().toString().slice(-2);
   const simulatedProtocol = `141${emissionYearShort}${cleanDigits(nota.numero || '1').padStart(9, '0')}`;
-  const protocolTimestamp = `${formatDateBR(nota.dataEmissao)} ${new Date(nota.createdAt || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+  const authDateRef = nota.dataAutorizacao || nota.createdAt || Date.now();
+  const protocolTimestamp = `${formatDateBR(nota.dataEmissao)} ${new Date(authDateRef).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
   const protocoloUso = nota.protocoloAutorizacao
-    ? `${nota.protocoloAutorizacao}${isHomologacao ? ' (HOMOLOGAÇÃO)' : ''}`
+    ? nota.protocoloAutorizacao
     : !isInternalGenerated && nota.chaveAcesso
-      ? `${simulatedProtocol} - ${protocolTimestamp}${isHomologacao ? ' (HOMOLOGAÇÃO)' : ''}`
+      ? `${simulatedProtocol} - ${protocolTimestamp}`
       : `${simulatedProtocol} - ${protocolTimestamp} (CONTROLE INTERNO)`;
 
   const naturezaOperacaoText = isCte
@@ -1265,13 +1273,20 @@ export function buildNotaSaidaHtml(
       { hour: '2-digit', minute: '2-digit', second: '2-digit' }
     );
 
+    const defaultCsosnDanfe =
+      companyProfile?.crt === '3' ||
+      String(companyProfile?.regimeTributario || '').toLowerCase().includes('presumido') ||
+      String(companyProfile?.regimeTributario || '').toLowerCase().includes('real')
+        ? '00'
+        : '102';
+
     const danfeItens: DanfeOficialItem[] =
       itemsList.length > 0
         ? itemsList.map((it, idx) => ({
             codigo: it.codigo || String(idx + 1).padStart(3, '0'),
             descricao: it.descricao || nota.descricao || 'MERCADORIA',
             ncm: it.ncm || '00000000',
-            csosnCst: '102',
+            csosnCst: it.csosnCst || defaultCsosnDanfe,
             cfop: it.cfop || nota.nfeCfop || (isDanfeRetorno ? '1202' : '5102'),
             unidade: it.unidade || 'UN',
             quantidade: Number(it.quantidade || 0),
@@ -1289,7 +1304,7 @@ export function buildNotaSaidaHtml(
               codigo: '001',
               descricao: nota.descricao || nota.tipoDocumento || 'MERCADORIA',
               ncm: '00000000',
-              csosnCst: '102',
+              csosnCst: defaultCsosnDanfe,
               cfop: nota.nfeCfop || (isDanfeRetorno ? '1202' : '5102'),
               unidade: 'UN',
               quantidade: 1,
@@ -1338,7 +1353,8 @@ export function buildNotaSaidaHtml(
         cpfCnpj: nota.destinatarioCpfCnpj,
         ie: nota.destinatarioIe,
         endereco: nota.destinatarioEndereco,
-        cep: extractCepFromText(nota.destinatarioEndereco),
+        bairro: nota.destinatarioBairro,
+        cep: nota.destinatarioCep || extractCepFromText(nota.destinatarioEndereco),
         municipio: destCidade,
         uf: destUf,
         cidadeUf: nota.destinatarioCidadeUf,

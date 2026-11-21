@@ -42,7 +42,11 @@ export interface CompanyProfile {
   certificadoSimulado?: boolean;
   ambienteSefaz?: 'homologacao' | 'producao';
   regimeTributario?: 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' | string;
+  crt?: '1' | '2' | '3'; // Código de Regime Tributário (1=Simples Nacional, 2=Simples Excesso, 3=Regime Normal)
   seriePadraoNotas?: string;
+  codigoIbgeMunicipio?: string; // Código IBGE 7 dígitos (padrão: 4107207 - Dois Vizinhos/PR)
+  tokenApiFiscal?: string; // Token API Fiscal Plug & Play (Focus NFe / Nuvem Fiscal / Tecnospeed)
+  apiFiscalProvedor?: string; // Provedor API Fiscal integrado
   rntrc?: string; // RNTRC (ANTT) para CT-e / MDF-e
   cscId?: string; // ID Token CSC para NFC-e (ex: 000001)
   cscToken?: string; // Código CSC para NFC-e (PDV)
@@ -2379,6 +2383,7 @@ export interface NotaSaidaItem {
   codigo?: string;
   descricao: string;
   ncm?: string;
+  csosnCst?: string;
   cfop?: string;
   codigoServico?: string;
   unidade: string;
@@ -2413,7 +2418,10 @@ export interface NotaSaidaRecord {
   destinatarioNome: string;
   destinatarioCpfCnpj?: string;
   destinatarioIe?: string;
+  destinatarioIndicadorIe?: '1' | '2' | '9' | string; // 1=Contribuinte, 2=Isento, 9=Não Contribuinte
   destinatarioEndereco?: string;
+  destinatarioBairro?: string;
+  destinatarioCep?: string;
   destinatarioCidadeUf?: string;
   isConsumidorAvulso?: boolean;
   veiculoId?: string;
@@ -2726,6 +2734,9 @@ export interface TrocaDevolucaoItem {
   productId: string;
   productCode?: string;
   productName: string;
+  ncm?: string;
+  csosnCst?: string;
+  cfop?: string;
   unit?: string;
   quantity: number;
   unitPrice: number;

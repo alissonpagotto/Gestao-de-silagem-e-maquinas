@@ -1035,7 +1035,17 @@ export function buildDanfeOficialNfeHtml(input: DanfeOficialInput): string {
         <colgroup><col style="width:58%" /><col style="width:42%" /></colgroup>
         <tr>
           <td><span class="lbl">NATUREZA DA OPERAÇÃO</span><span class="val-sm">${escapeHtml(input.naturezaOperacao)}</span></td>
-          <td><span class="lbl">PROTOCOLO DE AUTORIZAÇÃO DE USO</span><span class="val-sm mono">${escapeHtml(input.protocoloAutorizacao)}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
+              <span class="lbl" style="margin-bottom:0;">PROTOCOLO DE AUTORIZAÇÃO DE USO</span>
+              ${
+                input.isHomologacao
+                  ? `<span style="display:inline-block;padding:0.5px 4px;border:1px solid #000000;font-size:5.2pt;font-weight:900;letter-spacing:0.3px;line-height:1.15;white-space:nowrap;">HOMOLOGAÇÃO — SEM VALOR FISCAL</span>`
+                  : ''
+              }
+            </div>
+            <span class="val-sm mono" style="margin-top:1.5px;">${escapeHtml(input.protocoloAutorizacao)}</span>
+          </td>
         </tr>
       </table>
       <table class="danfe-box no-top">

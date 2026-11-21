@@ -13,6 +13,8 @@ import {
   buildDeterministicChave44,
   resolveDestinatarioDanfe,
 } from '../../lib/danfeOficialHtml';
+import { getCertificateStatusInfo } from '../../lib/fiscalCertificate';
+import { resolveInventoryNcmForItem } from '../../lib/sefazValidator';
 
 function escapeHtml(raw?: string | null): string {
   return String(raw || '')
@@ -636,10 +638,12 @@ export async function buildDanfeDevolucaoOficialHtml(
     second: '2-digit',
   });
 
-  const isHomologacao = ambienteSefaz !== 'producao';
+  const certStatusPrint = getCertificateStatusInfo(companyProfile || getStoredCompanyProfile());
+  const isHomologacao =
+    ambienteSefaz !== 'producao' || !certStatusPrint.isActive || certStatusPrint.simulado;
   const protocoloAut = record.protocoloAutorizacao
-    ? `${record.protocoloAutorizacao}${isHomologacao ? ' (HOMOLOGAÇÃO)' : ''}`
-    : `141${String(record.notaDevolucaoEmitidaEm || Date.now()).replace(/\D/g, '').slice(-12)} - ${dataEmissaoBR} ${horaEmissao}${isHomologacao ? ' (HOMOLOGAÇÃO)' : ''}`;
+    ? record.protocoloAutorizacao
+    : `141${String(record.notaDevolucaoEmitidaEm || Date.now()).replace(/\D/g, '').slice(-12)} - ${dataEmissaoBR} ${horaEmissao}`;
 
   const tipoNfCodigo: '0' | '1' = isFornecedor ? '1' : '0';
   const valorTotal =
@@ -656,23 +660,31 @@ export async function buildDanfeDevolucaoOficialHtml(
     .filter(Boolean)
     .join('\n');
 
-  const danfeItens = (record.itensDevolvidos || []).map((it, idx) => ({
-    codigo: it.productCode || String(idx + 1).padStart(3, '0'),
-    descricao: it.productName,
-    ncm: '00000000',
-    csosnCst: '102',
-    cfop: cfopClean,
-    unidade: it.unit || 'UN',
-    quantidade: Number(it.quantity || 0),
-    valorUnitario: Number(it.unitPrice || 0),
-    valorDesconto: 0,
-    valorTotal: Number(it.totalPrice || 0),
-    baseIcms: 0,
-    valorIcms: 0,
-    valorIpi: 0,
-    aliquotaIcms: 0,
-    aliquotaIpi: 0,
-  }));
+  const danfeItens = (record.itensDevolvidos || []).map((it, idx) => {
+    const resolvedNcm = resolveInventoryNcmForItem({
+      productId: it.productId,
+      codigo: it.productCode,
+      descricao: it.productName,
+      ncm: it.ncm,
+    });
+    return {
+      codigo: it.productCode || String(idx + 1).padStart(3, '0'),
+      descricao: it.productName,
+      ncm: resolvedNcm || '00000000',
+      csosnCst: it.csosnCst || '102',
+      cfop: (it.cfop || cfopClean).replace(/\D/g, '') || cfopClean,
+      unidade: it.unit || 'UN',
+      quantidade: Number(it.quantity || 0),
+      valorUnitario: Number(it.unitPrice || 0),
+      valorDesconto: 0,
+      valorTotal: Number(it.totalPrice || 0),
+      baseIcms: 0,
+      valorIcms: 0,
+      valorIpi: 0,
+      aliquotaIcms: 0,
+      aliquotaIpi: 0,
+    };
+  });
 
   return buildDanfeOficialNfeHtml({
     numero: numeroNfe,

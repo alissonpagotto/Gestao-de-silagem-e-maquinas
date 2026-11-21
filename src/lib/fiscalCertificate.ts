@@ -405,14 +405,20 @@ export function formatChaveAcesso44(chave?: string): string {
 
 export function generateSefazProtocoloAutorizacao(
   companyProfile?: Partial<CompanyProfile> | null
-): { protocoloNumero: string; dataHoraFormatada: string; protocoloCompleto: string } {
+): {
+  protocoloNumero: string;
+  dataHoraFormatada: string;
+  protocoloCompleto: string;
+  isoTimestamp: string;
+  uf: string;
+} {
   const uf = (companyProfile?.state || 'PR').trim().toUpperCase();
   const cUF = UF_IBGE_CODES[uf] || '41';
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
-  const randomSeq = String(Math.floor(1000000000 + Math.random() * 8999999999)).slice(0, 10);
-  // Padrão SEFAZ 15 dígitos: 1 + cUF(2) + AA(2) + 10 dígitos sequenciais (ex: 141260008492015)
-  const protocoloNumero = `1${cUF}${yy}${randomSeq}`;
+  const ts10 = String(now.getTime()).slice(-10).padStart(10, '0');
+  // Padrão SEFAZ 15 dígitos: 1 + cUF(2) + AA(2) + 10 dígitos de timestamp (ex: 14126[timestamp])
+  const protocoloNumero = `1${cUF}${yy}${ts10}`;
   const dd = String(now.getDate()).padStart(2, '0');
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const yyyy = now.getFullYear();
@@ -425,5 +431,8 @@ export function generateSefazProtocoloAutorizacao(
     protocoloNumero,
     dataHoraFormatada,
     protocoloCompleto: `${protocoloNumero} - ${dataHoraFormatada}`,
+    isoTimestamp: now.toISOString(),
+    uf,
   };
 }
+

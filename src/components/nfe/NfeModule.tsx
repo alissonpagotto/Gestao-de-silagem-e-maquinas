@@ -198,6 +198,10 @@ import {
   getCertificateStatusInfo,
 } from '../../lib/fiscalCertificate';
 import {
+  SefazValidationIssue,
+  validateNotaSaidaPreSefaz,
+} from '../../lib/sefazValidator';
+import {
   getStoredCfopCatalog,
   CFOP_TIPO_LABELS,
   translateCfopByScope,
@@ -2852,7 +2856,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [saidaDestinatarioNome, setSaidaDestinatarioNome] = useState('');
   const [saidaDestinatarioCpfCnpj, setSaidaDestinatarioCpfCnpj] = useState('');
   const [saidaDestinatarioIe, setSaidaDestinatarioIe] = useState('');
+  const [saidaDestinatarioIndicadorIe, setSaidaDestinatarioIndicadorIe] = useState<'' | '1' | '2' | '9'>('');
   const [saidaDestinatarioEndereco, setSaidaDestinatarioEndereco] = useState('');
+  const [saidaDestinatarioBairro, setSaidaDestinatarioBairro] = useState('');
+  const [saidaDestinatarioCep, setSaidaDestinatarioCep] = useState('');
   const [saidaDestinatarioCidadeUf, setSaidaDestinatarioCidadeUf] = useState('');
   const [saidaIsConsumidorAvulso, setSaidaIsConsumidorAvulso] = useState(false);
   const [saidaVeiculoId, setSaidaVeiculoId] = useState('');
@@ -2881,6 +2888,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [sefazStep, setSefazStep] = useState<number>(1);
   const [sefazTargetNota, setSefazTargetNota] = useState<NotaSaidaRecord | null>(null);
   const [sefazSimulationMode, setSefazSimulationMode] = useState<boolean>(false);
+  const [sefazValidationIssues, setSefazValidationIssues] = useState<SefazValidationIssue[]>([]);
+  const [sefazPreviewProtocolo, setSefazPreviewProtocolo] = useState<string>('');
   const sefazTimersRef = useRef<number[]>([]);
 
   // A) Campos específicos NFS-e
@@ -3412,7 +3421,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setSaidaDestinatarioNome('');
     setSaidaDestinatarioCpfCnpj('');
     setSaidaDestinatarioIe('');
+    setSaidaDestinatarioIndicadorIe('');
     setSaidaDestinatarioEndereco('');
+    setSaidaDestinatarioBairro('');
+    setSaidaDestinatarioCep('');
     setSaidaDestinatarioCidadeUf('');
     setSaidaIsConsumidorAvulso(false);
     setSaidaVeiculoId('');
@@ -3479,11 +3491,25 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const city = matchedClient.city || matchedClient.cidade || '';
         const uf = matchedClient.state || matchedClient.estado || '';
         const cidadeUf = `${city}${city && uf ? '/' : ''}${uf}`.toUpperCase();
+        const clientIe = (matchedClient.stateRegistration || '').trim();
+        const clientIeDigits = clientIe.replace(/\D/g, '');
+        const clientDocDigits = String(matchedClient.cpfCnpj || '').replace(/\D/g, '');
         setSaidaDestinatarioId(matchedClient.id);
         setSaidaDestinatarioNome((matchedClient.name || matchedClient.nome || payload.clientName || '').toUpperCase());
         setSaidaDestinatarioCpfCnpj(matchedClient.cpfCnpj ? formatCpfCnpj(matchedClient.cpfCnpj) : '');
-        setSaidaDestinatarioIe((matchedClient.stateRegistration || '').trim());
+        setSaidaDestinatarioIe(clientIe);
+        setSaidaDestinatarioIndicadorIe(
+          clientIeDigits.length >= 2
+            ? '1'
+            : clientIe.toUpperCase() === 'ISENTO' || clientIe.toUpperCase() === 'ISENTA'
+              ? '2'
+              : clientDocDigits.length === 11
+                ? '9'
+                : ''
+        );
         setSaidaDestinatarioEndereco(endParts.join(' - ').toUpperCase());
+        setSaidaDestinatarioBairro((matchedClient.neighborhood || '').trim().toUpperCase());
+        setSaidaDestinatarioCep(matchedClient.zipCode ? formatCep(matchedClient.zipCode) : '');
         setSaidaDestinatarioCidadeUf(cidadeUf);
         setNfseMunicipioPrestacao(cidadeUf || defaultCityUf);
       } else {
@@ -3491,7 +3517,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         setSaidaDestinatarioNome((payload.clientName || '').toUpperCase());
         setSaidaDestinatarioCpfCnpj('');
         setSaidaDestinatarioIe('');
+        setSaidaDestinatarioIndicadorIe('');
         setSaidaDestinatarioEndereco('');
+        setSaidaDestinatarioBairro('');
+        setSaidaDestinatarioCep('');
         setSaidaDestinatarioCidadeUf('');
         setNfseMunicipioPrestacao(defaultCityUf);
       }
@@ -3611,7 +3640,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setSaidaDestinatarioNome(nota.destinatarioNome || '');
     setSaidaDestinatarioCpfCnpj(nota.destinatarioCpfCnpj || '');
     setSaidaDestinatarioIe(nota.destinatarioIe || '');
+    setSaidaDestinatarioIndicadorIe(
+      nota.destinatarioIndicadorIe === '1' || nota.destinatarioIndicadorIe === '2' || nota.destinatarioIndicadorIe === '9'
+        ? nota.destinatarioIndicadorIe
+        : ''
+    );
     setSaidaDestinatarioEndereco(nota.destinatarioEndereco || '');
+    setSaidaDestinatarioBairro(nota.destinatarioBairro || '');
+    setSaidaDestinatarioCep(nota.destinatarioCep || '');
     setSaidaDestinatarioCidadeUf(nota.destinatarioCidadeUf || '');
     setSaidaIsConsumidorAvulso(Boolean(nota.isConsumidorAvulso));
     setSaidaVeiculoId(nota.veiculoId || '');
@@ -4104,14 +4140,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const norm = String(val ?? '').trim().toLowerCase();
           const mc = localClients.find(c => String((c.name || c.nome) ?? '').trim().toLowerCase() === norm);
           if (!mc) return null;
-          const endParts = [mc.address, mc.neighborhood].filter(Boolean);
+          const endParts = [mc.address, mc.addressNumber ? `Nº ${mc.addressNumber}` : ''].filter(Boolean);
           const city = mc.city || mc.cidade || '';
           const uf = mc.state || mc.estado || '';
           return {
             id: mc.id,
             cpfCnpj: mc.cpfCnpj ? formatCpfCnpj(mc.cpfCnpj) : '',
             ie: (mc.stateRegistration || '').trim(),
-            endereco: endParts.join(' - ').toUpperCase(),
+            endereco: (endParts.join(', ') || mc.address || '').toUpperCase(),
+            bairro: (mc.neighborhood || '').trim().toUpperCase(),
+            cep: mc.zipCode ? formatCep(mc.zipCode) : '',
             cidadeUf: `${city}${city && uf ? '/' : ''}${uf}`.toUpperCase(),
             uf: uf.toUpperCase(),
           };
@@ -4121,7 +4159,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setSaidaDestinatarioId(matched.id);
       setSaidaDestinatarioCpfCnpj(matched.cpfCnpj);
       setSaidaDestinatarioIe(matched.ie);
+      const ieDigits = cleanDigits(matched.ie);
+      const ieUpper = String(matched.ie || '').trim().toUpperCase();
+      setSaidaDestinatarioIndicadorIe(
+        ieDigits.length >= 2
+          ? '1'
+          : ieUpper === 'ISENTO' || ieUpper === 'ISENTA'
+            ? '2'
+            : cleanDigits(matched.cpfCnpj).length === 11
+              ? '9'
+              : ''
+      );
       setSaidaDestinatarioEndereco(matched.endereco);
+      if ('bairro' in matched && typeof matched.bairro === 'string') {
+        setSaidaDestinatarioBairro(matched.bairro);
+      }
+      if ('cep' in matched && typeof matched.cep === 'string') {
+        setSaidaDestinatarioCep(matched.cep);
+      }
       setSaidaDestinatarioCidadeUf(matched.cidadeUf);
       if (matched.cidadeUf && !nfseMunicipioPrestacao) setNfseMunicipioPrestacao(matched.cidadeUf);
       if (matched.cidadeUf) setCteMunicipioTermino(matched.cidadeUf);
@@ -4142,6 +4197,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setSaidaDestinatarioId('');
       if (isAvulso) {
         setSaidaDestinatarioIe('ISENTO');
+        setSaidaDestinatarioIndicadorIe('9');
       }
     }
   };
@@ -5167,7 +5223,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       destinatarioNome: destinatarioLimpo.toUpperCase(),
       destinatarioCpfCnpj: saidaDestinatarioCpfCnpj.trim() || undefined,
       destinatarioIe: saidaDestinatarioIe.trim().toUpperCase() || undefined,
+      destinatarioIndicadorIe: saidaDestinatarioIndicadorIe || undefined,
       destinatarioEndereco: saidaDestinatarioEndereco.trim().toUpperCase() || undefined,
+      destinatarioBairro: saidaDestinatarioBairro.trim().toUpperCase() || undefined,
+      destinatarioCep: saidaDestinatarioCep.trim() || undefined,
       destinatarioCidadeUf: saidaDestinatarioCidadeUf.trim().toUpperCase() || undefined,
       isConsumidorAvulso: saidaIsConsumidorAvulso || destinatarioLimpo.toUpperCase() === 'CONSUMIDOR AVULSO',
       veiculoId: saidaVeiculoId || undefined,
@@ -5352,29 +5411,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ? 'producao'
         : 'homologacao';
 
+    const generatedProtocol = generateSefazProtocoloAutorizacao(resolvedProfile);
+    const chave44 = generateSefazChaveAcesso44(notaBase, resolvedProfile);
+
+    setSefazValidationIssues([]);
+    setSefazPreviewProtocolo(generatedProtocol.protocoloNumero);
     setSefazSimulationMode(isSimulation);
     setSefazTargetNota(notaBase);
     setSefazStep(1);
     setSefazModalStage('transmitting');
 
-    const t1 = window.setTimeout(() => setSefazStep(2), 450);
-    const t2 = window.setTimeout(() => setSefazStep(3), 950);
-    const t3 = window.setTimeout(() => setSefazStep(4), 1450);
+    const t1 = window.setTimeout(() => setSefazStep(2), 550);
+    const t2 = window.setTimeout(() => setSefazStep(3), 1150);
+    const t3 = window.setTimeout(() => setSefazStep(4), 1750);
     const t4 = window.setTimeout(() => {
-      const chave44 = generateSefazChaveAcesso44(notaBase, resolvedProfile);
-      const { protocoloCompleto } = generateSefazProtocoloAutorizacao(resolvedProfile);
       const estoqueBaixadoAgora = applyStockDeductionForNota(notaBase);
 
       const authorizedNota: NotaSaidaRecord = {
         ...notaBase,
         status: 'AUTORIZADA',
         chaveAcesso: chave44,
-        protocoloAutorizacao: protocoloCompleto,
-        dataAutorizacao: new Date().toISOString(),
+        protocoloAutorizacao: generatedProtocol.protocoloCompleto,
+        dataAutorizacao: generatedProtocol.isoTimestamp,
         ambienteSefaz: ambiente,
         transmitidaEmModoSimulacao: isSimulation,
         estoqueBaixado: estoqueBaixadoAgora,
-        updatedAt: new Date().toISOString(),
+        updatedAt: generatedProtocol.isoTimestamp,
       };
 
       saveLocalNotaSaida(authorizedNota);
@@ -5388,24 +5450,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setSefazModalStage('authorized');
 
       setSuccessMessage(
-        `✅ ${authorizedNota.tipoDocumento.split(' ')[0]} Nº ${authorizedNota.numero} AUTORIZADA pela SEFAZ${authorizedNota.lancarContasReceber ? ' e integrada ao Contas a Receber' : ''}${estoqueBaixadoAgora && !notaBase.estoqueBaixado ? ' com baixa no Estoque' : ''}!`
+        `✅ ${authorizedNota.tipoDocumento.split(' ')[0]} Nº ${authorizedNota.numero} AUTORIZADA pela SEFAZ (cStat 100 — Protocolo ${generatedProtocol.protocoloNumero})${authorizedNota.lancarContasReceber ? ' e integrada ao Contas a Receber' : ''}${estoqueBaixadoAgora && !notaBase.estoqueBaixado ? ' com baixa no Estoque' : ''}!`
       );
       setTimeout(() => setSuccessMessage(''), 6000);
-    }, 1850);
+    }, 2250);
 
     sefazTimersRef.current = [t1, t2, t3, t4];
   };
 
   const initiateSefazTransmission = (notaBase: NotaSaidaRecord) => {
     const resolvedProfile = companyProfile || getStoredCompanyProfile();
-    const certInfo = getCertificateStatusInfo(resolvedProfile);
-    if (!certInfo.isActive) {
+
+    // 1. Validador Pré-SEFAZ de Campos Obrigatórios (Crítica Fiscal Antes de Transmitir)
+    const preValidation = validateNotaSaidaPreSefaz(notaBase, resolvedProfile);
+    if (!preValidation.valid) {
+      clearSefazTimers();
       setSefazTargetNota(notaBase);
+      setSefazValidationIssues(preValidation.issues);
+      setSefazModalStage('validation_error');
+      return;
+    }
+
+    const certInfo = getCertificateStatusInfo(resolvedProfile);
+    const isProducaoConfigured = resolvedProfile?.ambienteSefaz === 'producao';
+    if (isProducaoConfigured && !certInfo.isActive) {
+      setSefazTargetNota(notaBase);
+      setSefazValidationIssues([]);
       setSefazSimulationMode(true);
       setSefazModalStage('cert_warning');
       return;
     }
-    runSefazTransmissionPipeline(notaBase, Boolean(certInfo.simulado));
+
+    const runInHomologacao = !isProducaoConfigured || !certInfo.isActive || Boolean(certInfo.simulado);
+    runSefazTransmissionPipeline(notaBase, runInHomologacao);
   };
 
   const handleTransmitNotaSaidaFromModal = () => {
@@ -17249,7 +17326,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         </button>
                       </div>
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-                        <div className="lg:col-span-5">
+                        <div className="lg:col-span-4">
                           <input
                             id="saida-destinatario-input"
                             type="text"
@@ -17280,6 +17357,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           />
                         </div>
                         <div className="lg:col-span-2">
+                          <select
+                            value={saidaDestinatarioIndicadorIe}
+                            onChange={(e) => {
+                              const nextInd = e.target.value as '' | '1' | '2' | '9';
+                              setSaidaDestinatarioIndicadorIe(nextInd);
+                              if (nextInd === '2') setSaidaDestinatarioIe('ISENTO');
+                              if (nextInd === '9') setSaidaDestinatarioIe('');
+                            }}
+                            title="Indicador de Inscrição Estadual (SEFAZ indIEDest)"
+                            className="w-full px-2 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-[11px] font-bold text-black dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#1e40af] uppercase cursor-pointer"
+                          >
+                            <option value="">IND. IE (AUTO)</option>
+                            <option value="1">1 - CONTRIBUINTE</option>
+                            <option value="2">2 - ISENTO</option>
+                            <option value="9">9 - NÃO CONTRIB.</option>
+                          </select>
+                        </div>
+                        <div className="lg:col-span-2">
                           <input
                             type="text"
                             value={saidaDestinatarioIe}
@@ -17289,7 +17384,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1e40af] uppercase"
                           />
                         </div>
-                        <div className="lg:col-span-3">
+                        <div className="lg:col-span-2">
                           <input
                             type="text"
                             value={saidaDestinatarioCidadeUf}
@@ -17302,20 +17397,43 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 }
                               }
                             }}
-                            placeholder="CIDADE / UF (EX: CASCAVEL/PR)"
-                            title="Cidade / UF"
+                            placeholder="CIDADE / UF"
+                            title="Cidade / UF (Ex: DOIS VIZINHOS/PR)"
                             className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1e40af] uppercase"
                           />
                         </div>
                       </div>
-                      <div className="mt-1.5">
-                        <input
-                          type="text"
-                          value={saidaDestinatarioEndereco}
-                          onChange={(e) => setSaidaDestinatarioEndereco(e.target.value)}
-                          placeholder="ENDEREÇO COMPLETO DO DESTINATÁRIO (RUA / RODOVIA, Nº, BAIRRO / ZONA RURAL)"
-                          className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1e40af] uppercase"
-                        />
+                      <div className="mt-1.5 grid grid-cols-1 lg:grid-cols-12 gap-2">
+                        <div className="lg:col-span-6">
+                          <input
+                            type="text"
+                            value={saidaDestinatarioEndereco}
+                            onChange={(e) => setSaidaDestinatarioEndereco(e.target.value)}
+                            placeholder="LOGRADOURO / ENDEREÇO (RUA / RODOVIA, Nº)"
+                            className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1e40af] uppercase"
+                          />
+                        </div>
+                        <div className="lg:col-span-4">
+                          <input
+                            type="text"
+                            value={saidaDestinatarioBairro}
+                            onChange={(e) => setSaidaDestinatarioBairro(e.target.value)}
+                            placeholder="BAIRRO / DISTRITO"
+                            title="Bairro do Destinatário"
+                            className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1e40af] uppercase"
+                          />
+                        </div>
+                        <div className="lg:col-span-2">
+                          <input
+                            type="text"
+                            value={saidaDestinatarioCep}
+                            onChange={(e) => setSaidaDestinatarioCep(formatCep(e.target.value))}
+                            placeholder="CEP (00000-000)"
+                            maxLength={9}
+                            title="CEP do Destinatário (8 dígitos)"
+                            className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-black/40 dark:border-stone-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1e40af]"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -18136,6 +18254,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </div>
                         </div>
 
+                        {String(nfeFinalidade || '').toLowerCase().includes('devolu') && (
+                          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-500 rounded-lg p-2">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="block text-[10px] font-black text-amber-950 dark:text-amber-200 uppercase">
+                                CHAVE DE ACESSO NF-E REFERENCIADA — OBRIGATÓRIA PARA DEVOLUÇÃO (finNFe = 4) *
+                              </label>
+                              <span className={`text-[10px] font-mono font-black ${cleanDigits(nfeReferenciada).length === 44 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                {cleanDigits(nfeReferenciada).length}/44 dígitos
+                              </span>
+                            </div>
+                            <input
+                              type="text"
+                              maxLength={44}
+                              value={nfeReferenciada}
+                              onChange={(e) => setNfeReferenciada(e.target.value.replace(/\D/g, '').slice(0, 44))}
+                              placeholder="Informe exatamente os 44 dígitos numéricos da NF-e original devolvida..."
+                              className="w-full h-8 px-2.5 py-1 bg-white dark:bg-stone-900 border border-amber-600 rounded-lg text-xs font-mono font-bold text-black dark:text-stone-100"
+                            />
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                           <div className="sm:col-span-7">
                             <div className="flex flex-wrap items-center justify-between gap-1 mb-0.5">
@@ -18423,6 +18562,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 : 'PRODUTO DO ESTOQUE / DESCRIÇÃO'}
                             </th>
                             <th className="p-1.5 text-center w-[85px]">NCM</th>
+                            <th className="p-1.5 text-center w-[68px]">CSOSN/CST</th>
                             <th className="p-1.5 text-center w-[76px]">
                               <span className="inline-flex items-center justify-center gap-1">
                                 <span>CFOP</span>
@@ -18503,6 +18643,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   onChange={(e) => handleUpdateSaidaItem(idx, { ncm: e.target.value })}
                                   placeholder="00000000"
                                   className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 rounded text-[11px] font-mono text-center"
+                                />
+                              </td>
+                              <td className="p-1">
+                                <input
+                                  type="text"
+                                  maxLength={3}
+                                  value={item.csosnCst || ((companyProfile || getStoredCompanyProfile())?.crt === '3' ? '00' : '102')}
+                                  onChange={(e) => handleUpdateSaidaItem(idx, { csosnCst: cleanDigits(e.target.value).slice(0, 3) })}
+                                  placeholder="102"
+                                  title="CSOSN (Simples Nacional) ou CST (Regime Normal)"
+                                  className="w-full px-1.5 py-1 bg-white dark:bg-stone-900 border border-slate-300 rounded text-[11px] font-mono font-bold text-center"
                                 />
                               </td>
                               <td className="p-1">
@@ -20242,6 +20393,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               : 'homologacao'
         }
         simulationMode={sefazSimulationMode}
+        ufEmitente={(companyProfile || getStoredCompanyProfile())?.state || 'PR'}
+        validationIssues={sefazValidationIssues}
+        previewProtocoloNumero={sefazPreviewProtocolo}
         onClose={() => {
           clearSefazTimers();
           setSefazModalStage('closed');

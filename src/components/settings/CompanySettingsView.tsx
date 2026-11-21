@@ -178,7 +178,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     certificadoSimulado: initialCleaned.certificadoSimulado ?? cachedCertMeta?.certificadoSimulado ?? false,
     ambienteSefaz: initialCleaned.ambienteSefaz || 'homologacao',
     regimeTributario: initialCleaned.regimeTributario || 'Simples Nacional',
+    crt: initialCleaned.crt || (String(initialCleaned.regimeTributario || '').toLowerCase().includes('presumido') || String(initialCleaned.regimeTributario || '').toLowerCase().includes('real') ? '3' : '1'),
     seriePadraoNotas: initialCleaned.seriePadraoNotas || '1',
+    codigoIbgeMunicipio: initialCleaned.codigoIbgeMunicipio || '4107207',
+    tokenApiFiscal: initialCleaned.tokenApiFiscal || '',
+    apiFiscalProvedor: initialCleaned.apiFiscalProvedor || 'direto_a1',
     rntrc: initialCleaned.rntrc || '',
     cscId: initialCleaned.cscId || '',
     cscToken: initialCleaned.cscToken || '',
@@ -218,7 +222,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       certificadoSimulado: cleaned.certificadoSimulado ?? storedCert?.certificadoSimulado ?? false,
       ambienteSefaz: cleaned.ambienteSefaz || 'homologacao',
       regimeTributario: cleaned.regimeTributario || 'Simples Nacional',
+      crt: cleaned.crt || (String(cleaned.regimeTributario || '').toLowerCase().includes('presumido') || String(cleaned.regimeTributario || '').toLowerCase().includes('real') ? '3' : '1'),
       seriePadraoNotas: cleaned.seriePadraoNotas || '1',
+      codigoIbgeMunicipio: cleaned.codigoIbgeMunicipio || '4107207',
+      tokenApiFiscal: cleaned.tokenApiFiscal || '',
+      apiFiscalProvedor: cleaned.apiFiscalProvedor || 'direto_a1',
       rntrc: cleaned.rntrc || '',
       cscId: cleaned.cscId || '',
       cscToken: cleaned.cscToken || '',
@@ -242,6 +250,9 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
             cnaePrincipal: cleanedCloud.cnaePrincipal || prev.cnaePrincipal || '',
             phone: formatPhone(cleanedCloud.phone || prev.phone || ''),
             zipCode: formatCep(cleanedCloud.zipCode || prev.zipCode || ''),
+            codigoIbgeMunicipio: cleanedCloud.codigoIbgeMunicipio || prev.codigoIbgeMunicipio || '4107207',
+            tokenApiFiscal: cleanedCloud.tokenApiFiscal || prev.tokenApiFiscal || '',
+            apiFiscalProvedor: cleanedCloud.apiFiscalProvedor || prev.apiFiscalProvedor || 'direto_a1',
             rntrc: cleanedCloud.rntrc || prev.rntrc || '',
             cscId: cleanedCloud.cscId || prev.cscId || '',
             cscToken: cleanedCloud.cscToken || prev.cscToken || '',
@@ -272,6 +283,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordToast, setPasswordToast] = useState<string | null>(null);
+  const [showApiFiscalToken, setShowApiFiscalToken] = useState(false);
 
   // Auto Lookup Statuses
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
@@ -1585,12 +1597,12 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
             </div>
           )}
 
-          {/* Parâmetros Fiscais Padrão */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5">
+          {/* Parâmetros Fiscais Padrão SEFAZ (Plug & Play Produção / Homologação) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-0.5">
             {/* Ambiente de Emissão SEFAZ */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                Ambiente de Emissão SEFAZ
+                Ambiente SEFAZ (tpAmb)
               </label>
               <select
                 value={formData.ambienteSefaz || 'homologacao'}
@@ -1599,31 +1611,45 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 }
                 className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
-                <option value="homologacao">Homologação (Testes / Sem Valor Fiscal)</option>
-                <option value="producao">Produção (Validade Jurídica)</option>
+                <option value="homologacao">2 - Homologação (Testes / Sem Valor Fiscal)</option>
+                <option value="producao">1 - Produção (Validade Jurídica)</option>
               </select>
             </div>
 
-            {/* Regime Tributário */}
+            {/* Regime Tributário (CRT) */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                Regime Tributário
+                Regime Tributário (CRT)
               </label>
               <select
                 value={formData.regimeTributario || 'Simples Nacional'}
-                onChange={(e) => handleChange('regimeTributario', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const nextCrt: '1' | '2' | '3' =
+                    val.toLowerCase().includes('excesso')
+                      ? '2'
+                      : val.toLowerCase().includes('presumido') || val.toLowerCase().includes('real')
+                        ? '3'
+                        : '1';
+                  setFormData((prev) => ({
+                    ...prev,
+                    regimeTributario: val,
+                    crt: nextCrt,
+                  }));
+                }}
                 className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
-                <option value="Simples Nacional">Simples Nacional</option>
-                <option value="Lucro Presumido">Lucro Presumido</option>
-                <option value="Lucro Real">Lucro Real</option>
+                <option value="Simples Nacional">1 - Simples Nacional</option>
+                <option value="Simples Nacional - Excesso">2 - Simples Nacional (Excesso)</option>
+                <option value="Lucro Presumido">3 - Regime Normal (Lucro Presumido)</option>
+                <option value="Lucro Real">3 - Regime Normal (Lucro Real)</option>
               </select>
             </div>
 
-            {/* Série Padrão das Notas */}
+            {/* Série NF-e */}
             <div>
               <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
-                Série Padrão das Notas
+                Série NF-e Padrão
               </label>
               <input
                 type="text"
@@ -1633,6 +1659,66 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 maxLength={3}
                 className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
+            </div>
+
+            {/* Código IBGE do Município */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Código IBGE do Município <span className="text-[10px] font-normal text-zinc-500">(7 dígitos)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.codigoIbgeMunicipio ?? '4107207'}
+                onChange={(e) => handleChange('codigoIbgeMunicipio', cleanDigits(e.target.value).slice(0, 7))}
+                placeholder="4107207 (Dois Vizinhos/PR)"
+                maxLength={7}
+                title="Código IBGE oficial do município emitente (padrão 4107207 para Dois Vizinhos/PR)"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+              />
+            </div>
+          </div>
+
+          {/* Plug & Play API Fiscal (Focus NFe / Nuvem Fiscal / Tecnospeed / Direto A1) */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <div className="sm:col-span-4">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Provedor / Gateway API Fiscal <span className="text-[10px] font-normal text-zinc-500">(Plug &amp; Play)</span>
+              </label>
+              <select
+                value={formData.apiFiscalProvedor || 'direto_a1'}
+                onChange={(e) => handleChange('apiFiscalProvedor', e.target.value)}
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
+              >
+                <option value="direto_a1">Webservice Direto SEFAZ (Certificado A1)</option>
+                <option value="focus_nfe">Focus NFe (API REST)</option>
+                <option value="nuvem_fiscal">Nuvem Fiscal (API REST)</option>
+                <option value="tecnospeed">Tecnospeed / PlugNotas (API REST)</option>
+                <option value="enotas">eNotas / Outro Provedor API</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-8">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
+                Token API Fiscal (Chave de Integração SEFAZ — Produção / Homologação)
+              </label>
+              <div className="relative">
+                <input
+                  type={showApiFiscalToken ? 'text' : 'password'}
+                  value={formData.tokenApiFiscal || ''}
+                  onChange={(e) => handleChange('tokenApiFiscal', e.target.value.trim())}
+                  placeholder="Cole aqui o Token / Bearer API Fiscal quando ativar a emissão em nuvem..."
+                  autoComplete="new-password"
+                  className="w-full pl-2.5 pr-8 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-mono font-semibold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiFiscalToken((prev) => !prev)}
+                  title={showApiFiscalToken ? 'Ocultar token API Fiscal' : 'Exibir token API Fiscal'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-900 cursor-pointer"
+                >
+                  {showApiFiscalToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             </div>
           </div>
 
